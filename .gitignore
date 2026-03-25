@@ -212,3 +212,4 @@ test_media/
 node_modules/
 theme/static/css/dist/
 *.sqlite3
+/.claude/worktrees
