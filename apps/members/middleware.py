@@ -32,11 +32,7 @@ class RBACMiddleware:
             # In v1, each user belongs to exactly one organization.
             # If a workspace_id is in the URL, resolve org through the workspace
             # to ensure consistency.
-            workspace_id = (
-                request.resolver_match.kwargs.get("workspace_id")
-                if request.resolver_match
-                else None
-            )
+            workspace_id = request.resolver_match.kwargs.get("workspace_id") if request.resolver_match else None
 
             if workspace_id:
                 # Resolve workspace membership first, then derive org from it
@@ -67,11 +63,7 @@ class RBACMiddleware:
 
             # If no workspace in URL (or workspace resolution failed), resolve org directly
             if request.org is None:
-                org_membership = (
-                    OrgMembership.objects.filter(user=request.user)
-                    .select_related("organization")
-                    .first()
-                )
+                org_membership = OrgMembership.objects.filter(user=request.user).select_related("organization").first()
                 if org_membership:
                     request.org = org_membership.organization
                     request.org_membership = org_membership

@@ -1,0 +1,24 @@
+{% comment %}
+Day view — single-day timeline with hourly divisions.
+Context: posts_by_hour, hours, prev_day, next_day, day_label, workspace.
+{% endcomment %}
+
+<div class="bg-white max-w-4xl mx-auto" style="animation: slideUp 200ms cubic-bezier(0.16,1,0.3,1) both; max-height: calc(100vh - 200px); overflow-y: auto;">
+    {% for hour in hours %}
+    <div class="flex border-b border-stone-100 min-h-[64px]"
+         @dragover.prevent="allowDrop($event)"
+         @drop="dropOnSlot($event, '{{ target_date|date:'Y-m-d' }}', {{ hour }})">
+        <!-- Time label -->
+        <div class="w-20 flex-shrink-0 border-r border-stone-200 px-3 py-2 text-right">
+            <span class="text-xs font-medium text-stone-400 tabular-nums">
+                {% if hour < 10 %}0{% endif %}{{ hour }}:00
+            </span>
+        </div>
+        <!-- Posts in this hour -->
+        <div class="flex-1 p-2 space-y-1">
+            {% for post in posts_by_hour|default_if_none:"" %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>

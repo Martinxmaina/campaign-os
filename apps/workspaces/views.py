@@ -12,12 +12,10 @@ def detail(request, workspace_id):
     try:
         workspace = Workspace.objects.get(id=workspace_id)
     except Workspace.DoesNotExist:
-        raise Http404
+        raise Http404 from None
 
     # Verify user has access
-    if not WorkspaceMembership.objects.filter(
-        user=request.user, workspace=workspace
-    ).exists():
+    if not WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
         raise Http404
 
     # Persist last used workspace

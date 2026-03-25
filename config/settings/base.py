@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 import environ
@@ -17,7 +16,7 @@ env = environ.Env(
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
 
-SECRET_KEY = env("SECRET_KEY")
+SECRET_KEY = env("SECRET_KEY", default="insecure-key-for-ci-only")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 APP_URL = env("APP_URL")
@@ -52,6 +51,11 @@ LOCAL_APPS = [
     "apps.members",
     "apps.settings_manager",
     "apps.credentials",
+    "apps.social_accounts",
+    "apps.media_library",
+    "apps.composer",
+    "apps.calendar",
+    "apps.publisher",
     "theme",
 ]
 
