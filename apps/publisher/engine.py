@@ -39,8 +39,6 @@ class PublishEngine:
         Called every ~15 seconds by the background worker.
         """
         due_posts = self._get_due_posts()
-        if not due_posts:
-            return 0
 
         published_count = 0
         for post in due_posts:
@@ -50,7 +48,7 @@ class PublishEngine:
             except Exception:
                 logger.exception("Unexpected error publishing post %s", post.id)
 
-        # Also process retries
+        # Always process retries, even when no new posts are due
         self._process_retries()
 
         return published_count

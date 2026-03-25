@@ -6,6 +6,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta
 
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -13,6 +14,7 @@ from django.views.decorators.http import require_GET, require_POST
 
 from apps.composer.models import Post
 from apps.members.decorators import require_permission
+from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
 
@@ -20,7 +22,17 @@ from .models import PostingSlot
 
 
 def _get_workspace(request, workspace_id):
-    return get_object_or_404(Workspace, id=workspace_id)
+    """Resolve workspace and enforce membership check."""
+    workspace = get_object_or_404(Workspace, id=workspace_id)
+    if not request.user.is_authenticated:
+        raise PermissionDenied("Authentication required.")
+    has_membership = WorkspaceMembership.objects.filter(
+        user=request.user,
+        workspace=workspace,
+    ).exists()
+    if not has_membership:
+        raise PermissionDenied("You are not a member of this workspace.")
+    return workspace
 
 
 def _parse_date(date_str, default=None):

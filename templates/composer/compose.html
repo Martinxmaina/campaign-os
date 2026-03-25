@@ -450,7 +450,10 @@
         </form>
 
         <!-- Auto-save trigger (every 30 seconds) -->
-        <div hx-post="{% if post %}{% url 'composer:autosave_edit' workspace_id=workspace.id post_id=post.id %}{% else %}{% url 'composer:autosave' workspace_id=workspace.id %}{% endif %}"
+        <!-- Tracks autosaved post ID to prevent duplicate drafts -->
+        <input type="hidden" name="_autosave_post_id" :value="autosavedPostId" form="composer-form">
+        <div id="autosave-trigger"
+             hx-post="{% if post %}{% url 'composer:autosave_edit' workspace_id=workspace.id post_id=post.id %}{% else %}{% url 'composer:autosave' workspace_id=workspace.id %}{% endif %}"
              hx-trigger="every 30s"
              hx-target="#autosave-status"
              hx-include="#composer-form"
@@ -542,11 +545,35 @@ function composerApp() {
         showSaveToast: false,
         lastSaved: null,
         previewTimer: null,
+        autosavedPostId: '{{ post.id|default:"" }}',
 
         init() {
             // Initialize overrides map
             this.selectedAccounts.forEach(id => {
                 this.overrides[id] = false;
+            });
+
+            // Listen for autosaved events to capture the post ID on first save
+            // This prevents duplicate drafts by reusing the same post on subsequent autosaves
+            document.body.addEventListener('autosaved', (e) => {
+                const detail = e.detail || {};
+                if (detail.postId && detail.isNew) {
+                    this.autosavedPostId = detail.postId;
+                    // Update the autosave trigger URL to use the edit endpoint
+                    const trigger = document.getElementById('autosave-trigger');
+                    if (trigger) {
+                        const editUrl = `/workspace/{{ workspace.id }}/compose/${detail.postId}/autosave/`;
+                        trigger.setAttribute('hx-post', editUrl);
+                        htmx.process(trigger);
+                    }
+                    // Also update the main form's action URL
+                    const form = document.getElementById('composer-form');
+                    if (form) {
+                        const editSaveUrl = `/workspace/{{ workspace.id }}/compose/${detail.postId}/save/`;
+                        form.setAttribute('hx-post', editSaveUrl);
+                        htmx.process(form);
+                    }
+                }
             });
         },
 

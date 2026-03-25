@@ -4,12 +4,15 @@ import json
 from datetime import datetime
 
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
+from django.db import models
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.members.decorators import require_permission
+from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
 
@@ -18,8 +21,17 @@ from .models import PlatformPost, Post, PostMedia, PostVersion
 
 
 def _get_workspace(request, workspace_id):
-    """Resolve workspace with RBAC check."""
-    return get_object_or_404(Workspace, id=workspace_id)
+    """Resolve workspace and enforce membership check."""
+    workspace = get_object_or_404(Workspace, id=workspace_id)
+    if not request.user.is_authenticated:
+        raise PermissionDenied("Authentication required.")
+    has_membership = WorkspaceMembership.objects.filter(
+        user=request.user,
+        workspace=workspace,
+    ).exists()
+    if not has_membership:
+        raise PermissionDenied("You are not a member of this workspace.")
+    return workspace
 
 
 def _save_version(post, user):
@@ -155,7 +167,7 @@ def save_post(request, workspace_id, post_id=None):
             return JsonResponse({"errors": {"schedule": "Date and time required."}}, status=400)
     elif action == "publish_now":
         post.scheduled_at = timezone.now()
-        post.transition_to("publishing")
+        post.transition_to("scheduled")  # Worker picks up scheduled posts where scheduled_at <= now()
     elif action == "submit_for_approval":
         if post.status == "draft" or post.status == "changes_requested":
             post.transition_to("pending_review")
@@ -213,13 +225,30 @@ def save_post(request, workspace_id, post_id=None):
 @login_required
 @require_POST
 def autosave(request, workspace_id, post_id=None):
-    """Auto-save endpoint called every 30 seconds via HTMX."""
+    """Auto-save endpoint called every 30 seconds via HTMX.
+
+    On first save for a new post (no post_id), creates the draft and returns
+    an HX-Trigger with the new post ID so the client can switch the autosave
+    URL to the edit endpoint, preventing duplicate drafts on subsequent ticks.
+    """
     workspace = _get_workspace(request, workspace_id)
 
+    is_new = False
     if post_id:
         post = get_object_or_404(Post, id=post_id, workspace=workspace)
     else:
-        post = Post(workspace=workspace, author=request.user, status="draft")
+        # Check if a previous autosave already created a draft for this session
+        # by looking for the post_id passed from the client
+        client_post_id = request.POST.get("_autosave_post_id", "").strip()
+        if client_post_id:
+            try:
+                post = Post.objects.get(id=client_post_id, workspace=workspace)
+            except Post.DoesNotExist:
+                post = Post(workspace=workspace, author=request.user, status="draft")
+                is_new = True
+        else:
+            post = Post(workspace=workspace, author=request.user, status="draft")
+            is_new = True
 
     post.caption = request.POST.get("caption", "")
     post.first_comment = request.POST.get("first_comment", "")
@@ -243,7 +272,7 @@ def autosave(request, workspace_id, post_id=None):
 
     return HttpResponse(
         f'<span class="text-xs text-gray-400">Saved {timezone.now().strftime("%H:%M")}</span>',
-        headers={"HX-Trigger": json.dumps({"autosaved": {"postId": str(post.id)}})},
+        headers={"HX-Trigger": json.dumps({"autosaved": {"postId": str(post.id), "isNew": is_new}})},
     )
 
 
