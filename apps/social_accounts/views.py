@@ -229,7 +229,20 @@ def oauth_callback(request, platform):
         raise PermissionDenied("You no longer have permission to manage social accounts.")
 
     try:
-        provider = _get_provider_for_platform(platform, request.org.id)
+        # For Mastodon, we need instance-specific credentials from session + registration
+        extra_creds: dict = {}
+        if platform == PlatformCredential.Platform.MASTODON:
+            instance_url = session_data.get("instance_url", "")
+            if instance_url:
+                extra_creds["instance_url"] = instance_url
+                try:
+                    reg = MastodonAppRegistration.objects.get(instance_url=instance_url)
+                    extra_creds["client_id"] = reg.client_id
+                    extra_creds["client_secret"] = reg.client_secret
+                except MastodonAppRegistration.DoesNotExist:
+                    pass
+
+        provider = _get_provider_for_platform(platform, request.org.id, **extra_creds)
         redirect_uri = _build_redirect_uri(request, platform)
         tokens = provider.exchange_code(code, redirect_uri)
         profile = provider.get_profile(tokens.access_token)
