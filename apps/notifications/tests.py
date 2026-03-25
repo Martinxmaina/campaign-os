@@ -1,8 +1,7 @@
 import pytest
-from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from apps.notifications.engine import DEFAULT_CHANNELS, notify
+from apps.notifications.engine import notify
 from apps.notifications.models import (
     Channel,
     DeliveryStatus,
@@ -130,7 +129,7 @@ class TestNotificationModel:
         assert n.read_at is not None
 
     def test_notification_ordering(self, user):
-        n1 = Notification.objects.create(
+        Notification.objects.create(
             user=user, event_type=EventType.POST_APPROVED, title="First",
         )
         n2 = Notification.objects.create(

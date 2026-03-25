@@ -1,8 +1,8 @@
 """Custom managers for media library models."""
 
-from django.db import models
-from django.db.models import Q, Value
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.db import models
+from django.db.models import Q
 
 
 class MediaAssetManager(models.Manager):
