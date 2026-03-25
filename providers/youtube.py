@@ -1,0 +1,337 @@
+"""YouTube Data API v3 provider."""
+
+from __future__ import annotations
+
+import logging
+from urllib.parse import urlencode
+
+from .base import SocialProvider
+from .exceptions import OAuthError, PublishError
+from .types import (
+    AccountProfile,
+    AuthType,
+    CommentResult,
+    MediaType,
+    OAuthTokens,
+    PostMetrics,
+    PostType,
+    PublishContent,
+    PublishResult,
+    RateLimitConfig,
+)
+
+logger = logging.getLogger(__name__)
+
+AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+TOKEN_URL = "https://oauth2.googleapis.com/token"
+REVOKE_URL = "https://oauth2.googleapis.com/revoke"
+API_BASE = "https://www.googleapis.com/youtube/v3"
+UPLOAD_BASE = "https://www.googleapis.com/upload/youtube/v3"
+
+
+class YouTubeProvider(SocialProvider):
+    """YouTube Data API v3 provider using Google OAuth 2.0."""
+
+    # ------------------------------------------------------------------
+    # Metadata
+    # ------------------------------------------------------------------
+
+    @property
+    def platform_name(self) -> str:
+        return "YouTube"
+
+    @property
+    def auth_type(self) -> AuthType:
+        return AuthType.OAUTH2
+
+    @property
+    def max_caption_length(self) -> int:
+        return 5000
+
+    @property
+    def supported_post_types(self) -> list[PostType]:
+        return [PostType.VIDEO, PostType.SHORT]
+
+    @property
+    def supported_media_types(self) -> list[MediaType]:
+        return [MediaType.MP4, MediaType.MOV]
+
+    @property
+    def required_scopes(self) -> list[str]:
+        return [
+            "https://www.googleapis.com/auth/youtube.upload",
+            "https://www.googleapis.com/auth/youtube.readonly",
+            "https://www.googleapis.com/auth/youtube.force-ssl",
+        ]
+
+    @property
+    def rate_limits(self) -> RateLimitConfig:
+        return RateLimitConfig(
+            requests_per_hour=600,
+            requests_per_day=10000,
+            publish_per_day=6,
+            extra={"quota_units_per_day": 10000, "upload_cost_units": 1600},
+        )
+
+    # ------------------------------------------------------------------
+    # OAuth
+    # ------------------------------------------------------------------
+
+    def get_auth_url(self, redirect_uri: str, state: str) -> str:
+        params = {
+            "client_id": self.credentials["client_id"],
+            "redirect_uri": redirect_uri,
+            "state": state,
+            "scope": " ".join(self.required_scopes),
+            "response_type": "code",
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+        return f"{AUTH_URL}?{urlencode(params)}"
+
+    def exchange_code(self, code: str, redirect_uri: str) -> OAuthTokens:
+        resp = self._request(
+            "POST",
+            TOKEN_URL,
+            data={
+                "code": code,
+                "client_id": self.credentials["client_id"],
+                "client_secret": self.credentials["client_secret"],
+                "redirect_uri": redirect_uri,
+                "grant_type": "authorization_code",
+            },
+        )
+        body = resp.json()
+        if "access_token" not in body:
+            raise OAuthError(
+                f"YouTube token exchange failed: {body}",
+                platform=self.platform_name,
+                raw_response=body,
+            )
+        return OAuthTokens(
+            access_token=body["access_token"],
+            refresh_token=body.get("refresh_token"),
+            expires_in=body.get("expires_in"),
+            scope=body.get("scope"),
+            raw_response=body,
+        )
+
+    def refresh_token(self, refresh_token: str) -> OAuthTokens:
+        resp = self._request(
+            "POST",
+            TOKEN_URL,
+            data={
+                "refresh_token": refresh_token,
+                "client_id": self.credentials["client_id"],
+                "client_secret": self.credentials["client_secret"],
+                "grant_type": "refresh_token",
+            },
+        )
+        body = resp.json()
+        if "access_token" not in body:
+            raise OAuthError(
+                f"YouTube token refresh failed: {body}",
+                platform=self.platform_name,
+                raw_response=body,
+            )
+        return OAuthTokens(
+            access_token=body["access_token"],
+            refresh_token=body.get("refresh_token", refresh_token),
+            expires_in=body.get("expires_in"),
+            scope=body.get("scope"),
+            raw_response=body,
+        )
+
+    # ------------------------------------------------------------------
+    # Profile
+    # ------------------------------------------------------------------
+
+    def get_profile(self, access_token: str) -> AccountProfile:
+        resp = self._request(
+            "GET",
+            f"{API_BASE}/channels",
+            access_token=access_token,
+            params={"part": "snippet,statistics", "mine": "true"},
+        )
+        body = resp.json()
+        items = body.get("items", [])
+        if not items:
+            return AccountProfile(platform_id="", name="Unknown")
+
+        channel = items[0]
+        snippet = channel.get("snippet", {})
+        stats = channel.get("statistics", {})
+        thumbnails = snippet.get("thumbnails", {})
+        avatar = (
+            thumbnails.get("default", {}).get("url")
+            or thumbnails.get("medium", {}).get("url")
+        )
+        return AccountProfile(
+            platform_id=channel["id"],
+            name=snippet.get("title", ""),
+            handle=snippet.get("customUrl"),
+            avatar_url=avatar,
+            follower_count=int(stats.get("subscriberCount", 0)),
+            extra={
+                "view_count": int(stats.get("viewCount", 0)),
+                "video_count": int(stats.get("videoCount", 0)),
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Publishing
+    # ------------------------------------------------------------------
+
+    def publish_post(
+        self, access_token: str, content: PublishContent
+    ) -> PublishResult:
+        if content.post_type not in (PostType.VIDEO, PostType.SHORT):
+            raise PublishError(
+                "YouTube only supports VIDEO and SHORT post types",
+                platform=self.platform_name,
+            )
+
+        title = content.title or content.text or ""
+        description = content.description or content.text or ""
+
+        # Shorts: add #Shorts tag if not already present
+        if content.post_type == PostType.SHORT and "#Shorts" not in title:
+            title = f"{title} #Shorts".strip()
+
+        privacy_status = content.extra.get("privacy_status", "private")
+        made_for_kids = content.extra.get("self_declared_made_for_kids", False)
+        category_id = content.extra.get("category_id", "22")  # 22 = People & Blogs
+        tags = content.extra.get("tags", [])
+
+        metadata = {
+            "snippet": {
+                "title": title[:100],
+                "description": description[:self.max_caption_length],
+                "tags": tags,
+                "categoryId": category_id,
+            },
+            "status": {
+                "privacyStatus": privacy_status,
+                "selfDeclaredMadeForKids": made_for_kids,
+            },
+        }
+
+        # Step 1: Initiate resumable upload
+        init_resp = self._request(
+            "POST",
+            f"{UPLOAD_BASE}/videos",
+            access_token=access_token,
+            params={"uploadType": "resumable", "part": "snippet,status"},
+            json=metadata,
+        )
+        upload_uri = init_resp.headers.get("Location")
+        if not upload_uri:
+            raise PublishError(
+                "YouTube did not return a resumable upload URI",
+                platform=self.platform_name,
+            )
+
+        # Step 2: Upload video binary
+        if content.media_files:
+            video_path = content.media_files[0]
+            with open(video_path, "rb") as f:
+                video_data = f.read()
+
+            upload_resp = self._request(
+                "PUT",
+                upload_uri,
+                headers={
+                    "Content-Type": "video/*",
+                    "Content-Length": str(len(video_data)),
+                },
+                data=video_data,
+                timeout=300.0,
+            )
+            upload_body = upload_resp.json()
+            video_id = upload_body.get("id", "")
+            return PublishResult(
+                platform_post_id=video_id,
+                url=f"https://www.youtube.com/watch?v={video_id}" if video_id else None,
+                extra=upload_body,
+            )
+
+        raise PublishError(
+            "No video file provided (media_files required)",
+            platform=self.platform_name,
+        )
+
+    # ------------------------------------------------------------------
+    # Comments
+    # ------------------------------------------------------------------
+
+    def publish_comment(
+        self, access_token: str, post_id: str, text: str
+    ) -> CommentResult:
+        resp = self._request(
+            "POST",
+            f"{API_BASE}/commentThreads",
+            access_token=access_token,
+            params={"part": "snippet"},
+            json={
+                "snippet": {
+                    "videoId": post_id,
+                    "topLevelComment": {
+                        "snippet": {
+                            "textOriginal": text,
+                        }
+                    },
+                }
+            },
+        )
+        body = resp.json()
+        comment_id = body.get("id", "")
+        return CommentResult(
+            platform_comment_id=comment_id,
+            extra=body,
+        )
+
+    # ------------------------------------------------------------------
+    # Analytics
+    # ------------------------------------------------------------------
+
+    def get_post_metrics(self, access_token: str, post_id: str) -> PostMetrics:
+        resp = self._request(
+            "GET",
+            f"{API_BASE}/videos",
+            access_token=access_token,
+            params={"part": "statistics", "id": post_id},
+        )
+        body = resp.json()
+        items = body.get("items", [])
+        if not items:
+            return PostMetrics()
+
+        stats = items[0].get("statistics", {})
+        views = int(stats.get("viewCount", 0))
+        likes = int(stats.get("likeCount", 0))
+        comments = int(stats.get("commentCount", 0))
+        return PostMetrics(
+            video_views=views,
+            likes=likes,
+            comments=comments,
+            engagements=likes + comments,
+            extra={
+                "favorite_count": int(stats.get("favoriteCount", 0)),
+            },
+        )
+
+    # ------------------------------------------------------------------
+    # Token management
+    # ------------------------------------------------------------------
+
+    def revoke_token(self, access_token: str) -> bool:
+        try:
+            self._request(
+                "POST",
+                REVOKE_URL,
+                params={"token": access_token},
+            )
+            return True
+        except Exception:
+            logger.exception("Failed to revoke YouTube token")
+            return False

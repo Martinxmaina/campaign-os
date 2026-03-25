@@ -42,6 +42,7 @@ THIRD_PARTY_APPS = [
     "tailwind",
     "rest_framework",
     "csp",
+    "background_task",
 ]
 
 LOCAL_APPS = [
