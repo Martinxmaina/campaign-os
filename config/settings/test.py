@@ -18,6 +18,11 @@ CSP_REPORT_ONLY = True
 STORAGE_BACKEND = "local"
 MEDIA_ROOT = BASE_DIR / "test_media"  # noqa: F405
 
+# Use simple static files storage in tests (no manifest/collectstatic needed)
+STORAGES["staticfiles"] = {  # noqa: F405
+    "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+}
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",

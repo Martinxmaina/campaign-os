@@ -1,52 +1,18 @@
-"""Social Account models (F-2.5) — connected platform accounts per workspace."""
-
 import uuid
 
-from django.conf import settings
 from django.db import models
 
-from apps.common.encryption import EncryptedJSONField
+from apps.common.encryption import EncryptedTextField
 from apps.common.managers import WorkspaceScopedManager
+from apps.credentials.models import PlatformCredential
 
 
 class SocialAccount(models.Model):
-    """A connected social media account within a workspace.
-
-    Stores OAuth tokens and account metadata. Each account represents
-    one platform profile/page connected to one workspace.
-    """
-
-    class Platform(models.TextChoices):
-        FACEBOOK = "facebook", "Facebook"
-        INSTAGRAM = "instagram", "Instagram"
-        LINKEDIN = "linkedin", "LinkedIn"
-        TIKTOK = "tiktok", "TikTok"
-        YOUTUBE = "youtube", "YouTube"
-        PINTEREST = "pinterest", "Pinterest"
-        THREADS = "threads", "Threads"
-        BLUESKY = "bluesky", "Bluesky"
-        GOOGLE_BUSINESS = "google_business", "Google Business Profile"
-        MASTODON = "mastodon", "Mastodon"
-
-    class Status(models.TextChoices):
+    class ConnectionStatus(models.TextChoices):
         CONNECTED = "connected", "Connected"
         TOKEN_EXPIRING = "token_expiring", "Token Expiring"
         DISCONNECTED = "disconnected", "Disconnected"
         ERROR = "error", "Error"
-
-    # Platform-specific character limits for captions
-    PLATFORM_CHAR_LIMITS = {
-        "facebook": 63206,
-        "instagram": 2200,
-        "linkedin": 3000,
-        "tiktok": 2200,
-        "youtube": 5000,
-        "pinterest": 500,
-        "threads": 500,
-        "bluesky": 300,
-        "google_business": 1500,
-        "mastodon": 500,
-    }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(
@@ -54,43 +20,37 @@ class SocialAccount(models.Model):
         on_delete=models.CASCADE,
         related_name="social_accounts",
     )
-    platform = models.CharField(max_length=30, choices=Platform.choices)
-    platform_account_id = models.CharField(
+    platform = models.CharField(
+        max_length=30,
+        choices=PlatformCredential.Platform.choices,
+    )
+    account_platform_id = models.CharField(
         max_length=255,
-        help_text="The unique account ID on the platform (e.g., page ID, profile ID).",
+        help_text="The account's native ID on the platform.",
     )
-    account_name = models.CharField(max_length=255, help_text="Display name on the platform.")
+    account_name = models.CharField(max_length=255)
     account_handle = models.CharField(max_length=255, blank=True, default="")
-    avatar_url = models.URLField(blank=True, default="")
-    follower_count = models.PositiveIntegerField(default=0)
+    avatar_url = models.URLField(max_length=500, blank=True, default="")
+    follower_count = models.IntegerField(default=0)
 
-    # OAuth tokens — encrypted at rest
-    access_token = EncryptedJSONField(
-        default=dict,
-        help_text="Encrypted access token and related auth data.",
-    )
-    refresh_token = EncryptedJSONField(
-        default=dict,
-        blank=True,
-        help_text="Encrypted refresh token.",
-    )
+    # Encrypted OAuth tokens
+    oauth_access_token = EncryptedTextField(blank=True, default="")
+    oauth_refresh_token = EncryptedTextField(blank=True, default="")
     token_expires_at = models.DateTimeField(blank=True, null=True)
 
-    status = models.CharField(
+    # Instance URL for Mastodon and Bluesky PDS
+    instance_url = models.URLField(max_length=500, blank=True, default="")
+
+    # Connection health
+    connection_status = models.CharField(
         max_length=20,
-        choices=Status.choices,
-        default=Status.CONNECTED,
+        choices=ConnectionStatus.choices,
+        default=ConnectionStatus.CONNECTED,
     )
-    status_message = models.TextField(blank=True, default="")
+    last_health_check_at = models.DateTimeField(blank=True, null=True)
+    last_error = models.TextField(blank=True, default="")
 
-    connected_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="connected_social_accounts",
-    )
-
+    connected_at = models.DateTimeField(auto_now_add=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -98,29 +58,41 @@ class SocialAccount(models.Model):
 
     class Meta:
         db_table = "social_accounts_social_account"
-        unique_together = [("workspace", "platform", "platform_account_id")]
+        unique_together = [("workspace", "platform", "account_platform_id")]
 
     def __str__(self):
         return f"{self.account_name} ({self.get_platform_display()})"
 
     @property
-    def char_limit(self):
-        """Return the character limit for this account's platform."""
-        return self.PLATFORM_CHAR_LIMITS.get(self.platform, 5000)
+    def is_token_expiring_soon(self) -> bool:
+        """Token expires within 7 days."""
+        if not self.token_expires_at:
+            return False
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        return self.token_expires_at < timezone.now() + timedelta(days=7)
 
     @property
-    def platform_icon(self):
-        """Return a platform icon identifier."""
-        icons = {
-            "facebook": "fb",
-            "instagram": "ig",
-            "linkedin": "li",
-            "tiktok": "tt",
-            "youtube": "yt",
-            "pinterest": "pi",
-            "threads": "th",
-            "bluesky": "bs",
-            "google_business": "gb",
-            "mastodon": "ma",
-        }
-        return icons.get(self.platform, "??")
+    def needs_reconnect(self) -> bool:
+        return self.connection_status in (
+            self.ConnectionStatus.DISCONNECTED,
+            self.ConnectionStatus.ERROR,
+        )
+
+
+class MastodonAppRegistration(models.Model):
+    """Stores per-instance OAuth app registrations for Mastodon federation."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    instance_url = models.URLField(max_length=500, unique=True)
+    client_id = EncryptedTextField()
+    client_secret = EncryptedTextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "social_accounts_mastodon_app_registration"
+
+    def __str__(self):
+        return self.instance_url

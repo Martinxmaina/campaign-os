@@ -1,0 +1,639 @@
+"""Social account connection views.
+
+Handles OAuth flows, account listing, connect/reconnect/disconnect actions.
+"""
+
+import logging
+import secrets
+from datetime import timedelta
+
+from django.conf import settings
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.core import signing
+from django.core.exceptions import PermissionDenied
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+from django.views.decorators.http import require_GET, require_POST
+
+from apps.credentials.models import PlatformCredential
+from apps.members.decorators import require_permission
+
+from .models import MastodonAppRegistration, SocialAccount
+
+logger = logging.getLogger(__name__)
+
+OAUTH_STATE_MAX_AGE = 600  # 10 minutes
+OAUTH_SESSION_KEY = "social_oauth"
+
+
+def _get_provider_for_platform(platform: str, org_id, **extra_credentials):
+    """Resolve app credentials and instantiate the provider."""
+    from providers import get_provider
+
+    # Try org-specific credentials first, then env fallback
+    try:
+        cred = PlatformCredential.objects.for_org(org_id).get(platform=platform, is_configured=True)
+        credentials = cred.credentials
+    except PlatformCredential.DoesNotExist:
+        env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+        credentials = env_creds.get(platform, {})
+
+    if extra_credentials:
+        credentials = {**credentials, **extra_credentials}
+
+    return get_provider(platform, credentials)
+
+
+def _get_configured_platforms(org_id):
+    """Return set of platform names that have credentials configured."""
+    configured = set(
+        PlatformCredential.objects.for_org(org_id).filter(is_configured=True).values_list("platform", flat=True)
+    )
+    env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+    for platform, creds in env_creds.items():
+        if any(v for v in creds.values()):
+            configured.add(platform)
+    return configured
+
+
+def _build_redirect_uri(request, platform):
+    """Build the OAuth callback URL."""
+    from django.urls import reverse
+
+    return request.build_absolute_uri(reverse("social_accounts:oauth_callback", kwargs={"platform": platform}))
+
+
+def _sign_state(workspace_id, platform, user_id, nonce):
+    """Create a signed OAuth state parameter."""
+    return signing.dumps(
+        {
+            "workspace_id": str(workspace_id),
+            "platform": platform,
+            "user_id": str(user_id),
+            "nonce": nonce,
+        },
+        salt="social-oauth-state",
+    )
+
+
+def _unsign_state(state_str):
+    """Verify and decode the OAuth state parameter."""
+    return signing.loads(
+        state_str,
+        salt="social-oauth-state",
+        max_age=OAUTH_STATE_MAX_AGE,
+    )
+
+
+# ------------------------------------------------------------------
+# Account List
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_permission("manage_social_accounts")
+def account_list(request, workspace_id):
+    """List connected social accounts for a workspace."""
+    accounts = SocialAccount.objects.for_workspace(workspace_id).order_by("platform", "account_name")
+    configured_platforms = _get_configured_platforms(request.org.id)
+
+    return render(
+        request,
+        "social_accounts/list.html",
+        {
+            "accounts": accounts,
+            "workspace_id": workspace_id,
+            "configured_platforms": configured_platforms,
+            "platform_choices": PlatformCredential.Platform.choices,
+        },
+    )
+
+
+# ------------------------------------------------------------------
+# Connect Platform (OAuth redirect)
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_permission("manage_social_accounts")
+def connect_platform(request, workspace_id):
+    """GET: show platform grid. POST: initiate OAuth flow."""
+    configured_platforms = _get_configured_platforms(request.org.id)
+
+    if request.method == "GET":
+        return render(
+            request,
+            "social_accounts/connect.html",
+            {
+                "workspace_id": workspace_id,
+                "platform_choices": PlatformCredential.Platform.choices,
+                "configured_platforms": configured_platforms,
+            },
+        )
+
+    # POST: initiate OAuth
+    platform = request.POST.get("platform", "").strip()
+    if platform not in dict(PlatformCredential.Platform.choices):
+        messages.error(request, "Invalid platform selected.")
+        return redirect("social_accounts:connect", workspace_id=workspace_id)
+
+    if platform not in configured_platforms:
+        messages.error(
+            request,
+            f"Platform credentials for {platform} are not configured. Please contact your administrator.",
+        )
+        return redirect("social_accounts:connect", workspace_id=workspace_id)
+
+    # Special auth flows
+    if platform == PlatformCredential.Platform.BLUESKY:
+        return redirect("social_accounts:connect_bluesky", workspace_id=workspace_id)
+    if platform == PlatformCredential.Platform.MASTODON:
+        return redirect("social_accounts:connect_mastodon", workspace_id=workspace_id)
+
+    # Standard OAuth flow
+    provider = _get_provider_for_platform(platform, request.org.id)
+    nonce = secrets.token_urlsafe(32)
+    state = _sign_state(workspace_id, platform, request.user.id, nonce)
+
+    # Store nonce in session to prevent replay
+    request.session[OAUTH_SESSION_KEY] = {
+        "nonce": nonce,
+        "workspace_id": str(workspace_id),
+        "platform": platform,
+    }
+
+    redirect_uri = _build_redirect_uri(request, platform)
+    auth_url = provider.get_auth_url(redirect_uri, state)
+    return redirect(auth_url)
+
+
+# ------------------------------------------------------------------
+# OAuth Callback
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_GET
+def oauth_callback(request, platform):
+    """Handle OAuth callback from the platform."""
+    error = request.GET.get("error")
+    if error:
+        error_desc = request.GET.get("error_description", error)
+        messages.error(request, f"OAuth error: {error_desc}")
+        session_data = request.session.pop(OAUTH_SESSION_KEY, {})
+        workspace_id = session_data.get("workspace_id")
+        if workspace_id:
+            return redirect("social_accounts:list", workspace_id=workspace_id)
+        return redirect("dashboard")
+
+    code = request.GET.get("code")
+    state_str = request.GET.get("state")
+
+    if not code or not state_str:
+        messages.error(request, "Missing authorization code or state parameter.")
+        return redirect("dashboard")
+
+    # Validate state
+    try:
+        state_data = _unsign_state(state_str)
+    except signing.BadSignature:
+        messages.error(request, "Invalid or expired OAuth state. Please try again.")
+        return redirect("dashboard")
+
+    # Validate nonce from session
+    session_data = request.session.pop(OAUTH_SESSION_KEY, {})
+    if not session_data or session_data.get("nonce") != state_data.get("nonce"):
+        messages.error(request, "OAuth session mismatch. Please try again.")
+        return redirect("dashboard")
+
+    # Validate platform matches
+    if state_data.get("platform") != platform:
+        messages.error(request, "Platform mismatch in OAuth callback.")
+        return redirect("dashboard")
+
+    # Validate user
+    if str(request.user.id) != state_data.get("user_id"):
+        raise PermissionDenied("OAuth state does not match current user.")
+
+    workspace_id = state_data["workspace_id"]
+
+    # Re-check workspace membership — user may have lost access during OAuth
+    from apps.members.models import WorkspaceMembership
+
+    ws_membership = WorkspaceMembership.objects.filter(user=request.user, workspace_id=workspace_id).first()
+    if not ws_membership:
+        raise PermissionDenied("You no longer have access to this workspace.")
+    perms = ws_membership.effective_permissions
+    if not perms.get("manage_social_accounts", False):
+        raise PermissionDenied("You no longer have permission to manage social accounts.")
+
+    try:
+        # For Mastodon, we need instance-specific credentials from session + registration
+        extra_creds: dict = {}
+        if platform == PlatformCredential.Platform.MASTODON:
+            instance_url = session_data.get("instance_url", "")
+            if instance_url:
+                extra_creds["instance_url"] = instance_url
+                try:
+                    reg = MastodonAppRegistration.objects.get(instance_url=instance_url)
+                    extra_creds["client_id"] = reg.client_id
+                    extra_creds["client_secret"] = reg.client_secret
+                except MastodonAppRegistration.DoesNotExist:
+                    pass
+
+        provider = _get_provider_for_platform(platform, request.org.id, **extra_creds)
+        redirect_uri = _build_redirect_uri(request, platform)
+        tokens = provider.exchange_code(code, redirect_uri)
+        profile = provider.get_profile(tokens.access_token)
+
+        # Facebook multi-page: check if user manages multiple pages
+        if platform in (
+            PlatformCredential.Platform.FACEBOOK,
+            PlatformCredential.Platform.INSTAGRAM,
+        ) and hasattr(provider, "get_user_pages"):
+            pages = provider.get_user_pages(tokens.access_token)
+            if len(pages) > 1:
+                # Store in session for account selection
+                request.session["oauth_page_select"] = {
+                    "workspace_id": workspace_id,
+                    "platform": platform,
+                    "user_tokens": {
+                        "access_token": tokens.access_token,
+                        "refresh_token": tokens.refresh_token,
+                    },
+                    "pages": pages,
+                }
+                return redirect("social_accounts:select_account")
+            elif len(pages) == 1:
+                # Auto-select the single page
+                page = pages[0]
+                _create_or_update_account(
+                    workspace_id=workspace_id,
+                    platform=platform,
+                    profile=type(profile)(
+                        platform_id=page["id"],
+                        name=page["name"],
+                        handle=page.get("handle"),
+                        avatar_url=page.get("picture", ""),
+                        follower_count=page.get("followers_count", 0),
+                    ),
+                    access_token=page.get("access_token", tokens.access_token),
+                    refresh_token=tokens.refresh_token,
+                    expires_in=tokens.expires_in,
+                )
+                messages.success(request, f"Connected {page['name']} successfully.")
+                return redirect("social_accounts:list", workspace_id=workspace_id)
+
+        # Standard single-account flow
+        _create_or_update_account(
+            workspace_id=workspace_id,
+            platform=platform,
+            profile=profile,
+            access_token=tokens.access_token,
+            refresh_token=tokens.refresh_token,
+            expires_in=tokens.expires_in,
+        )
+        messages.success(request, f"Connected {profile.name} successfully.")
+
+    except Exception:
+        logger.exception("OAuth callback failed for %s", platform)
+        messages.error(
+            request,
+            "Failed to connect account. Please try again.",
+        )
+
+    return redirect("social_accounts:list", workspace_id=workspace_id)
+
+
+# ------------------------------------------------------------------
+# Account Selection (Facebook multi-page)
+# ------------------------------------------------------------------
+
+
+@login_required
+def select_account(request):
+    """Show page/account selection after multi-page OAuth."""
+    page_data = request.session.get("oauth_page_select")
+    if not page_data:
+        messages.error(request, "No accounts to select. Please start over.")
+        return redirect("dashboard")
+
+    workspace_id = page_data["workspace_id"]
+
+    if request.method == "GET":
+        return render(
+            request,
+            "social_accounts/account_select.html",
+            {
+                "pages": page_data["pages"],
+                "platform": page_data["platform"],
+                "workspace_id": workspace_id,
+            },
+        )
+
+    # POST: create accounts for selected pages
+    selected_ids = request.POST.getlist("selected_pages")
+    if not selected_ids:
+        messages.error(request, "Please select at least one account.")
+        return render(
+            request,
+            "social_accounts/account_select.html",
+            {
+                "pages": page_data["pages"],
+                "platform": page_data["platform"],
+                "workspace_id": workspace_id,
+            },
+        )
+
+    from providers.types import AccountProfile
+
+    platform = page_data["platform"]
+    user_tokens = page_data["user_tokens"]
+    connected = []
+
+    for page in page_data["pages"]:
+        if page["id"] in selected_ids:
+            profile = AccountProfile(
+                platform_id=page["id"],
+                name=page["name"],
+                handle=page.get("handle"),
+                avatar_url=page.get("picture", ""),
+                follower_count=page.get("followers_count", 0),
+            )
+            _create_or_update_account(
+                workspace_id=workspace_id,
+                platform=platform,
+                profile=profile,
+                access_token=page.get("access_token", user_tokens["access_token"]),
+                refresh_token=user_tokens.get("refresh_token"),
+                expires_in=None,
+            )
+            connected.append(page["name"])
+
+    request.session.pop("oauth_page_select", None)
+
+    if connected:
+        names = ", ".join(connected)
+        messages.success(request, f"Connected: {names}")
+
+    return redirect("social_accounts:list", workspace_id=workspace_id)
+
+
+# ------------------------------------------------------------------
+# Bluesky Connect (session-based, no OAuth)
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_permission("manage_social_accounts")
+def connect_bluesky(request, workspace_id):
+    """Connect a Bluesky account via handle + app password."""
+    if request.method == "GET":
+        return render(
+            request,
+            "social_accounts/bluesky_connect.html",
+            {"workspace_id": workspace_id},
+        )
+
+    handle = request.POST.get("handle", "").strip()
+    app_password = request.POST.get("app_password", "").strip()
+
+    if not handle or not app_password:
+        messages.error(request, "Handle and app password are required.")
+        return render(
+            request,
+            "social_accounts/bluesky_connect.html",
+            {"workspace_id": workspace_id},
+        )
+
+    try:
+        provider = _get_provider_for_platform(PlatformCredential.Platform.BLUESKY, request.org.id)
+        tokens = provider.create_session(handle, app_password)
+        profile = provider.get_profile(tokens.access_token)
+
+        _create_or_update_account(
+            workspace_id=workspace_id,
+            platform=PlatformCredential.Platform.BLUESKY,
+            profile=profile,
+            access_token=tokens.access_token,
+            refresh_token=tokens.refresh_token,
+            expires_in=tokens.expires_in,
+            instance_url=provider.pds_url,
+        )
+        messages.success(request, f"Connected {profile.name} on Bluesky.")
+
+    except Exception:
+        logger.exception("Bluesky connection failed")
+        messages.error(
+            request,
+            "Failed to connect Bluesky account. Check your handle and app password.",
+        )
+        return render(
+            request,
+            "social_accounts/bluesky_connect.html",
+            {"workspace_id": workspace_id},
+        )
+
+    return redirect("social_accounts:list", workspace_id=workspace_id)
+
+
+# ------------------------------------------------------------------
+# Mastodon Connect (instance-based OAuth)
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_permission("manage_social_accounts")
+def connect_mastodon(request, workspace_id):
+    """Connect a Mastodon account via instance URL + OAuth."""
+    if request.method == "GET":
+        return render(
+            request,
+            "social_accounts/mastodon_connect.html",
+            {"workspace_id": workspace_id},
+        )
+
+    instance_url = request.POST.get("instance_url", "").strip().rstrip("/")
+    if not instance_url:
+        messages.error(request, "Instance URL is required.")
+        return render(
+            request,
+            "social_accounts/mastodon_connect.html",
+            {"workspace_id": workspace_id},
+        )
+
+    # Normalize URL
+    if not instance_url.startswith(("http://", "https://")):
+        instance_url = f"https://{instance_url}"
+
+    # Check for existing app registration or create one
+    try:
+        registration = MastodonAppRegistration.objects.get(instance_url=instance_url)
+        client_id = registration.client_id
+        client_secret = registration.client_secret
+    except MastodonAppRegistration.DoesNotExist:
+        # Register app on this instance
+        try:
+            provider = _get_provider_for_platform(
+                PlatformCredential.Platform.MASTODON,
+                request.org.id,
+                instance_url=instance_url,
+            )
+            redirect_uri = _build_redirect_uri(request, PlatformCredential.Platform.MASTODON)
+            app_data = provider.register_app(instance_url, redirect_uri)
+            registration = MastodonAppRegistration.objects.create(
+                instance_url=instance_url,
+                client_id=app_data["client_id"],
+                client_secret=app_data["client_secret"],
+            )
+            client_id = app_data["client_id"]
+            client_secret = app_data["client_secret"]
+        except Exception:
+            logger.exception("Mastodon app registration failed for %s", instance_url)
+            messages.error(
+                request,
+                f"Failed to register with {instance_url}. Check the URL.",
+            )
+            return render(
+                request,
+                "social_accounts/mastodon_connect.html",
+                {"workspace_id": workspace_id},
+            )
+
+    # Initiate OAuth
+    provider = _get_provider_for_platform(
+        PlatformCredential.Platform.MASTODON,
+        request.org.id,
+        instance_url=instance_url,
+        client_id=client_id,
+        client_secret=client_secret,
+    )
+
+    nonce = secrets.token_urlsafe(32)
+    state = _sign_state(
+        workspace_id,
+        PlatformCredential.Platform.MASTODON,
+        request.user.id,
+        nonce,
+    )
+
+    request.session[OAUTH_SESSION_KEY] = {
+        "nonce": nonce,
+        "workspace_id": str(workspace_id),
+        "platform": PlatformCredential.Platform.MASTODON,
+        "instance_url": instance_url,
+    }
+
+    redirect_uri = _build_redirect_uri(request, PlatformCredential.Platform.MASTODON)
+    auth_url = provider.get_auth_url(redirect_uri, state)
+    return redirect(auth_url)
+
+
+# ------------------------------------------------------------------
+# Reconnect
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_permission("manage_social_accounts")
+@require_POST
+def reconnect(request, workspace_id, account_id):
+    """Re-initiate OAuth for an existing account."""
+    account = get_object_or_404(SocialAccount.objects.for_workspace(workspace_id), id=account_id)
+    platform = account.platform
+
+    if platform == PlatformCredential.Platform.BLUESKY:
+        return redirect("social_accounts:connect_bluesky", workspace_id=workspace_id)
+    if platform == PlatformCredential.Platform.MASTODON:
+        return redirect("social_accounts:connect_mastodon", workspace_id=workspace_id)
+
+    # Standard OAuth reconnect
+    provider = _get_provider_for_platform(platform, request.org.id)
+    nonce = secrets.token_urlsafe(32)
+    state = _sign_state(workspace_id, platform, request.user.id, nonce)
+
+    request.session[OAUTH_SESSION_KEY] = {
+        "nonce": nonce,
+        "workspace_id": str(workspace_id),
+        "platform": platform,
+    }
+
+    redirect_uri = _build_redirect_uri(request, platform)
+    auth_url = provider.get_auth_url(redirect_uri, state)
+    return redirect(auth_url)
+
+
+# ------------------------------------------------------------------
+# Disconnect
+# ------------------------------------------------------------------
+
+
+@login_required
+@require_permission("manage_social_accounts")
+@require_POST
+def disconnect(request, workspace_id, account_id):
+    """Disconnect a social account."""
+    account = get_object_or_404(SocialAccount.objects.for_workspace(workspace_id), id=account_id)
+
+    # Try to revoke token
+    try:
+        provider = _get_provider_for_platform(account.platform, request.org.id)
+        if account.oauth_access_token:
+            provider.revoke_token(account.oauth_access_token)
+    except Exception:
+        logger.warning(
+            "Failed to revoke token for %s, proceeding with disconnect",
+            account,
+        )
+
+    account_name = account.account_name
+    account.delete()
+
+    messages.success(request, f"Disconnected {account_name}.")
+
+    # HTMX partial response
+    if request.headers.get("HX-Request"):
+        return render(request, "social_accounts/partials/_empty.html")
+
+    return redirect("social_accounts:list", workspace_id=workspace_id)
+
+
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+
+
+def _create_or_update_account(
+    *,
+    workspace_id,
+    platform,
+    profile,
+    access_token,
+    refresh_token=None,
+    expires_in=None,
+    instance_url="",
+):
+    """Create or update a SocialAccount from OAuth results."""
+    token_expires_at = None
+    if expires_in:
+        token_expires_at = timezone.now() + timedelta(seconds=expires_in)
+
+    account, created = SocialAccount.objects.update_or_create(
+        workspace_id=workspace_id,
+        platform=platform,
+        account_platform_id=profile.platform_id,
+        defaults={
+            "account_name": profile.name,
+            "account_handle": profile.handle or "",
+            "avatar_url": profile.avatar_url or "",
+            "follower_count": profile.follower_count,
+            "oauth_access_token": access_token,
+            "oauth_refresh_token": refresh_token or "",
+            "token_expires_at": token_expires_at,
+            "instance_url": instance_url,
+            "connection_status": SocialAccount.ConnectionStatus.CONNECTED,
+            "last_error": "",
+        },
+    )
+    return account
