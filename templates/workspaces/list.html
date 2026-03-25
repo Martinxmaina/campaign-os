@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block page_title %}Workspaces{% endblock %}
+{% block content %}
+<div class="max-w-4xl">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-xl font-semibold">Workspaces</h2>
+    </div>
+    {% if workspaces %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for workspace in workspaces %}
+        <a href="{% url 'workspaces:detail' workspace_id=workspace.id %}" class="block p-4 bg-white rounded-lg border border-gray-200 hover:border-brand-primary transition-colors">
+            <h3 class="font-medium text-gray-900">{{ workspace.name }}</h3>
+            {% if workspace.description %}
+            <p class="text-sm text-gray-500 mt-1">{{ workspace.description|truncatechars:80 }}</p>
+            {% endif %}
+        </a>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-gray-500">No workspaces yet. Create your first workspace to get started.</p>
+    {% endif %}
+</div>
+{% endblock %}

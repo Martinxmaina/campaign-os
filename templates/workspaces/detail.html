@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block page_title %}{{ workspace.name }}{% endblock %}
+{% block content %}
+<div class="max-w-4xl">
+    <h2 class="text-xl font-semibold mb-4">{{ workspace.name }}</h2>
+    {% if workspace.description %}
+    <p class="text-gray-600 mb-6">{{ workspace.description }}</p>
+    {% endif %}
+    <p class="text-gray-500">Workspace dashboard coming soon.</p>
+</div>
+{% endblock %}

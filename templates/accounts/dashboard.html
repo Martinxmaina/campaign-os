@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto text-center py-12">
+    <h2 class="text-2xl font-bold text-gray-900 mb-4">Welcome to Postbean</h2>
+    <p class="text-gray-600 mb-8">Get started by creating your first workspace.</p>
+    <a href="{% url 'workspaces:list' %}" class="inline-flex items-center px-4 py-2 bg-brand-primary text-white text-sm font-medium rounded-md hover:bg-brand-primary-hover">
+        Create Workspace
+    </a>
+</div>
+{% endblock %}

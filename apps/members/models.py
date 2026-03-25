@@ -1,0 +1,237 @@
+import secrets
+import uuid
+
+from django.conf import settings
+from django.db import models
+from django.utils import timezone
+
+from apps.common.managers import OrgScopedManager
+
+
+class OrgMembership(models.Model):
+    class OrgRole(models.TextChoices):
+        OWNER = "owner", "Owner"
+        ADMIN = "admin", "Admin"
+        MEMBER = "member", "Member"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="org_memberships",
+    )
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    org_role = models.CharField(max_length=20, choices=OrgRole.choices, default=OrgRole.MEMBER)
+    invited_at = models.DateTimeField(auto_now_add=True)
+    accepted_at = models.DateTimeField(blank=True, null=True)
+
+    objects = OrgScopedManager()
+
+    class Meta:
+        db_table = "members_org_membership"
+        unique_together = [("user", "organization")]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.organization.name} ({self.org_role})"
+
+
+class WorkspaceMembership(models.Model):
+    class WorkspaceRole(models.TextChoices):
+        OWNER = "owner", "Owner"
+        MANAGER = "manager", "Manager"
+        EDITOR = "editor", "Editor"
+        CONTRIBUTOR = "contributor", "Contributor"
+        CLIENT = "client", "Client"
+        VIEWER = "viewer", "Viewer"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="workspace_memberships",
+    )
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="memberships",
+    )
+    workspace_role = models.CharField(
+        max_length=20,
+        choices=WorkspaceRole.choices,
+        default=WorkspaceRole.VIEWER,
+    )
+    custom_role = models.ForeignKey(
+        "CustomRole",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="memberships",
+    )
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "members_workspace_membership"
+        unique_together = [("user", "workspace")]
+
+    def __str__(self):
+        role = self.custom_role.name if self.custom_role else self.workspace_role
+        return f"{self.user.email} - {self.workspace.name} ({role})"
+
+    @property
+    def effective_permissions(self):
+        """Return the effective permission dict for this membership."""
+        if self.custom_role:
+            return self.custom_role.permissions
+        return BUILTIN_ROLE_PERMISSIONS.get(self.workspace_role, {})
+
+
+class CustomRole(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="custom_roles",
+    )
+    name = models.CharField(max_length=100)
+    permissions = models.JSONField(
+        default=dict,
+        help_text="Permission keys mapped to booleans",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = OrgScopedManager()
+
+    class Meta:
+        db_table = "members_custom_role"
+        unique_together = [("organization", "name")]
+
+    def __str__(self):
+        return f"{self.name} ({self.organization.name})"
+
+
+def _generate_invitation_token():
+    return secrets.token_urlsafe(32)
+
+
+class Invitation(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    organization = models.ForeignKey(
+        "organizations.Organization",
+        on_delete=models.CASCADE,
+        related_name="invitations",
+    )
+    email = models.EmailField()
+    workspace_assignments = models.JSONField(
+        default=list,
+        help_text='List of {"workspace_id": "...", "role": "..."}',
+    )
+    invited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="sent_invitations",
+    )
+    token = models.CharField(max_length=255, unique=True, default=_generate_invitation_token)
+    expires_at = models.DateTimeField()
+    accepted_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = OrgScopedManager()
+
+    class Meta:
+        db_table = "members_invitation"
+
+    def __str__(self):
+        return f"Invitation to {self.email} for {self.organization.name}"
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    @property
+    def is_accepted(self):
+        return self.accepted_at is not None
+
+
+# Built-in workspace role permission mappings
+PERMISSION_KEYS = [
+    "create_posts",
+    "edit_own_posts",
+    "edit_others_posts",
+    "approve_posts",
+    "publish_directly",
+    "manage_social_accounts",
+    "view_analytics",
+    "use_inbox",
+    "reply_from_inbox",
+    "manage_workspace_settings",
+]
+
+BUILTIN_ROLE_PERMISSIONS = {
+    "owner": {k: True for k in PERMISSION_KEYS},
+    "manager": {
+        "create_posts": True,
+        "edit_own_posts": True,
+        "edit_others_posts": True,
+        "approve_posts": True,
+        "publish_directly": True,
+        "manage_social_accounts": True,
+        "view_analytics": True,
+        "use_inbox": True,
+        "reply_from_inbox": True,
+        "manage_workspace_settings": False,
+    },
+    "editor": {
+        "create_posts": True,
+        "edit_own_posts": True,
+        "edit_others_posts": True,
+        "approve_posts": False,
+        "publish_directly": False,  # Configurable per workspace
+        "manage_social_accounts": False,
+        "view_analytics": True,
+        "use_inbox": True,
+        "reply_from_inbox": True,
+        "manage_workspace_settings": False,
+    },
+    "contributor": {
+        "create_posts": True,
+        "edit_own_posts": True,
+        "edit_others_posts": False,
+        "approve_posts": False,
+        "publish_directly": False,
+        "manage_social_accounts": False,
+        "view_analytics": False,  # Limited to own posts
+        "use_inbox": False,
+        "reply_from_inbox": False,
+        "manage_workspace_settings": False,
+    },
+    "client": {
+        "create_posts": False,
+        "edit_own_posts": False,
+        "edit_others_posts": False,
+        "approve_posts": True,
+        "publish_directly": False,
+        "manage_social_accounts": False,
+        "view_analytics": True,  # View only
+        "use_inbox": False,
+        "reply_from_inbox": False,
+        "manage_workspace_settings": False,
+    },
+    "viewer": {
+        "create_posts": False,
+        "edit_own_posts": False,
+        "edit_others_posts": False,
+        "approve_posts": False,
+        "publish_directly": False,
+        "manage_social_accounts": False,
+        "view_analytics": True,  # View only
+        "use_inbox": False,
+        "reply_from_inbox": False,
+        "manage_workspace_settings": False,
+    },
+}
