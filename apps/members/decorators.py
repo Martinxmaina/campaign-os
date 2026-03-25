@@ -22,7 +22,9 @@ def require_org_role(min_role):
             if user_level < required_level:
                 raise PermissionDenied("Insufficient organization role.")
             return view_func(request, *args, **kwargs)
+
         return _wrapped
+
     return decorator
 
 
@@ -66,7 +68,9 @@ def require_workspace_role(min_role):
             if user_level < required_level:
                 raise PermissionDenied("Insufficient workspace role.")
             return view_func(request, *args, **kwargs)
+
         return _wrapped
+
     return decorator
 
 
@@ -86,5 +90,7 @@ def require_permission(permission_key):
             if not perms.get(permission_key, False):
                 raise PermissionDenied(f"Permission denied: {permission_key}")
             return view_func(request, *args, **kwargs)
+
         return _wrapped
+
     return decorator

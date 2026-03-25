@@ -80,9 +80,7 @@ def compose(request, workspace_id, post_id=None):
     if post_id:
         post = get_object_or_404(Post, id=post_id, workspace=workspace)
         form = PostForm(instance=post)
-        selected_account_ids = list(
-            post.platform_posts.values_list("social_account_id", flat=True)
-        )
+        selected_account_ids = list(post.platform_posts.values_list("social_account_id", flat=True))
         media_attachments = post.media_attachments.select_related("media_asset").all()
     else:
         post = None
@@ -91,9 +89,13 @@ def compose(request, workspace_id, post_id=None):
         media_attachments = []
 
     # Connected social accounts for this workspace
-    social_accounts = SocialAccount.objects.for_workspace(workspace.id).filter(
-        status=SocialAccount.Status.CONNECTED,
-    ).order_by("platform", "account_name")
+    social_accounts = (
+        SocialAccount.objects.for_workspace(workspace.id)
+        .filter(
+            status=SocialAccount.Status.CONNECTED,
+        )
+        .order_by("platform", "account_name")
+    )
 
     # Platform character limits for JS
     char_limits = {
@@ -210,12 +212,14 @@ def save_post(request, workspace_id, post_id=None):
         return HttpResponse(
             status=204,
             headers={
-                "HX-Trigger": json.dumps({
-                    "postSaved": {
-                        "postId": str(post.id),
-                        "status": post.status,
+                "HX-Trigger": json.dumps(
+                    {
+                        "postSaved": {
+                            "postId": str(post.id),
+                            "status": post.status,
+                        }
                     }
-                }),
+                ),
             },
         )
 
@@ -301,20 +305,28 @@ def preview(request, workspace_id):
             override_key = f"override_caption_{account.id}"
             effective_caption = request.GET.get(override_key, "") or caption
             char_limit = account.char_limit
-            previews.append({
-                "account": account,
-                "caption": effective_caption,
-                "first_comment": first_comment,
-                "char_count": len(effective_caption),
-                "char_limit": char_limit,
-                "is_over_limit": len(effective_caption) > char_limit,
-                "truncated_caption": effective_caption[:char_limit] if len(effective_caption) > char_limit else effective_caption,
-            })
+            previews.append(
+                {
+                    "account": account,
+                    "caption": effective_caption,
+                    "first_comment": first_comment,
+                    "char_count": len(effective_caption),
+                    "char_limit": char_limit,
+                    "is_over_limit": len(effective_caption) > char_limit,
+                    "truncated_caption": effective_caption[:char_limit]
+                    if len(effective_caption) > char_limit
+                    else effective_caption,
+                }
+            )
 
-    return render(request, "composer/partials/preview_panel.html", {
-        "previews": previews,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "composer/partials/preview_panel.html",
+        {
+            "previews": previews,
+            "workspace": workspace,
+        },
+    )
 
 
 @login_required
@@ -325,10 +337,14 @@ def media_picker(request, workspace_id):
     from apps.media_library.models import MediaAsset
 
     assets = MediaAsset.objects.for_workspace(workspace.id).order_by("-created_at")[:50]
-    return render(request, "composer/partials/media_picker.html", {
-        "assets": assets,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "composer/partials/media_picker.html",
+        {
+            "assets": assets,
+            "workspace": workspace,
+        },
+    )
 
 
 @login_required
@@ -355,11 +371,15 @@ def attach_media(request, workspace_id, post_id):
         defaults={"position": position},
     )
 
-    return render(request, "composer/partials/media_list.html", {
-        "media_attachments": post.media_attachments.select_related("media_asset").all(),
-        "post": post,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "composer/partials/media_list.html",
+        {
+            "media_attachments": post.media_attachments.select_related("media_asset").all(),
+            "post": post,
+            "workspace": workspace,
+        },
+    )
 
 
 @login_required
@@ -403,17 +423,23 @@ def upload_media(request, workspace_id, post_id=None):
         position = (max_pos or 0) + 1
         PostMedia.objects.create(post=post, media_asset=asset, position=position)
 
-        return render(request, "composer/partials/media_list.html", {
-            "media_attachments": post.media_attachments.select_related("media_asset").all(),
-            "post": post,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "composer/partials/media_list.html",
+            {
+                "media_attachments": post.media_attachments.select_related("media_asset").all(),
+                "post": post,
+                "workspace": workspace,
+            },
+        )
 
-    return JsonResponse({
-        "id": str(asset.id),
-        "filename": asset.filename,
-        "url": asset.file.url if asset.file else "",
-    })
+    return JsonResponse(
+        {
+            "id": str(asset.id),
+            "filename": asset.filename,
+            "url": asset.file.url if asset.file else "",
+        }
+    )
 
 
 @login_required
@@ -424,11 +450,15 @@ def remove_media(request, workspace_id, post_id, media_id):
     post = get_object_or_404(Post, id=post_id, workspace=workspace)
     PostMedia.objects.filter(id=media_id, post=post).delete()
 
-    return render(request, "composer/partials/media_list.html", {
-        "media_attachments": post.media_attachments.select_related("media_asset").all(),
-        "post": post,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "composer/partials/media_list.html",
+        {
+            "media_attachments": post.media_attachments.select_related("media_asset").all(),
+            "post": post,
+            "workspace": workspace,
+        },
+    )
 
 
 @login_required
@@ -444,7 +474,11 @@ def drafts_list(request, workspace_id):
         .order_by("-updated_at")
     )
 
-    return render(request, "composer/drafts_list.html", {
-        "workspace": workspace,
-        "drafts": drafts,
-    })
+    return render(
+        request,
+        "composer/drafts_list.html",
+        {
+            "workspace": workspace,
+            "drafts": drafts,
+        },
+    )

@@ -10,38 +10,97 @@ import apps.common.encryption
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('workspaces', '0001_initial'),
+        ("workspaces", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='SocialAccount',
+            name="SocialAccount",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('platform', models.CharField(choices=[('facebook', 'Facebook'), ('instagram', 'Instagram'), ('linkedin', 'LinkedIn'), ('tiktok', 'TikTok'), ('youtube', 'YouTube'), ('pinterest', 'Pinterest'), ('threads', 'Threads'), ('bluesky', 'Bluesky'), ('google_business', 'Google Business Profile'), ('mastodon', 'Mastodon')], max_length=30)),
-                ('platform_account_id', models.CharField(help_text='The unique account ID on the platform (e.g., page ID, profile ID).', max_length=255)),
-                ('account_name', models.CharField(help_text='Display name on the platform.', max_length=255)),
-                ('account_handle', models.CharField(blank=True, default='', max_length=255)),
-                ('avatar_url', models.URLField(blank=True, default='')),
-                ('follower_count', models.PositiveIntegerField(default=0)),
-                ('access_token', apps.common.encryption.EncryptedJSONField(default=dict, help_text='Encrypted access token and related auth data.')),
-                ('refresh_token', apps.common.encryption.EncryptedJSONField(blank=True, default=dict, help_text='Encrypted refresh token.')),
-                ('token_expires_at', models.DateTimeField(blank=True, null=True)),
-                ('status', models.CharField(choices=[('connected', 'Connected'), ('token_expiring', 'Token Expiring'), ('disconnected', 'Disconnected'), ('error', 'Error')], default='connected', max_length=20)),
-                ('status_message', models.TextField(blank=True, default='')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('connected_by', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='connected_social_accounts', to=settings.AUTH_USER_MODEL)),
-                ('workspace', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='social_accounts', to='workspaces.workspace')),
+                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "platform",
+                    models.CharField(
+                        choices=[
+                            ("facebook", "Facebook"),
+                            ("instagram", "Instagram"),
+                            ("linkedin", "LinkedIn"),
+                            ("tiktok", "TikTok"),
+                            ("youtube", "YouTube"),
+                            ("pinterest", "Pinterest"),
+                            ("threads", "Threads"),
+                            ("bluesky", "Bluesky"),
+                            ("google_business", "Google Business Profile"),
+                            ("mastodon", "Mastodon"),
+                        ],
+                        max_length=30,
+                    ),
+                ),
+                (
+                    "platform_account_id",
+                    models.CharField(
+                        help_text="The unique account ID on the platform (e.g., page ID, profile ID).", max_length=255
+                    ),
+                ),
+                ("account_name", models.CharField(help_text="Display name on the platform.", max_length=255)),
+                ("account_handle", models.CharField(blank=True, default="", max_length=255)),
+                ("avatar_url", models.URLField(blank=True, default="")),
+                ("follower_count", models.PositiveIntegerField(default=0)),
+                (
+                    "access_token",
+                    apps.common.encryption.EncryptedJSONField(
+                        default=dict, help_text="Encrypted access token and related auth data."
+                    ),
+                ),
+                (
+                    "refresh_token",
+                    apps.common.encryption.EncryptedJSONField(
+                        blank=True, default=dict, help_text="Encrypted refresh token."
+                    ),
+                ),
+                ("token_expires_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("connected", "Connected"),
+                            ("token_expiring", "Token Expiring"),
+                            ("disconnected", "Disconnected"),
+                            ("error", "Error"),
+                        ],
+                        default="connected",
+                        max_length=20,
+                    ),
+                ),
+                ("status_message", models.TextField(blank=True, default="")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "connected_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="connected_social_accounts",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "workspace",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="social_accounts",
+                        to="workspaces.workspace",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'social_accounts_social_account',
-                'unique_together': {('workspace', 'platform', 'platform_account_id')},
+                "db_table": "social_accounts_social_account",
+                "unique_together": {("workspace", "platform", "platform_account_id")},
             },
         ),
     ]

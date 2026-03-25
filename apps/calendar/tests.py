@@ -18,6 +18,7 @@ class PostingSlotModelTest(TestCase):
 
     def test_str_representation(self):
         from apps.social_accounts.models import SocialAccount
+
         slot = PostingSlot()
         slot.day_of_week = 0
         slot.time = time(9, 0)

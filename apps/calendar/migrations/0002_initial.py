@@ -5,22 +5,25 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('calendar', '0001_initial'),
-        ('social_accounts', '0001_initial'),
+        ("calendar", "0001_initial"),
+        ("social_accounts", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='postingslot',
-            name='social_account',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='posting_slots', to='social_accounts.socialaccount'),
+            model_name="postingslot",
+            name="social_account",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="posting_slots",
+                to="social_accounts.socialaccount",
+            ),
         ),
         migrations.AlterUniqueTogether(
-            name='postingslot',
-            unique_together={('social_account', 'day_of_week', 'time')},
+            name="postingslot",
+            unique_together={("social_account", "day_of_week", "time")},
         ),
     ]

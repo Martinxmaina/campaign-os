@@ -164,9 +164,7 @@ class Post(models.Model):
     @property
     def platform_posts_summary(self):
         """Summary of target platforms."""
-        return list(
-            self.platform_posts.values_list("social_account__platform", flat=True)
-        )
+        return list(self.platform_posts.values_list("social_account__platform", flat=True))
 
 
 class PlatformPost(models.Model):

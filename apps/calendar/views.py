@@ -85,16 +85,25 @@ def calendar_view(request, workspace_id):
     target_date = _parse_date(request.GET.get("date"))
 
     # Connected accounts for filter UI
-    social_accounts = SocialAccount.objects.for_workspace(workspace.id).filter(
-        status=SocialAccount.Status.CONNECTED,
-    ).order_by("platform")
+    social_accounts = (
+        SocialAccount.objects.for_workspace(workspace.id)
+        .filter(
+            status=SocialAccount.Status.CONNECTED,
+        )
+        .order_by("platform")
+    )
 
     # Authors for filter
     from django.contrib.auth import get_user_model
+
     user_model = get_user_model()
-    authors = user_model.objects.filter(
-        authored_posts__workspace=workspace,
-    ).distinct().values("id", "name", "email")
+    authors = (
+        user_model.objects.filter(
+            authored_posts__workspace=workspace,
+        )
+        .distinct()
+        .values("id", "name", "email")
+    )
 
     # Active filters
     active_filters = {
@@ -142,16 +151,24 @@ def _month_view(request, workspace, target_date, context):
     # Get all posts for this month range
     first_day = weeks[0][0]
     last_day = weeks[-1][6]
-    posts = _get_filtered_posts(workspace, request).filter(
-        scheduled_at__date__gte=first_day,
-        scheduled_at__date__lte=last_day,
-    ).order_by("scheduled_at")
+    posts = (
+        _get_filtered_posts(workspace, request)
+        .filter(
+            scheduled_at__date__gte=first_day,
+            scheduled_at__date__lte=last_day,
+        )
+        .order_by("scheduled_at")
+    )
 
     # Also include drafts without scheduled_at for the current month
-    drafts = _get_filtered_posts(workspace, request).filter(
-        status="draft",
-        scheduled_at__isnull=True,
-    ).order_by("-updated_at")[:10]
+    drafts = (
+        _get_filtered_posts(workspace, request)
+        .filter(
+            status="draft",
+            scheduled_at__isnull=True,
+        )
+        .order_by("-updated_at")[:10]
+    )
 
     # Group posts by date
     posts_by_date = defaultdict(list)
@@ -165,28 +182,32 @@ def _month_view(request, workspace, target_date, context):
         week_data = []
         for day in week:
             day_posts = posts_by_date.get(day, [])
-            week_data.append({
-                "date": day,
-                "is_current_month": day.month == month,
-                "is_today": day == date.today(),
-                "posts": day_posts[:3],
-                "total_posts": len(day_posts),
-                "overflow": max(0, len(day_posts) - 3),
-            })
+            week_data.append(
+                {
+                    "date": day,
+                    "is_current_month": day.month == month,
+                    "is_today": day == date.today(),
+                    "posts": day_posts[:3],
+                    "total_posts": len(day_posts),
+                    "overflow": max(0, len(day_posts) - 3),
+                }
+            )
         calendar_weeks.append(week_data)
 
     # Navigation
     prev_month = (date(year, month, 1) - timedelta(days=1)).replace(day=1)
     next_month = (date(year, month, 28) + timedelta(days=4)).replace(day=1)
 
-    context.update({
-        "calendar_weeks": calendar_weeks,
-        "month_name": date(year, month, 1).strftime("%B %Y"),
-        "prev_month": prev_month.isoformat(),
-        "next_month": next_month.isoformat(),
-        "unscheduled_drafts": drafts,
-        "day_names": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-    })
+    context.update(
+        {
+            "calendar_weeks": calendar_weeks,
+            "month_name": date(year, month, 1).strftime("%B %Y"),
+            "prev_month": prev_month.isoformat(),
+            "next_month": next_month.isoformat(),
+            "unscheduled_drafts": drafts,
+            "day_names": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+        }
+    )
 
     template = "calendar/partials/month_grid.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
@@ -198,10 +219,14 @@ def _week_view(request, workspace, target_date, context):
     monday = target_date - timedelta(days=target_date.weekday())
     week_days = [monday + timedelta(days=i) for i in range(7)]
 
-    posts = _get_filtered_posts(workspace, request).filter(
-        scheduled_at__date__gte=week_days[0],
-        scheduled_at__date__lte=week_days[6],
-    ).order_by("scheduled_at")
+    posts = (
+        _get_filtered_posts(workspace, request)
+        .filter(
+            scheduled_at__date__gte=week_days[0],
+            scheduled_at__date__lte=week_days[6],
+        )
+        .order_by("scheduled_at")
+    )
 
     # Group posts by (date, hour)
     posts_by_slot = defaultdict(list)
@@ -213,14 +238,16 @@ def _week_view(request, workspace, target_date, context):
 
     hours = list(range(6, 23))  # 6 AM to 10 PM
 
-    context.update({
-        "week_days": week_days,
-        "hours": hours,
-        "posts_by_slot": dict(posts_by_slot),
-        "prev_week": (monday - timedelta(weeks=1)).isoformat(),
-        "next_week": (monday + timedelta(weeks=1)).isoformat(),
-        "week_label": f"{week_days[0].strftime('%b %d')} – {week_days[6].strftime('%b %d, %Y')}",
-    })
+    context.update(
+        {
+            "week_days": week_days,
+            "hours": hours,
+            "posts_by_slot": dict(posts_by_slot),
+            "prev_week": (monday - timedelta(weeks=1)).isoformat(),
+            "next_week": (monday + timedelta(weeks=1)).isoformat(),
+            "week_label": f"{week_days[0].strftime('%b %d')} – {week_days[6].strftime('%b %d, %Y')}",
+        }
+    )
 
     template = "calendar/partials/week_grid.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
@@ -228,9 +255,13 @@ def _week_view(request, workspace, target_date, context):
 
 def _day_view(request, workspace, target_date, context):
     """Render day view with detailed hour timeline."""
-    posts = _get_filtered_posts(workspace, request).filter(
-        scheduled_at__date=target_date,
-    ).order_by("scheduled_at")
+    posts = (
+        _get_filtered_posts(workspace, request)
+        .filter(
+            scheduled_at__date=target_date,
+        )
+        .order_by("scheduled_at")
+    )
 
     posts_by_hour = defaultdict(list)
     for post in posts:
@@ -239,13 +270,15 @@ def _day_view(request, workspace, target_date, context):
 
     hours = list(range(0, 24))
 
-    context.update({
-        "posts_by_hour": dict(posts_by_hour),
-        "hours": hours,
-        "prev_day": (target_date - timedelta(days=1)).isoformat(),
-        "next_day": (target_date + timedelta(days=1)).isoformat(),
-        "day_label": target_date.strftime("%A, %B %d, %Y"),
-    })
+    context.update(
+        {
+            "posts_by_hour": dict(posts_by_hour),
+            "hours": hours,
+            "prev_day": (target_date - timedelta(days=1)).isoformat(),
+            "next_day": (target_date + timedelta(days=1)).isoformat(),
+            "day_label": target_date.strftime("%A, %B %d, %Y"),
+        }
+    )
 
     template = "calendar/partials/day_grid.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
@@ -255,9 +288,11 @@ def _list_view(request, workspace, target_date, context):
     """Render list/table view of posts."""
     posts = _get_filtered_posts(workspace, request).order_by("-scheduled_at", "-created_at")[:200]
 
-    context.update({
-        "posts": posts,
-    })
+    context.update(
+        {
+            "posts": posts,
+        }
+    )
 
     template = "calendar/partials/list_view.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
@@ -290,6 +325,7 @@ def reschedule_post(request, workspace_id):
 
     try:
         import zoneinfo
+
         ws_tz = workspace.effective_timezone or "UTC"
         tz = zoneinfo.ZoneInfo(ws_tz)
         new_dt = datetime.fromisoformat(new_datetime_str)
@@ -316,9 +352,13 @@ def posting_slots(request, workspace_id):
         status=SocialAccount.Status.CONNECTED,
     )
 
-    slots = PostingSlot.objects.filter(
-        social_account__in=accounts,
-    ).select_related("social_account").order_by("social_account", "day_of_week", "time")
+    slots = (
+        PostingSlot.objects.filter(
+            social_account__in=accounts,
+        )
+        .select_related("social_account")
+        .order_by("social_account", "day_of_week", "time")
+    )
 
     # Group by account
     slots_by_account = defaultdict(list)
@@ -347,10 +387,13 @@ def save_posting_slot(request, workspace_id):
         return JsonResponse({"error": "All fields required."}, status=400)
 
     account = get_object_or_404(
-        SocialAccount, id=account_id, workspace=workspace,
+        SocialAccount,
+        id=account_id,
+        workspace=workspace,
     )
 
     from datetime import time
+
     try:
         slot_time = time.fromisoformat(time_str)
     except (ValueError, TypeError):

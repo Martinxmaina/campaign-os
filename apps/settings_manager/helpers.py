@@ -25,6 +25,7 @@ def get_setting(workspace_id, key, workspace_org_id=None):
     # 2. Check org-level override
     if workspace_org_id is None:
         from apps.workspaces.models import Workspace
+
         try:
             workspace_org_id = Workspace.objects.values_list("organization_id", flat=True).get(id=workspace_id)
         except Workspace.DoesNotExist:

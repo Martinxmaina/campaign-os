@@ -34,9 +34,7 @@ class Command(BaseCommand):
         run_once = options["once"]
         engine = PublishEngine()
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Publishing engine started (poll interval: {interval}s)"
-        ))
+        self.stdout.write(self.style.SUCCESS(f"Publishing engine started (poll interval: {interval}s)"))
 
         # Handle graceful shutdown
         running = True
@@ -53,9 +51,7 @@ class Command(BaseCommand):
             try:
                 published = engine.poll_and_publish()
                 if published:
-                    self.stdout.write(
-                        self.style.SUCCESS(f"Published {published} post(s)")
-                    )
+                    self.stdout.write(self.style.SUCCESS(f"Published {published} post(s)"))
             except Exception as e:
                 self.stderr.write(self.style.ERROR(f"Publisher error: {e}"))
 

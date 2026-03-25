@@ -5,26 +5,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('publisher', '0001_initial'),
-        ('social_accounts', '0001_initial'),
+        ("publisher", "0001_initial"),
+        ("social_accounts", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='ratelimitstate',
-            name='social_account',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='rate_limit_states', to='social_accounts.socialaccount'),
+            model_name="ratelimitstate",
+            name="social_account",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="rate_limit_states",
+                to="social_accounts.socialaccount",
+            ),
         ),
         migrations.AddIndex(
-            model_name='publishlog',
-            index=models.Index(fields=['platform_post', '-created_at'], name='idx_publog_pp_created'),
+            model_name="publishlog",
+            index=models.Index(fields=["platform_post", "-created_at"], name="idx_publog_pp_created"),
         ),
         migrations.AlterUniqueTogether(
-            name='ratelimitstate',
-            unique_together={('social_account', 'platform')},
+            name="ratelimitstate",
+            unique_together={("social_account", "platform")},
         ),
     ]

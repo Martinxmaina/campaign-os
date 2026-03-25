@@ -16,9 +16,7 @@ class UserAdmin(BaseUserAdmin):
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser")}),
         ("2FA", {"fields": ("totp_enabled",)}),
     )
-    add_fieldsets = (
-        (None, {"classes": ("wide",), "fields": ("email", "password1", "password2")}),
-    )
+    add_fieldsets = ((None, {"classes": ("wide",), "fields": ("email", "password1", "password2")}),)
 
 
 @admin.register(OAuthConnection)

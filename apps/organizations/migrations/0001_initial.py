@@ -6,28 +6,26 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='Organization',
+            name="Organization",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('name', models.CharField(max_length=100)),
-                ('logo_url', models.URLField(blank=True, default='')),
-                ('default_timezone', models.CharField(default='UTC', max_length=63)),
-                ('deletion_requested_at', models.DateTimeField(blank=True, null=True)),
-                ('deletion_scheduled_for', models.DateTimeField(blank=True, null=True)),
-                ('deleted_at', models.DateTimeField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ("name", models.CharField(max_length=100)),
+                ("logo_url", models.URLField(blank=True, default="")),
+                ("default_timezone", models.CharField(default="UTC", max_length=63)),
+                ("deletion_requested_at", models.DateTimeField(blank=True, null=True)),
+                ("deletion_scheduled_for", models.DateTimeField(blank=True, null=True)),
+                ("deleted_at", models.DateTimeField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'db_table': 'organizations_organization',
+                "db_table": "organizations_organization",
             },
         ),
     ]

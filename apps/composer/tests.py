@@ -1,6 +1,5 @@
 """Tests for the Post Composer app (T-1A.1)."""
 
-
 from django.test import TestCase
 from django.utils import timezone
 
@@ -126,6 +125,7 @@ class PostVersionModelTest(TestCase):
 
     def test_str_representation(self):
         import uuid
+
         pv = PostVersion()
         pv.version_number = 3
         pv.post_id = uuid.uuid4()

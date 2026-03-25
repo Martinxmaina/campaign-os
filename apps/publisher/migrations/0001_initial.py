@@ -7,42 +7,54 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('composer', '0001_initial'),
+        ("composer", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='RateLimitState',
+            name="RateLimitState",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('platform', models.CharField(max_length=30)),
-                ('requests_remaining', models.IntegerField(default=-1, help_text='-1 means unknown.')),
-                ('window_resets_at', models.DateTimeField(blank=True, help_text='When the rate limit window resets.', null=True)),
-                ('last_updated', models.DateTimeField(auto_now=True)),
+                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ("platform", models.CharField(max_length=30)),
+                ("requests_remaining", models.IntegerField(default=-1, help_text="-1 means unknown.")),
+                (
+                    "window_resets_at",
+                    models.DateTimeField(blank=True, help_text="When the rate limit window resets.", null=True),
+                ),
+                ("last_updated", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'db_table': 'publisher_rate_limit_state',
+                "db_table": "publisher_rate_limit_state",
             },
         ),
         migrations.CreateModel(
-            name='PublishLog',
+            name="PublishLog",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('attempt_number', models.PositiveIntegerField(default=1)),
-                ('status_code', models.IntegerField(blank=True, help_text='HTTP status from platform API.', null=True)),
-                ('response_body', models.TextField(blank=True, default='', help_text='Truncated response body (max 1000 chars).')),
-                ('error_message', models.TextField(blank=True, default='')),
-                ('duration_ms', models.PositiveIntegerField(default=0, help_text='Request duration in milliseconds.')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('platform_post', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='publish_logs', to='composer.platformpost')),
+                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ("attempt_number", models.PositiveIntegerField(default=1)),
+                ("status_code", models.IntegerField(blank=True, help_text="HTTP status from platform API.", null=True)),
+                (
+                    "response_body",
+                    models.TextField(blank=True, default="", help_text="Truncated response body (max 1000 chars)."),
+                ),
+                ("error_message", models.TextField(blank=True, default="")),
+                ("duration_ms", models.PositiveIntegerField(default=0, help_text="Request duration in milliseconds.")),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "platform_post",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="publish_logs",
+                        to="composer.platformpost",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'publisher_publish_log',
-                'ordering': ['-created_at'],
+                "db_table": "publisher_publish_log",
+                "ordering": ["-created_at"],
             },
         ),
     ]

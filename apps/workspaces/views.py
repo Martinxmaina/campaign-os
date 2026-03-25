@@ -15,9 +15,7 @@ def detail(request, workspace_id):
         raise Http404 from None
 
     # Verify user has access
-    if not WorkspaceMembership.objects.filter(
-        user=request.user, workspace=workspace
-    ).exists():
+    if not WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
         raise Http404
 
     # Persist last used workspace

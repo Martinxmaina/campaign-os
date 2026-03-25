@@ -9,30 +9,65 @@ import apps.common.encryption
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('organizations', '0001_initial'),
+        ("organizations", "0001_initial"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='PlatformCredential',
+            name="PlatformCredential",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('platform', models.CharField(choices=[('facebook', 'Facebook'), ('instagram', 'Instagram'), ('linkedin', 'LinkedIn'), ('tiktok', 'TikTok'), ('youtube', 'YouTube'), ('pinterest', 'Pinterest'), ('threads', 'Threads'), ('bluesky', 'Bluesky'), ('google_business', 'Google Business Profile'), ('mastodon', 'Mastodon')], max_length=30)),
-                ('credentials', apps.common.encryption.EncryptedJSONField(default=dict, help_text='Encrypted JSON containing platform-specific credential fields')),
-                ('is_configured', models.BooleanField(default=False)),
-                ('tested_at', models.DateTimeField(blank=True, null=True)),
-                ('test_result', models.CharField(choices=[('success', 'Success'), ('failure', 'Failure'), ('untested', 'Untested')], default='untested', max_length=20)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('organization', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='platform_credentials', to='organizations.organization')),
+                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                (
+                    "platform",
+                    models.CharField(
+                        choices=[
+                            ("facebook", "Facebook"),
+                            ("instagram", "Instagram"),
+                            ("linkedin", "LinkedIn"),
+                            ("tiktok", "TikTok"),
+                            ("youtube", "YouTube"),
+                            ("pinterest", "Pinterest"),
+                            ("threads", "Threads"),
+                            ("bluesky", "Bluesky"),
+                            ("google_business", "Google Business Profile"),
+                            ("mastodon", "Mastodon"),
+                        ],
+                        max_length=30,
+                    ),
+                ),
+                (
+                    "credentials",
+                    apps.common.encryption.EncryptedJSONField(
+                        default=dict, help_text="Encrypted JSON containing platform-specific credential fields"
+                    ),
+                ),
+                ("is_configured", models.BooleanField(default=False)),
+                ("tested_at", models.DateTimeField(blank=True, null=True)),
+                (
+                    "test_result",
+                    models.CharField(
+                        choices=[("success", "Success"), ("failure", "Failure"), ("untested", "Untested")],
+                        default="untested",
+                        max_length=20,
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "organization",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="platform_credentials",
+                        to="organizations.organization",
+                    ),
+                ),
             ],
             options={
-                'db_table': 'credentials_platform_credential',
-                'unique_together': {('organization', 'platform')},
+                "db_table": "credentials_platform_credential",
+                "unique_together": {("organization", "platform")},
             },
         ),
     ]

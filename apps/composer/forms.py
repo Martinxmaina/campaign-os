@@ -28,23 +28,29 @@ class PostForm(forms.ModelForm):
         model = Post
         fields = ["caption", "first_comment", "internal_notes", "tags"]
         widgets = {
-            "caption": forms.Textarea(attrs={
-                "rows": 6,
-                "placeholder": "Write your post caption...",
-                "class": "form-input w-full",
-                "x-model": "caption",
-                "@input.debounce.500ms": "updatePreview()",
-            }),
-            "first_comment": forms.Textarea(attrs={
-                "rows": 2,
-                "placeholder": "First comment (optional)...",
-                "class": "form-input w-full",
-            }),
-            "internal_notes": forms.Textarea(attrs={
-                "rows": 2,
-                "placeholder": "Internal notes (not visible to clients)...",
-                "class": "form-input w-full",
-            }),
+            "caption": forms.Textarea(
+                attrs={
+                    "rows": 6,
+                    "placeholder": "Write your post caption...",
+                    "class": "form-input w-full",
+                    "x-model": "caption",
+                    "@input.debounce.500ms": "updatePreview()",
+                }
+            ),
+            "first_comment": forms.Textarea(
+                attrs={
+                    "rows": 2,
+                    "placeholder": "First comment (optional)...",
+                    "class": "form-input w-full",
+                }
+            ),
+            "internal_notes": forms.Textarea(
+                attrs={
+                    "rows": 2,
+                    "placeholder": "Internal notes (not visible to clients)...",
+                    "class": "form-input w-full",
+                }
+            ),
         }
 
     def clean_tags(self):
@@ -60,17 +66,21 @@ class PlatformOverrideForm(forms.Form):
     social_account_id = forms.UUIDField(widget=forms.HiddenInput())
     platform_specific_caption = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={
-            "rows": 4,
-            "placeholder": "Custom caption for this platform (leave empty to use shared caption)...",
-            "class": "form-input w-full text-sm",
-        }),
+        widget=forms.Textarea(
+            attrs={
+                "rows": 4,
+                "placeholder": "Custom caption for this platform (leave empty to use shared caption)...",
+                "class": "form-input w-full text-sm",
+            }
+        ),
     )
     platform_specific_first_comment = forms.CharField(
         required=False,
-        widget=forms.Textarea(attrs={
-            "rows": 2,
-            "placeholder": "Custom first comment...",
-            "class": "form-input w-full text-sm",
-        }),
+        widget=forms.Textarea(
+            attrs={
+                "rows": 2,
+                "placeholder": "Custom first comment...",
+                "class": "form-input w-full text-sm",
+            }
+        ),
     )

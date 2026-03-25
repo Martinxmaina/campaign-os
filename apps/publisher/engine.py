@@ -94,10 +94,7 @@ class PublishEngine:
         # Publish in parallel
         results = {}
         with ThreadPoolExecutor(max_workers=min(len(platform_posts), 5)) as executor:
-            futures = {
-                executor.submit(self._publish_platform_post, pp): pp
-                for pp in platform_posts
-            }
+            futures = {executor.submit(self._publish_platform_post, pp): pp for pp in platform_posts}
             for future in as_completed(futures):
                 pp = futures[future]
                 try:
@@ -235,7 +232,9 @@ class PublishEngine:
             platform_post.save()
             logger.warning(
                 "PlatformPost %s failed after %d retries: %s",
-                platform_post.id, MAX_RETRIES, error_msg,
+                platform_post.id,
+                MAX_RETRIES,
+                error_msg,
             )
             return
 
@@ -248,7 +247,9 @@ class PublishEngine:
 
         logger.info(
             "Scheduled retry %d for PlatformPost %s in %d seconds",
-            platform_post.retry_count, platform_post.id, backoff_seconds,
+            platform_post.retry_count,
+            platform_post.id,
+            backoff_seconds,
         )
 
     def _process_retries(self):
