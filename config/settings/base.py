@@ -52,6 +52,11 @@ LOCAL_APPS = [
     "apps.members",
     "apps.settings_manager",
     "apps.credentials",
+    "apps.social_accounts",
+    "apps.media_library",
+    "apps.composer",
+    "apps.calendar",
+    "apps.publisher",
     "theme",
 ]
 

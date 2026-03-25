@@ -1,0 +1,107 @@
+{% comment %}
+Preview Panel Partial — rendered via HTMX on caption/platform changes.
+Context: previews (list of dicts), workspace.
+Each preview has: account, caption, first_comment, char_count, char_limit, is_over_limit, truncated_caption.
+{% endcomment %}
+
+{% if previews %}
+    {% for p in previews %}
+    <div class="preview-card" style="animation: slideUp 200ms {{ forloop.counter0|add:0 }}00ms cubic-bezier(0.16,1,0.3,1) both">
+
+        <!-- Platform header bar -->
+        <div class="px-4 py-2.5 border-b flex items-center gap-2"
+             style="border-color: #E7E5E4;">
+            <span class="platform-icon pi-{{ p.account.platform }} w-6 h-6 text-[9px] rounded-[6px]">
+                {{ p.account.platform_icon|upper }}
+            </span>
+            <div class="min-w-0 flex-1">
+                <span class="text-xs font-semibold text-stone-700 truncate block">{{ p.account.account_name }}</span>
+            </div>
+            <!-- Char count badge -->
+            <span class="text-[10px] font-semibold tabular-nums px-2 py-0.5 rounded-full
+                         {% if p.is_over_limit %}bg-red-50 text-red-600{% else %}bg-stone-100 text-stone-500{% endif %}">
+                {{ p.char_count }}/{{ p.char_limit }}
+            </span>
+        </div>
+
+        <!-- Fake post preview body -->
+        <div class="p-4">
+            <!-- Account info row -->
+            <div class="flex items-center gap-2.5 mb-3">
+                {% if p.account.avatar_url %}
+                <img src="{{ p.account.avatar_url }}" class="w-9 h-9 rounded-full object-cover border border-stone-100">
+                {% else %}
+                <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white"
+                     style="background: {% if p.account.platform == 'instagram' %}linear-gradient(135deg, #F58529, #DD2A7B){% elif p.account.platform == 'facebook' %}#1877F2{% elif p.account.platform == 'linkedin' %}#0A66C2{% elif p.account.platform == 'tiktok' %}#010101{% elif p.account.platform == 'youtube' %}#FF0000{% elif p.account.platform == 'bluesky' %}#0085FF{% else %}#78716C{% endif %}">
+                    {{ p.account.account_name|make_list|first|upper }}
+                </div>
+                {% endif %}
+                <div>
+                    <div class="text-[13px] font-semibold text-stone-800 leading-tight">{{ p.account.account_name }}</div>
+                    {% if p.account.account_handle %}
+                    <div class="text-[11px] text-stone-400 leading-tight">{{ p.account.account_handle }}</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Caption text -->
+            {% if p.caption %}
+            <div class="text-[13px] leading-relaxed text-stone-600 mb-3 whitespace-pre-wrap break-words"
+                 {% if p.is_over_limit %}style="max-height: 120px; overflow: hidden; mask-image: linear-gradient(to bottom, black 70%, transparent 100%); -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);"{% endif %}>{{ p.truncated_caption }}</div>
+            {% else %}
+            <div class="text-[13px] text-stone-300 italic mb-3">No caption yet…</div>
+            {% endif %}
+
+            {% if p.is_over_limit %}
+            <div class="flex items-center gap-1 text-[11px] font-medium text-red-500 mb-3">
+                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+                Exceeds {{ p.char_limit }} character limit by {{ p.char_count|add:0 }}
+            </div>
+            {% endif %}
+
+            <!-- Placeholder media area -->
+            <div class="w-full h-32 rounded-lg flex items-center justify-center"
+                 style="background: linear-gradient(135deg, #FFF7ED 0%, #F0FDFA 50%, #F0F9FF 100%); border: 1px solid #E7E5E4;">
+                <div class="text-center">
+                    <svg class="w-6 h-6 mx-auto text-stone-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <span class="text-[11px] text-stone-300">Media preview</span>
+                </div>
+            </div>
+
+            <!-- First comment preview -->
+            {% if p.first_comment %}
+            <div class="mt-3 pt-3 border-t border-stone-100">
+                <div class="text-[11px] font-semibold text-stone-400 mb-1">First comment</div>
+                <div class="text-[12px] text-stone-500 leading-relaxed">{{ p.first_comment }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Fake engagement row -->
+            <div class="mt-3 pt-3 border-t border-stone-100 flex items-center gap-5 text-stone-300">
+                <span class="flex items-center gap-1 text-[11px]">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                </span>
+                <span class="flex items-center gap-1 text-[11px]">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                </span>
+                <span class="flex items-center gap-1 text-[11px]">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+    <!-- Empty preview state -->
+    <div class="flex flex-col items-center justify-center h-full text-center px-6 py-12">
+        <div class="w-16 h-16 rounded-2xl bg-stone-100 flex items-center justify-center mb-4"
+             style="animation: slideUp 400ms cubic-bezier(0.16,1,0.3,1) both">
+            <svg class="w-7 h-7 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+        </div>
+        <p class="text-sm font-medium text-stone-500 mb-1"
+           style="animation: slideUp 400ms 80ms cubic-bezier(0.16,1,0.3,1) both">No preview yet</p>
+        <p class="text-xs text-stone-400 max-w-[200px]"
+           style="animation: slideUp 400ms 140ms cubic-bezier(0.16,1,0.3,1) both">Select a platform and start writing to see how your post will look</p>
+    </div>
+{% endif %}
