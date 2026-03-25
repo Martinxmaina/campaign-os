@@ -11,18 +11,23 @@ class SocialAccountsConfig(AppConfig):
     verbose_name = "Social Accounts"
 
     def ready(self):
-        # Register the recurring health-check task on startup.
-        # Guarded with try/except so environments without a database
-        # (e.g. mypy, collectstatic) don't crash.
+        from django.db.models.signals import post_migrate
+
+        post_migrate.connect(self._register_health_check_task, sender=self)
+
+    @staticmethod
+    def _register_health_check_task(sender, **kwargs):
+        """Register the recurring health-check task after migrations are applied."""
         try:
             from background_task.models import Task
 
-            from .tasks import schedule_all_health_checks
+            from apps.social_accounts.tasks import schedule_all_health_checks
 
             if not Task.objects.filter(verbose_name="schedule_all_health_checks").exists():
                 schedule_all_health_checks(
                     repeat=6 * 3600,
                     verbose_name="schedule_all_health_checks",
                 )
+                logger.info("Registered recurring health-check task (every 6h)")
         except Exception:
-            logger.debug("Skipping health-check task registration (database not available)")
+            logger.debug("Skipping health-check task registration (database not ready)")
