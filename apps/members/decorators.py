@@ -10,15 +10,15 @@ def require_org_role(min_role):
 
     Role hierarchy: owner > admin > member
     """
-    ROLE_HIERARCHY = {"owner": 3, "admin": 2, "member": 1}
+    role_hierarchy = {"owner": 3, "admin": 2, "member": 1}
 
     def decorator(view_func):
         @functools.wraps(view_func)
         def _wrapped(request, *args, **kwargs):
             if not request.org_membership:
                 raise PermissionDenied("You are not a member of any organization.")
-            user_level = ROLE_HIERARCHY.get(request.org_membership.org_role, 0)
-            required_level = ROLE_HIERARCHY.get(min_role, 0)
+            user_level = role_hierarchy.get(request.org_membership.org_role, 0)
+            required_level = role_hierarchy.get(min_role, 0)
             if user_level < required_level:
                 raise PermissionDenied("Insufficient organization role.")
             return view_func(request, *args, **kwargs)
@@ -37,7 +37,7 @@ def require_workspace_role(min_role):
 
     Role hierarchy (built-in): owner > manager > editor > contributor > client > viewer
     """
-    ROLE_HIERARCHY = {
+    role_hierarchy = {
         "owner": 6,
         "manager": 5,
         "editor": 4,
@@ -59,10 +59,10 @@ def require_workspace_role(min_role):
             if membership.custom_role:
                 # Custom role users: the workspace_role field still holds their
                 # base role. Check the hierarchy on that.
-                user_level = ROLE_HIERARCHY.get(membership.workspace_role, 0)
+                user_level = role_hierarchy.get(membership.workspace_role, 0)
             else:
-                user_level = ROLE_HIERARCHY.get(membership.workspace_role, 0)
-            required_level = ROLE_HIERARCHY.get(min_role, 0)
+                user_level = role_hierarchy.get(membership.workspace_role, 0)
+            required_level = role_hierarchy.get(min_role, 0)
             if user_level < required_level:
                 raise PermissionDenied("Insufficient workspace role.")
             return view_func(request, *args, **kwargs)

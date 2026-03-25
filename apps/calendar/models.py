@@ -4,8 +4,6 @@ import uuid
 
 from django.db import models
 
-from apps.common.managers import WorkspaceScopedManager
-
 
 class PostingSlot(models.Model):
     """Recurring time slot for a social account.

@@ -9,11 +9,9 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
-from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_POST
 
 from apps.composer.models import Post
-from apps.members.decorators import require_permission
 from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
@@ -93,8 +91,8 @@ def calendar_view(request, workspace_id):
 
     # Authors for filter
     from django.contrib.auth import get_user_model
-    User = get_user_model()
-    authors = User.objects.filter(
+    user_model = get_user_model()
+    authors = user_model.objects.filter(
         authored_posts__workspace=workspace,
     ).distinct().values("id", "name", "email")
 

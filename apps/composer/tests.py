@@ -1,12 +1,10 @@
 """Tests for the Post Composer app (T-1A.1)."""
 
-import json
-from datetime import timedelta
 
 from django.test import TestCase
 from django.utils import timezone
 
-from apps.composer.models import PlatformPost, Post, PostMedia, PostVersion
+from apps.composer.models import PlatformPost, Post, PostVersion
 
 
 class PostModelTest(TestCase):

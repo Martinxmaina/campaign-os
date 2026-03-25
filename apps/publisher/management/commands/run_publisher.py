@@ -6,7 +6,6 @@ Usage:
 """
 
 import signal
-import sys
 import time
 
 from django.core.management.base import BaseCommand
