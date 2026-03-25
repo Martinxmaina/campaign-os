@@ -77,14 +77,10 @@ class BlueskyProvider(SocialProvider):
     # ------------------------------------------------------------------
 
     def get_auth_url(self, redirect_uri: str, state: str) -> str:
-        raise NotImplementedError(
-            "Bluesky uses session-based auth, not OAuth. Use create_session() instead."
-        )
+        raise NotImplementedError("Bluesky uses session-based auth, not OAuth. Use create_session() instead.")
 
     def exchange_code(self, code: str, redirect_uri: str) -> OAuthTokens:
-        raise NotImplementedError(
-            "Bluesky uses session-based auth, not OAuth. Use create_session() instead."
-        )
+        raise NotImplementedError("Bluesky uses session-based auth, not OAuth. Use create_session() instead.")
 
     # ------------------------------------------------------------------
     # Handle resolution
@@ -198,8 +194,7 @@ class BlueskyProvider(SocialProvider):
         grapheme_count = len(content.text) if content.text else 0
         if grapheme_count > self.max_caption_length:
             raise PublishError(
-                f"Post text exceeds {self.max_caption_length} graphemes "
-                f"(got {grapheme_count})",
+                f"Post text exceeds {self.max_caption_length} graphemes (got {grapheme_count})",
                 platform=self.platform_name,
             )
 
@@ -274,9 +269,7 @@ class BlueskyProvider(SocialProvider):
             facets.append(
                 {
                     "index": {"byteStart": byte_start, "byteEnd": byte_end},
-                    "features": [
-                        {"$type": "app.bsky.richtext.facet#link", "uri": url}
-                    ],
+                    "features": [{"$type": "app.bsky.richtext.facet#link", "uri": url}],
                 }
             )
 
@@ -294,9 +287,7 @@ class BlueskyProvider(SocialProvider):
             facets.append(
                 {
                     "index": {"byteStart": byte_start, "byteEnd": byte_end},
-                    "features": [
-                        {"$type": "app.bsky.richtext.facet#mention", "did": did}
-                    ],
+                    "features": [{"$type": "app.bsky.richtext.facet#mention", "did": did}],
                 }
             )
 
@@ -309,9 +300,7 @@ class BlueskyProvider(SocialProvider):
             facets.append(
                 {
                     "index": {"byteStart": byte_start, "byteEnd": byte_end},
-                    "features": [
-                        {"$type": "app.bsky.richtext.facet#tag", "tag": tag}
-                    ],
+                    "features": [{"$type": "app.bsky.richtext.facet#tag", "tag": tag}],
                 }
             )
 

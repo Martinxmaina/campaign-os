@@ -162,10 +162,7 @@ class YouTubeProvider(SocialProvider):
         snippet = channel.get("snippet", {})
         stats = channel.get("statistics", {})
         thumbnails = snippet.get("thumbnails", {})
-        avatar = (
-            thumbnails.get("default", {}).get("url")
-            or thumbnails.get("medium", {}).get("url")
-        )
+        avatar = thumbnails.get("default", {}).get("url") or thumbnails.get("medium", {}).get("url")
         return AccountProfile(
             platform_id=channel["id"],
             name=snippet.get("title", ""),
@@ -182,9 +179,7 @@ class YouTubeProvider(SocialProvider):
     # Publishing
     # ------------------------------------------------------------------
 
-    def publish_post(
-        self, access_token: str, content: PublishContent
-    ) -> PublishResult:
+    def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         if content.post_type not in (PostType.VIDEO, PostType.SHORT):
             raise PublishError(
                 "YouTube only supports VIDEO and SHORT post types",
@@ -206,7 +201,7 @@ class YouTubeProvider(SocialProvider):
         metadata = {
             "snippet": {
                 "title": title[:100],
-                "description": description[:self.max_caption_length],
+                "description": description[: self.max_caption_length],
                 "tags": tags,
                 "categoryId": category_id,
             },
@@ -264,9 +259,7 @@ class YouTubeProvider(SocialProvider):
     # Comments
     # ------------------------------------------------------------------
 
-    def publish_comment(
-        self, access_token: str, post_id: str, text: str
-    ) -> CommentResult:
+    def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         resp = self._request(
             "POST",
             f"{API_BASE}/commentThreads",

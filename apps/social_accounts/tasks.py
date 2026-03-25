@@ -40,9 +40,7 @@ def check_social_account_health(account_id: str):
             if new_tokens.refresh_token:
                 account.oauth_refresh_token = new_tokens.refresh_token
             if new_tokens.expires_in:
-                account.token_expires_at = timezone.now() + timedelta(
-                    seconds=new_tokens.expires_in
-                )
+                account.token_expires_at = timezone.now() + timedelta(seconds=new_tokens.expires_in)
             account.connection_status = SocialAccount.ConnectionStatus.CONNECTED
             account.last_error = ""
             logger.info("Health check: refreshed token for %s", account)

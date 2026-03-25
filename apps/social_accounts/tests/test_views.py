@@ -22,12 +22,8 @@ def manager_setup(db, user, organization, workspace):
     """Set up user as org owner + workspace manager."""
     from apps.members.models import OrgMembership, WorkspaceMembership
 
-    OrgMembership.objects.create(
-        user=user, organization=organization, org_role="owner"
-    )
-    WorkspaceMembership.objects.create(
-        user=user, workspace=workspace, workspace_role="manager"
-    )
+    OrgMembership.objects.create(user=user, organization=organization, org_role="owner")
+    WorkspaceMembership.objects.create(user=user, workspace=workspace, workspace_role="manager")
     return user
 
 
@@ -67,16 +63,12 @@ class TestAccountListView:
         assert response.status_code == 302
         assert "/accounts/" in response.url
 
-    def test_returns_200_for_authenticated_user(
-        self, authenticated_client, workspace
-    ):
+    def test_returns_200_for_authenticated_user(self, authenticated_client, workspace):
         url = reverse("social_accounts:list", kwargs={"workspace_id": workspace.id})
         response = authenticated_client.get(url)
         assert response.status_code == 200
 
-    def test_shows_connected_accounts(
-        self, authenticated_client, workspace
-    ):
+    def test_shows_connected_accounts(self, authenticated_client, workspace):
         SocialAccount.objects.create(
             workspace=workspace,
             platform="facebook",
@@ -124,28 +116,18 @@ class TestConnectPlatformView:
 @pytest.mark.django_db
 class TestOAuthCallbackView:
     def test_error_parameter_shows_message(self, authenticated_client):
-        url = reverse(
-            "social_accounts:oauth_callback", kwargs={"platform": "facebook"}
-        )
-        response = authenticated_client.get(
-            url, {"error": "access_denied", "error_description": "User denied"}
-        )
+        url = reverse("social_accounts:oauth_callback", kwargs={"platform": "facebook"})
+        response = authenticated_client.get(url, {"error": "access_denied", "error_description": "User denied"})
         assert response.status_code == 302
 
     def test_missing_code_shows_error(self, authenticated_client):
-        url = reverse(
-            "social_accounts:oauth_callback", kwargs={"platform": "facebook"}
-        )
+        url = reverse("social_accounts:oauth_callback", kwargs={"platform": "facebook"})
         response = authenticated_client.get(url, {"state": "somestate"})
         assert response.status_code == 302
 
     def test_invalid_state_shows_error(self, authenticated_client):
-        url = reverse(
-            "social_accounts:oauth_callback", kwargs={"platform": "facebook"}
-        )
-        response = authenticated_client.get(
-            url, {"code": "abc123", "state": "invalid_state"}
-        )
+        url = reverse("social_accounts:oauth_callback", kwargs={"platform": "facebook"})
+        response = authenticated_client.get(url, {"code": "abc123", "state": "invalid_state"})
         assert response.status_code == 302
 
 

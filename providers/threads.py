@@ -190,9 +190,7 @@ class ThreadsProvider(SocialProvider):
     # Publishing
     # ------------------------------------------------------------------
 
-    def publish_post(
-        self, access_token: str, content: PublishContent
-    ) -> PublishResult:
+    def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         user_id = content.extra.get("user_id")
         if not user_id:
             # Fetch user_id from profile if not provided
@@ -219,7 +217,7 @@ class ThreadsProvider(SocialProvider):
         """Create and publish a single-item thread (TEXT, IMAGE, or VIDEO)."""
         # Step 1: Create container
         container_payload: dict = {
-            "text": (content.text or "")[:self.max_caption_length],
+            "text": (content.text or "")[: self.max_caption_length],
         }
 
         if content.post_type == PostType.IMAGE:
@@ -316,7 +314,7 @@ class ThreadsProvider(SocialProvider):
             data={
                 "media_type": "CAROUSEL",
                 "children": ",".join(children_ids),
-                "text": (content.text or "")[:self.max_caption_length],
+                "text": (content.text or "")[: self.max_caption_length],
             },
         )
         carousel_body = carousel_resp.json()
@@ -346,9 +344,7 @@ class ThreadsProvider(SocialProvider):
     # Comments (replies)
     # ------------------------------------------------------------------
 
-    def publish_comment(
-        self, access_token: str, post_id: str, text: str
-    ) -> CommentResult:
+    def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         """Reply to a thread (uses the container flow with reply_to_id)."""
         user_id_resp = self._request(
             "GET",
@@ -365,7 +361,7 @@ class ThreadsProvider(SocialProvider):
             access_token=access_token,
             data={
                 "media_type": "TEXT",
-                "text": text[:self.max_caption_length],
+                "text": text[: self.max_caption_length],
                 "reply_to_id": post_id,
             },
         )

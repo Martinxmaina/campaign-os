@@ -27,9 +27,7 @@ class TestProviderRegistry:
 
     def test_all_registry_values_are_provider_subclasses(self):
         for platform, cls in PROVIDER_REGISTRY.items():
-            assert issubclass(cls, SocialProvider), (
-                f"{platform} -> {cls} is not a SocialProvider subclass"
-            )
+            assert issubclass(cls, SocialProvider), f"{platform} -> {cls} is not a SocialProvider subclass"
 
     def test_get_provider_returns_instance(self):
         provider = get_provider("facebook", {"app_id": "test", "app_secret": "test"})

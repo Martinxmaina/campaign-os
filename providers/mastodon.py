@@ -192,11 +192,7 @@ class MastodonProvider(SocialProvider):
                 access_token=access_token,
             )
             data = resp.json()
-            return int(
-                data.get("configuration", {})
-                .get("statuses", {})
-                .get("max_characters", DEFAULT_MAX_CHARS)
-            )
+            return int(data.get("configuration", {}).get("statuses", {}).get("max_characters", DEFAULT_MAX_CHARS))
         except Exception:
             return DEFAULT_MAX_CHARS
 
@@ -276,9 +272,7 @@ class MastodonProvider(SocialProvider):
             extra=data,
         )
 
-    def publish_comment(
-        self, access_token: str, post_id: str, text: str
-    ) -> CommentResult:
+    def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         """Reply to an existing Mastodon status."""
         resp = self._request(
             "POST",
@@ -328,11 +322,7 @@ class MastodonProvider(SocialProvider):
             likes=data.get("favourites_count", 0),
             shares=data.get("reblogs_count", 0),
             comments=data.get("replies_count", 0),
-            engagements=(
-                data.get("favourites_count", 0)
-                + data.get("reblogs_count", 0)
-                + data.get("replies_count", 0)
-            ),
+            engagements=(data.get("favourites_count", 0) + data.get("reblogs_count", 0) + data.get("replies_count", 0)),
             extra=data,
         )
 
@@ -340,9 +330,7 @@ class MastodonProvider(SocialProvider):
     # Inbox
     # ------------------------------------------------------------------
 
-    def get_messages(
-        self, access_token: str, since: datetime | None = None
-    ) -> list[InboxMessage]:
+    def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
         """Fetch mentions, favourites, and reblogs from notifications."""
         params: dict = {
             "types[]": ["mention", "favourite", "reblog"],
@@ -388,9 +376,7 @@ class MastodonProvider(SocialProvider):
 
         return messages
 
-    def reply_to_message(
-        self, access_token: str, message_id: str, text: str
-    ) -> ReplyResult:
+    def reply_to_message(self, access_token: str, message_id: str, text: str) -> ReplyResult:
         """Reply to a notification's associated status."""
         # Get the notification to find the status ID
         resp = self._request(

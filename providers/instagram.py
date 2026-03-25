@@ -169,9 +169,7 @@ class InstagramProvider(SocialProvider):
             "GET",
             f"{BASE_URL}/{ig_user_id}",
             access_token=access_token,
-            params={
-                "fields": "id,username,name,profile_picture_url,followers_count"
-            },
+            params={"fields": "id,username,name,profile_picture_url,followers_count"},
         )
         data = resp.json()
         return AccountProfile(
@@ -188,17 +186,13 @@ class InstagramProvider(SocialProvider):
     # ------------------------------------------------------------------
 
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
-        ig_user_id = content.extra.get("ig_user_id") or self._get_ig_user_id(
-            access_token
-        )
+        ig_user_id = content.extra.get("ig_user_id") or self._get_ig_user_id(access_token)
 
         if content.post_type == PostType.CAROUSEL:
             return self._publish_carousel(access_token, ig_user_id, content)
         return self._publish_single(access_token, ig_user_id, content)
 
-    def _publish_single(
-        self, access_token: str, ig_user_id: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_single(self, access_token: str, ig_user_id: str, content: PublishContent) -> PublishResult:
         """Publish a single image, reel, or story."""
         payload: dict = {}
 
@@ -209,9 +203,7 @@ class InstagramProvider(SocialProvider):
             payload["media_type"] = "REELS"
             payload["video_url"] = content.media_urls[0]
         elif content.post_type == PostType.STORY:
-            if content.media_urls and content.media_urls[0].endswith(
-                (".mp4", ".mov")
-            ):
+            if content.media_urls and content.media_urls[0].endswith((".mp4", ".mov")):
                 payload["media_type"] = "STORIES"
                 payload["video_url"] = content.media_urls[0]
             else:
@@ -230,9 +222,7 @@ class InstagramProvider(SocialProvider):
         # Step 3: publish
         return self._publish_container(access_token, ig_user_id, container_id)
 
-    def _publish_carousel(
-        self, access_token: str, ig_user_id: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_carousel(self, access_token: str, ig_user_id: str, content: PublishContent) -> PublishResult:
         """Publish a carousel post with multiple media items."""
         child_ids: list[str] = []
 
@@ -247,9 +237,7 @@ class InstagramProvider(SocialProvider):
             else:
                 child_payload["image_url"] = url
 
-            child_id = self._create_container(
-                access_token, ig_user_id, child_payload
-            )
+            child_id = self._create_container(access_token, ig_user_id, child_payload)
             self._wait_for_container(access_token, child_id)
             child_ids.append(child_id)
 
@@ -261,16 +249,12 @@ class InstagramProvider(SocialProvider):
         if content.text:
             carousel_payload["caption"] = content.text
 
-        carousel_id = self._create_container(
-            access_token, ig_user_id, carousel_payload
-        )
+        carousel_id = self._create_container(access_token, ig_user_id, carousel_payload)
         self._wait_for_container(access_token, carousel_id)
 
         return self._publish_container(access_token, ig_user_id, carousel_id)
 
-    def _create_container(
-        self, access_token: str, ig_user_id: str, payload: dict
-    ) -> str:
+    def _create_container(self, access_token: str, ig_user_id: str, payload: dict) -> str:
         resp = self._request(
             "POST",
             f"{BASE_URL}/{ig_user_id}/media",
@@ -315,9 +299,7 @@ class InstagramProvider(SocialProvider):
             platform=self.platform_name,
         )
 
-    def _publish_container(
-        self, access_token: str, ig_user_id: str, container_id: str
-    ) -> PublishResult:
+    def _publish_container(self, access_token: str, ig_user_id: str, container_id: str) -> PublishResult:
         resp = self._request(
             "POST",
             f"{BASE_URL}/{ig_user_id}/media_publish",
@@ -336,9 +318,7 @@ class InstagramProvider(SocialProvider):
     # Comments
     # ------------------------------------------------------------------
 
-    def publish_comment(
-        self, access_token: str, post_id: str, text: str
-    ) -> CommentResult:
+    def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         resp = self._request(
             "POST",
             f"{BASE_URL}/{post_id}/comments",
@@ -375,9 +355,7 @@ class InstagramProvider(SocialProvider):
             extra={"raw_insights": values},
         )
 
-    def get_account_metrics(
-        self, access_token: str, date_range: tuple[datetime, datetime]
-    ) -> AccountMetrics:
+    def get_account_metrics(self, access_token: str, date_range: tuple[datetime, datetime]) -> AccountMetrics:
         ig_user_id = self.credentials.get("ig_user_id", "me")
         metrics = ["impressions", "reach", "follower_count", "profile_views"]
         resp = self._request(
@@ -410,9 +388,7 @@ class InstagramProvider(SocialProvider):
     # Inbox
     # ------------------------------------------------------------------
 
-    def get_messages(
-        self, access_token: str, since: datetime | None = None
-    ) -> list[InboxMessage]:
+    def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
         ig_user_id = self.credentials.get("ig_user_id", "me")
         params: dict = {"fields": "id,participants,messages{id,message,from,created_time}"}
         if since:
@@ -436,18 +412,14 @@ class InstagramProvider(SocialProvider):
                         sender_id=sender.get("id", ""),
                         sender_name=sender.get("name", sender.get("username", "")),
                         text=msg.get("message", ""),
-                        timestamp=datetime.fromisoformat(
-                            msg["created_time"].replace("+0000", "+00:00")
-                        ),
+                        timestamp=datetime.fromisoformat(msg["created_time"].replace("+0000", "+00:00")),
                         message_type="dm",
                         extra={"conversation_id": convo["id"]},
                     )
                 )
         return messages
 
-    def reply_to_message(
-        self, access_token: str, message_id: str, text: str
-    ) -> ReplyResult:
+    def reply_to_message(self, access_token: str, message_id: str, text: str) -> ReplyResult:
         """Reply to a conversation. message_id should be the conversation ID."""
         resp = self._request(
             "POST",

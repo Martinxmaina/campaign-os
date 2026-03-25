@@ -215,9 +215,7 @@ class LinkedInProvider(SocialProvider):
             "lifecycleState": "PUBLISHED",
         }
 
-    def _publish_text_post(
-        self, access_token: str, author: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_text_post(self, access_token: str, author: str, content: PublishContent) -> PublishResult:
         body = self._build_post_body(author, content.text)
 
         if content.link_url:
@@ -243,9 +241,7 @@ class LinkedInProvider(SocialProvider):
             extra={"urn": post_urn},
         )
 
-    def _publish_image_post(
-        self, access_token: str, author: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_image_post(self, access_token: str, author: str, content: PublishContent) -> PublishResult:
         # Step 1: initialize upload
         init_resp = self._request(
             "POST",
@@ -296,9 +292,7 @@ class LinkedInProvider(SocialProvider):
             extra={"urn": post_urn, "image_urn": image_urn},
         )
 
-    def _publish_video_post(
-        self, access_token: str, author: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_video_post(self, access_token: str, author: str, content: PublishContent) -> PublishResult:
         # Step 1: initialize video upload
         init_resp = self._request(
             "POST",
@@ -349,9 +343,7 @@ class LinkedInProvider(SocialProvider):
             extra={"urn": post_urn, "video_urn": video_urn},
         )
 
-    def _publish_article_post(
-        self, access_token: str, author: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_article_post(self, access_token: str, author: str, content: PublishContent) -> PublishResult:
         body = self._build_post_body(author, content.text)
         body["content"] = {
             "article": {
@@ -374,9 +366,7 @@ class LinkedInProvider(SocialProvider):
             extra={"urn": post_urn},
         )
 
-    def _publish_poll_post(
-        self, access_token: str, author: str, content: PublishContent
-    ) -> PublishResult:
+    def _publish_poll_post(self, access_token: str, author: str, content: PublishContent) -> PublishResult:
         poll_question = content.extra.get("poll_question", content.text)
         poll_options = content.extra.get("poll_options", [])
         poll_duration = content.extra.get("poll_duration", "THREE_DAYS")
@@ -415,9 +405,7 @@ class LinkedInProvider(SocialProvider):
     # Comments
     # ------------------------------------------------------------------
 
-    def publish_comment(
-        self, access_token: str, post_id: str, text: str
-    ) -> CommentResult:
+    def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         """Post a comment on a LinkedIn post.
 
         post_id should be the post URN (e.g. urn:li:share:123456).
@@ -496,9 +484,7 @@ class LinkedInProvider(SocialProvider):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _upload_binary(
-        self, access_token: str, upload_url: str, source_url: str
-    ) -> None:
+    def _upload_binary(self, access_token: str, upload_url: str, source_url: str) -> None:
         """Download media from source_url and upload to LinkedIn's upload URL.
 
         Uses httpx directly for streaming upload since the base _request

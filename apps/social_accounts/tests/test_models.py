@@ -78,9 +78,7 @@ class TestSocialAccount:
 
     def test_workspace_scoped_manager(self, workspace, social_account, organization):
         """for_workspace() should filter by workspace."""
-        other_ws = workspace.__class__.objects.create(
-            name="Other WS", organization=organization
-        )
+        other_ws = workspace.__class__.objects.create(name="Other WS", organization=organization)
         SocialAccount.objects.create(
             workspace=other_ws,
             platform="linkedin",

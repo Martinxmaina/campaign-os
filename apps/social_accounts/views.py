@@ -33,9 +33,7 @@ def _get_provider_for_platform(platform: str, org_id, **extra_credentials):
 
     # Try org-specific credentials first, then env fallback
     try:
-        cred = PlatformCredential.objects.for_org(org_id).get(
-            platform=platform, is_configured=True
-        )
+        cred = PlatformCredential.objects.for_org(org_id).get(platform=platform, is_configured=True)
         credentials = cred.credentials
     except PlatformCredential.DoesNotExist:
         env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
@@ -50,9 +48,7 @@ def _get_provider_for_platform(platform: str, org_id, **extra_credentials):
 def _get_configured_platforms(org_id):
     """Return set of platform names that have credentials configured."""
     configured = set(
-        PlatformCredential.objects.for_org(org_id)
-        .filter(is_configured=True)
-        .values_list("platform", flat=True)
+        PlatformCredential.objects.for_org(org_id).filter(is_configured=True).values_list("platform", flat=True)
     )
     env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
     for platform, creds in env_creds.items():
@@ -65,9 +61,7 @@ def _build_redirect_uri(request, platform):
     """Build the OAuth callback URL."""
     from django.urls import reverse
 
-    return request.build_absolute_uri(
-        reverse("social_accounts:oauth_callback", kwargs={"platform": platform})
-    )
+    return request.build_absolute_uri(reverse("social_accounts:oauth_callback", kwargs={"platform": platform}))
 
 
 def _sign_state(workspace_id, platform, user_id, nonce):
@@ -101,9 +95,7 @@ def _unsign_state(state_str):
 @require_permission("manage_social_accounts")
 def account_list(request, workspace_id):
     """List connected social accounts for a workspace."""
-    accounts = SocialAccount.objects.for_workspace(workspace_id).order_by(
-        "platform", "account_name"
-    )
+    accounts = SocialAccount.objects.for_workspace(workspace_id).order_by("platform", "account_name")
     configured_platforms = _get_configured_platforms(request.org.id)
 
     return render(
@@ -149,20 +141,15 @@ def connect_platform(request, workspace_id):
     if platform not in configured_platforms:
         messages.error(
             request,
-            f"Platform credentials for {platform} are not configured. "
-            "Please contact your administrator.",
+            f"Platform credentials for {platform} are not configured. Please contact your administrator.",
         )
         return redirect("social_accounts:connect", workspace_id=workspace_id)
 
     # Special auth flows
     if platform == PlatformCredential.Platform.BLUESKY:
-        return redirect(
-            "social_accounts:connect_bluesky", workspace_id=workspace_id
-        )
+        return redirect("social_accounts:connect_bluesky", workspace_id=workspace_id)
     if platform == PlatformCredential.Platform.MASTODON:
-        return redirect(
-            "social_accounts:connect_mastodon", workspace_id=workspace_id
-        )
+        return redirect("social_accounts:connect_mastodon", workspace_id=workspace_id)
 
     # Standard OAuth flow
     provider = _get_provider_for_platform(platform, request.org.id)
@@ -234,9 +221,7 @@ def oauth_callback(request, platform):
     # Re-check workspace membership — user may have lost access during OAuth
     from apps.members.models import WorkspaceMembership
 
-    ws_membership = WorkspaceMembership.objects.filter(
-        user=request.user, workspace_id=workspace_id
-    ).first()
+    ws_membership = WorkspaceMembership.objects.filter(user=request.user, workspace_id=workspace_id).first()
     if not ws_membership:
         raise PermissionDenied("You no longer have access to this workspace.")
     perms = ws_membership.effective_permissions
@@ -296,9 +281,7 @@ def oauth_callback(request, platform):
             refresh_token=tokens.refresh_token,
             expires_in=tokens.expires_in,
         )
-        messages.success(
-            request, f"Connected {profile.name} successfully."
-        )
+        messages.success(request, f"Connected {profile.name} successfully.")
 
     except Exception:
         logger.exception("OAuth callback failed for %s", platform)
@@ -412,9 +395,7 @@ def connect_bluesky(request, workspace_id):
         )
 
     try:
-        provider = _get_provider_for_platform(
-            PlatformCredential.Platform.BLUESKY, request.org.id
-        )
+        provider = _get_provider_for_platform(PlatformCredential.Platform.BLUESKY, request.org.id)
         tokens = provider.create_session(handle, app_password)
         profile = provider.get_profile(tokens.access_token)
 
@@ -486,9 +467,7 @@ def connect_mastodon(request, workspace_id):
                 request.org.id,
                 instance_url=instance_url,
             )
-            redirect_uri = _build_redirect_uri(
-                request, PlatformCredential.Platform.MASTODON
-            )
+            redirect_uri = _build_redirect_uri(request, PlatformCredential.Platform.MASTODON)
             app_data = provider.register_app(instance_url, redirect_uri)
             registration = MastodonAppRegistration.objects.create(
                 instance_url=instance_url,
@@ -548,19 +527,13 @@ def connect_mastodon(request, workspace_id):
 @require_POST
 def reconnect(request, workspace_id, account_id):
     """Re-initiate OAuth for an existing account."""
-    account = get_object_or_404(
-        SocialAccount.objects.for_workspace(workspace_id), id=account_id
-    )
+    account = get_object_or_404(SocialAccount.objects.for_workspace(workspace_id), id=account_id)
     platform = account.platform
 
     if platform == PlatformCredential.Platform.BLUESKY:
-        return redirect(
-            "social_accounts:connect_bluesky", workspace_id=workspace_id
-        )
+        return redirect("social_accounts:connect_bluesky", workspace_id=workspace_id)
     if platform == PlatformCredential.Platform.MASTODON:
-        return redirect(
-            "social_accounts:connect_mastodon", workspace_id=workspace_id
-        )
+        return redirect("social_accounts:connect_mastodon", workspace_id=workspace_id)
 
     # Standard OAuth reconnect
     provider = _get_provider_for_platform(platform, request.org.id)
@@ -588,9 +561,7 @@ def reconnect(request, workspace_id, account_id):
 @require_POST
 def disconnect(request, workspace_id, account_id):
     """Disconnect a social account."""
-    account = get_object_or_404(
-        SocialAccount.objects.for_workspace(workspace_id), id=account_id
-    )
+    account = get_object_or_404(SocialAccount.objects.for_workspace(workspace_id), id=account_id)
 
     # Try to revoke token
     try:

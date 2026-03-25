@@ -113,9 +113,7 @@ class SocialProvider(ABC):
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         """Publish content to the platform."""
 
-    def publish_comment(
-        self, access_token: str, post_id: str, text: str
-    ) -> CommentResult:
+    def publish_comment(self, access_token: str, post_id: str, text: str) -> CommentResult:
         """Post a comment on an existing post (e.g. first comment)."""
         raise NotImplementedError(f"{self.platform_name} does not support comments")
 
@@ -127,37 +125,25 @@ class SocialProvider(ABC):
         """Fetch engagement metrics for a specific post."""
         raise NotImplementedError(f"{self.platform_name} does not support post metrics")
 
-    def get_account_metrics(
-        self, access_token: str, date_range: tuple[datetime, datetime]
-    ) -> AccountMetrics:
+    def get_account_metrics(self, access_token: str, date_range: tuple[datetime, datetime]) -> AccountMetrics:
         """Fetch account-level metrics for a date range."""
-        raise NotImplementedError(
-            f"{self.platform_name} does not support account metrics"
-        )
+        raise NotImplementedError(f"{self.platform_name} does not support account metrics")
 
     def get_audience_demographics(self, access_token: str) -> Demographics:
         """Fetch audience demographic data."""
-        raise NotImplementedError(
-            f"{self.platform_name} does not support demographics"
-        )
+        raise NotImplementedError(f"{self.platform_name} does not support demographics")
 
     # ------------------------------------------------------------------
     # Inbox (optional — override per provider)
     # ------------------------------------------------------------------
 
-    def get_messages(
-        self, access_token: str, since: datetime | None = None
-    ) -> list[InboxMessage]:
+    def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
         """Fetch inbox messages (comments, mentions, DMs)."""
         raise NotImplementedError(f"{self.platform_name} does not support inbox")
 
-    def reply_to_message(
-        self, access_token: str, message_id: str, text: str
-    ) -> ReplyResult:
+    def reply_to_message(self, access_token: str, message_id: str, text: str) -> ReplyResult:
         """Reply to an inbox message."""
-        raise NotImplementedError(
-            f"{self.platform_name} does not support message replies"
-        )
+        raise NotImplementedError(f"{self.platform_name} does not support message replies")
 
     # ------------------------------------------------------------------
     # Token management
@@ -224,8 +210,7 @@ class SocialProvider(ABC):
 
         if response.status_code >= 400:
             raise APIError(
-                f"{self.platform_name} API error {response.status_code}: "
-                f"{response.text[:500]}",
+                f"{self.platform_name} API error {response.status_code}: {response.text[:500]}",
                 status_code=response.status_code,
                 platform=self.platform_name,
                 raw_response=self._safe_json(response),

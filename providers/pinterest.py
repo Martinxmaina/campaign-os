@@ -83,9 +83,7 @@ class PinterestProvider(SocialProvider):
         """Build HTTP Basic auth header for token endpoints."""
         client_id = self.credentials["client_id"]
         client_secret = self.credentials["client_secret"]
-        encoded = base64.b64encode(
-            f"{client_id}:{client_secret}".encode()
-        ).decode()
+        encoded = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
         return {"Authorization": f"Basic {encoded}"}
 
     # ------------------------------------------------------------------
@@ -177,9 +175,7 @@ class PinterestProvider(SocialProvider):
     # Publishing
     # ------------------------------------------------------------------
 
-    def publish_post(
-        self, access_token: str, content: PublishContent
-    ) -> PublishResult:
+    def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         board_id = content.extra.get("board_id")
         if not board_id:
             raise PublishError(
@@ -189,9 +185,7 @@ class PinterestProvider(SocialProvider):
 
         payload: dict = {
             "board_id": board_id,
-            "description": (content.description or content.text or "")[
-                :self.max_caption_length
-            ],
+            "description": (content.description or content.text or "")[: self.max_caption_length],
         }
 
         if content.title:

@@ -168,9 +168,7 @@ class TikTokProvider(SocialProvider):
     # Publishing
     # ------------------------------------------------------------------
 
-    def publish_post(
-        self, access_token: str, content: PublishContent
-    ) -> PublishResult:
+    def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         if content.post_type != PostType.VIDEO:
             raise PublishError(
                 "TikTok only supports VIDEO posts",
@@ -180,20 +178,15 @@ class TikTokProvider(SocialProvider):
         privacy_level = content.extra.get("privacy_level", DEFAULT_PRIVACY_LEVEL)
         if privacy_level not in VALID_PRIVACY_LEVELS:
             raise PublishError(
-                f"Invalid privacy_level '{privacy_level}'. "
-                f"Must be one of {sorted(VALID_PRIVACY_LEVELS)}",
+                f"Invalid privacy_level '{privacy_level}'. Must be one of {sorted(VALID_PRIVACY_LEVELS)}",
                 platform=self.platform_name,
             )
 
         # Determine upload source strategy
         if content.media_urls:
-            return self._publish_pull_from_url(
-                access_token, content, privacy_level
-            )
+            return self._publish_pull_from_url(access_token, content, privacy_level)
         if content.media_files:
-            return self._publish_file_upload(
-                access_token, content, privacy_level
-            )
+            return self._publish_file_upload(access_token, content, privacy_level)
         raise PublishError(
             "No video source provided (media_urls or media_files required)",
             platform=self.platform_name,
@@ -208,7 +201,7 @@ class TikTokProvider(SocialProvider):
         """Publish using PULL_FROM_URL source."""
         payload = {
             "post_info": {
-                "title": (content.title or content.text or "")[:self.max_caption_length],
+                "title": (content.title or content.text or "")[: self.max_caption_length],
                 "privacy_level": privacy_level,
             },
             "source_info": {
@@ -239,7 +232,7 @@ class TikTokProvider(SocialProvider):
         # Step 1: Initialize upload
         payload = {
             "post_info": {
-                "title": (content.title or content.text or "")[:self.max_caption_length],
+                "title": (content.title or content.text or "")[: self.max_caption_length],
                 "privacy_level": privacy_level,
             },
             "source_info": {

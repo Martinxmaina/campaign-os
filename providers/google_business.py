@@ -242,8 +242,7 @@ class GoogleBusinessProvider(SocialProvider):
         """Publish a local post to Google Business Profile."""
         if content.text and len(content.text) > self.max_caption_length:
             raise PublishError(
-                f"Post text exceeds {self.max_caption_length} characters "
-                f"(got {len(content.text)})",
+                f"Post text exceeds {self.max_caption_length} characters (got {len(content.text)})",
                 platform=self.platform_name,
             )
 
@@ -261,10 +260,7 @@ class GoogleBusinessProvider(SocialProvider):
 
         # Attach media
         if content.media_urls:
-            body["media"] = [
-                {"mediaFormat": "PHOTO", "sourceUrl": url}
-                for url in content.media_urls
-            ]
+            body["media"] = [{"mediaFormat": "PHOTO", "sourceUrl": url} for url in content.media_urls]
 
         # EVENT type extras
         if topic_type == "EVENT" and content.extra.get("event"):
