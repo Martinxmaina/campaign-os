@@ -126,10 +126,7 @@ def inbox_feed(request, workspace_id):
 
     assigned = request.GET.get("assigned")
     if assigned:
-        if assigned == "unassigned":
-            qs = qs.filter(assigned_to__isnull=True)
-        else:
-            qs = qs.filter(assigned_to_id=assigned)
+        qs = qs.filter(assigned_to__isnull=True) if assigned == "unassigned" else qs.filter(assigned_to_id=assigned)
 
     sentiments = request.GET.getlist("sentiment")
     if sentiments:
