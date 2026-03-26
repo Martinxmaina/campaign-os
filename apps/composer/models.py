@@ -1,11 +1,14 @@
 """Post Composer models (F-2.1) — core content creation entities.
 
 Models:
+    ContentCategory — Content categories for posts (e.g., Educational, Promotional).
     Idea — A content idea on the Kanban board, scoped to a workspace.
     Post — The base content entity, scoped to a workspace.
     PlatformPost — Per-platform variant of a post (caption/media overrides).
     PostMedia — Media attachments with ordering and alt text.
     PostVersion — Immutable snapshots for version history.
+    PostTemplate — Reusable post templates.
+    CSVImportJob — Tracks bulk CSV import jobs.
 """
 
 import uuid
@@ -15,6 +18,42 @@ from django.db import models
 from django.utils import timezone
 
 from apps.common.managers import WorkspaceScopedManager
+
+
+class ContentCategory(models.Model):
+    """Content category for posts (e.g., Educational, Promotional, Behind the scenes).
+
+    Categories are defined per workspace and used for calendar filtering,
+    analytics filtering, and queue-based scheduling.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="content_categories",
+    )
+    name = models.CharField(max_length=100)
+    color = models.CharField(
+        max_length=7,
+        default="#3B82F6",
+        help_text="Hex color for calendar display, e.g. #FF5733",
+    )
+    position = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_content_category"
+        ordering = ["position", "name"]
+        unique_together = [("workspace", "name")]
+        verbose_name_plural = "content categories"
+
+    def __str__(self):
+        return self.name
 
 
 class Idea(models.Model):
@@ -148,6 +187,13 @@ class Post(models.Model):
     first_comment = models.TextField(blank=True, default="")
     internal_notes = models.TextField(blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
+    category = models.ForeignKey(
+        ContentCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="posts",
+    )
 
     # Status
     status = models.CharField(
@@ -379,3 +425,96 @@ class PostVersion(models.Model):
 
     def __str__(self):
         return f"PostVersion(v{self.version_number}) for {self.post_id}"
+
+
+class PostTemplate(models.Model):
+    """Reusable post template scoped to a workspace.
+
+    Stores a snapshot of post configuration (caption, media references,
+    category, platform selections, first comment, hashtags) that can be
+    loaded into the composer as a starting point.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="post_templates",
+    )
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True, default="")
+    template_data = models.JSONField(
+        default=dict,
+        help_text=(
+            "JSON snapshot: caption, first_comment, category_id, "
+            "platform_ids, hashtags, media_asset_ids, tags"
+        ),
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_post_template"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
+class CSVImportJob(models.Model):
+    """Tracks a bulk CSV import job for posts."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pending"
+        PROCESSING = "processing", "Processing"
+        COMPLETED = "completed", "Completed"
+        FAILED = "failed", "Failed"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="csv_import_jobs",
+    )
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    file = models.FileField(upload_to="csv_imports/")
+    column_mapping = models.JSONField(
+        default=dict,
+        help_text="Maps CSV column indices to post fields.",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    total_rows = models.PositiveIntegerField(default=0)
+    processed_rows = models.PositiveIntegerField(default=0)
+    result_summary = models.JSONField(
+        default=dict,
+        help_text='{"created": N, "errors": N, "warnings": [...]}',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_csv_import_job"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"CSVImportJob({self.status}): {self.total_rows} rows"

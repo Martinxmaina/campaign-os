@@ -11,12 +11,15 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_POST
 
-from apps.composer.models import Post
+from apps.composer.models import ContentCategory, Post
 from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
 
-from .models import PostingSlot
+from django.shortcuts import redirect
+
+from .holidays import get_holidays_for_range
+from .models import CustomCalendarEvent, PostingSlot, Queue
 
 
 def _get_workspace(request, workspace_id):
@@ -66,6 +69,17 @@ def _get_filtered_posts(workspace, request):
     if authors:
         qs = qs.filter(author_id__in=authors)
 
+    # Category filter
+    categories = request.GET.getlist("category")
+    if categories:
+        qs = qs.filter(category_id__in=categories)
+
+    # Tag filter
+    tags = request.GET.getlist("tag")
+    if tags:
+        for tag in tags:
+            qs = qs.filter(tags__contains=[tag])
+
     # Date range
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
@@ -105,12 +119,25 @@ def calendar_view(request, workspace_id):
         .values("id", "name", "email")
     )
 
+    # Categories for filter
+    categories = ContentCategory.objects.for_workspace(workspace.id)
+
+    # Unique tags across workspace posts for filter autocomplete
+    all_tags = set()
+    for post_tags in Post.objects.for_workspace(workspace.id).values_list("tags", flat=True):
+        if post_tags:
+            all_tags.update(post_tags)
+
     # Active filters
     active_filters = {
         "statuses": request.GET.getlist("status"),
         "platforms": request.GET.getlist("platform"),
         "authors": request.GET.getlist("author"),
+        "categories": request.GET.getlist("category"),
+        "tags": request.GET.getlist("tag"),
     }
+
+    show_holidays = request.GET.get("holidays") == "1"
 
     context = {
         "workspace": workspace,
@@ -118,8 +145,11 @@ def calendar_view(request, workspace_id):
         "target_date": target_date,
         "social_accounts": social_accounts,
         "authors": authors,
+        "categories": categories,
+        "all_tags": sorted(all_tags),
         "active_filters": active_filters,
         "status_choices": Post.Status.choices,
+        "show_holidays": show_holidays,
     }
 
     return _render_calendar_partial(request, workspace, view_type, target_date, context)
@@ -172,12 +202,29 @@ def _month_view(request, workspace, target_date, context):
         if post.scheduled_at:
             posts_by_date[post.scheduled_at.date()].append(post)
 
+    # Holiday overlay
+    holidays_by_date = {}
+    if context.get("show_holidays"):
+        holidays_by_date = get_holidays_for_range(first_day, last_day)
+
+    # Custom calendar events
+    custom_events = (
+        CustomCalendarEvent.objects.for_workspace(workspace.id)
+        .filter(start_date__lte=last_day, end_date__gte=first_day)
+        .order_by("start_date")
+    )
+
     # Build weeks data
     calendar_weeks = []
     for week in weeks:
         week_data = []
         for day in week:
             day_posts = posts_by_date.get(day, [])
+            day_holidays = holidays_by_date.get(day.isoformat(), [])
+            day_events = [
+                e for e in custom_events
+                if e.start_date <= day <= e.end_date
+            ]
             week_data.append(
                 {
                     "date": day,
@@ -186,6 +233,8 @@ def _month_view(request, workspace, target_date, context):
                     "posts": day_posts[:3],
                     "total_posts": len(day_posts),
                     "overflow": max(0, len(day_posts) - 3),
+                    "holidays": day_holidays,
+                    "events": day_events,
                 }
             )
         calendar_weeks.append(week_data)
@@ -423,4 +472,199 @@ def delete_posting_slot(request, workspace_id, slot_id):
 
     if request.htmx:
         return HttpResponse(status=204, headers={"HX-Trigger": "slotsUpdated"})
+    return JsonResponse({"deleted": True})
+
+
+# ---------------------------------------------------------------------------
+# Queue CRUD
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def queue_list(request, workspace_id):
+    """List all queues for this workspace."""
+    workspace = _get_workspace(request, workspace_id)
+    queues = (
+        Queue.objects.for_workspace(workspace.id)
+        .select_related("social_account", "category")
+    )
+    accounts = SocialAccount.objects.for_workspace(workspace.id).filter(
+        connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+    )
+    categories = ContentCategory.objects.for_workspace(workspace.id)
+
+    return render(
+        request,
+        "calendar/queues.html",
+        {
+            "workspace": workspace,
+            "queues": queues,
+            "accounts": accounts,
+            "categories": categories,
+        },
+    )
+
+
+@login_required
+@require_POST
+def queue_create(request, workspace_id):
+    """Create a new queue."""
+    workspace = _get_workspace(request, workspace_id)
+    name = request.POST.get("name", "").strip()
+    account_id = request.POST.get("social_account_id")
+    category_id = request.POST.get("category_id") or None
+
+    if not name or not account_id:
+        return JsonResponse({"error": "Name and account required."}, status=400)
+
+    account = get_object_or_404(SocialAccount, id=account_id, workspace=workspace)
+
+    Queue.objects.create(
+        workspace=workspace,
+        name=name,
+        social_account=account,
+        category_id=category_id,
+    )
+
+    if request.htmx:
+        return HttpResponse(status=204, headers={"HX-Trigger": "queueChanged"})
+    return redirect("calendar:queue_list", workspace_id=workspace.id)
+
+
+@login_required
+def queue_detail(request, workspace_id, queue_id):
+    """Show queue entries in order with drag-to-reorder."""
+    workspace = _get_workspace(request, workspace_id)
+    queue = get_object_or_404(Queue, id=queue_id, workspace=workspace)
+    entries = (
+        queue.entries.select_related("post__author")
+        .prefetch_related("post__platform_posts__social_account")
+        .order_by("position")
+    )
+
+    return render(
+        request,
+        "calendar/queue_detail.html",
+        {
+            "workspace": workspace,
+            "queue": queue,
+            "entries": entries,
+        },
+    )
+
+
+@login_required
+@require_POST
+def queue_delete(request, workspace_id, queue_id):
+    """Delete a queue."""
+    workspace = _get_workspace(request, workspace_id)
+    queue = get_object_or_404(Queue, id=queue_id, workspace=workspace)
+    queue.delete()
+
+    if request.htmx:
+        return HttpResponse(status=204, headers={"HX-Trigger": "queueChanged"})
+    return redirect("calendar:queue_list", workspace_id=workspace.id)
+
+
+@login_required
+@require_POST
+def queue_reorder(request, workspace_id, queue_id):
+    """Reorder queue entries via HTMX drag-and-drop."""
+    workspace = _get_workspace(request, workspace_id)
+    queue = get_object_or_404(Queue, id=queue_id, workspace=workspace)
+
+    entry_ids_str = request.POST.get("entry_ids", "")
+    entry_ids = [s.strip() for s in entry_ids_str.split(",") if s.strip()]
+
+    from .services import reorder_queue
+
+    reorder_queue(queue, entry_ids)
+
+    if request.htmx:
+        return HttpResponse(status=204, headers={"HX-Trigger": "queueReordered"})
+    return JsonResponse({"reordered": True})
+
+
+# ---------------------------------------------------------------------------
+# Custom Calendar Events CRUD
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@require_POST
+def event_create(request, workspace_id):
+    """Create a custom calendar event via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    title = request.POST.get("title", "").strip()
+    start_date_str = request.POST.get("start_date", "")
+    end_date_str = request.POST.get("end_date", "")
+    color = request.POST.get("color", "#3B82F6")
+    description = request.POST.get("description", "").strip()
+
+    if not title or not start_date_str or not end_date_str:
+        return JsonResponse({"error": "Title, start date, and end date required."}, status=400)
+
+    try:
+        start = date.fromisoformat(start_date_str)
+        end = date.fromisoformat(end_date_str)
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Invalid date format."}, status=400)
+
+    if end < start:
+        end = start
+
+    CustomCalendarEvent.objects.create(
+        workspace=workspace,
+        title=title,
+        description=description,
+        start_date=start,
+        end_date=end,
+        color=color,
+        created_by=request.user,
+    )
+
+    if request.htmx:
+        return HttpResponse(status=204, headers={"HX-Trigger": "calendarRefresh"})
+    return JsonResponse({"created": True})
+
+
+@login_required
+@require_POST
+def event_edit(request, workspace_id, event_id):
+    """Edit a custom calendar event."""
+    workspace = _get_workspace(request, workspace_id)
+    event = get_object_or_404(CustomCalendarEvent, id=event_id, workspace=workspace)
+
+    event.title = request.POST.get("title", event.title).strip()
+    event.description = request.POST.get("description", event.description).strip()
+    event.color = request.POST.get("color", event.color)
+
+    import contextlib
+
+    start_str = request.POST.get("start_date")
+    end_str = request.POST.get("end_date")
+    if start_str:
+        with contextlib.suppress(ValueError, TypeError):
+            event.start_date = date.fromisoformat(start_str)
+    if end_str:
+        with contextlib.suppress(ValueError, TypeError):
+            event.end_date = date.fromisoformat(end_str)
+
+    event.save()
+
+    if request.htmx:
+        return HttpResponse(status=204, headers={"HX-Trigger": "calendarRefresh"})
+    return JsonResponse({"updated": True})
+
+
+@login_required
+@require_POST
+def event_delete(request, workspace_id, event_id):
+    """Delete a custom calendar event."""
+    workspace = _get_workspace(request, workspace_id)
+    event = get_object_or_404(CustomCalendarEvent, id=event_id, workspace=workspace)
+    event.delete()
+
+    if request.htmx:
+        return HttpResponse(status=204, headers={"HX-Trigger": "calendarRefresh"})
     return JsonResponse({"deleted": True})

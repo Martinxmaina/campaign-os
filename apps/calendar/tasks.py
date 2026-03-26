@@ -1,0 +1,132 @@
+"""Background tasks for the Content Calendar (F-2.3)."""
+
+import logging
+from datetime import timedelta
+
+from dateutil.relativedelta import relativedelta
+from django.utils import timezone
+
+from apps.composer.models import PlatformPost, Post, PostMedia
+
+from .models import RecurrenceRule
+
+logger = logging.getLogger(__name__)
+
+LOOKAHEAD_DAYS = 90
+
+
+def generate_recurring_posts():
+    """Generate individual Post records from active RecurrenceRules.
+
+    Runs daily. For each active rule, computes recurrence dates from the
+    source post's scheduled_at up to 90 days ahead. Creates clones of the
+    source post for each date not yet generated.
+    """
+    rules = RecurrenceRule.objects.filter(is_active=True).select_related("post")
+    now = timezone.now()
+    cutoff = now.date() + timedelta(days=LOOKAHEAD_DAYS)
+    generated_total = 0
+
+    for rule in rules:
+        source = rule.post
+        if not source.scheduled_at:
+            continue
+
+        # Respect end_date
+        end = rule.end_date or cutoff
+        if end > cutoff:
+            end = cutoff
+
+        # Compute recurrence dates
+        base_date = source.scheduled_at.date()
+        base_time = source.scheduled_at.time()
+        base_tz = source.scheduled_at.tzinfo
+
+        dates = _compute_recurrence_dates(
+            base_date, rule.frequency, rule.interval, end
+        )
+
+        # Filter out dates already generated (posts with same source scheduled time)
+        existing_dates = set(
+            Post.objects.filter(
+                workspace=source.workspace,
+                caption=source.caption,
+                scheduled_at__date__in=dates,
+            )
+            .exclude(id=source.id)
+            .values_list("scheduled_at__date", flat=True)
+        )
+
+        for d in dates:
+            if d in existing_dates or d <= now.date():
+                continue
+
+            from datetime import datetime
+
+            scheduled_dt = datetime.combine(d, base_time)
+            if base_tz:
+                scheduled_dt = scheduled_dt.replace(tzinfo=base_tz)
+
+            # Clone the post
+            new_post = Post.objects.create(
+                workspace=source.workspace,
+                author=source.author,
+                caption=source.caption,
+                first_comment=source.first_comment,
+                internal_notes=source.internal_notes,
+                tags=source.tags,
+                category=source.category,
+                status="scheduled",
+                scheduled_at=scheduled_dt,
+            )
+
+            # Clone platform posts
+            for pp in source.platform_posts.all():
+                PlatformPost.objects.create(
+                    post=new_post,
+                    social_account=pp.social_account,
+                    platform_specific_caption=pp.platform_specific_caption,
+                    platform_specific_first_comment=pp.platform_specific_first_comment,
+                    platform_specific_media=pp.platform_specific_media,
+                )
+
+            # Clone media attachments
+            for pm in source.media_attachments.all():
+                PostMedia.objects.create(
+                    post=new_post,
+                    media_asset=pm.media_asset,
+                    position=pm.position,
+                    alt_text=pm.alt_text,
+                    platform_overrides=pm.platform_overrides,
+                )
+
+            generated_total += 1
+
+        rule.last_generated_at = now
+        rule.save(update_fields=["last_generated_at"])
+
+    logger.info("Generated %d recurring posts.", generated_total)
+    return generated_total
+
+
+def _compute_recurrence_dates(base_date, frequency, interval, end_date):
+    """Compute a list of recurrence dates from base_date to end_date."""
+    dates = []
+    current = base_date
+
+    for _ in range(365):  # Safety limit
+        if frequency == "daily":
+            current = current + timedelta(days=interval)
+        elif frequency == "weekly":
+            current = current + timedelta(weeks=interval)
+        elif frequency == "monthly":
+            current = current + relativedelta(months=interval)
+        else:
+            break
+
+        if current > end_date:
+            break
+
+        dates.append(current)
+
+    return dates

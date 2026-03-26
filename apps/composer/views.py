@@ -16,8 +16,16 @@ from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
 
-from .forms import IdeaForm, PostForm
-from .models import Idea, PlatformPost, Post, PostMedia, PostVersion
+from .forms import ContentCategoryForm, PostForm
+from .models import (
+    ContentCategory,
+    Idea,
+    PlatformPost,
+    Post,
+    PostMedia,
+    PostTemplate,
+    PostVersion,
+)
 
 
 def _get_workspace(request, workspace_id):
@@ -113,11 +121,33 @@ def compose(request, workspace_id, post_id=None):
     default_first_comment = workspace.default_first_comment
     default_hashtags = workspace.default_hashtags
 
+    # Categories for dropdown
+    categories = ContentCategory.objects.for_workspace(workspace.id)
+
+    # Queues for "Add to Queue" action
+    from apps.calendar.models import Queue
+
+    queues = Queue.objects.for_workspace(workspace.id).filter(
+        is_active=True
+    ).select_related("social_account", "category")
+
     # Permissions for action buttons
     membership = request.workspace_membership
     perms = membership.effective_permissions if membership else {}
     can_publish = perms.get("publish_directly", False)
     can_approve = perms.get("approve_posts", False)
+    ws_role = membership.workspace_role if membership else None
+    can_view_internal_notes = ws_role not in ("client", "viewer") if ws_role else True
+
+    # Template data pre-fill (if using a template)
+    template_id = request.GET.get("template")
+    template_data = None
+    if template_id and not post:
+        try:
+            tpl = PostTemplate.objects.get(id=template_id, workspace=workspace)
+            template_data = tpl.template_data
+        except PostTemplate.DoesNotExist:
+            pass
 
     context = {
         "workspace": workspace,
@@ -131,7 +161,11 @@ def compose(request, workspace_id, post_id=None):
         "default_hashtags": json.dumps(default_hashtags),
         "can_publish": can_publish,
         "can_approve": can_approve,
+        "can_view_internal_notes": can_view_internal_notes,
         "is_edit": post is not None,
+        "categories": categories,
+        "queues": queues,
+        "template_data_json": json.dumps(template_data) if template_data else "null",
     }
     return render(request, "composer/compose.html", context)
 
@@ -188,6 +222,30 @@ def save_post(request, workspace_id, post_id=None):
             raise PermissionDenied("You do not have permission to publish directly.")
         post.scheduled_at = timezone.now()
         post.transition_to("scheduled")  # Worker picks up scheduled posts where scheduled_at <= now()
+    elif action == "add_to_queue":
+        queue_id = request.POST.get("queue_id")
+        if not queue_id:
+            return JsonResponse({"errors": {"queue": "Queue selection required."}}, status=400)
+        from apps.calendar.models import Queue
+        from apps.calendar.services import add_to_queue
+
+        queue = get_object_or_404(Queue, id=queue_id, workspace=workspace, is_active=True)
+        if not post.status or post.status in ("", "draft"):
+            post.status = "draft"
+        post.save()
+        add_to_queue(post, queue)
+        # Save version and return early — post.save() already called
+        _save_version(post, request.user)
+        if request.htmx:
+            return HttpResponse(
+                status=204,
+                headers={
+                    "HX-Trigger": json.dumps(
+                        {"postSaved": {"postId": str(post.id), "status": post.status}}
+                    ),
+                },
+            )
+        return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     elif action == "submit_for_approval":
         if post.status == "draft" or post.status == "changes_requested":
             post.transition_to("pending_review")
@@ -197,6 +255,36 @@ def save_post(request, workspace_id, post_id=None):
             post.status = "draft"
 
     post.save()
+
+    # Handle recurring post creation
+    make_recurring = request.POST.get("make_recurring")
+    if make_recurring and action == "schedule" and post.scheduled_at:
+        from apps.calendar.models import RecurrenceRule
+
+        frequency = request.POST.get("recurrence_frequency", "weekly")
+        interval_str = request.POST.get("recurrence_interval", "1")
+        end_date_str = request.POST.get("recurrence_end_date", "")
+        try:
+            interval_val = int(interval_str)
+        except (ValueError, TypeError):
+            interval_val = 1
+        end_date_val = None
+        if end_date_str:
+            try:
+                from datetime import date as date_cls
+
+                end_date_val = date_cls.fromisoformat(end_date_str)
+            except (ValueError, TypeError):
+                pass
+        RecurrenceRule.objects.update_or_create(
+            post=post,
+            defaults={
+                "frequency": frequency,
+                "interval": interval_val,
+                "end_date": end_date_val,
+                "is_active": True,
+            },
+        )
 
     # Sync platform posts
     selected_ids_str = request.POST.get("selected_accounts", "")
@@ -670,5 +758,470 @@ def idea_board(request, workspace_id):
             "columns": columns,
             "all_tags": all_tags,
             "active_tag": tag,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Content Categories CRUD
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def category_list(request, workspace_id):
+    """Settings page for managing content categories."""
+    workspace = _get_workspace(request, workspace_id)
+    categories = ContentCategory.objects.for_workspace(workspace.id)
+    form = ContentCategoryForm()
+
+    return render(
+        request,
+        "composer/categories.html",
+        {
+            "workspace": workspace,
+            "categories": categories,
+            "form": form,
+        },
+    )
+
+
+@login_required
+@require_POST
+def category_create(request, workspace_id):
+    """Create a new content category via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    form = ContentCategoryForm(request.POST)
+
+    if not form.is_valid():
+        return HttpResponse("Invalid data.", status=400)
+
+    category = form.save(commit=False)
+    category.workspace = workspace
+    max_pos = ContentCategory.objects.for_workspace(workspace.id).aggregate(
+        models.Max("position")
+    )["position__max"]
+    category.position = (max_pos or 0) + 1
+    category.save()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "categoryChanged"},
+    )
+
+
+@login_required
+@require_POST
+def category_edit(request, workspace_id, category_id):
+    """Edit a content category via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    category = get_object_or_404(ContentCategory, id=category_id, workspace=workspace)
+    form = ContentCategoryForm(request.POST, instance=category)
+
+    if not form.is_valid():
+        return HttpResponse("Invalid data.", status=400)
+
+    form.save()
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "categoryChanged"},
+    )
+
+
+@login_required
+@require_POST
+def category_delete(request, workspace_id, category_id):
+    """Delete a content category via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    category = get_object_or_404(ContentCategory, id=category_id, workspace=workspace)
+    category.delete()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "categoryChanged"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Post Templates
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def template_list(request, workspace_id):
+    """Settings page for managing post templates."""
+    workspace = _get_workspace(request, workspace_id)
+    templates = PostTemplate.objects.for_workspace(workspace.id).select_related("created_by")
+
+    return render(
+        request,
+        "composer/templates_list.html",
+        {
+            "workspace": workspace,
+            "templates": templates,
+        },
+    )
+
+
+@login_required
+@require_POST
+def save_as_template(request, workspace_id, post_id):
+    """Save the current post as a reusable template."""
+    workspace = _get_workspace(request, workspace_id)
+    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+
+    name = request.POST.get("template_name", "").strip()
+    if not name:
+        name = f"Template from {post.caption_snippet or 'post'}"
+
+    description = request.POST.get("template_description", "").strip()
+
+    template_data = {
+        "caption": post.caption,
+        "first_comment": post.first_comment,
+        "category_id": str(post.category_id) if post.category_id else None,
+        "tags": post.tags,
+        "platform_account_ids": [
+            str(pp.social_account_id) for pp in post.platform_posts.all()
+        ],
+        "media_asset_ids": [
+            str(pm.media_asset_id) for pm in post.media_attachments.all()
+        ],
+    }
+
+    PostTemplate.objects.create(
+        workspace=workspace,
+        name=name,
+        description=description,
+        template_data=template_data,
+        created_by=request.user,
+    )
+
+    if request.htmx:
+        return HttpResponse(
+            status=204,
+            headers={"HX-Trigger": "templateSaved"},
+        )
+    return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+
+
+@login_required
+@require_POST
+def template_delete(request, workspace_id, template_id):
+    """Delete a post template."""
+    workspace = _get_workspace(request, workspace_id)
+    tpl = get_object_or_404(PostTemplate, id=template_id, workspace=workspace)
+    tpl.delete()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "templateChanged"},
+    )
+
+
+@login_required
+@require_GET
+def template_picker(request, workspace_id):
+    """HTMX partial returning list of templates for the picker modal."""
+    workspace = _get_workspace(request, workspace_id)
+    templates = PostTemplate.objects.for_workspace(workspace.id).select_related("created_by")
+
+    return render(
+        request,
+        "composer/partials/template_picker.html",
+        {
+            "workspace": workspace,
+            "templates": templates,
+        },
+    )
+
+
+@login_required
+@require_GET
+def use_template(request, workspace_id, template_id):
+    """Redirect to composer with template data pre-filled."""
+    workspace = _get_workspace(request, workspace_id)
+    get_object_or_404(PostTemplate, id=template_id, workspace=workspace)
+
+    from django.urls import reverse
+
+    compose_url = reverse("composer:compose", kwargs={"workspace_id": workspace.id})
+    return redirect(f"{compose_url}?template={template_id}")
+
+
+# ---------------------------------------------------------------------------
+# CSV Import
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@require_permission("create_posts")
+def csv_upload(request, workspace_id):
+    """Render CSV upload page or handle file upload and show column mapping."""
+    workspace = _get_workspace(request, workspace_id)
+
+    if request.method == "POST" and request.FILES.get("csv_file"):
+        import csv
+        import io
+
+        csv_file = request.FILES["csv_file"]
+        decoded = csv_file.read().decode("utf-8-sig")
+        reader = csv.reader(io.StringIO(decoded))
+        rows = list(reader)
+
+        if not rows:
+            return render(
+                request,
+                "composer/csv_import.html",
+                {"workspace": workspace, "error": "CSV file is empty."},
+            )
+
+        headers = rows[0]
+        preview_rows = rows[1:6]  # First 5 data rows
+
+        # Auto-detect column mapping
+        field_map = {
+            "date": ["date", "publish_date", "scheduled_date"],
+            "time": ["time", "publish_time", "scheduled_time"],
+            "platforms": ["platform", "platforms", "channel", "channels"],
+            "caption": ["caption", "text", "content", "message", "body"],
+            "media_url": ["media_url", "media", "image_url", "image", "video_url"],
+            "category": ["category", "content_category", "type"],
+            "tags": ["tags", "labels", "tag"],
+            "first_comment": ["first_comment", "comment"],
+        }
+
+        auto_mapping = {}
+        for col_idx, header in enumerate(headers):
+            header_lower = header.strip().lower().replace(" ", "_")
+            for field, aliases in field_map.items():
+                if header_lower in aliases:
+                    auto_mapping[field] = col_idx
+                    break
+
+        # Store CSV in session for the next step
+        request.session[f"csv_import_{workspace.id}"] = {
+            "headers": headers,
+            "rows": rows[1:],  # Exclude header
+            "filename": csv_file.name,
+        }
+
+        import json as json_mod
+
+        return render(
+            request,
+            "composer/partials/csv_mapping.html",
+            {
+                "workspace": workspace,
+                "headers": headers,
+                "preview_rows": preview_rows,
+                "auto_mapping": auto_mapping,
+                "auto_mapping_json": json_mod.dumps(auto_mapping),
+                "field_choices": list(field_map.keys()),
+            },
+        )
+
+    return render(
+        request,
+        "composer/csv_import.html",
+        {"workspace": workspace},
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def csv_preview(request, workspace_id):
+    """Validate CSV rows with the selected column mapping and show preview."""
+    workspace = _get_workspace(request, workspace_id)
+    csv_data = request.session.get(f"csv_import_{workspace.id}")
+
+    if not csv_data:
+        return HttpResponse("No CSV data found. Please upload again.", status=400)
+
+    # Parse column mapping from POST
+    mapping = {}
+    for field in ["date", "time", "platforms", "caption", "media_url", "category", "tags", "first_comment"]:
+        col_idx = request.POST.get(f"map_{field}", "")
+        if col_idx != "":
+            import contextlib
+
+            with contextlib.suppress(ValueError, TypeError):
+                mapping[field] = int(col_idx)
+
+    rows = csv_data["rows"]
+    errors = []
+    valid_count = 0
+
+    from apps.social_accounts.models import SocialAccount
+
+    valid_platforms = {p[0].lower() for p in SocialAccount.Platform.choices}
+    connected_accounts = set(
+        SocialAccount.objects.for_workspace(workspace.id)
+        .filter(connection_status=SocialAccount.ConnectionStatus.CONNECTED)
+        .values_list("platform", flat=True)
+    )
+
+    for row_idx, row in enumerate(rows, start=2):  # Row 2 = first data row
+        row_errors = []
+
+        # Validate date
+        if "date" in mapping:
+            date_val = row[mapping["date"]].strip() if mapping["date"] < len(row) else ""
+            if date_val:
+                try:
+                    from datetime import date as date_cls
+
+                    date_cls.fromisoformat(date_val)
+                except ValueError:
+                    row_errors.append(f"Invalid date format '{date_val}' (expected YYYY-MM-DD)")
+            else:
+                row_errors.append("Date is empty")
+
+        # Validate platforms
+        if "platforms" in mapping:
+            platforms_val = row[mapping["platforms"]].strip() if mapping["platforms"] < len(row) else ""
+            if platforms_val:
+                for p in platforms_val.split(","):
+                    p = p.strip().lower()
+                    if p and p not in valid_platforms:
+                        row_errors.append(f"Unknown platform '{p}'")
+                    elif p and p not in connected_accounts:
+                        row_errors.append(f"Platform '{p}' is not connected")
+
+        # Validate caption
+        if "caption" in mapping:
+            caption_val = row[mapping["caption"]].strip() if mapping["caption"] < len(row) else ""
+            if not caption_val:
+                row_errors.append("Caption is empty")
+
+        if row_errors:
+            errors.append({"row": row_idx, "errors": row_errors})
+        else:
+            valid_count += 1
+
+    # Store mapping in session
+    request.session[f"csv_mapping_{workspace.id}"] = mapping
+
+    return render(
+        request,
+        "composer/partials/csv_validation.html",
+        {
+            "workspace": workspace,
+            "total_rows": len(rows),
+            "valid_count": valid_count,
+            "errors": errors[:50],  # Show max 50 errors
+            "has_more_errors": len(errors) > 50,
+        },
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def csv_confirm_import(request, workspace_id):
+    """Kick off the CSV import as a background job."""
+    workspace = _get_workspace(request, workspace_id)
+    csv_data = request.session.get(f"csv_import_{workspace.id}")
+    mapping = request.session.get(f"csv_mapping_{workspace.id}")
+
+    if not csv_data or not mapping:
+        return HttpResponse("No CSV data found. Please upload again.", status=400)
+
+    from apps.social_accounts.models import SocialAccount
+
+    rows = csv_data["rows"]
+    created_count = 0
+    error_count = 0
+
+    for row in rows:
+        try:
+            caption = row[mapping["caption"]].strip() if "caption" in mapping and mapping["caption"] < len(row) else ""
+            if not caption:
+                error_count += 1
+                continue
+
+            post = Post(
+                workspace=workspace,
+                author=request.user,
+                caption=caption,
+                status="draft",
+            )
+
+            # Date + time
+            if "date" in mapping and mapping["date"] < len(row):
+                date_str = row[mapping["date"]].strip()
+                time_str = ""
+                if "time" in mapping and mapping["time"] < len(row):
+                    time_str = row[mapping["time"]].strip()
+
+                if date_str:
+                    import zoneinfo
+
+                    ws_tz = workspace.effective_timezone or "UTC"
+                    tz = zoneinfo.ZoneInfo(ws_tz)
+                    from datetime import time as time_cls
+
+                    d = datetime.strptime(date_str, "%Y-%m-%d").date()
+                    t = datetime.strptime(time_str, "%H:%M").time() if time_str else time_cls(9, 0)
+                    naive_dt = datetime.combine(d, t)
+                    post.scheduled_at = naive_dt.replace(tzinfo=tz)
+                    post.status = "scheduled"
+
+            # First comment
+            if "first_comment" in mapping and mapping["first_comment"] < len(row):
+                post.first_comment = row[mapping["first_comment"]].strip()
+
+            # Tags
+            if "tags" in mapping and mapping["tags"] < len(row):
+                tags_raw = row[mapping["tags"]].strip()
+                if tags_raw:
+                    post.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+            # Category
+            if "category" in mapping and mapping["category"] < len(row):
+                cat_name = row[mapping["category"]].strip()
+                if cat_name:
+                    cat, _ = ContentCategory.objects.get_or_create(
+                        workspace=workspace,
+                        name=cat_name,
+                        defaults={"color": "#3B82F6"},
+                    )
+                    post.category = cat
+
+            post.save()
+
+            # Platforms
+            if "platforms" in mapping and mapping["platforms"] < len(row):
+                platforms_str = row[mapping["platforms"]].strip()
+                if platforms_str:
+                    for p in platforms_str.split(","):
+                        p = p.strip().lower()
+                        accounts = SocialAccount.objects.filter(
+                            workspace=workspace,
+                            platform=p,
+                            connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+                        )
+                        for acc in accounts:
+                            PlatformPost.objects.get_or_create(
+                                post=post,
+                                social_account=acc,
+                            )
+
+            created_count += 1
+        except Exception:
+            error_count += 1
+
+    # Clean up session data
+    request.session.pop(f"csv_import_{workspace.id}", None)
+    request.session.pop(f"csv_mapping_{workspace.id}", None)
+
+    return render(
+        request,
+        "composer/partials/csv_progress.html",
+        {
+            "workspace": workspace,
+            "created_count": created_count,
+            "error_count": error_count,
+            "total_rows": len(rows),
         },
     )
