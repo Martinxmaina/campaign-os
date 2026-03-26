@@ -118,9 +118,7 @@ def _resolve_channels(user, event_type: str) -> list[str]:
 
     Checks user preferences first; falls back to DEFAULT_CHANNELS.
     """
-    prefs = NotificationPreference.objects.filter(
-        user=user, event_type=event_type
-    ).values_list("channel", "is_enabled")
+    prefs = NotificationPreference.objects.filter(user=user, event_type=event_type).values_list("channel", "is_enabled")
 
     pref_map = dict(prefs)
 
@@ -192,9 +190,7 @@ def _dispatch(delivery: NotificationDelivery) -> None:
         else:
             delivery.status = DeliveryStatus.PENDING
             backoff_idx = min(delivery.attempts - 1, len(RETRY_BACKOFF_MINUTES) - 1)
-            delivery.next_retry_at = timezone.now() + timedelta(
-                minutes=RETRY_BACKOFF_MINUTES[backoff_idx]
-            )
+            delivery.next_retry_at = timezone.now() + timedelta(minutes=RETRY_BACKOFF_MINUTES[backoff_idx])
 
         delivery.save(update_fields=["status", "error_message", "next_retry_at"])
 
