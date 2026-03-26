@@ -113,7 +113,7 @@ def notify(
     return notification
 
 
-def _resolve_channels(user, event_type: str) -> list[str]:
+def _resolve_channels(user, event_type: str) -> list[Channel]:
     """Determine which channels are enabled for this user + event_type.
 
     Checks user preferences first; falls back to DEFAULT_CHANNELS.
