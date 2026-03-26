@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Organization Calendar — Postbean{% endblock %}
+
+{% block page_header %}
+<h1 class="text-base font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.01em;">Organization Calendar</h1>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    .cross-cal-day {
+        min-height: 110px;
+        border-right: 1px solid #E7E5E4;
+        border-bottom: 1px solid #E7E5E4;
+        padding: 6px;
+        transition: background 150ms ease;
+    }
+    .cross-cal-day:hover { background: #FAFAF9; }
+    .cross-cal-day.today { background: #FFF7ED; }
+    .cross-cal-day.other-month { opacity: 0.4; }
+    .cross-cal-day .day-num {
+        font-size: 12px; font-weight: 600;
+        width: 24px; height: 24px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: 4px;
+    }
+    .cross-cal-day.today .day-num {
+        background: #F97316; color: white;
+    }
+    .cross-post-chip {
+        display: flex; align-items: center; gap: 4px;
+        padding: 2px 6px; border-radius: 6px;
+        font-size: 10px; font-weight: 500;
+        margin-bottom: 2px; cursor: pointer;
+        transition: all 150ms ease;
+        text-decoration: none;
+        max-width: 100%; overflow: hidden;
+        background: #F5F5F4;
+    }
+    .cross-post-chip:hover { transform: translateX(1px); }
+    .cross-post-chip .ws-dot { width: 4px; height: 4px; border-radius: 50%; flex-shrink: 0; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="-m-6">
+    <!-- Toolbar -->
+    <div class="bg-white border-b border-stone-200 px-6 py-3 flex items-center gap-4">
+        <!-- Navigation -->
+        <div class="flex items-center gap-2">
+            <a href="?date={{ prev_date }}" class="w-7 h-7 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+            </a>
+            <a href="?date={{ next_date }}" class="w-7 h-7 flex items-center justify-center rounded-md text-stone-400 hover:text-stone-600 hover:bg-stone-100 transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+            </a>
+            <span class="text-sm font-semibold text-stone-800 ml-1">{{ period_label }}</span>
+        </div>
+
+        <div class="flex-1"></div>
+
+        <!-- Workspace filter -->
+        <div class="flex items-center gap-2 flex-wrap" x-data="{ showFilter: false }">
+            <button @click="showFilter = !showFilter" class="text-xs font-semibold py-1.5 px-3 rounded-full border border-stone-200 hover:border-stone-300 text-stone-600 hover:text-stone-800 transition-colors flex items-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/></svg>
+                Workspaces
+            </button>
+            <div x-show="showFilter" x-cloak class="flex items-center gap-2 flex-wrap">
+                {% for ws in workspaces %}
+                <a href="?{% if ws.id|stringformat:'s' in selected_workspace_ids %}{% for sid in selected_workspace_ids %}{% if sid != ws.id|stringformat:'s' %}workspace={{ sid }}&{% endif %}{% endfor %}{% else %}{% for sid in selected_workspace_ids %}workspace={{ sid }}&{% endfor %}workspace={{ ws.id }}{% endif %}&date={{ target_date|date:'Y-m-d' }}"
+                   class="inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full border transition-colors
+                          {% if ws.id|stringformat:'s' in selected_workspace_ids or not selected_workspace_ids %}
+                          border-stone-300 bg-stone-50 text-stone-800
+                          {% else %}
+                          border-stone-200 text-stone-500 hover:border-stone-300
+                          {% endif %}">
+                    <span class="w-3 h-3 rounded-full flex-shrink-0" style="background: {{ ws.primary_color|default:'#F97316' }};"></span>
+                    {{ ws.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Workspace color legend -->
+    <div class="px-6 py-2 bg-stone-50 border-b border-stone-200 flex items-center gap-4 flex-wrap">
+        <span class="text-[10px] font-semibold text-stone-400 uppercase tracking-wide">Workspaces:</span>
+        {% for ws in workspaces %}
+        <span class="inline-flex items-center gap-1.5 text-[11px] text-stone-600">
+            <span class="w-2.5 h-2.5 rounded-full" style="background: {{ ws.primary_color|default:'#F97316' }};"></span>
+            {{ ws.name }}
+        </span>
+        {% endfor %}
+    </div>
+
+    <!-- Month Grid -->
+    <div class="px-6 pt-4">
+        <!-- Day headers -->
+        <div class="grid grid-cols-7 text-center mb-1">
+            {% for day_name in day_names %}
+            <div class="text-[11px] font-semibold text-stone-400 uppercase tracking-wide py-2">{{ day_name }}</div>
+            {% endfor %}
+        </div>
+
+        <!-- Calendar grid -->
+        <div class="border border-stone-200 rounded-xl overflow-hidden">
+            {% for week in calendar_weeks %}
+            <div class="grid grid-cols-7">
+                {% for day in week %}
+                <div class="cross-cal-day {% if day.is_today %}today{% endif %} {% if not day.is_current_month %}other-month{% endif %}">
+                    <div class="day-num">{{ day.date.day }}</div>
+
+                    {% for post in day.posts %}
+                    <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
+                       class="cross-post-chip"
+                       title="{{ post.workspace.name }}: {{ post.caption_snippet }}">
+                        <span class="ws-dot" style="background: {{ post.workspace.primary_color|default:'#F97316' }};"></span>
+                        <span class="truncate">{{ post.caption_snippet|truncatechars:30 }}</span>
+                    </a>
+                    {% endfor %}
+
+                    {% if day.overflow > 0 %}
+                    <span class="text-[10px] text-stone-400 font-medium pl-1">+{{ day.overflow }} more</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

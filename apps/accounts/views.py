@@ -20,9 +20,7 @@ def dashboard(request):
 
     # Fallback: try to find any workspace the user belongs to
     membership = (
-        WorkspaceMembership.objects.filter(user=user, workspace__is_archived=False)
-        .select_related("workspace")
-        .first()
+        WorkspaceMembership.objects.filter(user=user, workspace__is_archived=False).select_related("workspace").first()
     )
     if membership:
         user.last_workspace_id = membership.workspace.id

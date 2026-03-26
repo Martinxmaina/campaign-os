@@ -2,7 +2,7 @@
 
 from django import forms
 
-from .models import Idea, Post
+from .models import ContentCategory, Idea, Post, PostTemplate
 
 
 class IdeaForm(forms.ModelForm):
@@ -40,7 +40,7 @@ class PostForm(forms.ModelForm):
 
     class Meta:
         model = Post
-        fields = ["caption", "first_comment", "internal_notes", "tags"]
+        fields = ["caption", "first_comment", "internal_notes", "tags", "category"]
         widgets = {
             "caption": forms.Textarea(
                 attrs={
@@ -72,6 +72,51 @@ class PostForm(forms.ModelForm):
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
         return tags
+
+
+class ContentCategoryForm(forms.ModelForm):
+    """Form for creating/editing content categories."""
+
+    class Meta:
+        model = ContentCategory
+        fields = ["name", "color"]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "placeholder": "e.g., Educational, Promotional...",
+                    "class": "form-input w-full",
+                }
+            ),
+            "color": forms.TextInput(
+                attrs={
+                    "type": "color",
+                    "class": "w-10 h-10 rounded-lg border border-stone-200 cursor-pointer p-0.5",
+                }
+            ),
+        }
+
+
+class PostTemplateForm(forms.ModelForm):
+    """Form for creating/editing post templates."""
+
+    class Meta:
+        model = PostTemplate
+        fields = ["name", "description"]
+        widgets = {
+            "name": forms.TextInput(
+                attrs={
+                    "placeholder": "Template name...",
+                    "class": "form-input w-full",
+                }
+            ),
+            "description": forms.Textarea(
+                attrs={
+                    "rows": 2,
+                    "placeholder": "Optional description...",
+                    "class": "form-input w-full",
+                }
+            ),
+        }
 
 
 class PlatformOverrideForm(forms.Form):

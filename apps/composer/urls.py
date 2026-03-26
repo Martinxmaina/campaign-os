@@ -32,4 +32,19 @@ urlpatterns = [
     path("compose/<uuid:post_id>/remove-media/<uuid:media_id>/", views.remove_media, name="remove_media"),
     # Drafts
     path("drafts/", views.drafts_list, name="drafts_list"),
+    # Content Categories
+    path("categories/", views.category_list, name="category_list"),
+    path("categories/create/", views.category_create, name="category_create"),
+    path("categories/<uuid:category_id>/edit/", views.category_edit, name="category_edit"),
+    path("categories/<uuid:category_id>/delete/", views.category_delete, name="category_delete"),
+    # Post Templates
+    path("templates/", views.template_list, name="template_list"),
+    path("templates/<uuid:template_id>/delete/", views.template_delete, name="template_delete"),
+    path("templates/<uuid:template_id>/use/", views.use_template, name="use_template"),
+    path("templates/picker/", views.template_picker, name="template_picker"),
+    path("compose/<uuid:post_id>/save-as-template/", views.save_as_template, name="save_as_template"),
+    # CSV Import
+    path("import/csv/", views.csv_upload, name="csv_upload"),
+    path("import/csv/preview/", views.csv_preview, name="csv_preview"),
+    path("import/csv/confirm/", views.csv_confirm_import, name="csv_confirm_import"),
 ]

@@ -1,6 +1,7 @@
 {% comment %}
 Month view grid — 7 columns, N rows of weeks.
 Context: calendar_weeks, month_name, prev_month, next_month, day_names, unscheduled_drafts, workspace.
+Enhanced with: holidays, custom events, category colors, recurring badges.
 {% endcomment %}
 
 <div class="bg-white" style="animation: slideUp 200ms cubic-bezier(0.16,1,0.3,1) both">
@@ -20,7 +21,33 @@ Context: calendar_weeks, month_name, prev_month, next_month, day_names, unschedu
         <div class="cal-day {% if day.is_today %}today{% endif %} {% if not day.is_current_month %}other-month{% endif %}"
              @dragover.prevent="allowDrop($event)"
              @drop="dropOnSlot($event, '{{ day.date|date:'Y-m-d' }}', 9)">
-            <div class="day-num">{{ day.date.day }}</div>
+            <div class="flex items-center justify-between mb-1">
+                <div class="day-num">{{ day.date.day }}</div>
+                {% if day.holidays %}
+                <div class="flex items-center gap-0.5">
+                    {% for h in day.holidays %}
+                    <span class="text-[10px]" title="{{ h.name }}">{{ h.emoji }}</span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+
+            {% if day.holidays %}
+            <div class="mb-1">
+                {% for h in day.holidays %}
+                <div class="text-[9px] text-amber-600 font-medium leading-tight truncate" title="{{ h.name }}">{{ h.name }}</div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Custom events as colored bars -->
+            {% for event in day.events %}
+            <div class="text-[9px] font-semibold text-white px-1.5 py-0.5 rounded mb-0.5 truncate"
+                 style="background: {{ event.color }};"
+                 title="{{ event.title }}{% if event.description %} — {{ event.description }}{% endif %}">
+                {{ event.title }}
+            </div>
+            {% endfor %}
 
             {% for post in day.posts %}
             <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=post.id %}"
@@ -28,8 +55,15 @@ Context: calendar_weeks, month_name, prev_month, next_month, day_names, unschedu
                draggable="true"
                @dragstart="startDrag($event, '{{ post.id }}')"
                @dragend="endDrag($event)">
+                {% if post.category %}
+                <span class="w-1.5 h-full rounded-full flex-shrink-0 -ml-1 mr-0.5" style="background: {{ post.category.color }};"></span>
+                {% else %}
                 <span class="chip-dot"></span>
+                {% endif %}
                 <span class="truncate">{{ post.caption_snippet|truncatechars:28 }}</span>
+                {% if post.recurrence_rule %}
+                <svg class="w-3 h-3 text-current opacity-50 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                {% endif %}
             </a>
             {% endfor %}
 
