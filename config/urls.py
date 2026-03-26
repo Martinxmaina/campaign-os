@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 from apps.accounts.views import health_check
+from apps.approvals.views import org_approval_queue
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -19,6 +20,11 @@ urlpatterns = [
     path("workspace/<uuid:workspace_id>/calendar/", include("apps.calendar.urls")),
     path("workspace/<uuid:workspace_id>/inbox/", include("apps.inbox.urls")),
     path("webhooks/", include("apps.inbox.webhook_urls")),
+    # Approval Workflow (Stream F)
+    path("workspace/<uuid:workspace_id>/", include("apps.approvals.urls")),
+    path("approvals/org/", org_approval_queue, name="org_approval_queue"),
+    # Client Portal (Stream F)
+    path("portal/", include("apps.client_portal.urls")),
     path("notifications/", include("apps.notifications.urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),

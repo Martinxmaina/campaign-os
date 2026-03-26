@@ -18,6 +18,9 @@ class EventType(models.TextChoices):
     SOCIAL_ACCOUNT_DISCONNECTED = "social_account_disconnected", "Social account disconnected"
     REPORT_GENERATED = "report_generated", "Report generated"
     ENGAGEMENT_ALERT = "engagement_alert", "Engagement alert"
+    COMMENT_MENTION = "comment_mention", "Mentioned in a comment"
+    APPROVAL_REMINDER = "approval_reminder", "Approval reminder"
+    APPROVAL_STALLED = "approval_stalled", "Stalled approval escalation"
 
 
 class Channel(models.TextChoices):

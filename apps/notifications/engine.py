@@ -53,6 +53,9 @@ DEFAULT_CHANNELS: dict[str, dict[str, bool]] = {
     EventType.SOCIAL_ACCOUNT_DISCONNECTED: {Channel.IN_APP: True, Channel.EMAIL: True},
     EventType.REPORT_GENERATED: {Channel.IN_APP: True, Channel.EMAIL: True},
     EventType.ENGAGEMENT_ALERT: {Channel.IN_APP: True, Channel.EMAIL: True},
+    EventType.COMMENT_MENTION: {Channel.IN_APP: True, Channel.EMAIL: True},
+    EventType.APPROVAL_REMINDER: {Channel.IN_APP: True, Channel.EMAIL: True},
+    EventType.APPROVAL_STALLED: {Channel.IN_APP: True, Channel.EMAIL: True},
 }
 
 # Event types considered non-critical (suppressed during quiet hours).
