@@ -156,11 +156,16 @@ def _is_in_quiet_hours(user) -> bool:
 
     now_local = timezone.now().astimezone(user_tz).time()
 
-    if qh.start_time <= qh.end_time:
-        return qh.start_time <= now_local <= qh.end_time
+    import datetime
+
+    start = qh.start_time if isinstance(qh.start_time, datetime.time) else datetime.time.fromisoformat(qh.start_time)
+    end = qh.end_time if isinstance(qh.end_time, datetime.time) else datetime.time.fromisoformat(qh.end_time)
+
+    if start <= end:
+        return start <= now_local <= end
     else:
         # Overnight range (e.g., 22:00 - 07:00)
-        return now_local >= qh.start_time or now_local <= qh.end_time
+        return now_local >= start or now_local <= end
 
 
 def _dispatch(delivery: NotificationDelivery) -> None:
