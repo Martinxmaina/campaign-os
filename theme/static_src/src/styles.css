@@ -51,6 +51,7 @@
 
   /* Surfaces */
   --surface-0: #FFFFFF;
+  --surface-page: rgb(247, 246, 242);
   --surface-1: var(--neutral-50);
   --surface-2: var(--neutral-100);
   --surface-3: var(--neutral-200);
@@ -69,6 +70,14 @@
   --warning-500: #EAB308; --warning-50: #FEFCE8; --warning-700: #A16207;
   --error-500:   #EF4444; --error-50:   #FEF2F2; --error-700:   #B91C1C;
   --info-500:    #3B82F6; --info-50:    #EFF6FF; --info-700:    #1D4ED8;
+
+  /* Accent palette */
+  --accent-teal:    #14B8A6; --accent-teal-soft:    #F0FDFA;
+  --accent-sky:     #0EA5E9; --accent-sky-soft:     #F0F9FF;
+  --accent-rose:    #F43F5E; --accent-rose-soft:    #FFF1F2;
+  --accent-amber:   #F59E0B; --accent-amber-soft:   #FFFBEB;
+  --accent-indigo:  #6366F1; --accent-indigo-soft:  #EEF2FF;
+  --accent-emerald: #10B981; --accent-emerald-soft: #ECFDF5;
 
   /* Shadows */
   --shadow-xs:  0 1px 2px rgba(23,20,18,0.05);
@@ -111,6 +120,75 @@ body {
   background-image:
     radial-gradient(ellipse 80% 50% at 50% -20%, rgba(249,115,22,0.08), transparent),
     radial-gradient(ellipse 60% 40% at 100% 100%, rgba(20,184,166,0.04), transparent);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   SIDEBAR — uses CSS variables that Tailwind can't express
+   ═══════════════════════════════════════════════════════════════ */
+.sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--dur-fast) ease;
+  text-decoration: none;
+}
+.sidebar-nav-item:hover {
+  background: rgba(0, 0, 0, 0.04);
+  color: var(--text-primary);
+}
+.sidebar-nav-item.active {
+  background: var(--primary-soft);
+  color: var(--brand-700);
+  font-weight: 600;
+}
+.sidebar-section-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-ghost);
+  padding: 14px 10px 4px;
+}
+.sidebar-badge {
+  margin-left: auto;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  background: var(--surface-2);
+  color: var(--text-tertiary);
+}
+.sidebar-logo-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+  background: var(--primary);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* Sidebar collapsed state */
+.sidebar-collapsed .sidebar-nav-item {
+  justify-content: center;
+  padding: 8px;
+  gap: 0;
+}
+.sidebar-collapsed .sidebar-nav-label,
+.sidebar-collapsed .sidebar-section-label,
+.sidebar-collapsed .sidebar-section-label-wrap,
+.sidebar-collapsed .sidebar-badge {
+  display: none;
 }
 
 /* Focus ring utility */

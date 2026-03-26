@@ -1,0 +1,93 @@
+"""Context processors for sidebar and global template data."""
+
+from django.conf import settings
+
+
+def sidebar_context(request):
+    """Inject sidebar data into every template context.
+
+    Provides:
+        sidebar_workspaces: list of workspace objects the user belongs to
+        sidebar_channels: connected social accounts for the current workspace
+        sidebar_connectable_platforms: platforms available to connect
+    """
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        return {}
+
+    from apps.members.models import WorkspaceMembership
+    from apps.social_accounts.models import SocialAccount
+
+    # User's workspaces (non-archived)
+    workspace_memberships = (
+        WorkspaceMembership.objects.filter(
+            user=request.user,
+            workspace__is_archived=False,
+        )
+        .select_related("workspace")
+        .order_by("workspace__name")
+    )
+    sidebar_workspaces = [wm.workspace for wm in workspace_memberships]
+
+    # Connected channels for the current workspace
+    sidebar_channels = []
+    sidebar_connectable_platforms = []
+
+    workspace = getattr(request, "workspace", None)
+    org = getattr(request, "org", None)
+
+    if workspace:
+        sidebar_channels = list(
+            SocialAccount.objects.for_workspace(workspace.id)
+            .filter(connection_status=SocialAccount.ConnectionStatus.CONNECTED)
+            .order_by("platform", "account_name")
+        )
+
+        # Connectable platforms: not yet connected in this workspace.
+        # Show all known platforms (configured or not) so the sidebar
+        # always surfaces what can be connected. The connect page itself
+        # handles the "not configured" case with an admin prompt.
+        connected_platforms = {ch.platform for ch in sidebar_channels}
+        sidebar_connectable_platforms = [
+            (p, label)
+            for p, label in _platform_display_names()
+            if p not in connected_platforms
+        ]
+
+    return {
+        "sidebar_workspaces": sidebar_workspaces,
+        "sidebar_channels": sidebar_channels,
+        "sidebar_connectable_platforms": sidebar_connectable_platforms,
+    }
+
+
+def _get_configured_platforms(org_id):
+    """Return set of platform names that have credentials configured."""
+    from apps.credentials.models import PlatformCredential
+
+    configured = set(
+        PlatformCredential.objects.for_org(org_id)
+        .filter(is_configured=True)
+        .values_list("platform", flat=True)
+    )
+    env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+    for platform, creds in env_creds.items():
+        if any(v for v in creds.values()):
+            configured.add(platform)
+    return configured
+
+
+def _platform_display_names():
+    """Return list of (platform_key, display_name) tuples."""
+    return [
+        ("instagram", "Instagram"),
+        ("facebook", "Facebook"),
+        ("linkedin", "LinkedIn"),
+        ("tiktok", "TikTok"),
+        ("youtube", "YouTube"),
+        ("pinterest", "Pinterest"),
+        ("threads", "Threads"),
+        ("bluesky", "Bluesky"),
+        ("mastodon", "Mastodon"),
+        ("twitter", "X (Twitter)"),
+        ("google_business", "Google Business"),
+    ]

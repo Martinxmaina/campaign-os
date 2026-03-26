@@ -9,4 +9,4 @@ from apps.members.models import OrgMembership
 @require_org_role(OrgMembership.OrgRole.ADMIN)
 def settings_view(request):
     org = request.org
-    return render(request, "organizations/settings.html", {"organization": org})
+    return render(request, "organizations/settings.html", {"organization": org, "settings_active": "general"})

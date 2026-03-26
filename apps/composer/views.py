@@ -98,7 +98,7 @@ def compose(request, workspace_id, post_id=None):
     social_accounts = (
         SocialAccount.objects.for_workspace(workspace.id)
         .filter(
-            status=SocialAccount.Status.CONNECTED,
+            connection_status=SocialAccount.ConnectionStatus.CONNECTED,
         )
         .order_by("platform", "account_name")
     )

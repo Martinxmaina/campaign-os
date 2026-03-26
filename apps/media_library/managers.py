@@ -1,7 +1,6 @@
 """Custom managers for media library models."""
 
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.db import models
+from django.db import connection, models
 from django.db.models import Q
 
 
@@ -26,21 +25,31 @@ class MediaAssetManager(models.Manager):
         )
 
     def search(self, query, queryset=None):
-        """Full-text search on original_filename and tags."""
+        """Full-text search on filename and tags.
+
+        Uses PostgreSQL full-text search when available, falls back to
+        case-insensitive LIKE queries on SQLite.
+        """
         qs = queryset if queryset is not None else self.get_queryset()
         if not query:
             return qs
 
-        search_vector = SearchVector("filename", weight="A")
-        search_query = SearchQuery(query, search_type="websearch")
+        if connection.vendor == "postgresql":
+            from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 
-        qs = (
-            qs.annotate(
-                search=search_vector,
-                rank=SearchRank(search_vector, search_query),
+            search_vector = SearchVector("filename", weight="A")
+            search_query = SearchQuery(query, search_type="websearch")
+
+            qs = (
+                qs.annotate(
+                    search=search_vector,
+                    rank=SearchRank(search_vector, search_query),
+                )
+                .filter(Q(search=search_query) | Q(tags__contains=[query]))
+                .order_by("-rank")
             )
-            .filter(Q(search=search_query) | Q(tags__contains=[query]))
-            .order_by("-rank")
-        )
+        else:
+            # SQLite fallback: simple case-insensitive contains
+            qs = qs.filter(Q(filename__icontains=query) | Q(tags__icontains=query))
 
         return qs

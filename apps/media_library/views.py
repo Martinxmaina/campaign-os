@@ -549,6 +549,18 @@ def folder_rename(request, workspace_id, folder_id):
     if not name:
         return JsonResponse({"error": "Folder name is required"}, status=400)
 
+    # Check for duplicate sibling name before saving
+    duplicate = MediaFolder.objects.filter(
+        workspace=workspace,
+        parent_folder=folder.parent_folder,
+        name=name,
+    ).exclude(pk=folder.pk).exists()
+    if duplicate:
+        return JsonResponse(
+            {"error": f"A folder named '{name}' already exists in this location."},
+            status=400,
+        )
+
     folder.name = name
     folder.save(update_fields=["name", "updated_at"])
 
@@ -851,8 +863,12 @@ def shared_asset_detail(request, asset_id):
         pk=asset_id,
     )
 
+    # Provide the asset's workspace for URL resolution in templates.
+    # Shared assets still belong to a workspace; templates need workspace.id
+    # for download, edit, tag, and version-list URLs.
     context = {
         "asset": asset,
+        "workspace": asset.workspace,
         "is_shared_library": True,
         "is_admin": request.org_membership and request.org_membership.org_role in ("owner", "admin"),
     }

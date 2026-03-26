@@ -154,11 +154,30 @@ def _is_in_quiet_hours(user) -> bool:
 
     now_local = timezone.now().astimezone(user_tz).time()
 
-    if qh.start_time <= qh.end_time:
-        return qh.start_time <= now_local <= qh.end_time
+    # Coerce to time objects — fields may be raw strings if the in-memory
+    # QuietHours instance was populated from POST data and not yet refreshed.
+    from datetime import time as dt_time
+
+    start = qh.start_time
+    end = qh.end_time
+    if isinstance(start, str):
+        try:
+            parts = start.split(":")
+            start = dt_time(int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return False
+    if isinstance(end, str):
+        try:
+            parts = end.split(":")
+            end = dt_time(int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return False
+
+    if start <= end:
+        return start <= now_local <= end
     else:
         # Overnight range (e.g., 22:00 - 07:00)
-        return now_local >= qh.start_time or now_local <= qh.end_time
+        return now_local >= start or now_local <= end
 
 
 def _dispatch(delivery: NotificationDelivery) -> None:

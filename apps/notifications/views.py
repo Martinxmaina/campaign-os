@@ -168,12 +168,16 @@ def _save_preferences(request):
     # Save quiet hours
     quiet_hours, _ = QuietHours.objects.get_or_create(user=user)
     quiet_hours.is_enabled = "quiet_hours_enabled" in request.POST
+    from datetime import time as dt_time
+
     start = request.POST.get("quiet_hours_start", "").strip()
     end = request.POST.get("quiet_hours_end", "").strip()
     if start:
-        quiet_hours.start_time = start
+        parts = start.split(":")
+        quiet_hours.start_time = dt_time(int(parts[0]), int(parts[1]))
     if end:
-        quiet_hours.end_time = end
+        parts = end.split(":")
+        quiet_hours.end_time = dt_time(int(parts[0]), int(parts[1]))
     quiet_hours.timezone = request.POST.get("quiet_hours_timezone", "UTC").strip()
     quiet_hours.digest_mode = "digest_mode" in request.POST
     quiet_hours.save()

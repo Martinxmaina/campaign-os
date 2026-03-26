@@ -88,7 +88,7 @@ def calendar_view(request, workspace_id):
     social_accounts = (
         SocialAccount.objects.for_workspace(workspace.id)
         .filter(
-            status=SocialAccount.Status.CONNECTED,
+            connection_status=SocialAccount.ConnectionStatus.CONNECTED,
         )
         .order_by("platform")
     )
@@ -122,11 +122,7 @@ def calendar_view(request, workspace_id):
         "status_choices": Post.Status.choices,
     }
 
-    if request.htmx:
-        # HTMX request — return just the calendar grid partial
-        return _render_calendar_partial(request, workspace, view_type, target_date, context)
-
-    return render(request, "calendar/calendar.html", context)
+    return _render_calendar_partial(request, workspace, view_type, target_date, context)
 
 
 def _render_calendar_partial(request, workspace, view_type, target_date, context):
@@ -201,9 +197,9 @@ def _month_view(request, workspace, target_date, context):
     context.update(
         {
             "calendar_weeks": calendar_weeks,
-            "month_name": date(year, month, 1).strftime("%B %Y"),
-            "prev_month": prev_month.isoformat(),
-            "next_month": next_month.isoformat(),
+            "period_label": date(year, month, 1).strftime("%B %Y"),
+            "prev_date": prev_month.isoformat(),
+            "next_date": next_month.isoformat(),
             "unscheduled_drafts": drafts,
             "day_names": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
         }
@@ -243,9 +239,9 @@ def _week_view(request, workspace, target_date, context):
             "week_days": week_days,
             "hours": hours,
             "posts_by_slot": dict(posts_by_slot),
-            "prev_week": (monday - timedelta(weeks=1)).isoformat(),
-            "next_week": (monday + timedelta(weeks=1)).isoformat(),
-            "week_label": f"{week_days[0].strftime('%b %d')} – {week_days[6].strftime('%b %d, %Y')}",
+            "prev_date": (monday - timedelta(weeks=1)).isoformat(),
+            "next_date": (monday + timedelta(weeks=1)).isoformat(),
+            "period_label": f"{week_days[0].strftime('%b %d')} – {week_days[6].strftime('%b %d, %Y')}",
         }
     )
 
@@ -274,9 +270,9 @@ def _day_view(request, workspace, target_date, context):
         {
             "posts_by_hour": dict(posts_by_hour),
             "hours": hours,
-            "prev_day": (target_date - timedelta(days=1)).isoformat(),
-            "next_day": (target_date + timedelta(days=1)).isoformat(),
-            "day_label": target_date.strftime("%A, %B %d, %Y"),
+            "prev_date": (target_date - timedelta(days=1)).isoformat(),
+            "next_date": (target_date + timedelta(days=1)).isoformat(),
+            "period_label": target_date.strftime("%A, %B %d, %Y"),
         }
     )
 
@@ -291,6 +287,9 @@ def _list_view(request, workspace, target_date, context):
     context.update(
         {
             "posts": posts,
+            "period_label": "All Posts",
+            "prev_date": target_date.isoformat(),
+            "next_date": target_date.isoformat(),
         }
     )
 
@@ -349,7 +348,7 @@ def posting_slots(request, workspace_id):
     """Manage posting slots for a workspace's social accounts."""
     workspace = _get_workspace(request, workspace_id)
     accounts = SocialAccount.objects.for_workspace(workspace.id).filter(
-        status=SocialAccount.Status.CONNECTED,
+        connection_status=SocialAccount.ConnectionStatus.CONNECTED,
     )
 
     slots = (

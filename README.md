@@ -133,6 +133,95 @@ python manage.py process_tasks           # start worker
 
 Tailwind watcher is only needed when you're editing templates/CSS.
 
+## Fully Local Development (without Docker)
+
+Run everything natively — no Docker, no PostgreSQL install. Uses SQLite for the database.
+
+### Prerequisites
+
+- Python 3.12+
+- Node.js 20+
+
+### Setup
+
+**1. Clone and configure**
+
+```bash
+git clone https://github.com/yourorg/postbean.git
+cd postbean
+cp .env.example .env
+```
+
+**2. Switch to SQLite**
+
+Open `.env` and replace the `DATABASE_URL` line:
+
+```
+DATABASE_URL=sqlite:///db.sqlite3
+```
+
+That's it — no database server to install or manage.
+
+**3. Set up Python**
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+**4. Set up Tailwind CSS**
+
+```bash
+cd theme/static_src
+npm install
+cd ../..
+```
+
+**5. Run database migrations**
+
+```bash
+python manage.py migrate
+```
+
+**6. Create your admin account**
+
+```bash
+python manage.py createsuperuser
+```
+
+**7. Start the app (3 terminal tabs)**
+
+Tab 1 — Tailwind watcher:
+```bash
+cd theme/static_src && npm run start
+```
+
+Tab 2 — Django dev server:
+```bash
+source .venv/bin/activate
+python manage.py runserver
+```
+
+Tab 3 — Background worker:
+```bash
+source .venv/bin/activate
+python manage.py process_tasks
+```
+
+Open http://localhost:8000 and log in with the superuser you created.
+
+### Daily workflow (Docker-free)
+
+```bash
+source .venv/bin/activate                # activate Python env
+python manage.py runserver               # start web server
+# (open another tab)
+python manage.py process_tasks           # start worker
+```
+
+> **Note:** SQLite is perfect for local development and small deployments. For production or heavy concurrent usage, switch to PostgreSQL.
+
 ## Running Tests
 
 ```bash

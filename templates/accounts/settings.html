@@ -1,8 +1,8 @@
-{% extends "base.html" %}
-{% block page_title %}Account Settings{% endblock %}
+{% extends "layouts/settings.html" %}
+{% block title %}Profile — Settings — Postbean{% endblock %}
 {% block content %}
 <div class="max-w-2xl">
-    <h2 class="text-xl font-semibold mb-6">Account Settings</h2>
-    <p class="text-gray-500">Account settings page coming soon.</p>
+    <h2 class="text-xl font-semibold text-stone-900 mb-6">{% if settings_active == 'preferences' %}Preferences{% else %}Profile{% endif %}</h2>
+    <p class="text-stone-500">{% if settings_active == 'preferences' %}Preferences settings coming soon.{% else %}Profile settings coming soon.{% endif %}</p>
 </div>
 {% endblock %}

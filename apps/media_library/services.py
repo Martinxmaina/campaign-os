@@ -2,7 +2,9 @@
 
 import io
 import logging
+import os
 import subprocess
+import tempfile
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -259,8 +261,14 @@ def extract_video_metadata(file_path):
 
 def generate_video_thumbnail(file_path):
     """Generate a thumbnail from a video file using ffmpeg."""
+    fd = None
+    thumb_path = None
     try:
-        thumb_path = f"/tmp/thumb_{io.BytesIO().tell()}.jpg"
+        fd, thumb_path = tempfile.mkstemp(suffix=".jpg", prefix="postbean_thumb_")
+        # Close the fd immediately — ffmpeg will write to the path directly
+        os.close(fd)
+        fd = None
+
         result = subprocess.run(
             [
                 "ffmpeg",
@@ -285,6 +293,13 @@ def generate_video_thumbnail(file_path):
     except Exception:
         logger.exception("Failed to generate video thumbnail")
         return None
+    finally:
+        # Clean up temp file
+        if thumb_path:
+            try:
+                os.unlink(thumb_path)
+            except OSError:
+                pass
 
 
 def apply_image_edits(file_path_or_file, operations):

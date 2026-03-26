@@ -4,4 +4,4 @@ from django.shortcuts import render
 
 @login_required
 def member_list(request):
-    return render(request, "members/list.html")
+    return render(request, "members/list.html", {"settings_active": "members"})

@@ -4,10 +4,7 @@
 {% block title %}Calendar — {{ workspace.name }} — Postbean{% endblock %}
 
 {% block page_header %}
-<div class="flex items-center gap-4">
-    <h1 class="text-base font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.01em;">Calendar</h1>
-    <span class="text-xs text-stone-400">{{ workspace.name }}</span>
-</div>
+<h1 class="text-base font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.01em;">Calendar</h1>
 {% endblock %}
 
 {% block extra_head %}
@@ -97,13 +94,12 @@
 <div x-data="calendarApp()" class="-m-6">
 
     <!-- Toolbar -->
-    <div class="bg-white border-b border-stone-200 px-6 py-3 flex items-center gap-4 sticky top-0 z-10"
-         style="animation: slideUp 200ms cubic-bezier(0.16,1,0.3,1) both">
+    <div class="bg-white border-b border-stone-200 px-6 py-3 flex items-center gap-4">
 
-        <!-- Navigation arrows + month label -->
+        <!-- Navigation arrows + period label -->
         <div class="flex items-center gap-2">
             <button hx-get="{% url 'calendar:calendar' workspace_id=workspace.id %}"
-                    hx-vals='{"view": "{{ view_type }}", "date": "{{ prev_month|default:prev_week|default:prev_day }}"}'
+                    hx-vals='{"view": "{{ view_type }}", "date": "{{ prev_date }}"}'
                     hx-target="#calendar-content"
                     hx-swap="innerHTML"
                     hx-push-url="true"
@@ -112,10 +108,10 @@
             </button>
             <h2 class="text-sm font-semibold text-stone-900 min-w-[160px] text-center"
                 style="font-family: Georgia, 'Times New Roman', serif;">
-                {{ month_name|default:week_label|default:day_label }}
+                {{ period_label }}
             </h2>
             <button hx-get="{% url 'calendar:calendar' workspace_id=workspace.id %}"
-                    hx-vals='{"view": "{{ view_type }}", "date": "{{ next_month|default:next_week|default:next_day }}"}'
+                    hx-vals='{"view": "{{ view_type }}", "date": "{{ next_date }}"}'
                     hx-target="#calendar-content"
                     hx-swap="innerHTML"
                     hx-push-url="true"
@@ -134,27 +130,29 @@
 
         <!-- View switcher -->
         <div class="flex items-center bg-stone-50 rounded-full p-0.5 ml-auto">
-            {% for vtype in "month,week,day,list"|make_list %}
-            {% endfor %}
-            <button class="view-btn {% if view_type == 'month' %}active{% endif %}"
+            <button class="view-btn" :class="activeView === 'month' && 'active'"
+                    @click="activeView = 'month'"
                     hx-get="{% url 'calendar:calendar' workspace_id=workspace.id %}"
                     hx-vals='{"view": "month", "date": "{{ target_date|date:'Y-m-d' }}"}'
                     hx-target="#calendar-content" hx-swap="innerHTML" hx-push-url="true">
                 Month
             </button>
-            <button class="view-btn {% if view_type == 'week' %}active{% endif %}"
+            <button class="view-btn" :class="activeView === 'week' && 'active'"
+                    @click="activeView = 'week'"
                     hx-get="{% url 'calendar:calendar' workspace_id=workspace.id %}"
                     hx-vals='{"view": "week", "date": "{{ target_date|date:'Y-m-d' }}"}'
                     hx-target="#calendar-content" hx-swap="innerHTML" hx-push-url="true">
                 Week
             </button>
-            <button class="view-btn {% if view_type == 'day' %}active{% endif %}"
+            <button class="view-btn" :class="activeView === 'day' && 'active'"
+                    @click="activeView = 'day'"
                     hx-get="{% url 'calendar:calendar' workspace_id=workspace.id %}"
                     hx-vals='{"view": "day", "date": "{{ target_date|date:'Y-m-d' }}"}'
                     hx-target="#calendar-content" hx-swap="innerHTML" hx-push-url="true">
                 Day
             </button>
-            <button class="view-btn {% if view_type == 'list' %}active{% endif %}"
+            <button class="view-btn" :class="activeView === 'list' && 'active'"
+                    @click="activeView = 'list'"
                     hx-get="{% url 'calendar:calendar' workspace_id=workspace.id %}"
                     hx-vals='{"view": "list", "date": "{{ target_date|date:'Y-m-d' }}"}'
                     hx-target="#calendar-content" hx-swap="innerHTML" hx-push-url="true">
@@ -204,6 +202,7 @@
 <script>
 function calendarApp() {
     return {
+        activeView: '{{ view_type }}',
         draggedPostId: null,
 
         startDrag(event, postId) {
