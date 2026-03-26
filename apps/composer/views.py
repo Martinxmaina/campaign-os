@@ -729,10 +729,10 @@ def idea_move(request, workspace_id, idea_id):
     if new_status and new_status in dict(Idea.Status.choices):
         idea.status = new_status
     if new_position is not None:
-        try:
+        import contextlib
+
+        with contextlib.suppress(ValueError, TypeError):
             idea.position = int(new_position)
-        except (ValueError, TypeError):
-            pass
     idea.save()
 
     return HttpResponse(

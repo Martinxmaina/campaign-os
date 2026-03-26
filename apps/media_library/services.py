@@ -296,10 +296,10 @@ def generate_video_thumbnail(file_path):
     finally:
         # Clean up temp file
         if thumb_path:
-            try:
+            import contextlib
+
+            with contextlib.suppress(OSError):
                 os.unlink(thumb_path)
-            except OSError:
-                pass
 
 
 def apply_image_edits(file_path_or_file, operations):

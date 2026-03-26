@@ -33,7 +33,6 @@ def sidebar_context(request):
     sidebar_connectable_platforms = []
 
     workspace = getattr(request, "workspace", None)
-    org = getattr(request, "org", None)
 
     if workspace:
         sidebar_channels = list(
