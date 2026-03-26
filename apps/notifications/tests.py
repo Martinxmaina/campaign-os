@@ -1,3 +1,5 @@
+import datetime
+
 import pytest
 from django.utils import timezone
 
@@ -79,8 +81,8 @@ class TestNotifyEngine:
         QuietHours.objects.create(
             user=user,
             is_enabled=True,
-            start_time="00:00",
-            end_time="23:59",
+            start_time=datetime.time(0, 0),
+            end_time=datetime.time(23, 59),
             timezone="UTC",
         )
         notify(user, EventType.POST_PUBLISHED, "Published")
@@ -93,8 +95,8 @@ class TestNotifyEngine:
         QuietHours.objects.create(
             user=user,
             is_enabled=True,
-            start_time="00:00",
-            end_time="23:59",
+            start_time=datetime.time(0, 0),
+            end_time=datetime.time(23, 59),
             timezone="UTC",
         )
         # Enable email for POST_FAILED (critical event)

@@ -113,7 +113,7 @@ def notify(
     return notification
 
 
-def _resolve_channels(user, event_type: str) -> list[Channel]:
+def _resolve_channels(user, event_type: str) -> list[str]:
     """Determine which channels are enabled for this user + event_type.
 
     Checks user preferences first; falls back to DEFAULT_CHANNELS.
@@ -123,14 +123,14 @@ def _resolve_channels(user, event_type: str) -> list[Channel]:
     pref_map = dict(prefs)
 
     defaults = DEFAULT_CHANNELS.get(event_type, {})
-    channels = []
+    channels: list[str] = []
 
     for channel_value in [Channel.IN_APP, Channel.EMAIL, Channel.WEBHOOK]:
         if channel_value in pref_map:
             if pref_map[channel_value]:
-                channels.append(channel_value)
+                channels.append(str(channel_value))
         elif defaults.get(channel_value, False):
-            channels.append(channel_value)
+            channels.append(str(channel_value))
 
     return channels
 
@@ -154,16 +154,11 @@ def _is_in_quiet_hours(user) -> bool:
 
     now_local = timezone.now().astimezone(user_tz).time()
 
-    import datetime
-
-    start = qh.start_time if isinstance(qh.start_time, datetime.time) else datetime.time.fromisoformat(qh.start_time)
-    end = qh.end_time if isinstance(qh.end_time, datetime.time) else datetime.time.fromisoformat(qh.end_time)
-
-    if start <= end:
-        return start <= now_local <= end
+    if qh.start_time <= qh.end_time:
+        return qh.start_time <= now_local <= qh.end_time
     else:
         # Overnight range (e.g., 22:00 - 07:00)
-        return now_local >= start or now_local <= end
+        return now_local >= qh.start_time or now_local <= qh.end_time
 
 
 def _dispatch(delivery: NotificationDelivery) -> None:
