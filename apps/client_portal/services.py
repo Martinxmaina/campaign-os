@@ -94,9 +94,7 @@ def verify_magic_link(token_string):
         If invalid/expired: (None, None, False).
     """
     try:
-        token = MagicLinkToken.objects.select_related(
-            "user", "workspace"
-        ).get(token=token_string)
+        token = MagicLinkToken.objects.select_related("user", "workspace").get(token=token_string)
     except MagicLinkToken.DoesNotExist:
         return None, None, False
 

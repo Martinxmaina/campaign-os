@@ -65,9 +65,7 @@ def sidebar_context(request):
         from apps.composer.models import Post
 
         sidebar_pending_approvals = (
-            Post.objects.for_workspace(workspace.id)
-            .filter(status__in=["pending_review", "pending_client"])
-            .count()
+            Post.objects.for_workspace(workspace.id).filter(status__in=["pending_review", "pending_client"]).count()
         )
 
     return {

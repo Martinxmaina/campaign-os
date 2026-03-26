@@ -181,8 +181,10 @@ def compose(request, workspace_id, post_id=None):
     post_comments = []
     if post:
         from apps.approvals.models import ApprovalAction
+
         approval_history = ApprovalAction.objects.filter(post=post).select_related("user").order_by("-created_at")[:10]
         from apps.approvals.comments import get_comments_for_post
+
         post_comments = get_comments_for_post(post, request.user)
 
     context = {
@@ -294,14 +296,13 @@ def save_post(request, workspace_id, post_id=None):
         _sync_platform_posts(request, post, workspace)
         _save_version(post, request.user)
         from apps.approvals.services import submit_for_review
+
         submit_for_review(post, request.user, workspace)
         if request.htmx:
             return HttpResponse(
                 status=204,
                 headers={
-                    "HX-Trigger": json.dumps(
-                        {"postSaved": {"postId": str(post.id), "status": post.status}}
-                    ),
+                    "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
@@ -311,14 +312,13 @@ def save_post(request, workspace_id, post_id=None):
         _sync_platform_posts(request, post, workspace)
         _save_version(post, request.user)
         from apps.approvals.services import resubmit_post
+
         resubmit_post(post, request.user, workspace)
         if request.htmx:
             return HttpResponse(
                 status=204,
                 headers={
-                    "HX-Trigger": json.dumps(
-                        {"postSaved": {"postId": str(post.id), "status": post.status}}
-                    ),
+                    "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)

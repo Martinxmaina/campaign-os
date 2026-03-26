@@ -96,9 +96,13 @@ def org_approval_queue(request):
         if pending.exists():
             workspace_posts.append({"workspace": ws, "posts": pending})
 
-    return render(request, "approvals/org_queue.html", {
-        "workspace_posts": workspace_posts,
-    })
+    return render(
+        request,
+        "approvals/org_queue.html",
+        {
+            "workspace_posts": workspace_posts,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -122,14 +126,21 @@ def approve(request, workspace_id, post_id):
 
     if request.htmx:
         # Return updated post row partial
-        return render(request, "approvals/partials/post_row.html", {
-            "post": post,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "approvals/partials/post_row.html",
+            {
+                "post": post,
+                "workspace": workspace,
+            },
+        )
 
-    return HttpResponse(status=204, headers={
-        "HX-Trigger": json.dumps({"approvalAction": {"postId": str(post.id), "action": "approved"}}),
-    })
+    return HttpResponse(
+        status=204,
+        headers={
+            "HX-Trigger": json.dumps({"approvalAction": {"postId": str(post.id), "action": "approved"}}),
+        },
+    )
 
 
 @login_required
@@ -147,14 +158,21 @@ def request_changes_view(request, workspace_id, post_id):
         return HttpResponse(str(e), status=400)
 
     if request.htmx:
-        return render(request, "approvals/partials/post_row.html", {
-            "post": post,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "approvals/partials/post_row.html",
+            {
+                "post": post,
+                "workspace": workspace,
+            },
+        )
 
-    return HttpResponse(status=204, headers={
-        "HX-Trigger": json.dumps({"approvalAction": {"postId": str(post.id), "action": "changes_requested"}}),
-    })
+    return HttpResponse(
+        status=204,
+        headers={
+            "HX-Trigger": json.dumps({"approvalAction": {"postId": str(post.id), "action": "changes_requested"}}),
+        },
+    )
 
 
 @login_required
@@ -172,14 +190,21 @@ def reject(request, workspace_id, post_id):
         return HttpResponse(str(e), status=400)
 
     if request.htmx:
-        return render(request, "approvals/partials/post_row.html", {
-            "post": post,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "approvals/partials/post_row.html",
+            {
+                "post": post,
+                "workspace": workspace,
+            },
+        )
 
-    return HttpResponse(status=204, headers={
-        "HX-Trigger": json.dumps({"approvalAction": {"postId": str(post.id), "action": "rejected"}}),
-    })
+    return HttpResponse(
+        status=204,
+        headers={
+            "HX-Trigger": json.dumps({"approvalAction": {"postId": str(post.id), "action": "rejected"}}),
+        },
+    )
 
 
 @login_required
@@ -210,9 +235,13 @@ def bulk_action(request, workspace_id):
     if request.htmx:
         return HttpResponse(
             status=204,
-            headers={"HX-Trigger": json.dumps({
-                "bulkActionComplete": {"action": action, "count": success_count},
-            })},
+            headers={
+                "HX-Trigger": json.dumps(
+                    {
+                        "bulkActionComplete": {"action": action, "count": success_count},
+                    }
+                )
+            },
         )
 
     return JsonResponse({"results": [{"id": r[0], "success": r[1], "error": r[2]} for r in results]})
@@ -252,11 +281,15 @@ def add_comment(request, workspace_id, post_id):
 
     # Return updated comment list
     comments = comment_service.get_comments_for_post(post, request.user)
-    return render(request, "approvals/partials/comment_list.html", {
-        "comments": comments,
-        "post": post,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "approvals/partials/comment_list.html",
+        {
+            "comments": comments,
+            "post": post,
+            "workspace": workspace,
+        },
+    )
 
 
 @login_required
@@ -276,11 +309,15 @@ def edit_comment(request, workspace_id, post_id, comment_id):
 
     post = get_object_or_404(Post, id=post_id)
     comments = comment_service.get_comments_for_post(post, request.user)
-    return render(request, "approvals/partials/comment_list.html", {
-        "comments": comments,
-        "post": post,
-        "workspace": post.workspace,
-    })
+    return render(
+        request,
+        "approvals/partials/comment_list.html",
+        {
+            "comments": comments,
+            "post": post,
+            "workspace": post.workspace,
+        },
+    )
 
 
 @login_required
@@ -296,11 +333,15 @@ def delete_comment(request, workspace_id, post_id, comment_id):
 
     post = get_object_or_404(Post, id=post_id, workspace=workspace)
     comments = comment_service.get_comments_for_post(post, request.user)
-    return render(request, "approvals/partials/comment_list.html", {
-        "comments": comments,
-        "post": post,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "approvals/partials/comment_list.html",
+        {
+            "comments": comments,
+            "post": post,
+            "workspace": workspace,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------

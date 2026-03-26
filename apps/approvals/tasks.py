@@ -87,7 +87,9 @@ def _process_stage(stage, status, threshold_hours, now):
 
         logger.info(
             "Sent reminder #%d for post %s (stage: %s)",
-            reminder.reminder_count, post.id, stage,
+            reminder.reminder_count,
+            post.id,
+            stage,
         )
 
 
@@ -105,7 +107,7 @@ def _remind_reviewers(post):
                 user=membership.user,
                 event_type=EventType.APPROVAL_REMINDER,
                 title="Post awaiting your review",
-                body=f"A post in {workspace.name} has been waiting for review: \"{post.caption_snippet}\"",
+                body=f'A post in {workspace.name} has been waiting for review: "{post.caption_snippet}"',
                 data={
                     "post_id": str(post.id),
                     "workspace_id": str(workspace.id),
@@ -152,7 +154,7 @@ def _escalate(post, stage):
             user=membership.user,
             event_type=EventType.APPROVAL_STALLED,
             title="Stalled post needs attention",
-            body=f"A post in {workspace.name} has been stuck in {stage_label} after multiple reminders: \"{post.caption_snippet}\"",
+            body=f'A post in {workspace.name} has been stuck in {stage_label} after multiple reminders: "{post.caption_snippet}"',
             data={
                 "post_id": str(post.id),
                 "workspace_id": str(workspace.id),

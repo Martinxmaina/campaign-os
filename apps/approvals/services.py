@@ -53,7 +53,7 @@ def submit_for_review(post, user, workspace):
                 user=membership.user,
                 event_type=EventType.POST_SUBMITTED,
                 title="Post submitted for review",
-                body=f"{user.display_name} submitted a post for your review: \"{post.caption_snippet}\"",
+                body=f'{user.display_name} submitted a post for your review: "{post.caption_snippet}"',
                 data={
                     "post_id": str(post.id),
                     "workspace_id": str(workspace.id),
@@ -71,10 +71,7 @@ def approve_post(post, user, workspace, comment=""):
     Otherwise transitions to approved.
     """
     with transaction.atomic():
-        if (
-            post.status == "pending_review"
-            and workspace.approval_workflow_mode == "required_internal_and_client"
-        ):
+        if post.status == "pending_review" and workspace.approval_workflow_mode == "required_internal_and_client":
             # Internal approval done — now needs client approval
             post.transition_to("approved")
             post.save(update_fields=["status", "updated_at"])
@@ -116,7 +113,7 @@ def approve_post(post, user, workspace, comment=""):
             user=post.author,
             event_type=EventType.POST_APPROVED,
             title="Post approved",
-            body=f"Your post \"{post.caption_snippet}\" was approved by {user.display_name}.",
+            body=f'Your post "{post.caption_snippet}" was approved by {user.display_name}.',
             data={
                 "post_id": str(post.id),
                 "workspace_id": str(workspace.id),
@@ -148,7 +145,7 @@ def request_changes(post, user, workspace, comment):
             user=post.author,
             event_type=EventType.POST_CHANGES_REQUESTED,
             title="Changes requested on your post",
-            body=f"{user.display_name} requested changes: \"{comment[:100]}\"",
+            body=f'{user.display_name} requested changes: "{comment[:100]}"',
             data={
                 "post_id": str(post.id),
                 "workspace_id": str(workspace.id),
@@ -180,7 +177,7 @@ def reject_post(post, user, workspace, comment):
             user=post.author,
             event_type=EventType.POST_REJECTED,
             title="Post rejected",
-            body=f"{user.display_name} rejected your post: \"{comment[:100]}\"",
+            body=f'{user.display_name} rejected your post: "{comment[:100]}"',
             data={
                 "post_id": str(post.id),
                 "workspace_id": str(workspace.id),
@@ -221,7 +218,7 @@ def resubmit_post(post, user, workspace):
                 user=membership.user,
                 event_type=EventType.POST_SUBMITTED,
                 title="Post resubmitted for review",
-                body=f"{user.display_name} resubmitted a post: \"{post.caption_snippet}\"",
+                body=f'{user.display_name} resubmitted a post: "{post.caption_snippet}"',
                 data={
                     "post_id": str(post.id),
                     "workspace_id": str(workspace.id),

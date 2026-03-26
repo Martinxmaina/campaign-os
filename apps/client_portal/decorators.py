@@ -33,10 +33,14 @@ def portal_auth_required(view_func):
             return redirect("client_portal:magic_link_expired")
 
         # Verify user has client membership in this workspace
-        membership = WorkspaceMembership.objects.filter(
-            user=request.user,
-            workspace=workspace,
-        ).select_related("custom_role").first()
+        membership = (
+            WorkspaceMembership.objects.filter(
+                user=request.user,
+                workspace=workspace,
+            )
+            .select_related("custom_role")
+            .first()
+        )
 
         if not membership:
             return redirect("client_portal:magic_link_expired")

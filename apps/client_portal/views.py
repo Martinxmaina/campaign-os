@@ -46,27 +46,25 @@ def portal_dashboard(request):
     """Portal landing page with summary counts and quick links."""
     workspace = request.portal_workspace
 
-    pending_count = Post.objects.for_workspace(workspace.id).filter(
-        status="pending_client"
-    ).count()
+    pending_count = Post.objects.for_workspace(workspace.id).filter(status="pending_client").count()
 
-    recent_published = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(status="published")
-        .order_by("-published_at")[:5]
-    )
+    recent_published = Post.objects.for_workspace(workspace.id).filter(status="published").order_by("-published_at")[:5]
 
     my_actions = ApprovalAction.objects.filter(
         user=request.user,
         post__workspace=workspace,
     ).order_by("-created_at")[:5]
 
-    return render(request, "client_portal/dashboard.html", {
-        "workspace": workspace,
-        "pending_count": pending_count,
-        "recent_published": recent_published,
-        "my_actions": my_actions,
-    })
+    return render(
+        request,
+        "client_portal/dashboard.html",
+        {
+            "workspace": workspace,
+            "pending_count": pending_count,
+            "recent_published": recent_published,
+            "my_actions": my_actions,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -96,10 +94,14 @@ def portal_approval_queue(request):
     for post in posts:
         post.visible_comments = list(comment_service.get_comments_for_post(post, request.user))
 
-    return render(request, "client_portal/approval_queue.html", {
-        "workspace": workspace,
-        "posts": posts,
-    })
+    return render(
+        request,
+        "client_portal/approval_queue.html",
+        {
+            "workspace": workspace,
+            "posts": posts,
+        },
+    )
 
 
 @portal_auth_required
@@ -139,7 +141,9 @@ def portal_request_changes(request, post_id):
     if request.htmx:
         return HttpResponse(
             status=204,
-            headers={"HX-Trigger": json.dumps({"portalAction": {"postId": str(post.id), "action": "changes_requested"}})},
+            headers={
+                "HX-Trigger": json.dumps({"portalAction": {"postId": str(post.id), "action": "changes_requested"}})
+            },
         )
     return redirect("client_portal:approval_queue")
 
@@ -184,10 +188,14 @@ def portal_published(request):
         .order_by("-published_at")
     )
 
-    return render(request, "client_portal/published.html", {
-        "workspace": workspace,
-        "posts": posts,
-    })
+    return render(
+        request,
+        "client_portal/published.html",
+        {
+            "workspace": workspace,
+            "posts": posts,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -201,15 +209,23 @@ def portal_activity(request):
     """Client's own approval actions."""
     workspace = request.portal_workspace
 
-    actions = ApprovalAction.objects.filter(
-        user=request.user,
-        post__workspace=workspace,
-    ).select_related("post").order_by("-created_at")
+    actions = (
+        ApprovalAction.objects.filter(
+            user=request.user,
+            post__workspace=workspace,
+        )
+        .select_related("post")
+        .order_by("-created_at")
+    )
 
-    return render(request, "client_portal/activity.html", {
-        "workspace": workspace,
-        "actions": actions,
-    })
+    return render(
+        request,
+        "client_portal/activity.html",
+        {
+            "workspace": workspace,
+            "actions": actions,
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -223,6 +239,10 @@ def portal_reports(request):
     """Placeholder reports page."""
     workspace = request.portal_workspace
 
-    return render(request, "client_portal/reports.html", {
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "client_portal/reports.html",
+        {
+            "workspace": workspace,
+        },
+    )

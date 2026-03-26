@@ -90,10 +90,14 @@ def delete_comment(comment_id, user, workspace):
         raise ValueError("Comment not found.")
 
     # Check permission: author or user with approve_posts (manager+)
-    membership = WorkspaceMembership.objects.filter(
-        user=user,
-        workspace=workspace,
-    ).select_related("custom_role").first()
+    membership = (
+        WorkspaceMembership.objects.filter(
+            user=user,
+            workspace=workspace,
+        )
+        .select_related("custom_role")
+        .first()
+    )
 
     is_author = comment.author_id == user.id
     can_moderate = membership and membership.effective_permissions.get("approve_posts", False)
@@ -121,13 +125,18 @@ def get_comments_for_post(post, user):
         deleted_at__isnull=True,
     ).select_related("author")
 
-    qs = PostComment.objects.filter(
-        post=post,
-        deleted_at__isnull=True,
-        parent_comment__isnull=True,  # Top-level only; replies are prefetched
-    ).select_related("author").prefetch_related(
-        Prefetch("replies", queryset=active_replies),
-    ).order_by("created_at")
+    qs = (
+        PostComment.objects.filter(
+            post=post,
+            deleted_at__isnull=True,
+            parent_comment__isnull=True,  # Top-level only; replies are prefetched
+        )
+        .select_related("author")
+        .prefetch_related(
+            Prefetch("replies", queryset=active_replies),
+        )
+        .order_by("created_at")
+    )
 
     # Clients only see external comments
     if membership and membership.workspace_role == WorkspaceMembership.WorkspaceRole.CLIENT:
@@ -162,7 +171,7 @@ def _notify_mentions(mentions, post, author, workspace, body):
                 user=target_user,
                 event_type=EventType.COMMENT_MENTION,
                 title=f"{author.display_name} mentioned you",
-                body=f"In a comment on a post: \"{body[:100]}\"",
+                body=f'In a comment on a post: "{body[:100]}"',
                 data={
                     "post_id": str(post.id),
                     "workspace_id": str(workspace.id),
