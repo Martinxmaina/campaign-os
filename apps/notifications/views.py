@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
@@ -17,14 +17,13 @@ from .models import (
 @require_GET
 def notification_drawer(request):
     """HTMX partial: renders the 50 most recent notifications for the drawer."""
-    notifications = Notification.objects.filter(user=request.user).order_by("-created_at")[:50]
-    return render(
-        request,
-        "notifications/partials/drawer.html",
-        {
-            "notifications": notifications,
-        },
+    notifications = (
+        Notification.objects.filter(user=request.user)
+        .order_by("-created_at")[:50]
     )
+    return render(request, "notifications/partials/drawer.html", {
+        "notifications": notifications,
+    })
 
 
 @login_required
@@ -47,7 +46,7 @@ def notification_list(request):
     page = int(request.GET.get("page", 1))
     per_page = 30
     offset = (page - 1) * per_page
-    notifications = qs[offset : offset + per_page]
+    notifications = qs[offset:offset + per_page]
     total = qs.count()
     has_next = total > offset + per_page
     has_prev = page > 1
@@ -72,9 +71,9 @@ def notification_list(request):
 @require_POST
 def mark_as_read(request, notification_id):
     """Mark a single notification as read."""
-    Notification.objects.filter(id=notification_id, user=request.user, is_read=False).update(
-        is_read=True, read_at=timezone.now()
-    )
+    Notification.objects.filter(
+        id=notification_id, user=request.user, is_read=False
+    ).update(is_read=True, read_at=timezone.now())
 
     if request.htmx:
         return render(request, "notifications/partials/empty.html")
@@ -85,7 +84,9 @@ def mark_as_read(request, notification_id):
 @require_POST
 def mark_all_read(request):
     """Mark all notifications as read."""
-    Notification.objects.filter(user=request.user, is_read=False).update(is_read=True, read_at=timezone.now())
+    Notification.objects.filter(
+        user=request.user, is_read=False
+    ).update(is_read=True, read_at=timezone.now())
 
     if request.htmx:
         return notification_drawer(request)
@@ -96,7 +97,9 @@ def mark_all_read(request):
 @require_GET
 def unread_count(request):
     """JSON endpoint for polling unread badge count."""
-    count = Notification.objects.filter(user=request.user, is_read=False).count()
+    count = Notification.objects.filter(
+        user=request.user, is_read=False
+    ).count()
     return JsonResponse({"count": count})
 
 
@@ -122,21 +125,17 @@ def preferences(request):
                 enabled = pref_map[(event_value, ch_value)]
             else:
                 enabled = DEFAULT_CHANNELS.get(event_value, {}).get(ch_value, False)
-            channel_toggles.append(
-                {
-                    "channel": ch_value,
-                    "label": ch_label,
-                    "field_name": f"pref_{event_value}_{ch_value}",
-                    "enabled": enabled,
-                }
-            )
-        matrix.append(
-            {
-                "event_type": event_value,
-                "event_label": event_label,
-                "channel_toggles": channel_toggles,
-            }
-        )
+            channel_toggles.append({
+                "channel": ch_value,
+                "label": ch_label,
+                "field_name": f"pref_{event_value}_{ch_value}",
+                "enabled": enabled,
+            })
+        matrix.append({
+            "event_type": event_value,
+            "event_label": event_label,
+            "channel_toggles": channel_toggles,
+        })
 
     quiet_hours, _ = QuietHours.objects.get_or_create(user=request.user)
 
@@ -179,7 +178,6 @@ def _save_preferences(request):
     quiet_hours.save()
 
     from django.contrib import messages
-
     messages.success(request, "Notification preferences saved.")
 
-    return redirect("notifications:preferences")
+    return preferences(request)

@@ -113,12 +113,14 @@ def notify(
     return notification
 
 
-def _resolve_channels(user, event_type: str) -> list[Channel]:
+def _resolve_channels(user, event_type: str) -> list[str]:
     """Determine which channels are enabled for this user + event_type.
 
     Checks user preferences first; falls back to DEFAULT_CHANNELS.
     """
-    prefs = NotificationPreference.objects.filter(user=user, event_type=event_type).values_list("channel", "is_enabled")
+    prefs = NotificationPreference.objects.filter(
+        user=user, event_type=event_type
+    ).values_list("channel", "is_enabled")
 
     pref_map = dict(prefs)
 
@@ -154,16 +156,11 @@ def _is_in_quiet_hours(user) -> bool:
 
     now_local = timezone.now().astimezone(user_tz).time()
 
-    import datetime
-
-    start = qh.start_time if isinstance(qh.start_time, datetime.time) else datetime.time.fromisoformat(qh.start_time)
-    end = qh.end_time if isinstance(qh.end_time, datetime.time) else datetime.time.fromisoformat(qh.end_time)
-
-    if start <= end:
-        return start <= now_local <= end
+    if qh.start_time <= qh.end_time:
+        return qh.start_time <= now_local <= qh.end_time
     else:
         # Overnight range (e.g., 22:00 - 07:00)
-        return now_local >= start or now_local <= end
+        return now_local >= qh.start_time or now_local <= qh.end_time
 
 
 def _dispatch(delivery: NotificationDelivery) -> None:
@@ -195,7 +192,9 @@ def _dispatch(delivery: NotificationDelivery) -> None:
         else:
             delivery.status = DeliveryStatus.PENDING
             backoff_idx = min(delivery.attempts - 1, len(RETRY_BACKOFF_MINUTES) - 1)
-            delivery.next_retry_at = timezone.now() + timedelta(minutes=RETRY_BACKOFF_MINUTES[backoff_idx])
+            delivery.next_retry_at = timezone.now() + timedelta(
+                minutes=RETRY_BACKOFF_MINUTES[backoff_idx]
+            )
 
         delivery.save(update_fields=["status", "error_message", "next_retry_at"])
 
