@@ -1,8 +1,9 @@
+import datetime
+
 import pytest
-from django.test import RequestFactory, TestCase
 from django.utils import timezone
 
-from apps.notifications.engine import DEFAULT_CHANNELS, notify
+from apps.notifications.engine import notify
 from apps.notifications.models import (
     Channel,
     DeliveryStatus,
@@ -80,8 +81,8 @@ class TestNotifyEngine:
         QuietHours.objects.create(
             user=user,
             is_enabled=True,
-            start_time="00:00",
-            end_time="23:59",
+            start_time=datetime.time(0, 0),
+            end_time=datetime.time(23, 59),
             timezone="UTC",
         )
         notify(user, EventType.POST_PUBLISHED, "Published")
@@ -94,8 +95,8 @@ class TestNotifyEngine:
         QuietHours.objects.create(
             user=user,
             is_enabled=True,
-            start_time="00:00",
-            end_time="23:59",
+            start_time=datetime.time(0, 0),
+            end_time=datetime.time(23, 59),
             timezone="UTC",
         )
         # Enable email for POST_FAILED (critical event)
@@ -130,7 +131,7 @@ class TestNotificationModel:
         assert n.read_at is not None
 
     def test_notification_ordering(self, user):
-        n1 = Notification.objects.create(
+        Notification.objects.create(
             user=user, event_type=EventType.POST_APPROVED, title="First",
         )
         n2 = Notification.objects.create(
@@ -207,7 +208,7 @@ class TestNotificationViews:
             "pref_post_approved_email": "on",
             "quiet_hours_timezone": "America/New_York",
         })
-        assert response.status_code == 200
+        assert response.status_code == 302
         pref = NotificationPreference.objects.get(
             user=user, event_type=EventType.POST_APPROVED, channel=Channel.IN_APP,
         )

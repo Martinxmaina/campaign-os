@@ -125,14 +125,14 @@ def _resolve_channels(user, event_type: str) -> list[str]:
     pref_map = dict(prefs)
 
     defaults = DEFAULT_CHANNELS.get(event_type, {})
-    channels = []
+    channels: list[str] = []
 
     for channel_value in [Channel.IN_APP, Channel.EMAIL, Channel.WEBHOOK]:
         if channel_value in pref_map:
             if pref_map[channel_value]:
-                channels.append(channel_value)
+                channels.append(str(channel_value))
         elif defaults.get(channel_value, False):
-            channels.append(channel_value)
+            channels.append(str(channel_value))
 
     return channels
 
