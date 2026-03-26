@@ -76,6 +76,7 @@ def _process_video(asset):
             asset.thumbnail.save(f"thumb_{asset.id}.jpg", thumbnail, save=False)
     finally:
         import os
+
         os.unlink(tmp_path)
 
 
@@ -141,6 +142,7 @@ def process_video_trim(version_id, start_seconds, end_seconds):
 
             with open(output_path, "rb") as f:
                 from django.core.files.base import ContentFile
+
                 trimmed_file = ContentFile(f.read(), name=f"trimmed_{version.id}.mp4")
 
             version.file.save(f"trimmed_{version.id}.mp4", trimmed_file, save=False)
@@ -151,6 +153,7 @@ def process_video_trim(version_id, start_seconds, end_seconds):
             version.height = metadata.get("height", asset.height)
 
             import os
+
             version.file_size = os.path.getsize(output_path)
             version.save(update_fields=["file", "duration", "width", "height", "file_size"])
 
@@ -165,6 +168,7 @@ def process_video_trim(version_id, start_seconds, end_seconds):
 
         finally:
             import os
+
             os.unlink(input_path)
             if os.path.exists(output_path):
                 os.unlink(output_path)

@@ -108,10 +108,17 @@ def restore_version(asset, version, restored_by):
     asset.width = version.width
     asset.height = version.height
     asset.duration = version.duration or 0
-    asset.save(update_fields=[
-        "file", "thumbnail", "file_size", "width", "height",
-        "duration", "updated_at",
-    ])
+    asset.save(
+        update_fields=[
+            "file",
+            "thumbnail",
+            "file_size",
+            "width",
+            "height",
+            "duration",
+            "updated_at",
+        ]
+    )
     return new_version
 
 
@@ -213,8 +220,10 @@ def extract_video_metadata(file_path):
         result = subprocess.run(
             [
                 "ffprobe",
-                "-v", "quiet",
-                "-print_format", "json",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
                 "-show_format",
                 "-show_streams",
                 str(file_path),
@@ -255,10 +264,14 @@ def generate_video_thumbnail(file_path):
         result = subprocess.run(
             [
                 "ffmpeg",
-                "-i", str(file_path),
-                "-ss", "00:00:01",
-                "-vframes", "1",
-                "-vf", "scale=400:-1",
+                "-i",
+                str(file_path),
+                "-ss",
+                "00:00:01",
+                "-vframes",
+                "1",
+                "-vf",
+                "scale=400:-1",
                 "-y",
                 thumb_path,
             ],
@@ -339,10 +352,14 @@ def trim_video(input_path, output_path, start_seconds, end_seconds):
     result = subprocess.run(
         [
             "ffmpeg",
-            "-i", str(input_path),
-            "-ss", str(start_seconds),
-            "-to", str(end_seconds),
-            "-c", "copy",
+            "-i",
+            str(input_path),
+            "-ss",
+            str(start_seconds),
+            "-to",
+            str(end_seconds),
+            "-c",
+            "copy",
             "-y",
             str(output_path),
         ],

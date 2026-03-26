@@ -15,8 +15,7 @@ class MediaAssetManager(models.Manager):
     def for_workspace_with_shared(self, workspace_id, organization_id):
         """Return workspace-scoped assets plus shared org-level assets."""
         return self.get_queryset().filter(
-            Q(workspace_id=workspace_id)
-            | Q(workspace__isnull=True, organization_id=organization_id)
+            Q(workspace_id=workspace_id) | Q(workspace__isnull=True, organization_id=organization_id)
         )
 
     def shared_only(self, organization_id):
@@ -35,11 +34,13 @@ class MediaAssetManager(models.Manager):
         search_vector = SearchVector("filename", weight="A")
         search_query = SearchQuery(query, search_type="websearch")
 
-        qs = qs.annotate(
-            search=search_vector,
-            rank=SearchRank(search_vector, search_query),
-        ).filter(
-            Q(search=search_query) | Q(tags__contains=[query])
-        ).order_by("-rank")
+        qs = (
+            qs.annotate(
+                search=search_vector,
+                rank=SearchRank(search_vector, search_query),
+            )
+            .filter(Q(search=search_query) | Q(tags__contains=[query]))
+            .order_by("-rank")
+        )
 
         return qs

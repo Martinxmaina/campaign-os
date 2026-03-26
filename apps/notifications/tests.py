@@ -28,9 +28,7 @@ class TestNotifyEngine:
 
     def test_creates_deliveries_for_default_channels(self, user):
         notify(user, EventType.POST_APPROVED, "Post approved")
-        deliveries = NotificationDelivery.objects.filter(
-            notification__user=user
-        )
+        deliveries = NotificationDelivery.objects.filter(notification__user=user)
         # POST_APPROVED defaults: in_app=True, email=False
         channels = set(deliveries.values_list("channel", flat=True))
         assert Channel.IN_APP in channels
@@ -39,12 +37,16 @@ class TestNotifyEngine:
     def test_respects_user_preference_override(self, user):
         # Disable in-app, enable email
         NotificationPreference.objects.create(
-            user=user, event_type=EventType.POST_APPROVED,
-            channel=Channel.IN_APP, is_enabled=False,
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            channel=Channel.IN_APP,
+            is_enabled=False,
         )
         NotificationPreference.objects.create(
-            user=user, event_type=EventType.POST_APPROVED,
-            channel=Channel.EMAIL, is_enabled=True,
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            channel=Channel.EMAIL,
+            is_enabled=True,
         )
 
         notify(user, EventType.POST_APPROVED, "Post approved")
@@ -70,9 +72,7 @@ class TestNotifyEngine:
 
     def test_in_app_delivery_marked_delivered(self, user):
         notify(user, EventType.POST_APPROVED, "Approved")
-        delivery = NotificationDelivery.objects.get(
-            notification__user=user, channel=Channel.IN_APP
-        )
+        delivery = NotificationDelivery.objects.get(notification__user=user, channel=Channel.IN_APP)
         assert delivery.status == DeliveryStatus.DELIVERED
 
     def test_quiet_hours_suppresses_non_critical(self, user):
@@ -99,26 +99,25 @@ class TestNotifyEngine:
         )
         # Enable email for POST_FAILED (critical event)
         NotificationPreference.objects.create(
-            user=user, event_type=EventType.POST_FAILED,
-            channel=Channel.EMAIL, is_enabled=True,
+            user=user,
+            event_type=EventType.POST_FAILED,
+            channel=Channel.EMAIL,
+            is_enabled=True,
         )
         notify(user, EventType.POST_FAILED, "Post failed")
-        channels = set(
-            NotificationDelivery.objects.filter(
-                notification__user=user
-            ).values_list("channel", flat=True)
-        )
+        channels = set(NotificationDelivery.objects.filter(notification__user=user).values_list("channel", flat=True))
         # POST_FAILED is critical — email should not be suppressed
         assert Channel.EMAIL in channels
 
 
 @pytest.mark.django_db
 class TestNotificationModel:
-
     def test_mark_as_read(self, user):
         n = Notification.objects.create(
-            user=user, event_type=EventType.POST_APPROVED,
-            title="Test", is_read=False,
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            title="Test",
+            is_read=False,
         )
         assert n.is_read is False
         n.is_read = True
@@ -130,10 +129,14 @@ class TestNotificationModel:
 
     def test_notification_ordering(self, user):
         Notification.objects.create(
-            user=user, event_type=EventType.POST_APPROVED, title="First",
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            title="First",
         )
         n2 = Notification.objects.create(
-            user=user, event_type=EventType.POST_PUBLISHED, title="Second",
+            user=user,
+            event_type=EventType.POST_PUBLISHED,
+            title="Second",
         )
         notifications = list(Notification.objects.filter(user=user))
         assert notifications[0].id == n2.id  # newest first
@@ -141,16 +144,19 @@ class TestNotificationModel:
 
 @pytest.mark.django_db
 class TestNotificationViews:
-
     def test_unread_count_endpoint(self, client, user):
         client.force_login(user)
         Notification.objects.create(
-            user=user, event_type=EventType.POST_APPROVED,
-            title="Test", is_read=False,
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            title="Test",
+            is_read=False,
         )
         Notification.objects.create(
-            user=user, event_type=EventType.POST_PUBLISHED,
-            title="Test 2", is_read=True,
+            user=user,
+            event_type=EventType.POST_PUBLISHED,
+            title="Test 2",
+            is_read=True,
         )
         response = client.get("/notifications/unread-count/")
         assert response.status_code == 200
@@ -159,8 +165,10 @@ class TestNotificationViews:
     def test_mark_as_read_endpoint(self, client, user):
         client.force_login(user)
         n = Notification.objects.create(
-            user=user, event_type=EventType.POST_APPROVED,
-            title="Test", is_read=False,
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            title="Test",
+            is_read=False,
         )
         response = client.post(f"/notifications/{n.id}/read/")
         assert response.status_code == 200
@@ -171,8 +179,10 @@ class TestNotificationViews:
         client.force_login(user)
         for i in range(3):
             Notification.objects.create(
-                user=user, event_type=EventType.POST_APPROVED,
-                title=f"Test {i}", is_read=False,
+                user=user,
+                event_type=EventType.POST_APPROVED,
+                title=f"Test {i}",
+                is_read=False,
             )
         response = client.post("/notifications/mark-all-read/")
         assert response.status_code == 200
@@ -186,10 +196,14 @@ class TestNotificationViews:
     def test_notification_list_filter_by_event_type(self, client, user):
         client.force_login(user)
         Notification.objects.create(
-            user=user, event_type=EventType.POST_APPROVED, title="Approved",
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            title="Approved",
         )
         Notification.objects.create(
-            user=user, event_type=EventType.POST_FAILED, title="Failed",
+            user=user,
+            event_type=EventType.POST_FAILED,
+            title="Failed",
         )
         response = client.get("/notifications/?event_type=post_approved")
         assert response.status_code == 200
@@ -201,13 +215,18 @@ class TestNotificationViews:
 
     def test_preferences_page_post(self, client, user):
         client.force_login(user)
-        response = client.post("/notifications/preferences/", {
-            "pref_post_approved_in_app": "on",
-            "pref_post_approved_email": "on",
-            "quiet_hours_timezone": "America/New_York",
-        })
+        response = client.post(
+            "/notifications/preferences/",
+            {
+                "pref_post_approved_in_app": "on",
+                "pref_post_approved_email": "on",
+                "quiet_hours_timezone": "America/New_York",
+            },
+        )
         assert response.status_code == 302
         pref = NotificationPreference.objects.get(
-            user=user, event_type=EventType.POST_APPROVED, channel=Channel.IN_APP,
+            user=user,
+            event_type=EventType.POST_APPROVED,
+            channel=Channel.IN_APP,
         )
         assert pref.is_enabled is True

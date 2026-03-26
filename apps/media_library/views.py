@@ -36,6 +36,7 @@ def _get_workspace_or_404(request, workspace_id):
 #  Library Index
 # ──────────────────────────────────────────────────────────────
 
+
 @login_required
 def library_index(request, workspace_id):
     workspace = _get_workspace_or_404(request, workspace_id)
@@ -94,12 +95,16 @@ def library_index(request, workspace_id):
 
     # HTMX partial response
     if request.htmx:
-        return render(request, "media_library/_asset_grid.html", {
-            "page": page,
-            "workspace": workspace,
-            "query": query,
-            "current_sort": sort,
-        })
+        return render(
+            request,
+            "media_library/_asset_grid.html",
+            {
+                "page": page,
+                "workspace": workspace,
+                "query": query,
+                "current_sort": sort,
+            },
+        )
 
     context = {
         "workspace": workspace,
@@ -120,6 +125,7 @@ def library_index(request, workspace_id):
 # ──────────────────────────────────────────────────────────────
 #  Upload
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_permission("upload_media")
@@ -154,21 +160,25 @@ def upload(request, workspace_id):
             process_media_asset(str(asset.id))
             results.append({"id": str(asset.id), "status": "ok"})
         except ValidationError as e:
-            results.append({
-                "filename": uploaded_file.name,
-                "status": "error",
-                "errors": e.messages if hasattr(e, "messages") else [str(e)],
-            })
+            results.append(
+                {
+                    "filename": uploaded_file.name,
+                    "status": "error",
+                    "errors": e.messages if hasattr(e, "messages") else [str(e)],
+                }
+            )
 
     # If HTMX request, return the new asset cards
     if request.htmx:
-        assets = MediaAsset.objects.filter(
-            id__in=[r["id"] for r in results if r["status"] == "ok"]
+        assets = MediaAsset.objects.filter(id__in=[r["id"] for r in results if r["status"] == "ok"])
+        return render(
+            request,
+            "media_library/_asset_grid_items.html",
+            {
+                "assets": assets,
+                "workspace": workspace,
+            },
         )
-        return render(request, "media_library/_asset_grid_items.html", {
-            "assets": assets,
-            "workspace": workspace,
-        })
 
     return JsonResponse({"results": results})
 
@@ -176,6 +186,7 @@ def upload(request, workspace_id):
 # ──────────────────────────────────────────────────────────────
 #  Search
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_GET
@@ -193,16 +204,21 @@ def search(request, workspace_id):
     paginator = Paginator(qs, 48)
     page = paginator.get_page(request.GET.get("page", 1))
 
-    return render(request, "media_library/_asset_grid.html", {
-        "page": page,
-        "workspace": workspace,
-        "query": query,
-    })
+    return render(
+        request,
+        "media_library/_asset_grid.html",
+        {
+            "page": page,
+            "workspace": workspace,
+            "query": query,
+        },
+    )
 
 
 # ──────────────────────────────────────────────────────────────
 #  Asset Detail
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 def asset_detail(request, workspace_id, asset_id):
@@ -231,6 +247,7 @@ def asset_detail(request, workspace_id, asset_id):
 # ──────────────────────────────────────────────────────────────
 #  Asset Edit (image crop/rotate/flip, video trim)
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_permission("edit_media")
@@ -317,6 +334,7 @@ def asset_edit(request, workspace_id, asset_id):
 #  Asset Actions
 # ──────────────────────────────────────────────────────────────
 
+
 @login_required
 @require_permission("upload_media")
 @require_POST
@@ -333,10 +351,14 @@ def asset_star_toggle(request, workspace_id, asset_id):
     asset.save(update_fields=["is_starred"])
 
     if request.htmx:
-        return render(request, "media_library/_star_button.html", {
-            "asset": asset,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_star_button.html",
+            {
+                "asset": asset,
+                "workspace": workspace,
+            },
+        )
     return JsonResponse({"is_starred": asset.is_starred})
 
 
@@ -360,10 +382,14 @@ def asset_update_tags(request, workspace_id, asset_id):
     asset.save(update_fields=["tags", "updated_at"])
 
     if request.htmx:
-        return render(request, "media_library/_tag_list.html", {
-            "asset": asset,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_tag_list.html",
+            {
+                "asset": asset,
+                "workspace": workspace,
+            },
+        )
     return JsonResponse({"tags": asset.tags})
 
 
@@ -386,10 +412,14 @@ def asset_move(request, workspace_id, asset_id):
     asset.save(update_fields=["folder", "updated_at"])
 
     if request.htmx:
-        return render(request, "media_library/_asset_card.html", {
-            "asset": asset,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_asset_card.html",
+            {
+                "asset": asset,
+                "workspace": workspace,
+            },
+        )
     return JsonResponse({"status": "ok"})
 
 
@@ -411,18 +441,26 @@ def asset_delete(request, workspace_id, asset_id):
         delete_asset(asset)
     except ProtectedAssetError as e:
         if request.htmx:
-            return render(request, "media_library/_delete_blocked.html", {
-                "asset": asset,
-                "referencing_posts": e.referencing_posts,
-                "workspace": workspace,
-            })
-        return JsonResponse({
-            "error": "Asset is referenced by scheduled posts",
-            "posts": e.referencing_posts,
-        }, status=409)
+            return render(
+                request,
+                "media_library/_delete_blocked.html",
+                {
+                    "asset": asset,
+                    "referencing_posts": e.referencing_posts,
+                    "workspace": workspace,
+                },
+            )
+        return JsonResponse(
+            {
+                "error": "Asset is referenced by scheduled posts",
+                "posts": e.referencing_posts,
+            },
+            status=409,
+        )
 
     if request.htmx:
         from django.http import HttpResponse
+
         response = HttpResponse(status=200)
         response["HX-Trigger"] = "assetDeleted"
         return response
@@ -458,6 +496,7 @@ def asset_download(request, workspace_id, asset_id):
 #  Folders
 # ──────────────────────────────────────────────────────────────
 
+
 @login_required
 @require_permission("manage_media")
 @require_POST
@@ -488,10 +527,14 @@ def folder_create(request, workspace_id):
             workspace=workspace,
             parent_folder__isnull=True,
         ).prefetch_related("subfolders__subfolders")
-        return render(request, "media_library/_folder_tree.html", {
-            "folders": folders,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_folder_tree.html",
+            {
+                "folders": folders,
+                "workspace": workspace,
+            },
+        )
     return JsonResponse({"id": str(folder.id), "name": folder.name})
 
 
@@ -514,10 +557,14 @@ def folder_rename(request, workspace_id, folder_id):
             workspace=workspace,
             parent_folder__isnull=True,
         ).prefetch_related("subfolders__subfolders")
-        return render(request, "media_library/_folder_tree.html", {
-            "folders": folders,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_folder_tree.html",
+            {
+                "folders": folders,
+                "workspace": workspace,
+            },
+        )
     return JsonResponse({"id": str(folder.id), "name": folder.name})
 
 
@@ -541,16 +588,21 @@ def folder_delete(request, workspace_id, folder_id):
             workspace=workspace,
             parent_folder__isnull=True,
         ).prefetch_related("subfolders__subfolders")
-        return render(request, "media_library/_folder_tree.html", {
-            "folders": folders,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_folder_tree.html",
+            {
+                "folders": folders,
+                "workspace": workspace,
+            },
+        )
     return JsonResponse({"status": "deleted"})
 
 
 # ──────────────────────────────────────────────────────────────
 #  Tags
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_GET
@@ -562,10 +614,14 @@ def tag_autocomplete(request, workspace_id):
         return JsonResponse([], safe=False)
 
     # Collect distinct tags from workspace assets
-    assets = MediaAsset.objects.for_workspace_with_shared(
-        workspace_id=workspace.id,
-        organization_id=workspace.organization_id,
-    ).exclude(tags=[]).values_list("tags", flat=True)
+    assets = (
+        MediaAsset.objects.for_workspace_with_shared(
+            workspace_id=workspace.id,
+            organization_id=workspace.organization_id,
+        )
+        .exclude(tags=[])
+        .values_list("tags", flat=True)
+    )
 
     all_tags = set()
     for tag_list in assets[:500]:
@@ -579,6 +635,7 @@ def tag_autocomplete(request, workspace_id):
 # ──────────────────────────────────────────────────────────────
 #  Versions
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_GET
@@ -594,11 +651,15 @@ def version_list(request, workspace_id, asset_id):
 
     versions = asset.versions.all()
 
-    return render(request, "media_library/_version_list.html", {
-        "asset": asset,
-        "versions": versions,
-        "workspace": workspace,
-    })
+    return render(
+        request,
+        "media_library/_version_list.html",
+        {
+            "asset": asset,
+            "versions": versions,
+            "workspace": workspace,
+        },
+    )
 
 
 @login_required
@@ -616,17 +677,22 @@ def version_restore(request, workspace_id, asset_id, version_id):
 
     if request.htmx:
         versions = asset.versions.all()
-        return render(request, "media_library/_version_list.html", {
-            "asset": asset,
-            "versions": versions,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_version_list.html",
+            {
+                "asset": asset,
+                "versions": versions,
+                "workspace": workspace,
+            },
+        )
     return redirect("media_library:asset_detail", workspace_id=workspace.id, asset_id=asset.id)
 
 
 # ──────────────────────────────────────────────────────────────
 #  Processing Status (polled by HTMX)
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_GET
@@ -642,20 +708,27 @@ def processing_status(request, workspace_id, asset_id):
 
     if request.htmx and asset.processing_status == MediaAsset.ProcessingStatus.COMPLETED:
         # Return the completed asset card to replace the placeholder
-        return render(request, "media_library/_asset_card.html", {
-            "asset": asset,
-            "workspace": workspace,
-        })
+        return render(
+            request,
+            "media_library/_asset_card.html",
+            {
+                "asset": asset,
+                "workspace": workspace,
+            },
+        )
 
-    return JsonResponse({
-        "status": asset.processing_status,
-        "thumbnail_url": asset.thumbnail.url if asset.thumbnail else None,
-    })
+    return JsonResponse(
+        {
+            "status": asset.processing_status,
+            "thumbnail_url": asset.thumbnail.url if asset.thumbnail else None,
+        }
+    )
 
 
 # ──────────────────────────────────────────────────────────────
 #  Shared Org Library
 # ──────────────────────────────────────────────────────────────
+
 
 @login_required
 @require_org_role("member")
@@ -693,20 +766,28 @@ def shared_library_index(request):
     is_admin = request.org_membership and request.org_membership.org_role in ("owner", "admin")
 
     if request.htmx:
-        return render(request, "media_library/_shared_asset_grid.html", {
+        return render(
+            request,
+            "media_library/_shared_asset_grid.html",
+            {
+                "page": page,
+                "query": query,
+            },
+        )
+
+    return render(
+        request,
+        "media_library/shared_library.html",
+        {
             "page": page,
             "query": query,
-        })
-
-    return render(request, "media_library/shared_library.html", {
-        "page": page,
-        "query": query,
-        "current_type": file_type,
-        "current_sort": sort,
-        "is_admin": is_admin,
-        "file_types": MediaAsset.MediaType.choices,
-        "accepted_file_types": get_accepted_file_types(),
-    })
+            "current_type": file_type,
+            "current_sort": sort,
+            "is_admin": is_admin,
+            "file_types": MediaAsset.MediaType.choices,
+            "accepted_file_types": get_accepted_file_types(),
+        },
+    )
 
 
 @login_required
@@ -737,19 +818,23 @@ def shared_upload(request):
             process_media_asset(str(asset.id))
             results.append({"id": str(asset.id), "status": "ok"})
         except ValidationError as e:
-            results.append({
-                "filename": uploaded_file.name,
-                "status": "error",
-                "errors": e.messages if hasattr(e, "messages") else [str(e)],
-            })
+            results.append(
+                {
+                    "filename": uploaded_file.name,
+                    "status": "error",
+                    "errors": e.messages if hasattr(e, "messages") else [str(e)],
+                }
+            )
 
     if request.htmx:
-        assets = MediaAsset.objects.filter(
-            id__in=[r["id"] for r in results if r["status"] == "ok"]
+        assets = MediaAsset.objects.filter(id__in=[r["id"] for r in results if r["status"] == "ok"])
+        return render(
+            request,
+            "media_library/_shared_asset_grid_items.html",
+            {
+                "assets": assets,
+            },
         )
-        return render(request, "media_library/_shared_asset_grid_items.html", {
-            "assets": assets,
-        })
 
     return JsonResponse({"results": results})
 
