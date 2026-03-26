@@ -42,6 +42,27 @@ def _get_workspace(request, workspace_id):
     return workspace
 
 
+def _sync_platform_posts(request, post, workspace):
+    """Sync platform post selections from form data."""
+    selected_ids_str = request.POST.get("selected_accounts", "")
+    selected_ids = [s.strip() for s in selected_ids_str.split(",") if s.strip()]
+    post.platform_posts.exclude(social_account_id__in=selected_ids).delete()
+    for acc_id in selected_ids:
+        try:
+            account = SocialAccount.objects.get(id=acc_id, workspace=workspace)
+        except SocialAccount.DoesNotExist:
+            continue
+        pp, _created = PlatformPost.objects.get_or_create(
+            post=post,
+            social_account=account,
+        )
+        override_caption = request.POST.get(f"override_caption_{acc_id}", "").strip()
+        override_comment = request.POST.get(f"override_comment_{acc_id}", "").strip()
+        pp.platform_specific_caption = override_caption if override_caption else None
+        pp.platform_specific_first_comment = override_comment if override_comment else None
+        pp.save()
+
+
 def _save_version(post, user):
     """Create a PostVersion snapshot."""
     version_number = (post.versions.count()) + 1
@@ -149,6 +170,20 @@ def compose(request, workspace_id, post_id=None):
         except PostTemplate.DoesNotExist:
             pass
 
+    # Approval workflow context
+    workflow_mode = workspace.approval_workflow_mode
+    show_submit_button = workflow_mode != "none" and not can_publish
+    show_resubmit_button = post is not None and post.status in ("changes_requested", "rejected")
+
+    # Approval history and comments for existing posts
+    approval_history = []
+    post_comments = []
+    if post:
+        from apps.approvals.models import ApprovalAction
+        approval_history = ApprovalAction.objects.filter(post=post).select_related("user").order_by("-created_at")[:10]
+        from apps.approvals.comments import get_comments_for_post
+        post_comments = get_comments_for_post(post, request.user)
+
     context = {
         "workspace": workspace,
         "post": post,
@@ -166,6 +201,11 @@ def compose(request, workspace_id, post_id=None):
         "categories": categories,
         "queues": queues,
         "template_data_json": json.dumps(template_data) if template_data else "null",
+        "workflow_mode": workflow_mode,
+        "show_submit_button": show_submit_button,
+        "show_resubmit_button": show_resubmit_button,
+        "approval_history": approval_history,
+        "post_comments": post_comments,
     }
     return render(request, "composer/compose.html", context)
 
@@ -245,8 +285,42 @@ def save_post(request, workspace_id, post_id=None):
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     elif action == "submit_for_approval":
-        if post.status == "draft" or post.status == "changes_requested":
-            post.transition_to("pending_review")
+        # Save post first so it has a PK, then delegate to approval service
+        if not post.status or post.status in ("", "draft"):
+            post.status = "draft"
+        post.save()
+        # Sync platform posts before submitting
+        _sync_platform_posts(request, post, workspace)
+        _save_version(post, request.user)
+        from apps.approvals.services import submit_for_review
+        submit_for_review(post, request.user, workspace)
+        if request.htmx:
+            return HttpResponse(
+                status=204,
+                headers={
+                    "HX-Trigger": json.dumps(
+                        {"postSaved": {"postId": str(post.id), "status": post.status}}
+                    ),
+                },
+            )
+        return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+    elif action == "resubmit_for_approval":
+        # Resubmit after changes requested or rejection
+        post.save()
+        _sync_platform_posts(request, post, workspace)
+        _save_version(post, request.user)
+        from apps.approvals.services import resubmit_post
+        resubmit_post(post, request.user, workspace)
+        if request.htmx:
+            return HttpResponse(
+                status=204,
+                headers={
+                    "HX-Trigger": json.dumps(
+                        {"postSaved": {"postId": str(post.id), "status": post.status}}
+                    ),
+                },
+            )
+        return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     else:
         # save_draft — keep as draft
         if not post.status or post.status in ("", "draft"):

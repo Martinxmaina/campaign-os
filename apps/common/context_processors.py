@@ -59,11 +59,23 @@ def sidebar_context(request):
             InboxMessage.objects.for_workspace(workspace.id).filter(status=InboxMessage.Status.UNREAD).count()
         )
 
+    # Pending approval count for badge
+    sidebar_pending_approvals = 0
+    if workspace:
+        from apps.composer.models import Post
+
+        sidebar_pending_approvals = (
+            Post.objects.for_workspace(workspace.id)
+            .filter(status__in=["pending_review", "pending_client"])
+            .count()
+        )
+
     return {
         "sidebar_workspaces": sidebar_workspaces,
         "sidebar_channels": sidebar_channels,
         "sidebar_connectable_platforms": sidebar_connectable_platforms,
         "sidebar_unread_inbox_count": sidebar_unread_inbox_count,
+        "sidebar_pending_approvals": sidebar_pending_approvals,
     }
 
 

@@ -60,6 +60,8 @@ LOCAL_APPS = [
     "apps.publisher",
     "apps.notifications",
     "apps.inbox",
+    "apps.approvals",
+    "apps.client_portal",
     "theme",
 ]
 

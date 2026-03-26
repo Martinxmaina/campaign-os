@@ -589,8 +589,100 @@
                     Publish Now
                 </button>
                 {% endif %}
+
+                {% if show_submit_button %}
+                <!-- Submit for Approval -->
+                <button type="submit" name="action" value="submit_for_approval"
+                        class="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:-translate-y-px active:translate-y-0 transition-all duration-150"
+                        style="background: var(--primary);">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    Submit for Approval
+                </button>
+                {% endif %}
+
+                {% if show_resubmit_button %}
+                <!-- Resubmit for Approval -->
+                <button type="submit" name="action" value="resubmit_for_approval"
+                        class="inline-flex items-center gap-1.5 px-5 py-2 text-sm font-semibold text-white rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:-translate-y-px active:translate-y-0 transition-all duration-150"
+                        style="background: var(--primary);">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/></svg>
+                    Resubmit for Approval
+                </button>
+                {% endif %}
             </div>
         </form>
+
+        {% if post and approval_history %}
+        <!-- Approval History & Comments -->
+        <div class="mt-4 border-t border-stone-200 pt-4">
+            <!-- Status banner -->
+            {% if post.status == 'pending_review' %}
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-100 mb-3">
+                <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-sm font-medium text-orange-700">Awaiting internal review</span>
+            </div>
+            {% elif post.status == 'pending_client' %}
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-100 mb-3">
+                <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                <span class="text-sm font-medium text-amber-700">Awaiting client approval</span>
+            </div>
+            {% elif post.status == 'changes_requested' %}
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-100 mb-3">
+                <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                <span class="text-sm font-medium text-orange-700">Changes requested — edit and resubmit</span>
+            </div>
+            {% elif post.status == 'rejected' %}
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100 mb-3">
+                <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                <span class="text-sm font-medium text-red-700">Rejected — edit and resubmit or delete</span>
+            </div>
+            {% endif %}
+
+            <!-- Inline approval actions for reviewers -->
+            {% if can_approve and post.status in 'pending_review,pending_client' %}
+            <div class="flex gap-2 mb-3" x-data="{ showReviewComment: false }">
+                <form method="post" action="{% url 'approvals:approve' workspace_id=workspace.id post_id=post.id %}" class="inline">
+                    {% csrf_token %}
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold rounded-full bg-emerald-500 hover:bg-emerald-600 text-white transition-colors">Approve</button>
+                </form>
+                <button @click="showReviewComment = !showReviewComment" class="px-3 py-1.5 text-xs font-semibold rounded-full border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">Request Changes</button>
+                <div x-show="showReviewComment" x-cloak class="absolute mt-9 z-10 bg-white rounded-lg shadow-lg border border-stone-200 p-3 w-80">
+                    <form method="post" action="{% url 'approvals:request_changes' workspace_id=workspace.id post_id=post.id %}">
+                        {% csrf_token %}
+                        <textarea name="comment" rows="2" required class="w-full px-2 py-1.5 text-sm border border-stone-200 rounded-lg resize-none" placeholder="What needs to change?"></textarea>
+                        <button type="submit" class="mt-2 px-3 py-1 text-xs font-semibold rounded-full bg-amber-500 text-white">Submit</button>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Approval timeline -->
+            <h4 class="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Approval History</h4>
+            <div class="space-y-2 mb-4">
+                {% for action in approval_history %}
+                <div class="flex items-start gap-2">
+                    <div class="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 {% if action.action == 'approved' %}bg-emerald-400{% elif action.action == 'rejected' %}bg-red-400{% elif action.action == 'changes_requested' %}bg-amber-400{% else %}bg-stone-300{% endif %}"></div>
+                    <div>
+                        <p class="text-xs text-stone-600"><span class="font-semibold">{{ action.user.display_name }}</span> {{ action.get_action_display|lower }}</p>
+                        {% if action.comment %}<p class="text-xs text-stone-400 mt-0.5">"{{ action.comment|truncatechars:80 }}"</p>{% endif %}
+                        <p class="text-[10px] text-stone-400">{{ action.created_at|timesince }} ago</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Comments -->
+            {% if post_comments or post %}
+            <h4 class="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Comments</h4>
+            <div id="composer-comments">
+                {% include "approvals/partials/comment_list.html" with comments=post_comments post=post %}
+            </div>
+            <div class="mt-3">
+                {% include "approvals/partials/comment_form.html" with post=post workspace=workspace %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
 
         <!-- Auto-save trigger (every 30 seconds) -->
         <!-- Tracks autosaved post ID to prevent duplicate drafts -->
