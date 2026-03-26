@@ -59,6 +59,7 @@ LOCAL_APPS = [
     "apps.calendar",
     "apps.publisher",
     "apps.notifications",
+    "apps.inbox",
     "theme",
 ]
 

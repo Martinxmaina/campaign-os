@@ -50,10 +50,22 @@ def sidebar_context(request):
             (p, label) for p, label in _platform_display_names() if p not in connected_platforms
         ]
 
+    # Unread inbox count for sidebar badge
+    sidebar_unread_inbox_count = 0
+    if workspace:
+        from apps.inbox.models import InboxMessage
+
+        sidebar_unread_inbox_count = (
+            InboxMessage.objects.for_workspace(workspace.id)
+            .filter(status=InboxMessage.Status.UNREAD)
+            .count()
+        )
+
     return {
         "sidebar_workspaces": sidebar_workspaces,
         "sidebar_channels": sidebar_channels,
         "sidebar_connectable_platforms": sidebar_connectable_platforms,
+        "sidebar_unread_inbox_count": sidebar_unread_inbox_count,
     }
 
 
