@@ -16,8 +16,8 @@ from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
 
-from .forms import PostForm
-from .models import PlatformPost, Post, PostMedia, PostVersion
+from .forms import IdeaForm, PostForm
+from .models import Idea, PlatformPost, Post, PostMedia, PostVersion
 
 
 def _get_workspace(request, workspace_id):
@@ -504,5 +504,171 @@ def drafts_list(request, workspace_id):
         {
             "workspace": workspace,
             "drafts": drafts,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Create landing page & Idea CRUD
+# ---------------------------------------------------------------------------
+
+
+def _idea_columns(workspace_id, tag=None):
+    """Build Kanban columns dict for a workspace, optionally filtered by tag."""
+    ideas = (
+        Idea.objects.for_workspace(workspace_id)
+        .select_related("author")
+        .order_by("position", "-created_at")
+    )
+    if tag:
+        ideas = ideas.filter(tags__contains=[tag])
+
+    columns = []
+    for value, label in Idea.Status.choices:
+        columns.append(
+            {
+                "key": value,
+                "label": label,
+                "ideas": ideas.filter(status=value),
+            }
+        )
+
+    # Collect unique tags across all ideas (unfiltered) for the dropdown
+    all_ideas = Idea.objects.for_workspace(workspace_id)
+    all_tags = set()
+    for idea in all_ideas.only("tags"):
+        if idea.tags:
+            all_tags.update(idea.tags)
+
+    return columns, sorted(all_tags)
+
+
+@login_required
+@require_permission("create_posts")
+def create_landing(request, workspace_id):
+    """Render the Create landing page with Ideas Kanban board."""
+    workspace = _get_workspace(request, workspace_id)
+    tab = request.GET.get("tab", "ideas")
+    tag = request.GET.get("tag")
+
+    columns, all_tags = _idea_columns(workspace.id, tag)
+
+    context = {
+        "workspace": workspace,
+        "tab": tab,
+        "columns": columns,
+        "all_tags": all_tags,
+        "active_tag": tag,
+    }
+    return render(request, "composer/create_landing.html", context)
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_create(request, workspace_id):
+    """Create a new idea via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    title = request.POST.get("title", "").strip()
+    description = request.POST.get("description", "").strip()
+    tags_raw = request.POST.get("tags", "")
+    tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+    if not title:
+        return HttpResponse("Title is required.", status=400)
+
+    Idea.objects.create(
+        workspace=workspace,
+        author=request.user,
+        title=title,
+        description=description,
+        tags=tags,
+        status=Idea.Status.UNASSIGNED,
+    )
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "ideaChanged"},
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_edit(request, workspace_id, idea_id):
+    """Edit an existing idea via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    idea = get_object_or_404(Idea, id=idea_id, workspace=workspace)
+
+    idea.title = request.POST.get("title", idea.title).strip()
+    idea.description = request.POST.get("description", idea.description).strip()
+    tags_raw = request.POST.get("tags", "")
+    if tags_raw:
+        idea.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    idea.save()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "ideaChanged"},
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_delete(request, workspace_id, idea_id):
+    """Delete an idea via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    idea = get_object_or_404(Idea, id=idea_id, workspace=workspace)
+    idea.delete()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "ideaChanged"},
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_move(request, workspace_id, idea_id):
+    """Move an idea to a new column/position via HTMX (drag-and-drop)."""
+    workspace = _get_workspace(request, workspace_id)
+    idea = get_object_or_404(Idea, id=idea_id, workspace=workspace)
+    new_status = request.POST.get("status")
+    new_position = request.POST.get("position")
+
+    if new_status and new_status in dict(Idea.Status.choices):
+        idea.status = new_status
+    if new_position is not None:
+        try:
+            idea.position = int(new_position)
+        except (ValueError, TypeError):
+            pass
+    idea.save()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "ideaChanged"},
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_GET
+def idea_board(request, workspace_id):
+    """Return the Kanban board partial for HTMX refresh."""
+    workspace = _get_workspace(request, workspace_id)
+    tag = request.GET.get("tag")
+    columns, all_tags = _idea_columns(workspace.id, tag)
+
+    return render(
+        request,
+        "composer/partials/kanban_board.html",
+        {
+            "workspace": workspace,
+            "columns": columns,
+            "all_tags": all_tags,
+            "active_tag": tag,
         },
     )

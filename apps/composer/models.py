@@ -1,6 +1,7 @@
 """Post Composer models (F-2.1) — core content creation entities.
 
 Models:
+    Idea — A content idea on the Kanban board, scoped to a workspace.
     Post — The base content entity, scoped to a workspace.
     PlatformPost — Per-platform variant of a post (caption/media overrides).
     PostMedia — Media attachments with ordering and alt text.
@@ -14,6 +15,66 @@ from django.db import models
 from django.utils import timezone
 
 from apps.common.managers import WorkspaceScopedManager
+
+
+class Idea(models.Model):
+    """A content idea on the Kanban board, scoped to a workspace."""
+
+    class Status(models.TextChoices):
+        UNASSIGNED = "unassigned", "Unassigned"
+        TODO = "todo", "To Do"
+        IN_PROGRESS = "in_progress", "In Progress"
+        DONE = "done", "Done"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="ideas",
+    )
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="authored_ideas",
+    )
+
+    # Content
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True, default="")
+    tags = models.JSONField(default=list, blank=True)
+
+    # Kanban
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.UNASSIGNED,
+        db_index=True,
+    )
+    position = models.PositiveIntegerField(default=0)
+
+    # Optional link to a Post (when idea is converted)
+    post = models.OneToOneField(
+        "Post",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="source_idea",
+    )
+
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_idea"
+        ordering = ["position", "-created_at"]
+
+    def __str__(self):
+        return f"Idea({self.status}): {self.title[:50]}"
 
 
 class Post(models.Model):

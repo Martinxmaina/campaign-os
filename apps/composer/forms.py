@@ -2,7 +2,21 @@
 
 from django import forms
 
-from .models import Post
+from .models import Idea, Post
+
+
+class IdeaForm(forms.ModelForm):
+    """Form for creating and editing ideas on the Kanban board."""
+
+    class Meta:
+        model = Idea
+        fields = ["title", "description", "tags"]
+
+    def clean_tags(self):
+        tags = self.cleaned_data.get("tags", [])
+        if isinstance(tags, str):
+            tags = [t.strip() for t in tags.split(",") if t.strip()]
+        return tags
 
 
 class PostForm(forms.ModelForm):

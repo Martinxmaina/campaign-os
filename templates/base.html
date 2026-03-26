@@ -13,7 +13,7 @@
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-gray-50 text-gray-900 min-h-screen">
+<body class="text-gray-900 min-h-screen" style="background: var(--surface-page);">
     {% csrf_token %}
     <script>
         document.body.addEventListener('htmx:configRequest', function(event) {
@@ -92,7 +92,7 @@
             <nav class="flex-1 overflow-y-auto py-2" :class="sidebarCollapsed ? 'px-2' : 'px-3'">
                 {% block sidebar_nav %}
                 {% if request.workspace %}
-                <a href="{% url 'composer:compose' workspace_id=request.workspace.id %}" class="sidebar-nav-item {% if request.resolver_match.url_name == 'compose' %}active{% endif %}">
+                <a href="{% url 'composer:create_landing' workspace_id=request.workspace.id %}" class="sidebar-nav-item {% if request.resolver_match.url_name == 'create_landing' or request.resolver_match.url_name == 'compose' %}active{% endif %}">
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                     <span class="sidebar-nav-label">Create</span>
                 </a>
