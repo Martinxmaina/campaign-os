@@ -219,10 +219,7 @@ def _month_view(request, workspace, target_date, context):
         for day in week:
             day_posts = posts_by_date.get(day, [])
             day_holidays = holidays_by_date.get(day.isoformat(), [])
-            day_events = [
-                e for e in custom_events
-                if e.start_date <= day <= e.end_date
-            ]
+            day_events = [e for e in custom_events if e.start_date <= day <= e.end_date]
             week_data.append(
                 {
                     "date": day,
@@ -482,10 +479,7 @@ def delete_posting_slot(request, workspace_id, slot_id):
 def queue_list(request, workspace_id):
     """List all queues for this workspace."""
     workspace = _get_workspace(request, workspace_id)
-    queues = (
-        Queue.objects.for_workspace(workspace.id)
-        .select_related("social_account", "category")
-    )
+    queues = Queue.objects.for_workspace(workspace.id).select_related("social_account", "category")
     accounts = SocialAccount.objects.for_workspace(workspace.id).filter(
         connection_status=SocialAccount.ConnectionStatus.CONNECTED,
     )

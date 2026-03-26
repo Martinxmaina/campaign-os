@@ -127,9 +127,9 @@ def compose(request, workspace_id, post_id=None):
     # Queues for "Add to Queue" action
     from apps.calendar.models import Queue
 
-    queues = Queue.objects.for_workspace(workspace.id).filter(
-        is_active=True
-    ).select_related("social_account", "category")
+    queues = (
+        Queue.objects.for_workspace(workspace.id).filter(is_active=True).select_related("social_account", "category")
+    )
 
     # Permissions for action buttons
     membership = request.workspace_membership
@@ -240,9 +240,7 @@ def save_post(request, workspace_id, post_id=None):
             return HttpResponse(
                 status=204,
                 headers={
-                    "HX-Trigger": json.dumps(
-                        {"postSaved": {"postId": str(post.id), "status": post.status}}
-                    ),
+                    "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
@@ -603,11 +601,7 @@ def drafts_list(request, workspace_id):
 
 def _idea_columns(workspace_id, tag=None):
     """Build Kanban columns dict for a workspace, optionally filtered by tag."""
-    ideas = (
-        Idea.objects.for_workspace(workspace_id)
-        .select_related("author")
-        .order_by("position", "-created_at")
-    )
+    ideas = Idea.objects.for_workspace(workspace_id).select_related("author").order_by("position", "-created_at")
     if tag:
         ideas = ideas.filter(tags__contains=[tag])
 
@@ -797,9 +791,7 @@ def category_create(request, workspace_id):
 
     category = form.save(commit=False)
     category.workspace = workspace
-    max_pos = ContentCategory.objects.for_workspace(workspace.id).aggregate(
-        models.Max("position")
-    )["position__max"]
+    max_pos = ContentCategory.objects.for_workspace(workspace.id).aggregate(models.Max("position"))["position__max"]
     category.position = (max_pos or 0) + 1
     category.save()
 
@@ -880,12 +872,8 @@ def save_as_template(request, workspace_id, post_id):
         "first_comment": post.first_comment,
         "category_id": str(post.category_id) if post.category_id else None,
         "tags": post.tags,
-        "platform_account_ids": [
-            str(pp.social_account_id) for pp in post.platform_posts.all()
-        ],
-        "media_asset_ids": [
-            str(pm.media_asset_id) for pm in post.media_attachments.all()
-        ],
+        "platform_account_ids": [str(pp.social_account_id) for pp in post.platform_posts.all()],
+        "media_asset_ids": [str(pm.media_asset_id) for pm in post.media_attachments.all()],
     }
 
     PostTemplate.objects.create(

@@ -13,10 +13,7 @@ def _next_slot_datetimes(social_account, after_dt, count=30):
     Starting from `after_dt`, walks forward through the week to find
     upcoming slot times based on the account's PostingSlot configuration.
     """
-    slots = (
-        PostingSlot.objects.filter(social_account=social_account, is_active=True)
-        .order_by("day_of_week", "time")
-    )
+    slots = PostingSlot.objects.filter(social_account=social_account, is_active=True).order_by("day_of_week", "time")
     if not slots.exists():
         return []
 

@@ -42,9 +42,7 @@ def generate_recurring_posts():
         base_time = source.scheduled_at.time()
         base_tz = source.scheduled_at.tzinfo
 
-        dates = _compute_recurrence_dates(
-            base_date, rule.frequency, rule.interval, end
-        )
+        dates = _compute_recurrence_dates(base_date, rule.frequency, rule.interval, end)
 
         # Filter out dates already generated (posts with same source scheduled time)
         existing_dates = set(

@@ -8,32 +8,67 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('composer', '0002_initial'),
-        ('workspaces', '0001_initial'),
+        ("composer", "0002_initial"),
+        ("workspaces", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='Idea',
+            name="Idea",
             fields=[
-                ('id', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('title', models.CharField(max_length=255)),
-                ('description', models.TextField(blank=True, default='')),
-                ('tags', models.JSONField(blank=True, default=list)),
-                ('status', models.CharField(choices=[('unassigned', 'Unassigned'), ('todo', 'To Do'), ('in_progress', 'In Progress'), ('done', 'Done')], db_index=True, default='unassigned', max_length=20)),
-                ('position', models.PositiveIntegerField(default=0)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
-                ('author', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='authored_ideas', to=settings.AUTH_USER_MODEL)),
-                ('post', models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='source_idea', to='composer.post')),
-                ('workspace', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ideas', to='workspaces.workspace')),
+                ("id", models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
+                ("title", models.CharField(max_length=255)),
+                ("description", models.TextField(blank=True, default="")),
+                ("tags", models.JSONField(blank=True, default=list)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("unassigned", "Unassigned"),
+                            ("todo", "To Do"),
+                            ("in_progress", "In Progress"),
+                            ("done", "Done"),
+                        ],
+                        db_index=True,
+                        default="unassigned",
+                        max_length=20,
+                    ),
+                ),
+                ("position", models.PositiveIntegerField(default=0)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "author",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="authored_ideas",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "post",
+                    models.OneToOneField(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="source_idea",
+                        to="composer.post",
+                    ),
+                ),
+                (
+                    "workspace",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE, related_name="ideas", to="workspaces.workspace"
+                    ),
+                ),
             ],
             options={
-                'db_table': 'composer_idea',
-                'ordering': ['position', '-created_at'],
+                "db_table": "composer_idea",
+                "ordering": ["position", "-created_at"],
             },
         ),
     ]

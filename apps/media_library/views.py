@@ -550,11 +550,15 @@ def folder_rename(request, workspace_id, folder_id):
         return JsonResponse({"error": "Folder name is required"}, status=400)
 
     # Check for duplicate sibling name before saving
-    duplicate = MediaFolder.objects.filter(
-        workspace=workspace,
-        parent_folder=folder.parent_folder,
-        name=name,
-    ).exclude(pk=folder.pk).exists()
+    duplicate = (
+        MediaFolder.objects.filter(
+            workspace=workspace,
+            parent_folder=folder.parent_folder,
+            name=name,
+        )
+        .exclude(pk=folder.pk)
+        .exists()
+    )
     if duplicate:
         return JsonResponse(
             {"error": f"A folder named '{name}' already exists in this location."},

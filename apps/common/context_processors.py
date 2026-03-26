@@ -47,9 +47,7 @@ def sidebar_context(request):
         # handles the "not configured" case with an admin prompt.
         connected_platforms = {ch.platform for ch in sidebar_channels}
         sidebar_connectable_platforms = [
-            (p, label)
-            for p, label in _platform_display_names()
-            if p not in connected_platforms
+            (p, label) for p, label in _platform_display_names() if p not in connected_platforms
         ]
 
     return {
@@ -64,9 +62,7 @@ def _get_configured_platforms(org_id):
     from apps.credentials.models import PlatformCredential
 
     configured = set(
-        PlatformCredential.objects.for_org(org_id)
-        .filter(is_configured=True)
-        .values_list("platform", flat=True)
+        PlatformCredential.objects.for_org(org_id).filter(is_configured=True).values_list("platform", flat=True)
     )
     env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
     for platform, creds in env_creds.items():

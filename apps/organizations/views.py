@@ -29,8 +29,7 @@ def cross_workspace_calendar(request):
 
     # Get workspaces the user has membership in
     user_workspace_ids = set(
-        WorkspaceMembership.objects.filter(user=request.user)
-        .values_list("workspace_id", flat=True)
+        WorkspaceMembership.objects.filter(user=request.user).values_list("workspace_id", flat=True)
     )
     workspaces = Workspace.objects.filter(
         organization=org,

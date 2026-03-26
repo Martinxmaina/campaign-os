@@ -445,10 +445,7 @@ class PostTemplate(models.Model):
     description = models.TextField(blank=True, default="")
     template_data = models.JSONField(
         default=dict,
-        help_text=(
-            "JSON snapshot: caption, first_comment, category_id, "
-            "platform_ids, hashtags, media_asset_ids, tags"
-        ),
+        help_text=("JSON snapshot: caption, first_comment, category_id, platform_ids, hashtags, media_asset_ids, tags"),
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,

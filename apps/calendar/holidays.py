@@ -30,10 +30,7 @@ def get_holidays_for_range(start_date, end_date):
     from datetime import timedelta
 
     while current <= end_date:
-        matching = [
-            h for h in holidays
-            if h["month"] == current.month and h["day"] == current.day
-        ]
+        matching = [h for h in holidays if h["month"] == current.month and h["day"] == current.day]
         if matching:
             result[current.isoformat()] = matching
         current += timedelta(days=1)
