@@ -23,14 +23,15 @@
 
     /* Kanban board */
     .kanban-column {
-        min-width: 280px;
-        width: 280px;
+        min-width: 260px;
+        width: 260px;
         flex-shrink: 0;
         display: flex;
         flex-direction: column;
         background: #F5F5F4;
         border-radius: 12px;
-        min-height: 0;
+        min-height: 50vh;
+        max-height: calc(100vh - 200px);
     }
     .kanban-cards {
         flex: 1;
@@ -65,6 +66,16 @@
     .idea-card.dragging {
         opacity: 0.5;
         transform: rotate(2deg);
+    }
+
+    /* Column dragging */
+    .kanban-column.column-dragging {
+        opacity: 0.4;
+    }
+    .kanban-column.column-drag-over {
+        outline: 2px dashed #FDBA74;
+        outline-offset: -2px;
+        background: #FFF7ED;
     }
 
     /* New idea inline */
@@ -111,10 +122,260 @@
     .idea-modal {
         background: white;
         border-radius: 16px;
-        padding: 24px;
         width: 100%;
-        max-width: 480px;
+        max-width: 640px;
         box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+        display: flex;
+        flex-direction: column;
+        max-height: calc(100vh - 80px);
+        position: relative;
+    }
+    .idea-modal-close {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        background: none;
+        border-radius: 6px;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        transition: color 150ms, background 150ms;
+        z-index: 1;
+    }
+    .idea-modal-close:hover {
+        color: var(--text-primary);
+        background: var(--neutral-100);
+    }
+    .idea-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 20px 50px 16px 24px;
+    }
+    .idea-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 24px 16px;
+    }
+    .idea-modal-footer {
+        padding: 16px 24px;
+        border-top: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 8px;
+    }
+    .idea-modal-body input.idea-title-input {
+        width: 100%;
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        border: none;
+        outline: none;
+        padding: 0;
+        margin-bottom: 12px;
+        background: transparent;
+    }
+    .idea-modal-body input.idea-title-input::placeholder {
+        color: var(--neutral-300);
+    }
+    .idea-modal-body textarea.idea-desc-input {
+        width: 100%;
+        min-height: 160px;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        border: none;
+        outline: none;
+        padding: 0;
+        resize: none;
+        background: transparent;
+        line-height: 1.7;
+    }
+    .idea-modal-body textarea.idea-desc-input::placeholder {
+        color: var(--neutral-300);
+    }
+    .idea-pill-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border: 1px solid var(--border);
+        border-radius: 9999px;
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        background: var(--surface-0);
+        cursor: pointer;
+        transition: background 150ms;
+        white-space: nowrap;
+    }
+    .idea-pill-btn:hover { background: var(--neutral-50); }
+    .idea-pill-dropdown {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        background: white;
+        border-radius: 10px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+        border: 1px solid var(--border);
+        min-width: 180px;
+        max-height: 240px;
+        overflow-y: auto;
+        z-index: 110;
+        padding: 4px;
+    }
+    .idea-pill-dropdown label,
+    .idea-pill-dropdown button {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 7px 10px;
+        font-size: 0.8125rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 100ms;
+        border: none;
+        background: none;
+        color: var(--text-primary);
+        text-align: left;
+    }
+    .idea-pill-dropdown label:hover,
+    .idea-pill-dropdown button:hover { background: var(--neutral-50); }
+    .idea-media-zone {
+        border: 2px dashed var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        color: var(--text-tertiary);
+        font-size: 0.8125rem;
+        max-width: 200px;
+        margin-top: 16px;
+        transition: border-color 150ms, background 150ms;
+    }
+    .idea-media-zone.drag-over {
+        border-color: var(--primary);
+        background: rgba(var(--primary-rgb, 249, 115, 22), 0.05);
+    }
+    .idea-media-preview {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 16px;
+        padding: 10px 14px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        max-width: 320px;
+    }
+    .idea-media-preview img {
+        width: 48px;
+        height: 48px;
+        object-fit: cover;
+        border-radius: 6px;
+        flex-shrink: 0;
+    }
+    .idea-media-preview .file-info {
+        flex: 1;
+        min-width: 0;
+    }
+    .idea-media-preview .file-name {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .idea-media-preview .file-size {
+        font-size: 0.6875rem;
+        color: var(--text-tertiary);
+    }
+    .idea-media-preview .remove-btn {
+        border: none;
+        background: none;
+        color: var(--text-tertiary);
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: color 150ms, background 150ms;
+        flex-shrink: 0;
+    }
+    .idea-media-preview .remove-btn:hover {
+        color: var(--danger, #ef4444);
+        background: var(--neutral-100);
+    }
+    .idea-selected-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 8px;
+    }
+    .idea-selected-tags .idea-tag-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        font-size: 0.6875rem;
+        font-weight: 600;
+        background: var(--primary-soft, #FFF7ED);
+        color: var(--primary, #C2410C);
+        border: 1px solid var(--primary-muted, #FED7AA);
+    }
+    /* Emoji picker */
+    .emoji-picker-popup {
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+        border: 1px solid var(--border);
+        width: 280px;
+        z-index: 120;
+        overflow: hidden;
+    }
+    .emoji-picker-search {
+        padding: 8px 8px 4px;
+    }
+    .emoji-picker-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 2px;
+        padding: 4px 8px 8px;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .emoji-picker-item {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        border: none;
+        background: none;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 100ms;
+    }
+    .emoji-picker-item:hover {
+        background: var(--neutral-100);
+    }
+
+    .idea-selected-tags .idea-tag-chip button {
+        display: flex; align-items: center; justify-content: center;
+        width: 12px; height: 12px; border: none; background: none;
+        cursor: pointer; color: inherit; padding: 0;
     }
 </style>
 {% endblock %}
@@ -128,7 +389,7 @@
 
         <!-- + New Idea -->
         <button x-show="activeTab === 'ideas'" x-cloak
-                @click="showCreateModal = true"
+                @click="showCreateModal = true; createSelectedGroup = _defaultGroupId"
                 class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-orange-500 rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:bg-orange-600 hover:shadow-[0_6px_20px_rgba(249,115,22,0.35)] hover:-translate-y-px active:translate-y-0 transition-all duration-150">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             New Idea
@@ -222,41 +483,172 @@
     <!-- Create Idea Modal -->
     <div x-show="showCreateModal" x-cloak
          class="idea-modal-overlay"
-         @click.self="showCreateModal = false"
-         @keydown.escape.window="showCreateModal = false">
+         @click.self="closeCreateModal()"
+         @keydown.escape.window="closeCreateModal()">
         <div class="idea-modal" @click.stop>
-            <h2 class="text-base font-semibold text-stone-900 mb-4" style="font-family: Georgia, 'Times New Roman', serif;">New Idea</h2>
+            <!-- Close button -->
+            <button type="button" class="idea-modal-close" @click="closeCreateModal()" title="Close">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
             <form hx-post="{% url 'composer:idea_create' workspace_id=workspace.id %}"
                   hx-swap="none"
-                  @htmx:after-request.window="if ($event.detail.successful) { showCreateModal = false; createGroupId = ''; $event.detail.elt.reset(); }">
-                <input type="hidden" name="group" :value="createGroupId">
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-stone-500 mb-1">Title</label>
-                        <input type="text" name="title" required
-                               class="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
-                               placeholder="What's your idea?">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-stone-500 mb-1">Description</label>
-                        <textarea name="description" rows="3"
-                                  class="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 resize-none"
-                                  placeholder="Add more details..."></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-stone-500 mb-1">Tags</label>
-                        <input type="text" name="tags"
-                               class="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400"
-                               placeholder="e.g. marketing, launch, blog">
+                  @htmx:after-request.window="if ($event.detail.successful) { closeCreateModal(); $event.detail.elt.reset(); }">
+                <!-- Hidden fields -->
+                <input type="hidden" name="group" :value="createSelectedGroup">
+                <input type="hidden" name="tags" :value="createSelectedTags.join(',')">
+
+                <!-- Header -->
+                <div class="idea-modal-header">
+                    <h2 class="text-lg font-semibold" style="font-family: var(--font-display); color: var(--text-primary);">Create Idea</h2>
+                    <div class="flex items-center gap-2">
+                        <!-- Column selector dropdown -->
+                        <div class="relative" @click.away="createGroupDropdownOpen = false">
+                            <button type="button" class="idea-pill-btn" @click="createGroupDropdownOpen = !createGroupDropdownOpen; createTagDropdownOpen = false">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                                <span x-text="createGroupLabel()"></span>
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <div x-show="createGroupDropdownOpen" x-cloak x-transition class="idea-pill-dropdown">
+                                {% for col in columns %}
+                                <button type="button"
+                                        @click="createSelectedGroup = '{{ col.id }}'; createGroupDropdownOpen = false"
+                                        :class="createSelectedGroup === '{{ col.id }}' && 'font-semibold'">
+                                    <span>{{ col.label }}</span>
+                                    <svg x-show="createSelectedGroup === '{{ col.id }}'" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" class="ml-auto" style="color: var(--primary);"><polyline points="20 6 9 17 4 12"/></svg>
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Tags dropdown -->
+                        <div class="relative" @click.away="createTagDropdownOpen = false">
+                            <button type="button" class="idea-pill-btn" @click="createTagDropdownOpen = !createTagDropdownOpen; createGroupDropdownOpen = false">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                                <span>Tags</span>
+                                <span x-show="createSelectedTags.length" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white" style="background: var(--primary);" x-text="createSelectedTags.length"></span>
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <div x-show="createTagDropdownOpen" x-cloak x-transition class="idea-pill-dropdown">
+                                {% for tag in all_tags %}
+                                <label>
+                                    <input type="checkbox" value="{{ tag }}" class="rounded accent-orange-500"
+                                           :checked="createSelectedTags.includes('{{ tag }}')"
+                                           @change="toggleCreateTag('{{ tag }}')">
+                                    <span>{{ tag }}</span>
+                                </label>
+                                {% endfor %}
+                                {% if not all_tags %}
+                                <div class="px-3 py-2 text-xs" style="color: var(--text-tertiary);">No tags yet. Type a new tag below.</div>
+                                {% endif %}
+                                <!-- Add new tag -->
+                                <div class="border-t" style="border-color: var(--border); margin-top: 2px; padding-top: 2px;">
+                                    <div class="flex items-center gap-1 px-2 py-1" x-data="{ newTag: '' }">
+                                        <input type="text" x-model="newTag" placeholder="New tag..."
+                                               class="flex-1 text-xs px-2 py-1 rounded border outline-none"
+                                               style="border-color: var(--border);"
+                                               @keydown.enter.prevent="if (newTag.trim()) { toggleCreateTag(newTag.trim()); newTag = ''; }">
+                                        <button type="button" @click="if (newTag.trim()) { toggleCreateTag(newTag.trim()); newTag = ''; }"
+                                                class="text-xs font-medium px-2 py-1 rounded" style="color: var(--primary);">Add</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center justify-end gap-2 mt-5">
-                    <button type="button" @click="showCreateModal = false"
-                            class="px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
-                        Cancel
+
+                <!-- Selected tags chips -->
+                <template x-if="createSelectedTags.length > 0">
+                    <div class="idea-selected-tags" style="padding: 0 24px 8px;">
+                        <template x-for="tag in createSelectedTags" :key="tag">
+                            <span class="idea-tag-chip">
+                                <span x-text="tag"></span>
+                                <button type="button" @click="toggleCreateTag(tag)">
+                                    <svg width="8" height="8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </span>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Body -->
+                <div class="idea-modal-body" @click="createGroupDropdownOpen = false; createTagDropdownOpen = false">
+                    <input type="text" name="title" required class="idea-title-input" placeholder="Give your idea a title">
+                    <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"></textarea>
+
+                    <!-- Media drop zone -->
+                    <template x-if="!createMediaPreview">
+                        <div class="idea-media-zone"
+                             :class="{ 'drag-over': _mediaDragOver }"
+                             @dragover.prevent="_mediaDragOver = true"
+                             @dragleave.prevent="_mediaDragOver = false"
+                             @drop.prevent="_mediaDragOver = false; _handleMediaDrop($event)">
+                            <input type="file" x-ref="ideaFileInput" accept="image/*,video/*,.gif" style="display:none"
+                                   @change="_handleFileSelect($event)">
+                            <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                            <span>Drag &amp; drop</span>
+                            <span>or <strong style="color: var(--primary); cursor: pointer;" @click="$refs.ideaFileInput.click()">select a file</strong></span>
+                        </div>
+                    </template>
+                    <!-- Media preview -->
+                    <template x-if="createMediaPreview">
+                        <div class="idea-media-preview">
+                            <img :src="createMediaPreview" alt="Preview">
+                            <div class="file-info">
+                                <div class="file-name" x-text="createMediaName"></div>
+                                <div class="file-size" x-text="_formatFileSize(createMediaFile?.size)"></div>
+                            </div>
+                            <button type="button" class="remove-btn" @click="_removeMedia()" title="Remove">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Footer -->
+                <div class="idea-modal-footer" @click="createGroupDropdownOpen = false; createTagDropdownOpen = false">
+                    <span style="margin-right: auto; display: flex; align-items: center; gap: 8px; color: var(--text-tertiary);">
+                        <span style="width: 1px; height: 20px; background: var(--border);"></span>
+                        <div class="relative">
+                            <button type="button" @click.stop="emojiPickerOpen = !emojiPickerOpen" class="p-1 rounded hover:bg-stone-100 transition-colors cursor-pointer" title="Emoji" style="color: var(--text-tertiary);">
+                                <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+                            </button>
+                            <div x-show="emojiPickerOpen" x-cloak @click.away="emojiPickerOpen = false"
+                                 x-transition:enter="transition ease-out duration-100"
+                                 x-transition:enter-start="opacity-0 scale-95"
+                                 x-transition:enter-end="opacity-100 scale-100"
+                                 class="emoji-picker-popup">
+                                <div class="emoji-picker-search">
+                                    <input type="text" placeholder="Search emoji..." x-model="_emojiSearch"
+                                           class="w-full px-2 py-1.5 text-xs rounded border outline-none"
+                                           style="border-color: var(--border);"
+                                           @click.stop>
+                                </div>
+                                <div class="emoji-picker-grid">
+                                    <template x-for="emoji in _filteredEmojis()" :key="emoji.e">
+                                        <button type="button"
+                                                class="emoji-picker-item"
+                                                @click.stop="_insertEmoji(emoji.e); emojiPickerOpen = false"
+                                                x-text="emoji.e"
+                                                :title="emoji.n">
+                                        </button>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                        <span style="width: 1px; height: 20px; background: var(--border);"></span>
+                    </span>
+                    <button type="button" @click="closeCreateModal()"
+                            class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
+                            style="background: var(--neutral-100); color: var(--text-primary);"
+                            onmouseenter="this.style.background='var(--neutral-200)'"
+                            onmouseleave="this.style.background='var(--neutral-100)'">
+                        Create Post
                     </button>
                     <button type="submit"
-                            class="px-4 py-2 text-sm font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors">
+                            class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
+                            style="background: var(--neutral-100); color: var(--text-primary);"
+                            onmouseenter="this.style.background='var(--neutral-200)'"
+                            onmouseleave="this.style.background='var(--neutral-100)'">
                         Save Idea
                     </button>
                 </div>
@@ -270,44 +662,122 @@
          @click.self="editingIdea = null"
          @keydown.escape.window="editingIdea = null">
         <div class="idea-modal" @click.stop>
-            <h2 class="text-base font-semibold text-stone-900 mb-4" style="font-family: Georgia, 'Times New Roman', serif;">Edit Idea</h2>
+            <!-- Close button -->
+            <button type="button" class="idea-modal-close" @click="editingIdea = null" title="Close">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
             <form :hx-post="editingIdea ? `/workspace/{{ workspace.id }}/ideas/${editingIdea.id}/edit/` : ''"
                   hx-swap="none"
                   @htmx:after-request.window="if ($event.detail.successful && editingIdea) { editingIdea = null; }">
-                <div class="space-y-3">
-                    <div>
-                        <label class="block text-xs font-semibold text-stone-500 mb-1">Title</label>
-                        <input type="text" name="title" required
-                               :value="editingIdea?.title || ''"
-                               class="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-stone-500 mb-1">Description</label>
-                        <textarea name="description" rows="3"
-                                  class="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400 resize-none"
-                                  x-text="editingIdea?.description || ''"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-semibold text-stone-500 mb-1">Tags</label>
-                        <input type="text" name="tags"
-                               :value="editingIdea?.tags || ''"
-                               class="w-full px-3 py-2 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400">
+                <!-- Hidden fields -->
+                <input type="hidden" name="group" :value="editSelectedGroup">
+                <input type="hidden" name="tags" :value="editSelectedTags.join(',')">
+
+                <!-- Header -->
+                <div class="idea-modal-header">
+                    <h2 class="text-lg font-semibold" style="font-family: var(--font-display); color: var(--text-primary);">Edit Idea</h2>
+                    <div class="flex items-center gap-2">
+                        <!-- Column selector dropdown -->
+                        <div class="relative" @click.away="editGroupDropdownOpen = false">
+                            <button type="button" class="idea-pill-btn" @click="editGroupDropdownOpen = !editGroupDropdownOpen; editTagDropdownOpen = false">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+                                <span x-text="editGroupLabel()"></span>
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <div x-show="editGroupDropdownOpen" x-cloak x-transition class="idea-pill-dropdown">
+                                {% for col in columns %}
+                                <button type="button"
+                                        @click="editSelectedGroup = '{{ col.id }}'; editGroupDropdownOpen = false"
+                                        :class="editSelectedGroup === '{{ col.id }}' && 'font-semibold'">
+                                    <span>{{ col.label }}</span>
+                                    <svg x-show="editSelectedGroup === '{{ col.id }}'" width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" class="ml-auto" style="color: var(--primary);"><polyline points="20 6 9 17 4 12"/></svg>
+                                </button>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Tags dropdown -->
+                        <div class="relative" @click.away="editTagDropdownOpen = false">
+                            <button type="button" class="idea-pill-btn" @click="editTagDropdownOpen = !editTagDropdownOpen; editGroupDropdownOpen = false">
+                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+                                <span>Tags</span>
+                                <span x-show="editSelectedTags.length" class="inline-flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold text-white" style="background: var(--primary);" x-text="editSelectedTags.length"></span>
+                                <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
+                            </button>
+                            <div x-show="editTagDropdownOpen" x-cloak x-transition class="idea-pill-dropdown">
+                                {% for tag in all_tags %}
+                                <label>
+                                    <input type="checkbox" value="{{ tag }}" class="rounded accent-orange-500"
+                                           :checked="editSelectedTags.includes('{{ tag }}')"
+                                           @change="toggleEditTag('{{ tag }}')">
+                                    <span>{{ tag }}</span>
+                                </label>
+                                {% endfor %}
+                                {% if not all_tags %}
+                                <div class="px-3 py-2 text-xs" style="color: var(--text-tertiary);">No tags yet. Type a new tag below.</div>
+                                {% endif %}
+                                <!-- Add new tag -->
+                                <div class="border-t" style="border-color: var(--border); margin-top: 2px; padding-top: 2px;">
+                                    <div class="flex items-center gap-1 px-2 py-1" x-data="{ newTag: '' }">
+                                        <input type="text" x-model="newTag" placeholder="New tag..."
+                                               class="flex-1 text-xs px-2 py-1 rounded border outline-none"
+                                               style="border-color: var(--border);"
+                                               @keydown.enter.prevent="if (newTag.trim()) { toggleEditTag(newTag.trim()); newTag = ''; }">
+                                        <button type="button" @click="if (newTag.trim()) { toggleEditTag(newTag.trim()); newTag = ''; }"
+                                                class="text-xs font-medium px-2 py-1 rounded" style="color: var(--primary);">Add</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="flex items-center gap-2 mt-5">
+
+                <!-- Selected tags chips -->
+                <template x-if="editSelectedTags.length > 0">
+                    <div class="idea-selected-tags" style="padding: 0 24px 8px;">
+                        <template x-for="tag in editSelectedTags" :key="tag">
+                            <span class="idea-tag-chip">
+                                <span x-text="tag"></span>
+                                <button type="button" @click="toggleEditTag(tag)">
+                                    <svg width="8" height="8" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </span>
+                        </template>
+                    </div>
+                </template>
+
+                <!-- Body -->
+                <div class="idea-modal-body" @click="editGroupDropdownOpen = false; editTagDropdownOpen = false">
+                    <input type="text" name="title" required
+                           :value="editingIdea?.title || ''"
+                           class="idea-title-input" placeholder="Give your idea a title">
+                    <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"
+                              x-text="editingIdea?.description || ''"></textarea>
+                </div>
+
+                <!-- Footer -->
+                <div class="idea-modal-footer" @click="editGroupDropdownOpen = false; editTagDropdownOpen = false">
                     <button type="button"
                             @click="if (editingIdea) { deleteIdea(editingIdea.id); editingIdea = null; }"
-                            class="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            class="px-4 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
+                            style="color: var(--danger, #ef4444); margin-right: auto;"
+                            onmouseenter="this.style.background='rgba(239,68,68,0.08)'"
+                            onmouseleave="this.style.background='transparent'">
                         Delete
                     </button>
-                    <div class="flex-1"></div>
                     <button type="button" @click="editingIdea = null"
-                            class="px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-lg transition-colors">
-                        Cancel
+                            class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
+                            style="background: var(--neutral-100); color: var(--text-primary);"
+                            onmouseenter="this.style.background='var(--neutral-200)'"
+                            onmouseleave="this.style.background='var(--neutral-100)'">
+                        Create Post
                     </button>
                     <button type="submit"
-                            class="px-4 py-2 text-sm font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors">
-                        Save
+                            class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
+                            style="background: var(--neutral-100); color: var(--text-primary);"
+                            onmouseenter="this.style.background='var(--neutral-200)'"
+                            onmouseleave="this.style.background='var(--neutral-100)'">
+                        Save Idea
                     </button>
                 </div>
             </form>
@@ -323,10 +793,237 @@ function kanbanBoard() {
         activeTab: '{{ tab }}',
         showCreateModal: false,
         createGroupId: '',
+        createSelectedGroup: '',
+        createSelectedTags: [],
+        createGroupDropdownOpen: false,
+        createTagDropdownOpen: false,
+        emojiPickerOpen: false,
+        createMediaFile: null,
+        createMediaPreview: '',
+        createMediaName: '',
+        _mediaDragOver: false,
         editingIdea: null,
+        editSelectedGroup: '',
+        editSelectedTags: [],
+        editGroupDropdownOpen: false,
+        editTagDropdownOpen: false,
         draggedIdeaId: null,
+        draggedColumnId: null,
+        _columnDragAllowed: false,
+
+        // Column ID-to-label map for the dropdown
+        _columnMap: { {% for col in columns %}'{{ col.id }}': '{{ col.label }}'{% if not forloop.last %}, {% endif %}{% endfor %} },
+        _defaultGroupId: '{% if columns %}{{ columns.0.id }}{% endif %}',
+
+        createGroupLabel() {
+            return this._columnMap[this.createSelectedGroup] || 'Unassigned';
+        },
+
+        editGroupLabel() {
+            return this._columnMap[this.editSelectedGroup] || 'Unassigned';
+        },
+
+        toggleEditTag(tag) {
+            var idx = this.editSelectedTags.indexOf(tag);
+            if (idx === -1) {
+                this.editSelectedTags.push(tag);
+            } else {
+                this.editSelectedTags.splice(idx, 1);
+            }
+        },
+
+        toggleCreateTag(tag) {
+            var idx = this.createSelectedTags.indexOf(tag);
+            if (idx === -1) {
+                this.createSelectedTags.push(tag);
+            } else {
+                this.createSelectedTags.splice(idx, 1);
+            }
+        },
+
+        closeCreateModal() {
+            this.showCreateModal = false;
+            this.createGroupId = '';
+            this.createSelectedGroup = this._defaultGroupId;
+            this.createSelectedTags = [];
+            this.createGroupDropdownOpen = false;
+            this.createTagDropdownOpen = false;
+            this.emojiPickerOpen = false;
+            this._emojiSearch = '';
+            this.createMediaFile = null;
+            this.createMediaPreview = '';
+            this.createMediaName = '';
+        },
+
+        // --- Emoji picker ---
+        _emojiSearch: '',
+        _emojiList: [
+            {e:'😀',n:'grinning'},{e:'😃',n:'smiley'},{e:'😄',n:'smile'},{e:'😁',n:'grin'},{e:'😆',n:'laughing'},
+            {e:'😅',n:'sweat smile'},{e:'🤣',n:'rofl'},{e:'😂',n:'joy'},{e:'🙂',n:'slight smile'},{e:'😊',n:'blush'},
+            {e:'😇',n:'innocent'},{e:'🥰',n:'love'},{e:'😍',n:'heart eyes'},{e:'🤩',n:'star struck'},{e:'😘',n:'kiss'},
+            {e:'😜',n:'wink tongue'},{e:'🤔',n:'thinking'},{e:'🤗',n:'hugging'},{e:'🤫',n:'shushing'},{e:'😎',n:'cool'},
+            {e:'🥳',n:'party'},{e:'😤',n:'triumph'},{e:'😱',n:'scream'},{e:'🥺',n:'pleading'},{e:'😢',n:'cry'},
+            {e:'👍',n:'thumbs up'},{e:'👎',n:'thumbs down'},{e:'👏',n:'clap'},{e:'🙌',n:'raised hands'},{e:'🤝',n:'handshake'},
+            {e:'💪',n:'strong'},{e:'✌️',n:'peace'},{e:'🤞',n:'crossed fingers'},{e:'👋',n:'wave'},{e:'🫡',n:'salute'},
+            {e:'❤️',n:'red heart'},{e:'🧡',n:'orange heart'},{e:'💛',n:'yellow heart'},{e:'💚',n:'green heart'},{e:'💙',n:'blue heart'},
+            {e:'💜',n:'purple heart'},{e:'🖤',n:'black heart'},{e:'🤍',n:'white heart'},{e:'💯',n:'hundred'},{e:'💥',n:'boom'},
+            {e:'⭐',n:'star'},{e:'🌟',n:'glowing star'},{e:'✨',n:'sparkles'},{e:'⚡',n:'lightning'},{e:'🔥',n:'fire'},
+            {e:'🎉',n:'party popper'},{e:'🎊',n:'confetti'},{e:'🏆',n:'trophy'},{e:'🎯',n:'bullseye'},{e:'🚀',n:'rocket'},
+            {e:'💡',n:'light bulb'},{e:'📌',n:'pin'},{e:'📎',n:'paperclip'},{e:'📝',n:'memo'},{e:'✏️',n:'pencil'},
+            {e:'✅',n:'check mark'},{e:'❌',n:'cross mark'},{e:'⚠️',n:'warning'},{e:'❓',n:'question'},{e:'❗',n:'exclamation'},
+            {e:'💬',n:'speech'},{e:'👀',n:'eyes'},{e:'🎨',n:'art'},{e:'📸',n:'camera'},{e:'🎬',n:'clapper'},
+            {e:'📱',n:'phone'},{e:'💻',n:'laptop'},{e:'📊',n:'chart'},{e:'📈',n:'trending up'},{e:'📅',n:'calendar'},
+            {e:'⏰',n:'alarm clock'},{e:'🔗',n:'link'},{e:'🔒',n:'lock'},{e:'🏷️',n:'label'},{e:'📣',n:'megaphone'},
+            {e:'🌍',n:'globe'},{e:'☀️',n:'sun'},{e:'🌙',n:'moon'},{e:'🌈',n:'rainbow'},{e:'🍕',n:'pizza'},
+            {e:'☕',n:'coffee'},{e:'🍺',n:'beer'},{e:'🎵',n:'music'},{e:'🐶',n:'dog'},{e:'🐱',n:'cat'},
+            {e:'✍️',n:'writing'},{e:'🧠',n:'brain'},{e:'💎',n:'gem'},{e:'🪄',n:'magic wand'},{e:'🎁',n:'gift'},
+        ],
+
+        _filteredEmojis() {
+            var q = (this._emojiSearch || '').toLowerCase().trim();
+            if (!q) return this._emojiList;
+            return this._emojiList.filter(function(em) { return em.n.includes(q); });
+        },
+
+        _insertEmoji(emoji) {
+            var desc = document.querySelector('textarea.idea-desc-input');
+            if (desc) {
+                var start = desc.selectionStart;
+                var end = desc.selectionEnd;
+                desc.value = desc.value.substring(0, start) + emoji + desc.value.substring(end);
+                desc.selectionStart = desc.selectionEnd = start + emoji.length;
+                desc.focus();
+                desc.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            this._emojiSearch = '';
+        },
+
+        // --- Media file handling ---
+
+        _handleFileSelect(event) {
+            var file = event.target.files[0];
+            if (file) this._previewFile(file);
+        },
+
+        _handleMediaDrop(event) {
+            var file = event.dataTransfer.files[0];
+            if (file) this._previewFile(file);
+        },
+
+        _previewFile(file) {
+            this.createMediaFile = file;
+            this.createMediaName = file.name;
+            if (file.type.startsWith('image/')) {
+                var reader = new FileReader();
+                var self = this;
+                reader.onload = function(e) {
+                    self.createMediaPreview = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                // Non-image: show a generic placeholder
+                this.createMediaPreview = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="%23999" viewBox="0 0 24 24" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>');
+            }
+        },
+
+        _removeMedia() {
+            this.createMediaFile = null;
+            this.createMediaPreview = '';
+            this.createMediaName = '';
+            // Reset the file input so the same file can be re-selected
+            var input = this.$refs.ideaFileInput;
+            if (input) input.value = '';
+        },
+
+        _formatFileSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        },
+
+        // --- Column drag-and-drop ---
+
+        columnHeaderMouseDown() {
+            this._columnDragAllowed = true;
+        },
+
+        startColumnDrag(event, groupId) {
+            // Only allow dragging if mousedown started on the column header
+            if (!this._columnDragAllowed) {
+                event.preventDefault();
+                return;
+            }
+            this.draggedColumnId = groupId;
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('application/x-column', groupId);
+            var col = event.currentTarget;
+            requestAnimationFrame(function() { col.classList.add('column-dragging'); });
+        },
+
+        endColumnDrag(event) {
+            this.draggedColumnId = null;
+            document.querySelectorAll('.kanban-column.column-dragging').forEach(function(el) { el.classList.remove('column-dragging'); });
+            document.querySelectorAll('.kanban-column.column-drag-over').forEach(function(el) { el.classList.remove('column-drag-over'); });
+        },
+
+        columnDragOver(event) {
+            // Only handle column drags, not idea drags
+            if (!this.draggedColumnId) return;
+            event.preventDefault();
+            event.dataTransfer.dropEffect = 'move';
+            var col = event.currentTarget;
+            if (col.dataset.groupId !== this.draggedColumnId) {
+                col.classList.add('column-drag-over');
+            }
+        },
+
+        columnDragLeave(event) {
+            event.currentTarget.classList.remove('column-drag-over');
+        },
+
+        dropColumn(event, targetGroupId) {
+            event.currentTarget.classList.remove('column-drag-over');
+            var sourceGroupId = event.dataTransfer.getData('application/x-column');
+            if (!sourceGroupId || sourceGroupId === targetGroupId) return;
+            // Prevent idea drops from triggering column reorder
+            if (!this.draggedColumnId) return;
+            event.preventDefault();
+            event.stopPropagation();
+
+            // Optimistic UI: swap columns in the DOM
+            var container = document.querySelector('#kanban-board .flex');
+            var cols = Array.from(container.querySelectorAll('.kanban-column'));
+            var sourceCol = cols.find(function(c) { return c.dataset.groupId === sourceGroupId; });
+            var targetCol = cols.find(function(c) { return c.dataset.groupId === targetGroupId; });
+            if (sourceCol && targetCol) {
+                var sourceIdx = cols.indexOf(sourceCol);
+                var targetIdx = cols.indexOf(targetCol);
+                if (sourceIdx < targetIdx) {
+                    container.insertBefore(sourceCol, targetCol.nextSibling);
+                } else {
+                    container.insertBefore(sourceCol, targetCol);
+                }
+            }
+
+            // Persist new order to server
+            var newOrder = Array.from(container.querySelectorAll('.kanban-column')).map(function(c) { return c.dataset.groupId; });
+            var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+            fetch('/workspace/{{ workspace.id }}/ideas/groups/reorder/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: JSON.stringify({ order: newOrder })
+            });
+        },
+
+        // --- Idea drag-and-drop ---
 
         startDrag(event, ideaId) {
+            event.stopPropagation();
             this.draggedIdeaId = ideaId;
             event.dataTransfer.effectAllowed = 'move';
             event.dataTransfer.setData('text/plain', ideaId);
@@ -340,6 +1037,7 @@ function kanbanBoard() {
         },
 
         dragOver(event) {
+            if (this.draggedColumnId) return; // Ignore during column drag
             event.preventDefault();
             event.dataTransfer.dropEffect = 'move';
             event.currentTarget.classList.add('drag-over');
@@ -350,19 +1048,49 @@ function kanbanBoard() {
         },
 
         dropOnColumn(event, groupId) {
+            if (this.draggedColumnId) return; // Ignore during column drag
             event.preventDefault();
-            event.currentTarget.classList.remove('drag-over');
+            var dropZone = event.currentTarget;
+            dropZone.classList.remove('drag-over');
             var ideaId = event.dataTransfer.getData('text/plain');
             if (!ideaId) return;
 
-            htmx.ajax('POST',
-                '/workspace/{{ workspace.id }}/ideas/' + ideaId + '/move/',
-                { values: { group: groupId, position: 0 } }
-            );
+            // Optimistic UI: move the card in the DOM immediately
+            var card = document.querySelector('.idea-card[data-idea-id="' + ideaId + '"]');
+            if (card) {
+                card.classList.remove('dragging');
+                dropZone.prepend(card);
+                // Update column counts
+                this._updateColumnCounts();
+            }
+
+            // Fire server request in background (no ideaChanged trigger needed)
+            var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+            fetch('/workspace/{{ workspace.id }}/ideas/' + ideaId + '/move/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken,
+                },
+                body: 'group=' + encodeURIComponent(groupId) + '&position=0'
+            });
         },
 
-        openEdit(ideaId, title, description, tags) {
+        _updateColumnCounts() {
+            document.querySelectorAll('.kanban-column').forEach(function(col) {
+                var count = col.querySelectorAll('.idea-card').length;
+                var badge = col.querySelector('.column-count');
+                if (badge) badge.textContent = count;
+            });
+        },
+
+        openEdit(ideaId, title, description, tags, groupId) {
             this.editingIdea = { id: ideaId, title: title, description: description, tags: tags };
+            this.editSelectedGroup = groupId || this._defaultGroupId;
+            this.editSelectedTags = tags ? tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
+            this.editGroupDropdownOpen = false;
+            this.editTagDropdownOpen = false;
         },
 
         deleteIdea(ideaId) {

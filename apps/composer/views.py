@@ -846,10 +846,8 @@ def idea_move(request, workspace_id, idea_id):
             idea.position = int(new_position)
     idea.save()
 
-    return HttpResponse(
-        status=204,
-        headers={"HX-Trigger": "ideaChanged"},
-    )
+    # No HX-Trigger here — the frontend handles the move optimistically
+    return HttpResponse(status=204)
 
 
 @login_required
@@ -912,6 +910,31 @@ def idea_group_delete(request, workspace_id, group_id):
 
     group.delete()
     return HttpResponse(status=204, headers={"HX-Trigger": "ideaChanged"})
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_group_reorder(request, workspace_id):
+    """Reorder Kanban columns. Expects JSON body: {"order": ["uuid1", "uuid2", ...]}."""
+    workspace = _get_workspace(request, workspace_id)
+    try:
+        data = json.loads(request.body)
+        order = data.get("order", [])
+    except (json.JSONDecodeError, AttributeError):
+        return HttpResponse("Invalid JSON.", status=400)
+
+    if not order:
+        return HttpResponse(status=204)
+
+    groups = {str(g.id): g for g in IdeaGroup.objects.for_workspace(workspace.id)}
+    for position, group_id in enumerate(order):
+        group = groups.get(group_id)
+        if group and group.position != position:
+            group.position = position
+            group.save(update_fields=["position"])
+
+    return HttpResponse(status=204)
 
 
 # ---------------------------------------------------------------------------

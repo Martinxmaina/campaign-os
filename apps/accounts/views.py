@@ -59,7 +59,19 @@ def account_settings(request):
 
         return redirect("accounts:settings")
 
-    return render(request, "accounts/settings.html", {"settings_active": settings_active})
+    # Fetch the user's organization membership for role display
+    from apps.members.models import OrgMembership
+
+    org_membership = (
+        OrgMembership.objects.filter(user=user)
+        .select_related("organization")
+        .first()
+    )
+
+    return render(request, "accounts/settings.html", {
+        "settings_active": settings_active,
+        "org_membership": org_membership,
+    })
 
 
 def _handle_photo_update(request, user):

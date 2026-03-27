@@ -186,7 +186,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="-m-6 composer-main flex flex-col h-[calc(100vh-44px)]"
+<div class="-m-6 composer-main flex flex-col h-100vh"
      x-data="composerApp()"
      @keydown.meta.s.prevent="saveDraft()"
      @keydown.ctrl.s.prevent="saveDraft()">
