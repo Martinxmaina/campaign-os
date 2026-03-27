@@ -198,7 +198,7 @@
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
         </a>
         <div>
-            <h1 class="text-base font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.01em;">{% if is_edit %}Edit Post{% else %}Compose{% endif %}</h1>
+            <h1 class="text-base font-semibold text-stone-900" style="letter-spacing: -0.01em;">{% if is_edit %}Edit Post{% else %}Compose{% endif %}</h1>
             <p class="text-xs text-stone-400 -mt-0.5">{{ workspace.name }}</p>
         </div>
     </div>
@@ -736,7 +736,7 @@
              x-transition:enter-start="opacity-0 scale-95"
              x-transition:enter-end="opacity-100 scale-100">
             <div class="px-6 py-4 border-b border-stone-100 flex items-center justify-between">
-                <h2 class="text-base font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif;">Media Library</h2>
+                <h2 class="text-base font-semibold text-stone-900">Media Library</h2>
                 <button @click="showMediaPicker = false"
                         class="w-8 h-8 rounded-lg border border-stone-200 text-stone-400 hover:text-stone-600 hover:border-stone-300 flex items-center justify-center transition-all duration-150">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

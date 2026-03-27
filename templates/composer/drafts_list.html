@@ -7,7 +7,7 @@
 <div class="max-w-4xl">
     <div class="flex items-center justify-between mb-6">
         <div>
-            <h2 class="text-lg font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif;">Drafts</h2>
+            <h2 class="text-lg font-semibold text-stone-900">Drafts</h2>
             <p class="text-sm text-stone-500 mt-0.5">{{ drafts|length }} draft{{ drafts|length|pluralize }}</p>
         </div>
         <a href="{% url 'composer:compose' workspace_id=workspace.id %}"

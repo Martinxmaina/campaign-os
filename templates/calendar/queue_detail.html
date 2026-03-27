@@ -9,7 +9,7 @@
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </a>
         <div>
-            <h1 class="text-base font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.01em;">{{ queue.name }}</h1>
+            <h1 class="text-base font-semibold text-stone-900" style="letter-spacing: -0.01em;">{{ queue.name }}</h1>
             <div class="flex items-center gap-2 mt-0.5">
                 <span class="text-xs text-stone-500">{{ queue.social_account.account_name }} · {{ queue.social_account.get_platform_display }}</span>
                 {% if queue.category %}
