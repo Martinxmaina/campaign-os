@@ -39,7 +39,7 @@
         <aside class="flex flex-col flex-shrink-0"
                style="width: var(--sidebar-initial-w)"
                :class="sidebarCollapsed ? 'w-[60px] sidebar-collapsed' : 'w-60'"
-               x-init="$el.style.removeProperty('width'); $nextTick(() => $el.classList.add('transition-all', 'duration-200'))"
+               x-init="$el.style.removeProperty('width'); document.documentElement.style.removeProperty('--sidebar-initial-w'); $nextTick(() => $el.classList.add('transition-all', 'duration-200'))">
 
             <!-- Workspace switcher (top of sidebar) -->
             <div class="relative border-b border-stone-100" x-data="{ wsOpen: false }">
