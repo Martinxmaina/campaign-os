@@ -4,8 +4,8 @@
     {
       "name": "django",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["manage.py", "runserver", "8000"],
-      "port": 8000,
+      "runtimeArgs": ["manage.py", "runserver", "8001"],
+      "port": 8001,
       "env": {
         "DJANGO_SETTINGS_MODULE": "config.settings.development"
       }
