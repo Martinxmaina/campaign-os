@@ -1,7 +1,8 @@
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import Http404
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_http_methods, require_POST
 
 from apps.members.models import OrgMembership, WorkspaceMembership
 from apps.onboarding.checklist import get_checklist_items
@@ -81,3 +82,59 @@ def workspace_create(request):
     request.user.save(update_fields=["last_workspace_id"])
 
     return redirect("workspaces:detail", workspace_id=workspace.id)
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def workspace_settings(request, workspace_id):
+    try:
+        workspace = Workspace.objects.get(id=workspace_id)
+    except Workspace.DoesNotExist:
+        raise Http404 from None
+
+    if not WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
+        raise Http404
+
+    if request.method == "POST":
+        name = request.POST.get("name", "").strip()
+
+        if name:
+            workspace.name = name
+
+        # Handle logo deletion
+        if request.POST.get("delete_icon") == "1":
+            if workspace.icon:
+                workspace.icon.delete(save=False)
+        # Handle logo upload
+        elif "icon" in request.FILES:
+            icon = request.FILES["icon"]
+
+            # Validate file type
+            allowed_types = ("image/jpeg", "image/png", "image/webp", "image/gif")
+            if icon.content_type not in allowed_types:
+                messages.error(request, "Logo must be a JPEG, PNG, WebP, or GIF image.")
+                return redirect("workspaces:settings", workspace_id=workspace.id)
+
+            # Validate file size (2 MB max)
+            max_size = 2 * 1024 * 1024
+            if icon.size > max_size:
+                messages.error(request, "Logo must be under 2 MB.")
+                return redirect("workspaces:settings", workspace_id=workspace.id)
+
+            # Delete old icon before saving new one
+            if workspace.icon:
+                workspace.icon.delete(save=False)
+            workspace.icon = icon
+
+        workspace.save()
+        messages.success(request, "Workspace settings updated.")
+        return redirect("workspaces:settings", workspace_id=workspace.id)
+
+    return render(
+        request,
+        "workspaces/settings.html",
+        {
+            "workspace": workspace,
+            "settings_active": "general",
+        },
+    )

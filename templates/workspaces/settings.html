@@ -1,0 +1,63 @@
+{% extends "layouts/workspace_settings.html" %}
+{% block title %}Settings — {{ workspace.name }} — Postbean{% endblock %}
+{% block content %}
+<div class="max-w-2xl">
+    <h2 class="text-xl font-semibold text-stone-900 mb-6">General</h2>
+
+    <form method="POST" enctype="multipart/form-data">
+        {% csrf_token %}
+
+        <div class="space-y-5">
+            <div>
+                <label for="name" class="block text-sm font-medium text-stone-700 mb-1">Workspace Name</label>
+                <input type="text" id="name" name="name" value="{{ workspace.name }}" required maxlength="100"
+                       class="w-full px-3 py-2 text-sm border rounded-lg outline-none"
+                       style="border-color: var(--border);"
+                       onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'"
+                       onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+            </div>
+
+            <div x-data="{ preview: '{% if workspace.icon %}{{ workspace.icon.url }}{% endif %}', hasExisting: {{ workspace.icon|yesno:'true,false' }}, deleting: false }">
+                <label class="block text-sm font-medium text-stone-700 mb-2">Logo</label>
+
+                <!-- Current logo preview -->
+                <template x-if="preview && !deleting">
+                    <div class="flex items-center gap-4 mb-3">
+                        <img :src="preview" alt="Workspace logo" class="w-16 h-16 rounded-lg object-cover border" style="border-color: var(--border);">
+                        <button type="button"
+                                @click="deleting = true; preview = ''; $refs.fileInput.value = ''"
+                                class="text-xs text-red-600 hover:text-red-700 font-medium cursor-pointer">
+                            Remove logo
+                        </button>
+                    </div>
+                </template>
+
+                <!-- Hidden input to signal deletion -->
+                <input type="hidden" name="delete_icon" :value="deleting && !$refs.fileInput.files.length ? '1' : '0'">
+
+                <!-- File upload -->
+                <label class="flex items-center justify-center w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer transition-colors hover:border-stone-400"
+                       style="border-color: var(--border);">
+                    <div class="flex items-center gap-2 text-sm" style="color: var(--text-secondary);">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        <span x-text="preview && !deleting ? 'Replace logo' : 'Upload logo'"></span>
+                    </div>
+                    <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" x-ref="fileInput"
+                           @change="if ($el.files[0]) { preview = URL.createObjectURL($el.files[0]); deleting = false; }">
+                </label>
+                <p class="mt-1 text-xs text-stone-400">JPEG, PNG, WebP, or GIF. Max 2 MB.</p>
+            </div>
+        </div>
+
+        <div class="mt-8">
+            <button type="submit"
+                    class="px-5 py-2 text-sm font-semibold text-white rounded-full transition-all cursor-pointer"
+                    style="background: var(--primary); box-shadow: var(--shadow-primary);"
+                    onmouseenter="this.style.background='var(--primary-hover)'"
+                    onmouseleave="this.style.background='var(--primary)'">
+                Save Changes
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -8,4 +8,5 @@ urlpatterns = [
     path("", views.workspace_list, name="list"),
     path("create/", views.workspace_create, name="create"),
     path("<uuid:workspace_id>/", views.detail, name="detail"),
+    path("<uuid:workspace_id>/settings/", views.workspace_settings, name="settings"),
 ]

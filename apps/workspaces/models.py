@@ -19,7 +19,7 @@ class Workspace(models.Model):
         related_name="workspaces",
     )
     name = models.CharField(max_length=100)
-    icon_url = models.URLField(blank=True, default="")
+    icon = models.ImageField(upload_to="workspaces/icons/%Y/%m/", blank=True)
     description = models.CharField(max_length=500, blank=True, default="")
     timezone = models.CharField(max_length=63, blank=True, default="")
     primary_color = models.CharField(max_length=7, blank=True, default="")

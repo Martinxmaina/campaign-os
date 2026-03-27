@@ -118,6 +118,7 @@ def library_index(request, workspace_id):
         "file_types": MediaAsset.MediaType.choices,
         "accepted_file_types": get_accepted_file_types(),
         "max_bulk_upload": getattr(settings, "MEDIA_LIBRARY_MAX_BULK_UPLOAD", 50),
+        "settings_active": "media",
     }
     return render(request, "media_library/library_index.html", context)
 

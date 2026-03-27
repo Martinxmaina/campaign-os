@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "layouts/workspace_settings.html" %}
 {% load static %}
 
 {% block title %}Media Library — {{ workspace.name }}{% endblock %}
@@ -212,7 +212,7 @@
 
       <!-- Upload button -->
       <button @click="$refs.fileInput.click()"
-              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-full transition-all"
+              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-full transition-all cursor-pointer"
               style="background: var(--primary, #F97316); box-shadow: var(--shadow-primary, 0 4px 14px rgba(249,115,22,0.28));"
               onmouseenter="this.style.background='var(--primary-hover, #EA580C)'; this.style.transform='translateY(-1px)'"
               onmouseleave="this.style.background='var(--primary, #F97316)'; this.style.transform='translateY(0)'">
