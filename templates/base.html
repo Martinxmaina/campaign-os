@@ -11,16 +11,23 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'favicon/apple-touch-icon.png' %}">
     <link rel="manifest" href="{% static 'favicon/site.webmanifest' %}">
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <script>
+        // Set sidebar state class on <html> before first paint to prevent flash
+        if (localStorage.getItem('sidebarCollapsed') === 'true') {
+            document.documentElement.classList.add('sidebar-is-collapsed');
+        }
+    </script>
     <style>
         [x-cloak] { display: none !important; }
+        /* Initial sidebar width — applied before Alpine loads */
+        .sidebar-initial { width: 240px; }
+        html.sidebar-is-collapsed .sidebar-initial { width: 60px; }
+        html.sidebar-is-collapsed .sidebar-initial .sidebar-nav-item { justify-content: center; padding: 8px; gap: 0; }
+        html.sidebar-is-collapsed .sidebar-initial .sidebar-nav-label,
+        html.sidebar-is-collapsed .sidebar-initial .sidebar-section-label,
+        html.sidebar-is-collapsed .sidebar-initial .sidebar-section-label-wrap,
+        html.sidebar-is-collapsed .sidebar-initial .sidebar-badge { display: none; }
     </style>
-    <script>
-        // Set sidebar width before first paint to prevent flash
-        document.documentElement.style.setProperty(
-            '--sidebar-initial-w',
-            localStorage.getItem('sidebarCollapsed') === 'true' ? '60px' : '240px'
-        );
-    </script>
     {% block extra_head %}{% endblock %}
 </head>
 <body class="text-gray-900 min-h-screen" style="background: var(--surface-page);">
@@ -36,10 +43,9 @@
          x-data="{ sidebarCollapsed: localStorage.getItem('sidebarCollapsed') === 'true' }"
          x-effect="localStorage.setItem('sidebarCollapsed', sidebarCollapsed)">
         <!-- Sidebar -->
-        <aside class="flex flex-col flex-shrink-0"
-               style="width: var(--sidebar-initial-w)"
+        <aside class="flex flex-col flex-shrink-0 sidebar-initial"
                :class="sidebarCollapsed ? 'w-[60px] sidebar-collapsed' : 'w-60'"
-               x-init="$el.style.removeProperty('width'); document.documentElement.style.removeProperty('--sidebar-initial-w'); $nextTick(() => $el.classList.add('transition-all', 'duration-200'))">
+               x-init="$el.classList.remove('sidebar-initial'); document.documentElement.classList.remove('sidebar-is-collapsed'); $nextTick(() => $el.classList.add('transition-all', 'duration-200'))">
 
             <!-- Workspace switcher (top of sidebar) -->
             <div class="relative border-b border-stone-100" x-data="{ wsOpen: false }">
@@ -131,7 +137,7 @@
                 {% if request.workspace %}
                 {% if sidebar_channels %}
                 <!-- Channels -->
-                <div class="group flex items-center justify-between mt-2 sidebar-section-label-wrap">
+                <div class="group flex items-center justify-between mt-3.5 sidebar-section-label-wrap">
                     <div class="sidebar-section-label" style="padding-top:0">Channels</div>
                     <a href="{% url 'social_accounts:connect' workspace_id=request.workspace.id %}"
                        class="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-stone-400 hover:text-stone-600 transition-all mr-2 sidebar-nav-label"
@@ -163,14 +169,14 @@
                 <div class="sidebar-section-label">Connect channels</div>
                 {% for platform_key, platform_label in sidebar_connectable_platforms|slice:":3" %}
                 <a href="{% url 'social_accounts:connect' workspace_id=request.workspace.id %}" class="sidebar-nav-item">
-                    <div class="w-7 h-5 flex items-center justify-center flex-shrink-0 rounded-lg bg-stone-100">
+                    <div class="w-4 h-4 flex items-center justify-center flex-shrink-0 rounded-lg bg-stone-100">
                         {% include "partials/_platform_icon.html" with platform=platform_key size="sm" %}
                     </div>
                     <span class="sidebar-nav-label">{{ platform_label }}</span>
                 </a>
                 {% endfor %}
                 <a href="{% url 'social_accounts:connect' workspace_id=request.workspace.id %}" class="sidebar-nav-item">
-                    <div class="w-7 h-5 flex items-center justify-center flex-shrink-0 rounded-lg bg-stone-100">
+                    <div class="w-4 h-4 flex items-center justify-center flex-shrink-0 rounded-lg bg-stone-100">
                         <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                     </div>
                     <span class="sidebar-nav-label">More channels</span>
