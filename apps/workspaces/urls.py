@@ -8,5 +8,4 @@ urlpatterns = [
     path("", views.workspace_list, name="list"),
     path("create/", views.workspace_create, name="create"),
     path("<uuid:workspace_id>/", views.detail, name="detail"),
-    path("<uuid:workspace_id>/media/", include("apps.media_library.urls")),
 ]
