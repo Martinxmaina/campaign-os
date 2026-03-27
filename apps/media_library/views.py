@@ -802,6 +802,7 @@ def shared_library_index(request):
             "is_admin": is_admin,
             "file_types": MediaAsset.MediaType.choices,
             "accepted_file_types": get_accepted_file_types(),
+            "settings_active": "media",
         },
     )
 
