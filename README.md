@@ -348,6 +348,129 @@ Key variables for local development:
 | `STORAGE_BACKEND` | `local` | `local` for filesystem, `s3` for S3-compatible storage. |
 | `EMAIL_BACKEND_TYPE` | `smtp` | Set to `smtp` for SMTP or leave default (console in dev). |
 
+## Platform Credentials
+
+To connect social media accounts, you need API credentials from each platform's developer portal. You can set these via environment variables in `.env` (see `.env.example`) or through the admin UI at **Settings → Platform Credentials**.
+
+**Redirect URI:** When registering your app on any platform, set the OAuth redirect URI to:
+
+```
+{APP_URL}/social-accounts/callback/{platform}/
+```
+
+For example, if your `APP_URL` is `https://postbean.example.com`, the Facebook redirect URI would be `https://postbean.example.com/social-accounts/callback/facebook/`.
+
+### Meta (Facebook, Instagram, Threads)
+
+Facebook, Instagram, and Threads all use the same Meta app credentials.
+
+1. Go to [Meta for Developers](https://developers.facebook.com/) and create a new app (type: **Business**)
+2. Under **App Settings → Basic**, copy your **App ID** and **App Secret**
+3. Add the following products to your app:
+   - **Facebook Login** — set the redirect URI under **Facebook Login → Settings → Valid OAuth Redirect URIs**
+   - **Instagram Basic Display** (for Instagram publishing)
+   - Add the following redirect URIs:
+     ```
+     {APP_URL}/social-accounts/callback/facebook/
+     {APP_URL}/social-accounts/callback/instagram/
+     {APP_URL}/social-accounts/callback/threads/
+     ```
+4. Under **App Review → Permissions and Features**, request the required permissions:
+   - **Facebook:** `pages_manage_posts`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_metadata`, `pages_messaging`
+   - **Instagram:** `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_insights`
+   - **Threads:** `threads_basic`, `threads_content_publish`, `threads_manage_insights`, `threads_manage_replies`
+5. Set the environment variables:
+   ```
+   PLATFORM_FACEBOOK_APP_ID=your-app-id
+   PLATFORM_FACEBOOK_APP_SECRET=your-app-secret
+   ```
+
+### LinkedIn
+
+1. Go to the [LinkedIn Developer Portal](https://developer.linkedin.com/) and create a new app
+2. Verify your app's association with a LinkedIn Company Page
+3. Under **Products**, request access to:
+   - **Share on LinkedIn**
+   - **Sign In with LinkedIn using OpenID Connect**
+4. Under **Auth**, add the redirect URI and note the **Client ID** and **Client Secret**
+   - Redirect URI:
+     ```
+     {APP_URL}/social-accounts/callback/linkedin/
+     ```
+5. Required scopes: `w_member_social`, `r_member_social`, `w_organization_social`, `r_organization_social`
+6. Set the environment variables:
+   ```
+   PLATFORM_LINKEDIN_CLIENT_ID=your-client-id
+   PLATFORM_LINKEDIN_CLIENT_SECRET=your-client-secret
+   ```
+
+### TikTok
+
+1. Go to the [TikTok Developer Portal](https://developers.tiktok.com/) and create a new app
+2. Add the products **Login Kit** and **Content Posting API**
+3. Configure the redirect URI under your app's settings:
+   ```
+   {APP_URL}/social-accounts/callback/tiktok/
+   ```
+4. Required scopes: `user.info.basic`, `video.publish`, `video.upload`
+5. Note: TikTok uses **Client Key** (not Client ID). Copy the **Client Key** and **Client Secret** from your app dashboard
+6. Set the environment variables:
+   ```
+   PLATFORM_TIKTOK_CLIENT_KEY=your-client-key
+   PLATFORM_TIKTOK_CLIENT_SECRET=your-client-secret
+   ```
+
+### Google (YouTube, Google Business Profile)
+
+YouTube and Google Business Profile share the same Google Cloud credentials.
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/) and create a new project (or select an existing one)
+2. Enable the following APIs under **APIs & Services → Library**:
+   - **YouTube Data API v3** (for YouTube)
+   - **My Business Account Management API**, **My Business Business Information API**, and **Google My Business API** (for Google Business Profile)
+3. Go to **APIs & Services → Credentials** and create an **OAuth 2.0 Client ID** (type: Web application)
+4. Add the following redirect URIs under **Authorized redirect URIs**:
+   ```
+   {APP_URL}/social-accounts/callback/youtube/
+   {APP_URL}/social-accounts/callback/google_business/
+   ```
+5. Copy the **Client ID** and **Client Secret**
+6. Required scopes:
+   - **YouTube:** `https://www.googleapis.com/auth/youtube.upload`, `https://www.googleapis.com/auth/youtube.readonly`, `https://www.googleapis.com/auth/youtube.force-ssl`
+   - **Google Business Profile:** `https://www.googleapis.com/auth/business.manage`
+7. Set the environment variables:
+   ```
+   PLATFORM_GOOGLE_CLIENT_ID=your-client-id
+   PLATFORM_GOOGLE_CLIENT_SECRET=your-client-secret
+   ```
+
+### Pinterest
+
+1. Go to the [Pinterest Developer Portal](https://developers.pinterest.com/) and create a new app
+2. Under your app settings, add the redirect URI:
+   ```
+   {APP_URL}/social-accounts/callback/pinterest/
+   ```
+3. Copy the **App ID** and **App Secret**
+4. Required scopes: `boards:read`, `pins:read`, `pins:write`
+5. Set the environment variables:
+   ```
+   PLATFORM_PINTEREST_APP_ID=your-app-id
+   PLATFORM_PINTEREST_APP_SECRET=your-app-secret
+   ```
+
+### Bluesky
+
+No developer app registration needed. Users connect by entering their Bluesky handle and an **App Password**:
+
+1. Log in to [Bluesky](https://bsky.app/)
+2. Go to **Settings → App Passwords**
+3. Create a new app password and use it when connecting your account in Postbean
+
+### Mastodon
+
+No developer app registration needed. Postbean automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
+
 ## Tech Stack
 
 | Layer | Technology |
