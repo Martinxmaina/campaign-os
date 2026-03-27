@@ -13,6 +13,9 @@ urlpatterns = [
     path("ideas/<uuid:idea_id>/delete/", views.idea_delete, name="idea_delete"),
     path("ideas/<uuid:idea_id>/move/", views.idea_move, name="idea_move"),
     path("ideas/board/", views.idea_board, name="idea_board"),
+    # Idea groups (Kanban columns)
+    path("ideas/groups/create/", views.idea_group_create, name="idea_group_create"),
+    path("ideas/groups/<uuid:group_id>/delete/", views.idea_group_delete, name="idea_group_delete"),
     # Composer page
     path("compose/", views.compose, name="compose"),
     path("compose/<uuid:post_id>/", views.compose, name="compose_edit"),

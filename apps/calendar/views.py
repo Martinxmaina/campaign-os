@@ -1,4 +1,4 @@
-"""Views for the Content Calendar (F-2.3)."""
+"""Views for the Content Calendar (F-2.3) and Publish page."""
 
 import calendar as cal_mod
 import json
@@ -18,6 +18,31 @@ from apps.workspaces.models import Workspace
 
 from .holidays import get_holidays_for_range
 from .models import CustomCalendarEvent, PostingSlot, Queue
+
+# Common timezones for the publish page timezone dropdown
+COMMON_TIMEZONES = [
+    "US/Eastern",
+    "US/Central",
+    "US/Mountain",
+    "US/Pacific",
+    "UTC",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Amsterdam",
+    "Asia/Tokyo",
+    "Asia/Shanghai",
+    "Asia/Kolkata",
+    "Asia/Dubai",
+    "Australia/Sydney",
+    "Pacific/Auckland",
+    "America/Sao_Paulo",
+    "America/Toronto",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/New_York",
+]
 
 
 def _get_workspace(request, workspace_id):
@@ -89,14 +114,65 @@ def _get_filtered_posts(workspace, request):
     return qs
 
 
+def _get_publish_context(workspace, request):
+    """Build shared context for the publish page (channels, tags, timezone)."""
+    # Channels that have posts in this workspace
+    channels_with_posts = (
+        SocialAccount.objects.filter(
+            platform_posts__post__workspace=workspace,
+        )
+        .distinct()
+        .order_by("platform", "account_name")
+    )
+
+    # All unique tags across workspace posts
+    all_tags = set()
+    for post_tags in Post.objects.for_workspace(workspace.id).values_list("tags", flat=True):
+        if post_tags:
+            all_tags.update(post_tags)
+
+    # Display timezone
+    ws_tz = workspace.effective_timezone or "UTC"
+    display_timezone = request.GET.get("tz", ws_tz)
+
+    # Build ordered timezone list (workspace default first, then common ones)
+    tz_list = [ws_tz]
+    for tz in COMMON_TIMEZONES:
+        if tz not in tz_list:
+            tz_list.append(tz)
+
+    return {
+        "channels_with_posts": channels_with_posts,
+        "all_tags": sorted(all_tags),
+        "display_timezone": display_timezone,
+        "timezone_choices": tz_list,
+        "workspace_timezone": ws_tz,
+    }
+
+
+def _apply_publish_filters(qs, request):
+    """Apply channel and tag filters from publish page dropdowns."""
+    channel = request.GET.get("channel")
+    if channel:
+        qs = qs.filter(platform_posts__social_account_id=channel).distinct()
+
+    tag = request.GET.get("tag")
+    if tag:
+        qs = qs.filter(tags__contains=[tag])
+
+    return qs
+
+
 @login_required
 def calendar_view(request, workspace_id):
-    """Main calendar page — renders the appropriate view (month/week/day/list)."""
+    """Main publish page — renders calendar or list mode."""
     workspace = _get_workspace(request, workspace_id)
+    mode = request.GET.get("mode", "list")
+    active_tab = request.GET.get("tab", "queue")
     view_type = request.GET.get("view", "month")
     target_date = _parse_date(request.GET.get("date"))
 
-    # Connected accounts for filter UI
+    # Connected accounts for calendar filter UI
     social_accounts = (
         SocialAccount.objects.for_workspace(workspace.id)
         .filter(
@@ -120,12 +196,6 @@ def calendar_view(request, workspace_id):
     # Categories for filter
     categories = ContentCategory.objects.for_workspace(workspace.id)
 
-    # Unique tags across workspace posts for filter autocomplete
-    all_tags = set()
-    for post_tags in Post.objects.for_workspace(workspace.id).values_list("tags", flat=True):
-        if post_tags:
-            all_tags.update(post_tags)
-
     # Active filters
     active_filters = {
         "statuses": request.GET.getlist("status"),
@@ -137,20 +207,58 @@ def calendar_view(request, workspace_id):
 
     show_holidays = request.GET.get("holidays") == "1"
 
+    # Publish page context (channels, tags, timezone dropdowns)
+    publish_ctx = _get_publish_context(workspace, request)
+
     context = {
         "workspace": workspace,
+        "mode": mode,
+        "active_tab": active_tab,
         "view_type": view_type,
         "target_date": target_date,
         "social_accounts": social_accounts,
         "authors": authors,
         "categories": categories,
-        "all_tags": sorted(all_tags),
         "active_filters": active_filters,
         "status_choices": Post.Status.choices,
         "show_holidays": show_holidays,
+        **publish_ctx,
     }
 
-    return _render_calendar_partial(request, workspace, view_type, target_date, context)
+    # HTMX partial: switching between list and calendar mode
+    # Only intercept when the toggle buttons explicitly request a mode switch
+    is_htmx = getattr(request, "htmx", False)
+    if is_htmx and request.GET.get("_switch_mode"):
+        if mode == "list":
+            return render(request, "calendar/partials/publish_list_shell.html", context)
+        else:
+            # Render the full calendar shell (toolbar + grid) for mode switch.
+            # We still need the calendar data populated in context first.
+            _populate_calendar_context(request, workspace, view_type, target_date, context)
+            return render(request, "calendar/partials/publish_calendar_shell.html", context)
+
+    # Full page or calendar HTMX partial (sub-view switching within calendar)
+    if mode == "calendar":
+        return _render_calendar_partial(request, workspace, view_type, target_date, context)
+
+    # Full page in list mode
+    return render(request, "calendar/calendar.html", context)
+
+
+def _populate_calendar_context(request, workspace, view_type, target_date, context):
+    """Populate context with calendar data without rendering.
+
+    Used when we need the calendar data (period_label, prev/next dates, etc.)
+    but want to render a different template (e.g., the calendar shell on mode switch).
+    """
+    if view_type == "month":
+        _month_view_data(request, workspace, target_date, context)
+    elif view_type == "week":
+        _week_view_data(request, workspace, target_date, context)
+    elif view_type == "day":
+        _day_view_data(request, workspace, target_date, context)
+    else:
+        _month_view_data(request, workspace, target_date, context)
 
 
 def _render_calendar_partial(request, workspace, view_type, target_date, context):
@@ -166,8 +274,8 @@ def _render_calendar_partial(request, workspace, view_type, target_date, context
     return _month_view(request, workspace, target_date, context)
 
 
-def _month_view(request, workspace, target_date, context):
-    """Render month view calendar grid."""
+def _month_view_data(request, workspace, target_date, context):
+    """Populate context with month view data (no rendering)."""
     year, month = target_date.year, target_date.month
     cal = cal_mod.Calendar(firstweekday=0)  # Monday first
     weeks = cal.monthdatescalendar(year, month)
@@ -213,6 +321,7 @@ def _month_view(request, workspace, target_date, context):
     )
 
     # Build weeks data
+    today = date.today()
     calendar_weeks = []
     for week in weeks:
         week_data = []
@@ -224,7 +333,8 @@ def _month_view(request, workspace, target_date, context):
                 {
                     "date": day,
                     "is_current_month": day.month == month,
-                    "is_today": day == date.today(),
+                    "is_today": day == today,
+                    "is_past": day < today,
                     "posts": day_posts[:3],
                     "total_posts": len(day_posts),
                     "overflow": max(0, len(day_posts) - 3),
@@ -245,16 +355,20 @@ def _month_view(request, workspace, target_date, context):
             "prev_date": prev_month.isoformat(),
             "next_date": next_month.isoformat(),
             "unscheduled_drafts": drafts,
-            "day_names": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+            "day_names": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
         }
     )
 
+
+def _month_view(request, workspace, target_date, context):
+    """Render month view calendar grid."""
+    _month_view_data(request, workspace, target_date, context)
     template = "calendar/partials/month_grid.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
 
 
-def _week_view(request, workspace, target_date, context):
-    """Render week view with hourly rows."""
+def _week_view_data(request, workspace, target_date, context):
+    """Populate context with week view data (no rendering)."""
     # Find Monday of the target week
     monday = target_date - timedelta(days=target_date.weekday())
     week_days = [monday + timedelta(days=i) for i in range(7)]
@@ -289,12 +403,16 @@ def _week_view(request, workspace, target_date, context):
         }
     )
 
+
+def _week_view(request, workspace, target_date, context):
+    """Render week view with hourly rows."""
+    _week_view_data(request, workspace, target_date, context)
     template = "calendar/partials/week_grid.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
 
 
-def _day_view(request, workspace, target_date, context):
-    """Render day view with detailed hour timeline."""
+def _day_view_data(request, workspace, target_date, context):
+    """Populate context with day view data (no rendering)."""
     posts = (
         _get_filtered_posts(workspace, request)
         .filter(
@@ -320,6 +438,10 @@ def _day_view(request, workspace, target_date, context):
         }
     )
 
+
+def _day_view(request, workspace, target_date, context):
+    """Render day view with detailed hour timeline."""
+    _day_view_data(request, workspace, target_date, context)
     template = "calendar/partials/day_grid.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
 
@@ -339,6 +461,130 @@ def _list_view(request, workspace, target_date, context):
 
     template = "calendar/partials/list_view.html" if request.htmx else "calendar/calendar.html"
     return render(request, template, context)
+
+
+# ---------------------------------------------------------------------------
+# Publish page tab views (HTMX partials)
+# ---------------------------------------------------------------------------
+
+
+@login_required
+def publish_tab_queue(request, workspace_id):
+    """HTMX partial: Queue tab content for the publish page."""
+    workspace = _get_workspace(request, workspace_id)
+    queues = Queue.objects.for_workspace(workspace.id).select_related("social_account", "category")
+    accounts = SocialAccount.objects.for_workspace(workspace.id).filter(
+        connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+    )
+    categories = ContentCategory.objects.for_workspace(workspace.id)
+
+    return render(
+        request,
+        "calendar/partials/publish_queue.html",
+        {
+            "workspace": workspace,
+            "queues": queues,
+            "accounts": accounts,
+            "categories": categories,
+        },
+    )
+
+
+@login_required
+def publish_tab_drafts(request, workspace_id):
+    """HTMX partial: Drafts tab content for the publish page."""
+    workspace = _get_workspace(request, workspace_id)
+    display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
+
+    posts = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(status="draft")
+        .select_related("author")
+        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
+        .order_by("-updated_at")
+    )
+    posts = _apply_publish_filters(posts, request)
+
+    return render(
+        request,
+        "calendar/partials/publish_drafts.html",
+        {
+            "workspace": workspace,
+            "posts": posts[:200],
+            "display_timezone": display_tz,
+        },
+    )
+
+
+@login_required
+def publish_tab_approvals(request, workspace_id):
+    """HTMX partial: Approvals tab content for the publish page."""
+    workspace = _get_workspace(request, workspace_id)
+    display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
+
+    status_filter = request.GET.get("approval_status", "all")
+    posts = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(status__in=["pending_review", "pending_client"])
+        .select_related("author")
+        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
+        .order_by("scheduled_at", "-created_at")
+    )
+    posts = _apply_publish_filters(posts, request)
+
+    if status_filter == "pending_review":
+        posts = posts.filter(status="pending_review")
+    elif status_filter == "pending_client":
+        posts = posts.filter(status="pending_client")
+
+    # Permission check for action buttons
+    membership = getattr(request, "workspace_membership", None)
+    perms = membership.effective_permissions if membership else {}
+    can_approve = perms.get("approve_posts", False)
+
+    return render(
+        request,
+        "calendar/partials/publish_approvals.html",
+        {
+            "workspace": workspace,
+            "posts": posts,
+            "status_filter": status_filter,
+            "can_approve": can_approve,
+            "pending_review_count": Post.objects.for_workspace(workspace.id)
+            .filter(status="pending_review")
+            .count(),
+            "pending_client_count": Post.objects.for_workspace(workspace.id)
+            .filter(status="pending_client")
+            .count(),
+            "display_timezone": display_tz,
+        },
+    )
+
+
+@login_required
+def publish_tab_sent(request, workspace_id):
+    """HTMX partial: Sent tab content for the publish page."""
+    workspace = _get_workspace(request, workspace_id)
+    display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
+
+    posts = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(status__in=["published", "partially_published"])
+        .select_related("author")
+        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
+        .order_by("-scheduled_at", "-created_at")
+    )
+    posts = _apply_publish_filters(posts, request)
+
+    return render(
+        request,
+        "calendar/partials/publish_sent.html",
+        {
+            "workspace": workspace,
+            "posts": posts[:200],
+            "display_timezone": display_tz,
+        },
+    )
 
 
 @login_required

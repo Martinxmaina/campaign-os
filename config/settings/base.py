@@ -246,11 +246,20 @@ if SENTRY_DSN:
     )
 
 # Platform credentials env vars (cloud version)
+_META_CREDENTIALS = {
+    "app_id": env("PLATFORM_FACEBOOK_APP_ID", default=""),
+    "app_secret": env("PLATFORM_FACEBOOK_APP_SECRET", default=""),
+}
+_GOOGLE_CREDENTIALS = {
+    "client_id": env("PLATFORM_GOOGLE_CLIENT_ID", default=""),
+    "client_secret": env("PLATFORM_GOOGLE_CLIENT_SECRET", default=""),
+}
+
 PLATFORM_CREDENTIALS_FROM_ENV = {
-    "facebook": {
-        "app_id": env("PLATFORM_FACEBOOK_APP_ID", default=""),
-        "app_secret": env("PLATFORM_FACEBOOK_APP_SECRET", default=""),
-    },
+    # Meta platforms — Facebook, Instagram, and Threads share the same app
+    "facebook": _META_CREDENTIALS,
+    "instagram": _META_CREDENTIALS,
+    "threads": _META_CREDENTIALS,
     "linkedin": {
         "client_id": env("PLATFORM_LINKEDIN_CLIENT_ID", default=""),
         "client_secret": env("PLATFORM_LINKEDIN_CLIENT_SECRET", default=""),
@@ -259,10 +268,9 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
         "client_key": env("PLATFORM_TIKTOK_CLIENT_KEY", default=""),
         "client_secret": env("PLATFORM_TIKTOK_CLIENT_SECRET", default=""),
     },
-    "google": {
-        "client_id": env("PLATFORM_GOOGLE_CLIENT_ID", default=""),
-        "client_secret": env("PLATFORM_GOOGLE_CLIENT_SECRET", default=""),
-    },
+    # Google platforms — YouTube and Google Business Profile share the same OAuth client
+    "youtube": _GOOGLE_CREDENTIALS,
+    "google_business": _GOOGLE_CREDENTIALS,
     "pinterest": {
         "app_id": env("PLATFORM_PINTEREST_APP_ID", default=""),
         "app_secret": env("PLATFORM_PINTEREST_APP_SECRET", default=""),

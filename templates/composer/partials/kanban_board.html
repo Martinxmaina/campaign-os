@@ -1,18 +1,41 @@
-<div class="flex gap-4 overflow-x-auto pb-2">
+<div class="flex gap-4 overflow-x-auto pb-4" style="min-height: 400px;">
     {% for col in columns %}
     <div class="kanban-column">
         <!-- Column header -->
-        <div class="kanban-column-header">
-            <div class="flex items-center">
-                {{ col.label }}
-                <span class="kanban-count">{{ col.ideas|length }}</span>
+        <div class="flex items-center justify-between px-3 py-2.5">
+            <div class="flex items-center gap-2">
+                <span class="text-[13px] font-bold text-stone-800">{{ col.label }}</span>
+                <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold bg-stone-200/70 text-stone-500">{{ col.ideas|length }}</span>
             </div>
-            <div class="flex items-center gap-1">
-                <button @click="showCreateModal = true"
-                        class="w-6 h-6 rounded-md text-stone-400 hover:text-stone-600 hover:bg-stone-100 flex items-center justify-center transition-colors"
+            <div class="flex items-center gap-0.5">
+                <button @click="showCreateModal = true; createGroupId = '{{ col.id }}'"
+                        class="w-6 h-6 rounded-md text-stone-400 hover:text-stone-600 hover:bg-white/80 flex items-center justify-center transition-colors cursor-pointer"
                         title="Add idea">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
                 </button>
+                <!-- Column menu -->
+                <div class="relative" x-data="{ menuOpen: false }">
+                    <button @click="menuOpen = !menuOpen"
+                            class="w-6 h-6 rounded-md text-stone-400 hover:text-stone-600 hover:bg-white/80 flex items-center justify-center transition-colors cursor-pointer">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
+                    </button>
+                    <div x-show="menuOpen" @click.away="menuOpen = false" x-cloak
+                         x-transition:enter="transition ease-out duration-100"
+                         x-transition:enter-start="opacity-0 scale-95"
+                         x-transition:enter-end="opacity-100 scale-100"
+                         class="absolute right-0 top-full mt-1 bg-white rounded-lg shadow-lg ring-1 ring-stone-200 py-1 z-50 min-w-[140px]">
+                        {% if col.ideas|length == 0 %}
+                        <button @click="menuOpen = false; deleteGroup('{{ col.id }}')"
+                                class="w-full text-left px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors">
+                            Delete column
+                        </button>
+                        {% else %}
+                        <span class="block px-3 py-1.5 text-xs text-stone-400">
+                            Remove all ideas first
+                        </span>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -20,7 +43,7 @@
         <div class="kanban-cards"
              @dragover.prevent="dragOver($event)"
              @dragleave="dragLeave($event)"
-             @drop="dropOnColumn($event, '{{ col.key }}')">
+             @drop="dropOnColumn($event, '{{ col.id }}')">
 
             {% for idea in col.ideas %}
             <div class="idea-card"
@@ -41,14 +64,34 @@
                 {% endif %}
             </div>
             {% endfor %}
-
-            {% if not col.ideas %}
-            <div class="new-idea-inline" @click="showCreateModal = true">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                New Idea
-            </div>
-            {% endif %}
         </div>
+
+        <!-- Bottom add button -->
+        <button @click="showCreateModal = true; createGroupId = '{{ col.id }}'"
+                class="new-idea-inline">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Idea
+        </button>
     </div>
     {% endfor %}
+
+    <!-- Add new column -->
+    <div class="flex-shrink-0 w-[260px]" x-data="{ adding: false, newName: '' }">
+        <button x-show="!adding" @click="adding = true; $nextTick(() => $refs.groupInput.focus())"
+                class="flex items-center gap-2 px-3 py-2.5 text-[13px] font-semibold text-stone-400 hover:text-stone-600 transition-colors rounded-xl hover:bg-stone-100 w-full">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            New Group
+        </button>
+        <div x-show="adding" x-cloak class="bg-stone-100 rounded-xl p-3">
+            <form @submit.prevent="createGroup(newName); adding = false; newName = ''">
+                <input x-ref="groupInput" x-model="newName" type="text" placeholder="Column name..."
+                       @keydown.escape="adding = false; newName = ''"
+                       class="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-200 focus:border-orange-400">
+                <div class="flex items-center gap-2 mt-2">
+                    <button type="submit" class="px-3 py-1 text-xs font-semibold text-white bg-orange-500 rounded-lg hover:bg-orange-600 transition-colors">Add</button>
+                    <button type="button" @click="adding = false; newName = ''" class="px-3 py-1 text-xs font-medium text-stone-500 hover:text-stone-700 transition-colors">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>

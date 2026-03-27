@@ -56,6 +56,31 @@ class ContentCategory(models.Model):
         return self.name
 
 
+class IdeaGroup(models.Model):
+    """A Kanban column/group for organising ideas, scoped to a workspace."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="idea_groups",
+    )
+    name = models.CharField(max_length=100)
+    position = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_idea_group"
+        ordering = ["position", "created_at"]
+
+    def __str__(self):
+        return self.name
+
+
 class Idea(models.Model):
     """A content idea on the Kanban board, scoped to a workspace."""
 
@@ -91,6 +116,13 @@ class Idea(models.Model):
         default=Status.UNASSIGNED,
         db_index=True,
     )
+    group = models.ForeignKey(
+        IdeaGroup,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="ideas",
+    )
     position = models.PositiveIntegerField(default=0)
 
     # Optional link to a Post (when idea is converted)
@@ -113,7 +145,7 @@ class Idea(models.Model):
         ordering = ["position", "-created_at"]
 
     def __str__(self):
-        return f"Idea({self.status}): {self.title[:50]}"
+        return f"Idea({self.group or self.status}): {self.title[:50]}"
 
 
 class Post(models.Model):

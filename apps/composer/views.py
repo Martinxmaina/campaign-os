@@ -21,6 +21,7 @@ from .forms import ContentCategoryForm, PostForm
 from .models import (
     ContentCategory,
     Idea,
+    IdeaGroup,
     PlatformPost,
     Post,
     PostMedia,
@@ -674,24 +675,33 @@ def drafts_list(request, workspace_id):
 # ---------------------------------------------------------------------------
 
 
-def _idea_columns(workspace_id, tag=None):
-    """Build Kanban columns dict for a workspace, optionally filtered by tag."""
-    ideas = Idea.objects.for_workspace(workspace_id).select_related("author").order_by("position", "-created_at")
+def _idea_columns(workspace, tag=None):
+    """Build Kanban columns from IdeaGroup for a workspace, optionally filtered by tag."""
+    groups = IdeaGroup.objects.for_workspace(workspace.id).order_by("position", "created_at")
+
+    # Ensure default groups exist for this workspace
+    if not groups.exists():
+        for name, pos in [("Unassigned", 0), ("To Do", 1), ("In Progress", 2), ("Done", 3)]:
+            IdeaGroup.objects.create(workspace=workspace, name=name, position=pos)
+        groups = IdeaGroup.objects.for_workspace(workspace.id).order_by("position", "created_at")
+
+    ideas = Idea.objects.for_workspace(workspace.id).select_related("author").order_by("position", "-created_at")
     if tag:
         ideas = ideas.filter(tags__contains=[tag])
 
     columns = []
-    for value, label in Idea.Status.choices:
+    for grp in groups:
         columns.append(
             {
-                "key": value,
-                "label": label,
-                "ideas": ideas.filter(status=value),
+                "id": str(grp.id),
+                "key": str(grp.id),
+                "label": grp.name,
+                "ideas": ideas.filter(group=grp),
             }
         )
 
     # Collect unique tags across all ideas (unfiltered) for the dropdown
-    all_ideas = Idea.objects.for_workspace(workspace_id)
+    all_ideas = Idea.objects.for_workspace(workspace.id)
     all_tags = set()
     for idea in all_ideas.only("tags"):
         if idea.tags:
@@ -704,11 +714,17 @@ def _idea_columns(workspace_id, tag=None):
 @require_permission("create_posts")
 def create_landing(request, workspace_id):
     """Render the Create landing page with Ideas Kanban board."""
+    from apps.composer.builtin_templates import (
+        CATEGORIES,
+        get_all_templates,
+        get_featured_templates,
+    )
+
     workspace = _get_workspace(request, workspace_id)
     tab = request.GET.get("tab", "ideas")
     tag = request.GET.get("tag")
 
-    columns, all_tags = _idea_columns(workspace.id, tag)
+    columns, all_tags = _idea_columns(workspace, tag)
 
     context = {
         "workspace": workspace,
@@ -716,6 +732,9 @@ def create_landing(request, workspace_id):
         "columns": columns,
         "all_tags": all_tags,
         "active_tag": tag,
+        "featured_templates": get_featured_templates(),
+        "builtin_templates": get_all_templates(),
+        "template_categories": CATEGORIES,
     }
     return render(request, "composer/create_landing.html", context)
 
@@ -734,12 +753,20 @@ def idea_create(request, workspace_id):
     if not title:
         return HttpResponse("Title is required.", status=400)
 
+    # Assign to the specified group or default to the first group
+    group_id = request.POST.get("group")
+    if group_id:
+        group = IdeaGroup.objects.filter(id=group_id, workspace=workspace).first()
+    else:
+        group = IdeaGroup.objects.for_workspace(workspace.id).order_by("position").first()
+
     Idea.objects.create(
         workspace=workspace,
         author=request.user,
         title=title,
         description=description,
         tags=tags,
+        group=group,
         status=Idea.Status.UNASSIGNED,
     )
 
@@ -792,11 +819,18 @@ def idea_move(request, workspace_id, idea_id):
     """Move an idea to a new column/position via HTMX (drag-and-drop)."""
     workspace = _get_workspace(request, workspace_id)
     idea = get_object_or_404(Idea, id=idea_id, workspace=workspace)
-    new_status = request.POST.get("status")
+    new_group_id = request.POST.get("group")
     new_position = request.POST.get("position")
 
-    if new_status and new_status in dict(Idea.Status.choices):
-        idea.status = new_status
+    # Support both group-based and legacy status-based moves
+    if new_group_id:
+        group = IdeaGroup.objects.filter(id=new_group_id, workspace=workspace).first()
+        if group:
+            idea.group = group
+    else:
+        new_status = request.POST.get("status")
+        if new_status and new_status in dict(Idea.Status.choices):
+            idea.status = new_status
     if new_position is not None:
         with contextlib.suppress(ValueError, TypeError):
             idea.position = int(new_position)
@@ -815,7 +849,7 @@ def idea_board(request, workspace_id):
     """Return the Kanban board partial for HTMX refresh."""
     workspace = _get_workspace(request, workspace_id)
     tag = request.GET.get("tag")
-    columns, all_tags = _idea_columns(workspace.id, tag)
+    columns, all_tags = _idea_columns(workspace, tag)
 
     return render(
         request,
@@ -827,6 +861,47 @@ def idea_board(request, workspace_id):
             "active_tag": tag,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Idea Group CRUD (Kanban columns)
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_group_create(request, workspace_id):
+    """Create a new Kanban column via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    name = request.POST.get("name", "").strip()
+    if not name:
+        return HttpResponse("Name is required.", status=400)
+
+    max_pos = (
+        IdeaGroup.objects.for_workspace(workspace.id).aggregate(
+            models.Max("position")
+        )["position__max"]
+        or 0
+    )
+    IdeaGroup.objects.create(workspace=workspace, name=name, position=max_pos + 1)
+
+    return HttpResponse(status=204, headers={"HX-Trigger": "ideaChanged"})
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def idea_group_delete(request, workspace_id, group_id):
+    """Delete an empty Kanban column via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    group = get_object_or_404(IdeaGroup, id=group_id, workspace=workspace)
+
+    if group.ideas.exists():
+        return HttpResponse("Column must be empty before deleting.", status=400)
+
+    group.delete()
+    return HttpResponse(status=204, headers={"HX-Trigger": "ideaChanged"})
 
 
 # ---------------------------------------------------------------------------
