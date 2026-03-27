@@ -681,8 +681,18 @@ def _idea_columns(workspace, tag=None):
 
     # Ensure default groups exist for this workspace
     if not groups.exists():
+        created_groups = {}
         for name, pos in [("Unassigned", 0), ("To Do", 1), ("In Progress", 2), ("Done", 3)]:
-            IdeaGroup.objects.create(workspace=workspace, name=name, position=pos)
+            created_groups[name] = IdeaGroup.objects.create(workspace=workspace, name=name, position=pos)
+        # Seed an introductory idea in the Unassigned column
+        Idea.objects.create(
+            workspace=workspace,
+            group=created_groups["Unassigned"],
+            title="This is a place to plan \u270d\ufe0f your content",
+            description="Save your Ideas before converting them into posts. Brainstorm, plan ahead, and keep everything organized in one place.",
+            status=Idea.Status.UNASSIGNED,
+            position=0,
+        )
         groups = IdeaGroup.objects.for_workspace(workspace.id).order_by("position", "created_at")
 
     ideas = Idea.objects.for_workspace(workspace.id).select_related("author").order_by("position", "-created_at")

@@ -2,7 +2,170 @@
 {% block title %}Profile — Settings — Postbean{% endblock %}
 {% block content %}
 <div class="max-w-2xl">
-    <h2 class="text-xl font-semibold text-stone-900 mb-6">{% if settings_active == 'preferences' %}Preferences{% else %}Profile{% endif %}</h2>
-    <p class="text-stone-500">{% if settings_active == 'preferences' %}Preferences settings coming soon.{% else %}Profile settings coming soon.{% endif %}</p>
+    <h2 class="text-xl font-semibold mb-8" style="color: var(--text-primary);">Profile</h2>
+
+    <!-- Photo section -->
+    <form method="POST" enctype="multipart/form-data" x-data="{
+        preview: '{% if user.avatar %}{{ user.avatar.url }}{% endif %}',
+        hasExisting: {{ user.avatar|yesno:'true,false' }},
+        fileName: ''
+    }">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_photo">
+        <input type="hidden" name="delete_photo" :value="(!preview && hasExisting) ? '1' : '0'">
+
+        <div class="flex items-center justify-between mb-10">
+            <div class="flex items-center gap-4">
+                <!-- Avatar preview or default silhouette -->
+                <template x-if="preview">
+                    <div class="relative">
+                        <img :src="preview" alt="Profile photo" class="w-16 h-16 rounded-full object-cover border" style="border-color: var(--border);">
+                        <button type="button"
+                                @click="preview = ''; $refs.avatarInput.value = ''; fileName = ''"
+                                class="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center cursor-pointer"
+                                style="background: var(--neutral-200); color: var(--text-secondary);"
+                                title="Remove photo">
+                            <svg width="10" height="10" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                </template>
+                <template x-if="!preview">
+                    <div class="w-16 h-16 rounded-full flex items-center justify-center" style="background: var(--neutral-200);">
+                        <svg width="28" height="28" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--neutral-400);"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </div>
+                </template>
+
+                <div>
+                    <p class="text-sm font-semibold" style="color: var(--text-primary);">Photo</p>
+                    <p class="text-xs mt-0.5" style="color: var(--text-tertiary);">Please choose a photo that is at least 180×180 pixels in size.</p>
+                </div>
+            </div>
+
+            <label class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full cursor-pointer transition-colors"
+                   style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);"
+                   onmouseenter="this.style.background='var(--neutral-50)'"
+                   onmouseleave="this.style.background='var(--surface-0)'">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                Upload Photo
+                <input type="file" name="avatar" accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" x-ref="avatarInput"
+                       @change="if ($el.files[0]) { preview = URL.createObjectURL($el.files[0]); fileName = $el.files[0].name; hasExisting = true; $el.closest('form').requestSubmit(); }">
+            </label>
+        </div>
+    </form>
+
+    <!-- Name section -->
+    <form method="POST" class="mb-10">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_name">
+        <div class="flex items-end gap-4">
+            <div class="flex-1">
+                <label for="name" class="block text-sm font-semibold mb-2" style="color: var(--text-primary);">Name</label>
+                <input type="text" id="name" name="name" value="{{ user.name }}" required maxlength="255"
+                       class="w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors"
+                       style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);"
+                       onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'"
+                       onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+            </div>
+            <button type="submit"
+                    class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap"
+                    style="background: var(--neutral-100); color: var(--text-primary);"
+                    onmouseenter="this.style.background='var(--neutral-200)'"
+                    onmouseleave="this.style.background='var(--neutral-100)'">
+                Save Changes
+            </button>
+        </div>
+    </form>
+
+    <!-- Email section -->
+    <form method="POST" class="mb-10">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_email">
+        <div class="flex items-end gap-4">
+            <div class="flex-1">
+                <label for="email" class="block text-sm font-semibold mb-2" style="color: var(--text-primary);">Email</label>
+                <div class="relative">
+                    <input type="email" id="email" name="email" value="{{ user.email }}" required
+                           class="w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors"
+                           style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);"
+                           onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'"
+                           onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                    <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+            </div>
+            <button type="submit"
+                    class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap"
+                    style="background: var(--neutral-100); color: var(--text-primary);"
+                    onmouseenter="this.style.background='var(--neutral-200)'"
+                    onmouseleave="this.style.background='var(--neutral-100)'">
+                Save Changes
+            </button>
+        </div>
+    </form>
+
+    <!-- Password section -->
+    <form method="POST" class="mb-10">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_password">
+        <div class="flex items-end gap-4">
+            <div class="flex-1">
+                <label for="password" class="block text-sm font-semibold mb-2" style="color: var(--text-primary);">Password</label>
+                <input type="password" id="password" name="password" placeholder="New password" minlength="8"
+                       class="w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors"
+                       style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);"
+                       onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'"
+                       onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+            </div>
+            <button type="submit"
+                    class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap"
+                    style="background: var(--neutral-100); color: var(--text-primary);"
+                    onmouseenter="this.style.background='var(--neutral-200)'"
+                    onmouseleave="this.style.background='var(--neutral-100)'">
+                Change Password
+            </button>
+        </div>
+    </form>
+
+    <!-- Divider -->
+    <hr class="my-10" style="border-color: var(--border);">
+
+    <!-- Delete account section -->
+    <form method="POST" x-data="{ confirming: false }">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="delete_account">
+        <div class="flex items-start justify-between">
+            <div>
+                <h3 class="text-base font-semibold mb-1" style="color: var(--text-primary);">Delete your account</h3>
+                <p class="text-sm" style="color: var(--text-secondary); max-width: 480px;">
+                    When you delete your account, you lose access to Postbean account services, and we permanently delete your personal data.
+                </p>
+            </div>
+
+            <template x-if="!confirming">
+                <button type="button" @click="confirming = true"
+                        class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap"
+                        style="background: var(--error-soft, #FEE2E2); color: var(--error);"
+                        onmouseenter="this.style.background='var(--error)'; this.style.color='white'"
+                        onmouseleave="this.style.background='var(--error-soft, #FEE2E2)'; this.style.color='var(--error)'">
+                    Delete Account
+                </button>
+            </template>
+            <template x-if="confirming">
+                <div class="flex items-center gap-2">
+                    <button type="button" @click="confirming = false"
+                            class="px-4 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
+                            style="background: var(--neutral-100); color: var(--text-primary);"
+                            onmouseenter="this.style.background='var(--neutral-200)'"
+                            onmouseleave="this.style.background='var(--neutral-100)'">
+                        Cancel
+                    </button>
+                    <button type="submit"
+                            class="px-5 py-2 text-sm font-semibold rounded-full transition-colors cursor-pointer whitespace-nowrap"
+                            style="background: var(--error); color: white;">
+                        Yes, delete my account
+                    </button>
+                </div>
+            </template>
+        </div>
+    </form>
 </div>
 {% endblock %}

@@ -12,7 +12,7 @@ class UserAdmin(BaseUserAdmin):
     ordering = ("-created_at",)
     fieldsets = (
         (None, {"fields": ("email", "password")}),
-        ("Personal info", {"fields": ("name", "avatar_url")}),
+        ("Personal info", {"fields": ("name", "avatar")}),
         ("Permissions", {"fields": ("is_active", "is_staff", "is_superuser")}),
         ("2FA", {"fields": ("totp_enabled",)}),
     )
