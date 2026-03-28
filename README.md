@@ -392,6 +392,7 @@ Facebook, Instagram, and Threads all use the same Meta app credentials.
 3. Under **Products**, request access to:
    - **Share on LinkedIn**
    - **Sign In with LinkedIn using OpenID Connect**
+   - **Advertising API** (required for token refresh)
 4. Under **Auth**, add the redirect URI and note the **Client ID** and **Client Secret**
    - Redirect URI:
      ```
