@@ -381,11 +381,12 @@
 {% endblock %}
 
 {% block content %}
-<div x-data="kanbanBoard()" class="-m-6">
+<div x-data="kanbanBoard()" class="-m-6"
+     @use-builtin-template.window="openTemplate($event.detail.id)">
 
     <!-- Page header -->
     <div class="w-full min-h-[60px] inline-flex flex-row justify-between items-center px-6 pt-6 pb-0 mb-6">
-        <h1 class="text-2xl font-semibold text-stone-900" style="font-family: Georgia, 'Times New Roman', serif; letter-spacing: -0.01em;">Create</h1>
+        <h1 class="text-2xl font-semibold text-stone-900" style="letter-spacing: -0.01em;">Create</h1>
 
         <!-- + New Idea -->
         <button x-show="activeTab === 'ideas'" x-cloak
@@ -783,6 +784,78 @@
             </form>
         </div>
     </div>
+
+    <!-- Template Detail Modal -->
+    <div x-show="viewingTemplate" x-cloak
+         class="idea-modal-overlay"
+         @click.self="viewingTemplate = null"
+         @keydown.escape.window="viewingTemplate = null">
+        <div class="idea-modal" @click.stop style="max-width: 560px;">
+            <!-- Close button -->
+            <button type="button" class="idea-modal-close" @click="viewingTemplate = null" title="Close">
+                <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+
+            <!-- Emoji icon -->
+            <div class="px-6 pt-6 pb-2">
+                <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mb-4"
+                     style="background: var(--neutral-50);">
+                    <span x-text="viewingTemplate?.emoji"></span>
+                </div>
+                <!-- Title -->
+                <h2 class="text-xl font-bold text-stone-900 mb-2" style="font-family: var(--font-display); letter-spacing: -0.01em;"
+                    x-text="viewingTemplate?.title"></h2>
+                <!-- Description -->
+                <p class="text-sm leading-relaxed" style="color: var(--text-tertiary);"
+                   x-text="viewingTemplate?.description"></p>
+            </div>
+
+            <!-- Template body -->
+            <div class="px-6 py-4">
+                <div class="rounded-xl border p-5 bg-green-50/40 border-green-200/60">
+                    <p class="text-sm leading-relaxed text-stone-700 whitespace-pre-line"
+                       x-text="viewingTemplate?.body || viewingTemplate?.description"></p>
+                    <!-- Actions -->
+                    <div class="flex items-center justify-end gap-2 mt-4 pt-3" style="border-top: 1px solid rgba(0,0,0,0.06);">
+                        <button type="button" @click="copyTemplateBody()"
+                                class="w-9 h-9 rounded-lg border flex items-center justify-center transition-colors cursor-pointer"
+                                style="border-color: var(--border); color: var(--text-tertiary);"
+                                onmouseenter="this.style.background='var(--neutral-100)'"
+                                onmouseleave="this.style.background='transparent'"
+                                title="Copy to clipboard">
+                            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                        </button>
+                        <button type="button" @click="useTemplate()"
+                                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg transition-colors cursor-pointer"
+                                style="background: rgba(var(--primary-rgb, 249, 115, 22), 0.12); color: var(--primary);"
+                                onmouseenter="this.style.background='rgba(var(--primary-rgb, 249, 115, 22), 0.2)'"
+                                onmouseleave="this.style.background='rgba(var(--primary-rgb, 249, 115, 22), 0.12)'">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Use Template
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer with attribution & tags -->
+            <div class="px-6 pb-5 flex items-center gap-3">
+                <span class="text-xs font-medium text-stone-400">By</span>
+                <span class="text-xs font-semibold text-stone-600 underline decoration-stone-300 underline-offset-2">Postbean</span>
+                <template x-if="viewingTemplate?.tags?.length > 0">
+                    <span class="text-stone-300 mx-1">&bull;</span>
+                </template>
+                <template x-for="tag in (viewingTemplate?.tags || [])" :key="tag">
+                    <span class="text-xs font-medium text-stone-500" x-text="tag"></span>
+                </template>
+                <template x-if="!viewingTemplate?.tags?.length">
+                    <span>
+                        <span class="text-stone-300 mx-1">&bull;</span>
+                        <span class="text-xs font-medium text-stone-500" x-text="viewingTemplate?.category ? viewingTemplate.category.charAt(0).toUpperCase() + viewingTemplate.category.slice(1).replace('-', ' ') : ''"></span>
+                    </span>
+                </template>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -802,6 +875,7 @@ function kanbanBoard() {
         createMediaPreview: '',
         createMediaName: '',
         _mediaDragOver: false,
+        viewingTemplate: null,
         editingIdea: null,
         editSelectedGroup: '',
         editSelectedTags: [],
@@ -814,6 +888,40 @@ function kanbanBoard() {
         // Column ID-to-label map for the dropdown
         _columnMap: { {% for col in columns %}'{{ col.id }}': '{{ col.label }}'{% if not forloop.last %}, {% endif %}{% endfor %} },
         _defaultGroupId: '{% if columns %}{{ columns.0.id }}{% endif %}',
+
+        // Template data for detail modal
+        _templates: {
+            {% for tpl in builtin_templates %}
+            {{ tpl.id }}: {
+                id: {{ tpl.id }},
+                emoji: "{{ tpl.emoji }}",
+                title: "{{ tpl.title|escapejs }}",
+                description: "{{ tpl.description|escapejs }}",
+                body: "{{ tpl.body|default:''|escapejs }}",
+                tags: [{% for tag in tpl.tags %}"{{ tag|escapejs }}"{% if not forloop.last %}, {% endif %}{% endfor %}],
+                category: "{{ tpl.category }}",
+                color: "{{ tpl.color }}"
+            }{% if not forloop.last %},{% endif %}
+            {% endfor %}
+        },
+
+        openTemplate(id) {
+            this.viewingTemplate = this._templates[id] || null;
+        },
+
+        useTemplate() {
+            if (!this.viewingTemplate) return;
+            var tpl = this.viewingTemplate;
+            var body = tpl.body || tpl.description;
+            this.viewingTemplate = null;
+            window.location.href = '/workspace/{{ workspace.id }}/compose/?template=' + tpl.id;
+        },
+
+        copyTemplateBody() {
+            if (!this.viewingTemplate) return;
+            var body = this.viewingTemplate.body || this.viewingTemplate.description;
+            navigator.clipboard.writeText(body);
+        },
 
         createGroupLabel() {
             return this._columnMap[this.createSelectedGroup] || 'Unassigned';
