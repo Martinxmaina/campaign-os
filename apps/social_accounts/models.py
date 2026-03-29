@@ -81,6 +81,69 @@ class SocialAccount(models.Model):
             self.ConnectionStatus.ERROR,
         )
 
+    # Platform character limits
+    PLATFORM_CHAR_LIMITS = {
+        "facebook": 63206,
+        "instagram": 2200,
+        "linkedin": 3000,
+        "tiktok": 2200,
+        "youtube": 5000,
+        "pinterest": 500,
+        "threads": 500,
+        "bluesky": 300,
+        "google_business": 1500,
+        "mastodon": 500,
+    }
+
+    @property
+    def char_limit(self) -> int:
+        return self.PLATFORM_CHAR_LIMITS.get(self.platform, 2200)
+
+    # Platform-specific field configuration (which platforms need extra fields)
+    PLATFORM_FIELD_CONFIG = {
+        "youtube": {
+            "needs_title": True,
+            "title_max_length": 100,
+            "title_label": "Video Title",
+            "caption_label": "Description",
+        },
+        "pinterest": {
+            "needs_title": True,
+            "title_max_length": 100,
+            "title_label": "Pin Title",
+            "caption_label": "Description",
+        },
+    }
+
+    PLATFORM_FIELD_DEFAULTS = {
+        "needs_title": False,
+        "title_max_length": 0,
+        "title_label": "Title",
+        "caption_label": "Caption",
+    }
+
+    @property
+    def field_config(self) -> dict:
+        """Return field configuration for this platform."""
+        return {**self.PLATFORM_FIELD_DEFAULTS, **self.PLATFORM_FIELD_CONFIG.get(self.platform, {})}
+
+    @property
+    def platform_icon(self) -> str:
+        """Short icon label for platform badges."""
+        icons = {
+            "facebook": "f",
+            "instagram": "ig",
+            "linkedin": "in",
+            "tiktok": "tk",
+            "youtube": "yt",
+            "pinterest": "pi",
+            "threads": "th",
+            "bluesky": "bs",
+            "google_business": "gb",
+            "mastodon": "ma",
+        }
+        return icons.get(self.platform, self.platform[:2])
+
 
 class MastodonAppRegistration(models.Model):
     """Stores per-instance OAuth app registrations for Mastodon federation."""
