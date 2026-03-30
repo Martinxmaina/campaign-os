@@ -96,23 +96,65 @@
         .idea-media-zone {
             border: 2px dashed var(--border); border-radius: 12px; padding: 24px;
             display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-            color: var(--text-tertiary); font-size: 0.8125rem; max-width: 200px; margin-top: 16px;
+            color: var(--text-tertiary); font-size: 0.8125rem; max-width: 150px; margin-top: 16px;
+            cursor: pointer;
             transition: border-color 150ms, background 150ms;
         }
         .idea-media-zone.drag-over { border-color: var(--primary); background: rgba(var(--primary-rgb, 249, 115, 22), 0.05); }
-        .idea-media-preview {
-            display: flex; align-items: center; gap: 10px; margin-top: 16px;
-            padding: 10px 14px; border: 1px solid var(--border); border-radius: 10px; max-width: 320px;
+        .idea-media-strip-layout {
+            margin-top: 16px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-start;
         }
-        .idea-media-preview img { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; flex-shrink: 0; }
-        .idea-media-preview .file-info { flex: 1; min-width: 0; }
-        .idea-media-preview .file-name { font-size: 0.8125rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .idea-media-preview .file-size { font-size: 0.6875rem; color: var(--text-tertiary); }
-        .idea-media-preview .remove-btn {
-            border: none; background: none; color: var(--text-tertiary); cursor: pointer;
-            padding: 4px; border-radius: 4px; transition: color 150ms, background 150ms; flex-shrink: 0;
+        .idea-media-zone.idea-media-zone-tile {
+            margin-top: 0;
+            width: 130px;
+            max-width: 130px;
+            min-height: 130px;
+            height: 130px;
+            padding: 14px 10px;
         }
-        .idea-media-preview .remove-btn:hover { color: var(--danger, #ef4444); background: var(--neutral-100); }
+        .idea-media-existing-card {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            width: 130px;
+            height: 130px;
+            background: var(--neutral-100);
+        }
+        .idea-media-existing-card img,
+        .idea-media-existing-card video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .idea-media-existing-card .remove-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 38px;
+            height: 38px;
+            border: 2px solid #fff;
+            border-radius: 9999px;
+            background: rgba(38, 38, 38, 0.78);
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            transition: background 150ms;
+        }
+        .idea-media-existing-card .remove-btn:hover { background: rgba(23, 23, 23, 0.9); }
+        @media (max-width: 640px) {
+            .idea-media-strip-layout {
+                gap: 10px;
+            }
+        }
         .idea-selected-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
         .idea-selected-tags .idea-tag-chip {
             display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 9999px;
@@ -259,12 +301,15 @@
                             <button type="button" class="idea-modal-close" @click="closeCreateModal()" title="Close">
                                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                             </button>
-                            <form hx-post="{% url 'composer:idea_create' workspace_id=request.workspace.id %}"
-                                  hx-encoding="multipart/form-data"
-                                  hx-swap="none"
-                                  @htmx:after-request.window="if ($event.detail.successful && $event.detail.elt === $el) { closeCreateModal(); $el.reset(); }">
+                            <form action="{% url 'composer:idea_create' workspace_id=request.workspace.id %}"
+                                  method="post"
+                                  enctype="multipart/form-data"
+                                  @submit.prevent="submitCreateIdea($event)">
+                                {% csrf_token %}
                                 <input type="hidden" name="group" :value="createSelectedGroup">
                                 <input type="hidden" name="tags" :value="createSelectedTags.join(',')">
+                                <input type="hidden" name="media_asset_ids" :value="createMediaAssetIdsCsv()">
+                                <input type="hidden" name="media_asset_id" :value="createPrimaryMediaAssetId()">
 
                                 <!-- Header -->
                                 <div class="idea-modal-header">
@@ -355,37 +400,35 @@
                                 <div class="idea-modal-body" @click="createGroupDropdownOpen = false; createTagDropdownOpen = false">
                                     <input type="text" name="title" required class="idea-title-input" placeholder="Give your idea a title">
                                     <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"></textarea>
-                                    <input type="file" name="media" x-ref="sidebarIdeaFileInput" accept="image/*,video/*,.gif" style="display:none"
+                                    <input type="file" name="media" x-ref="sidebarIdeaFileInput" accept="image/*,video/*,.gif" style="display:none" multiple
                                            @change="_handleFileSelect($event)">
 
-                                    <!-- Media drop zone -->
-                                    <template x-if="!createMediaPreview">
+                                    <div class="idea-media-strip-layout">
+                                        <template x-for="(media, index) in createMediaAssets" :key="media.asset_id + '-' + index">
+                                            <div class="idea-media-existing-card">
+                                                <template x-if="media.media_type === 'video'">
+                                                    <video :src="media.url" muted playsinline preload="metadata"></video>
+                                                </template>
+                                                <template x-if="media.media_type !== 'video'">
+                                                    <img :src="media.url" alt="Preview">
+                                                </template>
+                                                <button type="button" class="remove-btn" @click="_removeCreateMedia(index)" title="Remove">
+                                                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                                </button>
+                                            </div>
+                                        </template>
                                         <div class="idea-media-zone"
-                                             :class="{ 'drag-over': _mediaDragOver }"
+                                             :class="{ 'idea-media-zone-tile': true, 'drag-over': _mediaDragOver }"
+                                             @click="$refs.sidebarIdeaFileInput.click()"
                                              @dragover.prevent="_mediaDragOver = true"
                                              @dragleave.prevent="_mediaDragOver = false"
                                              @drop.prevent="_mediaDragOver = false; _handleMediaDrop($event)">
                                             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                                            <span>Drag &amp; drop</span>
-                                            <span>or <strong style="color: var(--primary); cursor: pointer;" @click="$refs.sidebarIdeaFileInput.click()">select a file</strong></span>
+                                            <span x-show="!createMediaAssets.length">Drag &amp; drop</span>
+                                            <span x-show="createMediaAssets.length">Add another file</span>
+                                            <span>or <strong style="color: var(--primary); cursor: pointer;">select a file</strong></span>
                                         </div>
-                                    </template>
-                                    <template x-if="createMediaPreview">
-                                        <div class="idea-media-preview">
-                                            <img :src="createMediaPreview" alt="Preview">
-                                            <div class="file-info">
-                                                <div class="file-name" x-text="createMediaName"></div>
-                                                <div class="file-size" x-text="_formatFileSize(createMediaFile?.size)"></div>
-                                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
-                                                        style="color: var(--primary);" @click="$refs.sidebarIdeaFileInput.click()">
-                                                    Replace file
-                                                </button>
-                                            </div>
-                                            <button type="button" class="remove-btn" @click="_removeMedia()" title="Remove">
-                                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                                            </button>
-                                        </div>
-                                    </template>
+                                    </div>
                                 </div>
 
                                 <!-- Footer -->
@@ -429,6 +472,8 @@
                                         Cancel
                                     </button>
                                     <button type="submit"
+                                            :disabled="createMediaUploadCount > 0 || isCreateSaving"
+                                            :class="(createMediaUploadCount > 0 || isCreateSaving) && 'opacity-50 cursor-not-allowed'"
                                             class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
                                             style="background: var(--neutral-100); color: var(--text-primary);"
                                             onmouseenter="this.style.background='var(--neutral-200)'"
@@ -727,7 +772,86 @@
     </script>
     {% if request.workspace %}
     <script>
+        window.ideaModalHelpers = window.ideaModalHelpers || {
+            mediaAssetIdsCsv(items) {
+                return (items || []).map(function(item) { return item.asset_id; }).join(',');
+            },
+            appendUploadedMedia(items, data, file) {
+                if (!items || !data || !data.asset_id) return;
+                var exists = items.some(function(item) { return item.asset_id === data.asset_id; });
+                if (exists) return;
+                items.push({
+                    asset_id: data.asset_id,
+                    url: data.url || '',
+                    filename: data.filename || (file && file.name) || '',
+                    media_type: data.media_type || ((file && file.type && file.type.startsWith('video/')) ? 'video' : 'image'),
+                });
+            },
+            getCsrfToken() {
+                var tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+                if (tokenInput && tokenInput.value) return tokenInput.value;
+                var cookieMatch = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+                return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+            },
+            triggerIdeaChanged() {
+                if (window.htmx && typeof window.htmx.trigger === 'function') {
+                    window.htmx.trigger(document.body, 'ideaChanged');
+                    return;
+                }
+                document.body.dispatchEvent(new CustomEvent('ideaChanged', { bubbles: true }));
+            },
+            submitIdeaForm(formEl, onSuccess) {
+                if (!formEl) return Promise.resolve(false);
+                var url = formEl.getAttribute('action') || formEl.getAttribute('hx-post');
+                if (!url) return Promise.resolve(false);
+                var csrfToken = this.getCsrfToken();
+                if (!csrfToken) {
+                    window.alert('Security token missing. Please reload the page.');
+                    return Promise.resolve(false);
+                }
+                var formData = new FormData(formEl);
+                return fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData,
+                })
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('save_failed');
+                    })
+                    .then(() => {
+                        this.triggerIdeaChanged();
+                        if (typeof onSuccess === 'function') onSuccess();
+                        return true;
+                    })
+                    .catch(() => {
+                        window.alert('Could not save the idea. Please try again.');
+                        return false;
+                    });
+            },
+            uploadIdeaMediaAsset(uploadUrl, file, onUploaded) {
+                var csrfToken = this.getCsrfToken();
+                if (!csrfToken) return Promise.reject(new Error('csrf_missing'));
+                var formData = new FormData();
+                formData.append('file', file);
+                return fetch(uploadUrl, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData,
+                })
+                    .then(function(response) {
+                        if (!response.ok) throw new Error('upload_failed');
+                        return response.json();
+                    })
+                    .then((data) => {
+                        if (!data.asset_id) throw new Error('upload_failed');
+                        if (typeof onUploaded === 'function') onUploaded(data, file);
+                        return true;
+                    });
+            },
+        };
+
         function sidebarNewMenu() {
+            const ideaHelpers = window.ideaModalHelpers;
             return {
                 newMenuOpen: false,
                 showCreateModal: false,
@@ -738,10 +862,10 @@
                 createTagSearch: '',
                 showCreateTagModal: false,
                 newTagName: '',
+                createMediaAssets: [],
+                createMediaUploadCount: 0,
+                isCreateSaving: false,
                 emojiPickerOpen: false,
-                createMediaFile: null,
-                createMediaPreview: '',
-                createMediaName: '',
                 _mediaDragOver: false,
                 allTags: [{% for tag in sidebar_idea_tags %}'{{ tag|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}],
 
@@ -756,6 +880,9 @@
                     this.createTagSearch = '';
                     this.showCreateTagModal = false;
                     this.newTagName = '';
+                    this.createMediaAssets = [];
+                    this.createMediaUploadCount = 0;
+                    this.isCreateSaving = false;
                     if (this.$refs.sidebarIdeaFileInput) this.$refs.sidebarIdeaFileInput.value = '';
                 },
 
@@ -769,10 +896,18 @@
                     this.emojiPickerOpen = false;
                     this._emojiSearch = '';
                     this.closeCreateTagModal();
-                    this.createMediaFile = null;
-                    this.createMediaPreview = '';
-                    this.createMediaName = '';
+                    this.createMediaAssets = [];
+                    this.createMediaUploadCount = 0;
+                    this.isCreateSaving = false;
                     if (this.$refs.sidebarIdeaFileInput) this.$refs.sidebarIdeaFileInput.value = '';
+                },
+
+                createMediaAssetIdsCsv() {
+                    return ideaHelpers.mediaAssetIdsCsv(this.createMediaAssets);
+                },
+
+                createPrimaryMediaAssetId() {
+                    return this.createMediaAssets.length ? this.createMediaAssets[0].asset_id : '';
                 },
 
                 createGroupLabel() {
@@ -866,44 +1001,70 @@
 
                 // Media file handling
                 _handleFileSelect(event) {
-                    var file = event.target.files[0];
-                    if (file) this._previewFile(file);
+                    this._enqueueMediaFiles(event.target.files);
+                    event.target.value = '';
                 },
 
                 _handleMediaDrop(event) {
-                    var file = event.dataTransfer.files[0];
-                    if (file) this._previewFile(file);
+                    this._enqueueMediaFiles(event.dataTransfer.files);
                 },
 
-                _previewFile(file) {
-                    this.createMediaFile = file;
-                    this.createMediaName = file.name;
-                    var dt = new DataTransfer();
-                    dt.items.add(file);
-                    if (this.$refs.sidebarIdeaFileInput) this.$refs.sidebarIdeaFileInput.files = dt.files;
-                    if (file.type.startsWith('image/')) {
-                        var reader = new FileReader();
-                        var self = this;
-                        reader.onload = function(e) { self.createMediaPreview = e.target.result; };
-                        reader.readAsDataURL(file);
-                    } else {
-                        this.createMediaPreview = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="%23999" viewBox="0 0 24 24" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>');
+                _enqueueMediaFiles(fileList) {
+                    var files = Array.from(fileList || []);
+                    for (var i = 0; i < files.length; i += 1) {
+                        this._uploadIdeaMediaAsset(files[i]);
                     }
                 },
 
-                _removeMedia() {
-                    this.createMediaFile = null;
-                    this.createMediaPreview = '';
-                    this.createMediaName = '';
-                    var input = this.$refs.sidebarIdeaFileInput;
-                    if (input) input.value = '';
+                _appendUploadedMedia(data, file) {
+                    ideaHelpers.appendUploadedMedia(this.createMediaAssets, data, file);
                 },
 
-                _formatFileSize(bytes) {
-                    if (!bytes) return '';
-                    if (bytes < 1024) return bytes + ' B';
-                    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-                    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+                _removeCreateMedia(index) {
+                    if (index < 0 || index >= this.createMediaAssets.length) return;
+                    this.createMediaAssets.splice(index, 1);
+                },
+
+                _getCsrfToken() {
+                    return ideaHelpers.getCsrfToken();
+                },
+
+                _triggerIdeaChanged() {
+                    ideaHelpers.triggerIdeaChanged();
+                },
+
+                _submitIdeaForm(formEl) {
+                    return ideaHelpers.submitIdeaForm.call(ideaHelpers, formEl, () => {
+                        this.closeCreateModal();
+                        formEl.reset();
+                    });
+                },
+
+                submitCreateIdea(event) {
+                    if (this.createMediaUploadCount > 0 || this.isCreateSaving) return;
+                    this.isCreateSaving = true;
+                    this._submitIdeaForm(event.target).finally(() => {
+                        this.isCreateSaving = false;
+                    });
+                },
+
+                _uploadIdeaMediaAsset(file) {
+                    if (!file) return;
+                    this.createMediaUploadCount += 1;
+                    ideaHelpers
+                        .uploadIdeaMediaAsset(
+                            '{% url "composer:idea_upload_media" workspace_id=request.workspace.id %}',
+                            file,
+                            (data, uploadedFile) => {
+                                this._appendUploadedMedia(data, uploadedFile);
+                            }
+                        )
+                        .catch(() => {
+                            window.alert('One of the files failed to upload. Please try again.');
+                        })
+                        .finally(() => {
+                            this.createMediaUploadCount = Math.max(0, this.createMediaUploadCount - 1);
+                        });
                 },
             };
         }

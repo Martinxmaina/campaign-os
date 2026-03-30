@@ -8,6 +8,7 @@ urlpatterns = [
     # Create landing page
     path("create/", views.create_landing, name="create_landing"),
     # Idea CRUD (HTMX endpoints)
+    path("ideas/upload-media/", views.idea_upload_media, name="idea_upload_media"),
     path("ideas/create/", views.idea_create, name="idea_create"),
     path("ideas/<uuid:idea_id>/edit/", views.idea_edit, name="idea_edit"),
     path("ideas/<uuid:idea_id>/delete/", views.idea_delete, name="idea_delete"),
