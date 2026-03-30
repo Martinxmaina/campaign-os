@@ -3,6 +3,7 @@
 import contextlib
 import json
 import re
+import uuid
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
 
@@ -11,9 +12,10 @@ from dateutil import parser as date_parser
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
-from django.db import models
+from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import strip_tags
 from django.views.decorators.http import require_GET, require_POST
@@ -28,6 +30,7 @@ from .models import (
     ContentCategory,
     Feed,
     Idea,
+    IdeaMedia,
     IdeaGroup,
     PlatformPost,
     Post,
@@ -884,9 +887,22 @@ def _idea_columns(workspace, tag=None):
         )
         groups = IdeaGroup.objects.for_workspace(workspace.id).order_by("position", "created_at")
 
-    ideas = Idea.objects.for_workspace(workspace.id).select_related("author", "media_asset").order_by("position", "-created_at")
+    ideas_qs = (
+        Idea.objects.for_workspace(workspace.id)
+        .select_related("author", "media_asset")
+        .prefetch_related("media_attachments__media_asset")
+        .order_by("position", "-created_at")
+    )
     if tag:
-        ideas = ideas.filter(tags__contains=[tag])
+        ideas_qs = ideas_qs.filter(tags__contains=[tag])
+
+    grouped_ideas = {str(grp.id): [] for grp in groups}
+    for idea in ideas_qs:
+        _prepare_idea_for_kanban(idea)
+
+        group_key = str(idea.group_id) if idea.group_id else ""
+        if group_key in grouped_ideas:
+            grouped_ideas[group_key].append(idea)
 
     columns = []
     for grp in groups:
@@ -895,7 +911,7 @@ def _idea_columns(workspace, tag=None):
                 "id": str(grp.id),
                 "key": str(grp.id),
                 "label": grp.name,
-                "ideas": ideas.filter(group=grp),
+                "ideas": grouped_ideas.get(str(grp.id), []),
             }
         )
 
@@ -903,6 +919,191 @@ def _idea_columns(workspace, tag=None):
     all_tags = list(Tag.objects.for_workspace(workspace.id).values_list("name", flat=True))
 
     return columns, all_tags
+
+
+def _parse_media_asset_ids(raw_ids):
+    """Parse ordered media ids from CSV, preserving order and removing duplicates."""
+    ordered = []
+    seen = set()
+    for token in (raw_ids or "").split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            normalized = str(uuid.UUID(token))
+        except (ValueError, TypeError, AttributeError):
+            continue
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        ordered.append(normalized)
+    return ordered
+
+
+def _build_idea_media_payload(idea):
+    """Build ordered media payload and attachment list for Kanban rendering."""
+    attachments = [att for att in idea.media_attachments.all() if att.media_asset_id and att.media_asset]
+    media_payload = []
+    for att in attachments:
+        asset = att.media_asset
+        media_payload.append(
+            {
+                "asset_id": str(asset.id),
+                "url": asset.file.url if asset.file else "",
+                "filename": asset.filename,
+                "media_type": asset.media_type,
+                "position": att.position,
+            }
+        )
+
+    # Legacy fallback for ideas that only have the old single media pointer.
+    if not media_payload and idea.media_asset_id and idea.media_asset:
+        media_payload.append(
+            {
+                "asset_id": str(idea.media_asset_id),
+                "url": idea.media_asset.file.url if idea.media_asset.file else "",
+                "filename": idea.media_asset.filename,
+                "media_type": idea.media_asset.media_type,
+                "position": 0,
+            }
+        )
+    return media_payload, attachments
+
+
+def _prepare_idea_for_kanban(idea):
+    """Attach computed media/tag fields used by Kanban templates."""
+    media_payload, attachments = _build_idea_media_payload(idea)
+    idea.media_payload_json = json.dumps(media_payload)
+    idea.tags_payload_json = json.dumps(idea.tags or [])
+    idea.media_count = len(media_payload)
+    idea.cover_media = attachments[0].media_asset if attachments else idea.media_asset
+    return idea
+
+
+def _render_idea_card_fragment(request, idea):
+    """Render a single Kanban idea card fragment."""
+    _prepare_idea_for_kanban(idea)
+    return render_to_string(
+        "composer/partials/idea_card.html",
+        {
+            "idea": idea,
+            "group_id": str(idea.group_id) if idea.group_id else "",
+        },
+        request=request,
+    )
+
+
+def _render_kanban_column_fragment(request, group):
+    """Render a single Kanban column fragment."""
+    return render_to_string(
+        "composer/partials/kanban_column.html",
+        {
+            "col": {
+                "id": str(group.id),
+                "key": str(group.id),
+                "label": group.name,
+                "ideas": [],
+            },
+        },
+        request=request,
+    )
+
+
+def _wants_json_response(request):
+    """Detect whether mutation endpoint should return JSON payload."""
+    accept = request.headers.get("Accept", "")
+    return "application/json" in accept.lower()
+
+
+def _normalize_media_asset_ids(raw_ids="", extra_ids=None):
+    """Normalize media IDs from mixed inputs while preserving first-seen order."""
+    chunks = []
+    if isinstance(raw_ids, str):
+        chunks.append(raw_ids)
+    elif raw_ids:
+        chunks.extend(str(item) for item in raw_ids)
+    if extra_ids:
+        chunks.extend(str(item) for item in extra_ids)
+    return _parse_media_asset_ids(",".join(chunks))
+
+
+def _sync_idea_media_attachments(idea, workspace, ordered_asset_ids):
+    """Synchronize IdeaMedia rows to match ordered ids and keep cover pointer aligned."""
+    from apps.media_library.models import MediaAsset
+
+    normalized_ids = _normalize_media_asset_ids(ordered_asset_ids)
+    if normalized_ids:
+        valid_assets = set(
+            str(aid)
+            for aid in MediaAsset.objects.filter(workspace=workspace, id__in=normalized_ids).values_list("id", flat=True)
+        )
+        ordered_ids = [aid for aid in normalized_ids if aid in valid_assets]
+    else:
+        ordered_ids = []
+
+    existing_attachments = list(idea.media_attachments.all())
+    existing = {str(att.media_asset_id): att for att in existing_attachments}
+    ids_to_keep = set(ordered_ids)
+    ids_to_delete = [att.id for att in existing_attachments if str(att.media_asset_id) not in ids_to_keep]
+    if ids_to_delete:
+        IdeaMedia.objects.filter(id__in=ids_to_delete).delete()
+
+    to_create = []
+    to_update = []
+    now = timezone.now()
+    for position, asset_id in enumerate(ordered_ids):
+        attachment = existing.get(asset_id)
+        if attachment:
+            if attachment.position != position:
+                attachment.position = position
+                attachment.updated_at = now
+                to_update.append(attachment)
+            continue
+        to_create.append(
+            IdeaMedia(
+                idea=idea,
+                media_asset_id=asset_id,
+                position=position,
+            )
+        )
+
+    if to_create:
+        IdeaMedia.objects.bulk_create(to_create)
+    if to_update:
+        IdeaMedia.objects.bulk_update(to_update, ["position", "updated_at"])
+
+    cover_id = ordered_ids[0] if ordered_ids else None
+    current_cover_id = str(idea.media_asset_id) if idea.media_asset_id else None
+    if current_cover_id != cover_id:
+        idea.media_asset_id = cover_id
+        idea.save(update_fields=["media_asset", "updated_at"])
+
+
+def _create_idea_media_asset(workspace, user, uploaded_file):
+    """Create a MediaAsset from an uploaded file for Idea create/edit flows."""
+    from apps.media_library.models import MediaAsset
+
+    content_type = uploaded_file.content_type or ""
+    if content_type == "image/gif":
+        media_type = MediaAsset.MediaType.GIF
+    elif content_type.startswith("image/"):
+        media_type = MediaAsset.MediaType.IMAGE
+    elif content_type.startswith("video/"):
+        media_type = MediaAsset.MediaType.VIDEO
+    else:
+        media_type = MediaAsset.MediaType.DOCUMENT
+
+    return MediaAsset.objects.create(
+        organization=workspace.organization,
+        workspace=workspace,
+        uploaded_by=user,
+        file=uploaded_file,
+        filename=uploaded_file.name,
+        media_type=media_type,
+        mime_type=content_type,
+        file_size=uploaded_file.size,
+        source="upload",
+    )
 
 
 @login_required
@@ -940,6 +1141,28 @@ def create_landing(request, workspace_id):
 @login_required
 @require_permission("create_posts")
 @require_POST
+def idea_upload_media(request, workspace_id):
+    """Upload media for Idea modals and return an asset id for reliable save binding."""
+    workspace = _get_workspace(request, workspace_id)
+    uploaded_file = request.FILES.get("file") or request.FILES.get("media")
+    if not uploaded_file:
+        return JsonResponse({"error": "No file provided"}, status=400)
+
+    asset = _create_idea_media_asset(workspace, request.user, uploaded_file)
+    return JsonResponse(
+        {
+            "asset_id": str(asset.id),
+            "filename": asset.filename,
+            "url": asset.file.url if asset.file else "",
+            "size": asset.file_size,
+            "media_type": asset.media_type,
+        }
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
 def idea_create(request, workspace_id):
     """Create a new idea via HTMX."""
     workspace = _get_workspace(request, workspace_id)
@@ -958,46 +1181,59 @@ def idea_create(request, workspace_id):
     else:
         group = IdeaGroup.objects.for_workspace(workspace.id).order_by("position").first()
 
-    # Handle media file upload
-    media_asset = None
-    uploaded_file = request.FILES.get("media")
+    has_multi_media_payload = "media_asset_ids" in request.POST
+    media_asset_ids = _normalize_media_asset_ids(request.POST.get("media_asset_ids", ""))
+
+    # Handle media: pre-uploaded IDs (preferred), direct multipart upload fallback,
+    # or legacy single pre-uploaded asset id.
+    uploaded_file = request.FILES.get("media") or request.FILES.get("file")
+    media_asset_id = request.POST.get("media_asset_id", "").strip()
     if uploaded_file:
+        uploaded_asset = _create_idea_media_asset(workspace, request.user, uploaded_file)
+        media_asset_ids.append(str(uploaded_asset.id))
+    elif not media_asset_ids and media_asset_id:
         from apps.media_library.models import MediaAsset
 
-        content_type = uploaded_file.content_type or ""
-        if content_type == "image/gif":
-            media_type = MediaAsset.MediaType.GIF
-        elif content_type.startswith("image/"):
-            media_type = MediaAsset.MediaType.IMAGE
-        elif content_type.startswith("video/"):
-            media_type = MediaAsset.MediaType.VIDEO
-        else:
-            media_type = MediaAsset.MediaType.DOCUMENT
+        legacy_asset = MediaAsset.objects.filter(id=media_asset_id, workspace=workspace).first()
+        if legacy_asset:
+            media_asset_ids.append(str(legacy_asset.id))
 
-        media_asset = MediaAsset.objects.create(
+    media_asset_ids = _normalize_media_asset_ids(media_asset_ids)
+
+    with transaction.atomic():
+        idea = Idea.objects.create(
             workspace=workspace,
-            uploaded_by=request.user,
-            file=uploaded_file,
-            filename=uploaded_file.name,
-            media_type=media_type,
-            mime_type=content_type,
-            file_size=uploaded_file.size,
-            source="upload",
+            author=request.user,
+            title=title,
+            description=description,
+            tags=tags,
+            group=group,
+            status=Idea.Status.UNASSIGNED,
+            media_asset_id=media_asset_ids[0] if media_asset_ids else None,
         )
 
-    Idea.objects.create(
-        workspace=workspace,
-        author=request.user,
-        title=title,
-        description=description,
-        tags=tags,
-        group=group,
-        status=Idea.Status.UNASSIGNED,
-        media_asset=media_asset,
-    )
+        if has_multi_media_payload or media_asset_ids:
+            _sync_idea_media_attachments(idea, workspace, media_asset_ids)
 
     # Sync any new tags to the Tag model
     _sync_tags_to_model(workspace, tags)
+
+    if _wants_json_response(request):
+        idea = (
+            Idea.objects.for_workspace(workspace.id)
+            .select_related("media_asset")
+            .prefetch_related("media_attachments__media_asset")
+            .get(id=idea.id)
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "idea_id": str(idea.id),
+                "group_id": str(idea.group_id) if idea.group_id else "",
+                "tags": idea.tags or [],
+                "card_html": _render_idea_card_fragment(request, idea),
+            }
+        )
 
     return HttpResponse(
         status=204,
@@ -1012,45 +1248,71 @@ def idea_edit(request, workspace_id, idea_id):
     """Edit an existing idea via HTMX."""
     workspace = _get_workspace(request, workspace_id)
     idea = get_object_or_404(Idea, id=idea_id, workspace=workspace)
+    previous_group_id = str(idea.group_id) if idea.group_id else ""
 
     idea.title = request.POST.get("title", idea.title).strip()
     idea.description = request.POST.get("description", idea.description).strip()
     tags_raw = request.POST.get("tags", "")
-    if tags_raw:
-        idea.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    idea.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
-    # Handle media: new upload, explicit removal, or leave unchanged
-    uploaded_file = request.FILES.get("media")
+    group_id = request.POST.get("group", "").strip()
+    if group_id:
+        group = IdeaGroup.objects.filter(id=group_id, workspace=workspace).first()
+        if group:
+            idea.group = group
+
+    # Handle media attachments:
+    # - preferred: ordered media_asset_ids list
+    # - fallback: legacy single media_asset_id + remove_media
+    has_multi_media_payload = "media_asset_ids" in request.POST
+    media_asset_ids = _normalize_media_asset_ids(request.POST.get("media_asset_ids", ""))
+    uploaded_file = request.FILES.get("media") or request.FILES.get("file")
+    uploaded_asset = None
     if uploaded_file:
-        from apps.media_library.models import MediaAsset
+        uploaded_asset = _create_idea_media_asset(workspace, request.user, uploaded_file)
+        media_asset_ids.append(str(uploaded_asset.id))
+    media_asset_ids = _normalize_media_asset_ids(media_asset_ids)
 
-        content_type = uploaded_file.content_type or ""
-        if content_type == "image/gif":
-            media_type = MediaAsset.MediaType.GIF
-        elif content_type.startswith("image/"):
-            media_type = MediaAsset.MediaType.IMAGE
-        elif content_type.startswith("video/"):
-            media_type = MediaAsset.MediaType.VIDEO
+    with transaction.atomic():
+        idea.save(update_fields=["title", "description", "tags", "group", "updated_at"])
+
+        if has_multi_media_payload:
+            _sync_idea_media_attachments(idea, workspace, media_asset_ids)
         else:
-            media_type = MediaAsset.MediaType.DOCUMENT
+            media_asset_id = request.POST.get("media_asset_id", "").strip()
+            remove_media = request.POST.get("remove_media") == "true"
 
-        idea.media_asset = MediaAsset.objects.create(
-            workspace=workspace,
-            uploaded_by=request.user,
-            file=uploaded_file,
-            filename=uploaded_file.name,
-            media_type=media_type,
-            mime_type=content_type,
-            file_size=uploaded_file.size,
-            source="upload",
-        )
-    elif request.POST.get("remove_media") == "true":
-        idea.media_asset = None
+            if uploaded_asset:
+                _sync_idea_media_attachments(idea, workspace, [str(uploaded_asset.id)])
+            elif media_asset_id:
+                from apps.media_library.models import MediaAsset
 
-    idea.save()
+                asset = MediaAsset.objects.filter(id=media_asset_id, workspace=workspace).first()
+                if asset:
+                    _sync_idea_media_attachments(idea, workspace, [str(asset.id)])
+            elif remove_media:
+                _sync_idea_media_attachments(idea, workspace, [])
 
     # Sync any new tags to the Tag model
     _sync_tags_to_model(workspace, idea.tags)
+
+    if _wants_json_response(request):
+        idea = (
+            Idea.objects.for_workspace(workspace.id)
+            .select_related("media_asset")
+            .prefetch_related("media_attachments__media_asset")
+            .get(id=idea.id)
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "idea_id": str(idea.id),
+                "previous_group_id": previous_group_id,
+                "group_id": str(idea.group_id) if idea.group_id else "",
+                "tags": idea.tags or [],
+                "card_html": _render_idea_card_fragment(request, idea),
+            }
+        )
 
     return HttpResponse(
         status=204,
@@ -1065,7 +1327,17 @@ def idea_delete(request, workspace_id, idea_id):
     """Delete an idea via HTMX."""
     workspace = _get_workspace(request, workspace_id)
     idea = get_object_or_404(Idea, id=idea_id, workspace=workspace)
+    group_id = str(idea.group_id) if idea.group_id else ""
     idea.delete()
+
+    if _wants_json_response(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "idea_id": str(idea_id),
+                "group_id": group_id,
+            }
+        )
 
     return HttpResponse(
         status=204,
@@ -1135,6 +1407,8 @@ def idea_group_create(request, workspace_id):
     workspace = _get_workspace(request, workspace_id)
     name = request.POST.get("name", "").strip()
     if not name:
+        if _wants_json_response(request):
+            return JsonResponse({"error": "Name is required."}, status=400)
         return HttpResponse("Name is required.", status=400)
 
     max_pos = (
@@ -1143,7 +1417,17 @@ def idea_group_create(request, workspace_id):
         )["position__max"]
         or 0
     )
-    IdeaGroup.objects.create(workspace=workspace, name=name, position=max_pos + 1)
+    group = IdeaGroup.objects.create(workspace=workspace, name=name, position=max_pos + 1)
+
+    if _wants_json_response(request):
+        return JsonResponse(
+            {
+                "ok": True,
+                "group_id": str(group.id),
+                "group_name": group.name,
+                "column_html": _render_kanban_column_fragment(request, group),
+            }
+        )
 
     return HttpResponse(status=204, headers={"HX-Trigger": "ideaChanged"})
 
@@ -1157,9 +1441,14 @@ def idea_group_delete(request, workspace_id, group_id):
     group = get_object_or_404(IdeaGroup, id=group_id, workspace=workspace)
 
     if group.ideas.exists():
+        if _wants_json_response(request):
+            return JsonResponse({"error": "Column must be empty before deleting."}, status=400)
         return HttpResponse("Column must be empty before deleting.", status=400)
 
+    deleted_group_id = str(group.id)
     group.delete()
+    if _wants_json_response(request):
+        return JsonResponse({"ok": True, "group_id": deleted_group_id})
     return HttpResponse(status=204, headers={"HX-Trigger": "ideaChanged"})
 
 
