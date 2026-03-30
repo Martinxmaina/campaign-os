@@ -215,6 +215,7 @@ class Post(models.Model):
     )
 
     # Content
+    title = models.CharField(max_length=255, blank=True, default="")
     caption = models.TextField(blank=True, default="")
     first_comment = models.TextField(blank=True, default="")
     internal_notes = models.TextField(blank=True, default="")
@@ -332,6 +333,7 @@ class PlatformPost(models.Model):
     )
 
     # Per-platform overrides (null = use base post values)
+    platform_specific_title = models.TextField(blank=True, null=True)
     platform_specific_caption = models.TextField(blank=True, null=True)
     platform_specific_media = models.JSONField(
         blank=True,
@@ -366,6 +368,13 @@ class PlatformPost(models.Model):
 
     def __str__(self):
         return f"PlatformPost({self.social_account.platform}): {self.publish_status}"
+
+    @property
+    def effective_title(self):
+        """Return platform-specific title or fall back to base post title."""
+        if self.platform_specific_title is not None:
+            return self.platform_specific_title
+        return self.post.title
 
     @property
     def effective_caption(self):

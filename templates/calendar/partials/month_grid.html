@@ -18,9 +18,12 @@ Enhanced with: holidays, custom events, category colors, recurring badges.
     {% for week in calendar_weeks %}
     <div class="grid grid-cols-7">
         {% for day in week %}
-        <div class="cal-day {% if day.is_today %}today{% elif day.is_past %}past{% endif %} {% if not day.is_current_month %}other-month{% endif %}"
+        <div class="cal-day cal-add-cell {% if day.is_today %}today{% elif day.is_past %}past{% endif %} {% if not day.is_current_month %}other-month{% endif %}"
              @dragover.prevent="allowDrop($event)"
              @drop="dropOnSlot($event, '{{ day.date|date:'Y-m-d' }}', 9)">
+            <a href="{% url 'composer:compose' workspace_id=workspace.id %}?scheduled_date={{ day.date|date:'Y-m-d' }}" class="cal-add-btn" title="Create post">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            </a>
             <div class="flex items-center justify-between mb-1">
                 <div class="day-num">{{ day.date.day }}</div>
                 {% if day.holidays %}

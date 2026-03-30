@@ -58,8 +58,10 @@ def _sync_platform_posts(request, post, workspace):
             post=post,
             social_account=account,
         )
+        override_title = request.POST.get(f"override_title_{acc_id}", "").strip()
         override_caption = request.POST.get(f"override_caption_{acc_id}", "").strip()
         override_comment = request.POST.get(f"override_comment_{acc_id}", "").strip()
+        pp.platform_specific_title = override_title if override_title else None
         pp.platform_specific_caption = override_caption if override_caption else None
         pp.platform_specific_first_comment = override_comment if override_comment else None
         pp.save()
@@ -69,6 +71,7 @@ def _save_version(post, user):
     """Create a PostVersion snapshot."""
     version_number = (post.versions.count()) + 1
     snapshot = {
+        "title": post.title,
         "caption": post.caption,
         "first_comment": post.first_comment,
         "internal_notes": post.internal_notes,
@@ -79,6 +82,7 @@ def _save_version(post, user):
             {
                 "social_account_id": str(pp.social_account_id),
                 "platform": pp.social_account.platform,
+                "title_override": pp.platform_specific_title,
                 "caption_override": pp.platform_specific_caption,
                 "first_comment_override": pp.platform_specific_first_comment,
             }
@@ -125,6 +129,15 @@ def compose(request, workspace_id, post_id=None):
         selected_account_ids = []
         media_attachments = []
 
+    # Load pending media from session (for new posts not yet saved)
+    from apps.media_library.models import MediaAsset
+
+    session_key = f"pending_media_{workspace.id}"
+    pending_media_ids = request.session.get(session_key, [])
+    pending_assets = (
+        MediaAsset.objects.filter(id__in=pending_media_ids, workspace=workspace) if pending_media_ids and not post else MediaAsset.objects.none()
+    )
+
     # Connected social accounts for this workspace
     social_accounts = (
         SocialAccount.objects.for_workspace(workspace.id)
@@ -136,7 +149,12 @@ def compose(request, workspace_id, post_id=None):
 
     # Platform character limits for JS
     char_limits = {
-        str(acc.id): {"platform": acc.platform, "limit": acc.char_limit, "name": acc.account_name}
+        str(acc.id): {
+            "platform": acc.platform,
+            "limit": acc.char_limit,
+            "name": acc.account_name,
+            **acc.field_config,
+        }
         for acc in social_accounts
     }
 
@@ -210,6 +228,7 @@ def compose(request, workspace_id, post_id=None):
         "show_resubmit_button": show_resubmit_button,
         "approval_history": approval_history,
         "post_comments": post_comments,
+        "pending_assets": pending_assets,
     }
     return render(request, "composer/compose.html", context)
 
@@ -279,6 +298,27 @@ def save_post(request, workspace_id, post_id=None):
         post.save()
         add_to_queue(post, queue)
         # Save version and return early — post.save() already called
+        _save_version(post, request.user)
+        if request.htmx:
+            return HttpResponse(
+                status=204,
+                headers={
+                    "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
+                },
+            )
+        return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+    elif action == "add_to_queue_priority":
+        queue_id = request.POST.get("queue_id")
+        if not queue_id:
+            return JsonResponse({"errors": {"queue": "Queue selection required."}}, status=400)
+        from apps.calendar.models import Queue
+        from apps.calendar.services import add_to_queue
+
+        queue = get_object_or_404(Queue, id=queue_id, workspace=workspace, is_active=True)
+        if not post.status or post.status in ("", "draft"):
+            post.status = "draft"
+        post.save()
+        add_to_queue(post, queue, priority=True)
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(
@@ -378,8 +418,10 @@ def save_post(request, workspace_id, post_id=None):
             social_account=account,
         )
         # Check for platform-specific overrides
+        override_title = request.POST.get(f"override_title_{acc_id}", "").strip()
         override_caption = request.POST.get(f"override_caption_{acc_id}", "").strip()
         override_comment = request.POST.get(f"override_comment_{acc_id}", "").strip()
+        pp.platform_specific_title = override_title if override_title else None
         pp.platform_specific_caption = override_caption if override_caption else None
         pp.platform_specific_first_comment = override_comment if override_comment else None
         pp.save()
@@ -440,6 +482,7 @@ def autosave(request, workspace_id, post_id=None):
             post = Post(workspace=workspace, author=request.user, status="draft")
             is_new = True
 
+    post.title = request.POST.get("title", "")
     post.caption = request.POST.get("caption", "")
     post.first_comment = request.POST.get("first_comment", "")
     post.internal_notes = request.POST.get("internal_notes", "")
@@ -475,6 +518,7 @@ def preview(request, workspace_id):
     Stateless — no DB queries except social account lookup.
     """
     workspace = _get_workspace(request, workspace_id)
+    title = request.GET.get("title", "")
     caption = request.GET.get("caption", "")
     first_comment = request.GET.get("first_comment", "")
     selected_ids_str = request.GET.get("selected_accounts", "")
@@ -488,12 +532,16 @@ def preview(request, workspace_id):
             workspace=workspace,
         ).order_by("platform")
         for account in accounts:
+            override_title_key = f"override_title_{account.id}"
             override_key = f"override_caption_{account.id}"
+            effective_title = request.GET.get(override_title_key, "") or title
             effective_caption = request.GET.get(override_key, "") or caption
             char_limit = account.char_limit
+            field_config = account.field_config
             previews.append(
                 {
                     "account": account,
+                    "title": effective_title,
                     "caption": effective_caption,
                     "first_comment": first_comment,
                     "char_count": len(effective_caption),
@@ -502,8 +550,41 @@ def preview(request, workspace_id):
                     "truncated_caption": effective_caption[:char_limit]
                     if len(effective_caption) > char_limit
                     else effective_caption,
+                    "needs_title": field_config["needs_title"],
                 }
             )
+
+    # Gather media for preview — check pending session media or post attachments
+    from apps.media_library.models import MediaAsset
+
+    media_items = []
+    post_id_str = request.GET.get("_autosave_post_id", "")
+    pending_media_ids_str = request.GET.get("pending_media_ids", "")
+
+    if post_id_str:
+        try:
+            post_obj = Post.objects.get(id=post_id_str, workspace=workspace)
+            for att in post_obj.media_attachments.select_related("media_asset").all():
+                asset = att.media_asset
+                media_items.append({
+                    "url": asset.file.url if asset.file else "",
+                    "is_video": asset.is_video,
+                    "filename": asset.filename,
+                })
+        except Post.DoesNotExist:
+            pass
+
+    if not media_items:
+        # Check session pending media
+        session_key = f"pending_media_{workspace.id}"
+        pending_ids = request.session.get(session_key, [])
+        if pending_ids:
+            for asset in MediaAsset.objects.filter(id__in=pending_ids, workspace=workspace):
+                media_items.append({
+                    "url": asset.file.url if asset.file else "",
+                    "is_video": asset.is_video,
+                    "filename": asset.filename,
+                })
 
     return render(
         request,
@@ -511,6 +592,7 @@ def preview(request, workspace_id):
         {
             "previews": previews,
             "workspace": workspace,
+            "media_items": media_items,
         },
     )
 
@@ -619,12 +701,30 @@ def upload_media(request, workspace_id, post_id=None):
             },
         )
 
-    return JsonResponse(
+    # No post yet — store pending media IDs in session so they can be
+    # attached when the post is eventually saved.
+    session_key = f"pending_media_{workspace.id}"
+    pending = request.session.get(session_key, [])
+    pending.append(str(asset.id))
+    request.session[session_key] = pending
+
+    # Build a lightweight list of pending assets for the template
+    pending_assets = MediaAsset.objects.filter(id__in=pending, workspace=workspace)
+
+    # Return HTML thumbnail snippets (no remove button since there's no post yet)
+    thumbs = []
+    for a in pending_assets:
+        url = a.file.url if a.file else ""
+        is_video = a.media_type == MediaAsset.MediaType.VIDEO
+        thumbs.append({"media_asset": a, "url": url, "is_video": is_video})
+
+    return render(
+        request,
+        "composer/partials/media_list_pending.html",
         {
-            "id": str(asset.id),
-            "filename": asset.filename,
-            "url": asset.file.url if asset.file else "",
-        }
+            "pending_assets": pending_assets,
+            "workspace": workspace,
+        },
     )
 
 
@@ -642,6 +742,43 @@ def remove_media(request, workspace_id, post_id, media_id):
         {
             "media_attachments": post.media_attachments.select_related("media_asset").all(),
             "post": post,
+            "workspace": workspace,
+        },
+    )
+
+
+@login_required
+@require_POST
+def remove_pending_media(request, workspace_id, asset_id):
+    """Remove a pending media asset (before post is saved)."""
+    workspace = _get_workspace(request, workspace_id)
+
+    from apps.media_library.models import MediaAsset
+    from apps.media_library.services import delete_asset
+
+    session_key = f"pending_media_{workspace.id}"
+    pending = request.session.get(session_key, [])
+    asset_id_str = str(asset_id)
+    if asset_id_str in pending:
+        pending.remove(asset_id_str)
+        request.session[session_key] = pending
+
+    # Delete the asset and its files from storage (R2)
+    asset = MediaAsset.objects.filter(id=asset_id, workspace=workspace).first()
+    if asset:
+        try:
+            delete_asset(asset)
+        except Exception:
+            # If protected (referenced by posts), just remove from pending
+            pass
+
+    # Return updated pending list
+    pending_assets = MediaAsset.objects.filter(id__in=pending, workspace=workspace)
+    return render(
+        request,
+        "composer/partials/media_list_pending.html",
+        {
+            "pending_assets": pending_assets,
             "workspace": workspace,
         },
     )

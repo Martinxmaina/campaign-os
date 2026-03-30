@@ -13,7 +13,7 @@ class IdeaForm(forms.ModelForm):
         fields = ["title", "description", "tags"]
 
     def clean_tags(self):
-        tags = self.cleaned_data.get("tags", [])
+        tags = self.cleaned_data.get("tags") or []
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
         return tags
@@ -40,7 +40,7 @@ class PostForm(forms.ModelForm):
 
     class Meta:
         model = Post
-        fields = ["caption", "first_comment", "internal_notes", "tags", "category"]
+        fields = ["title", "caption", "first_comment", "internal_notes", "tags", "category"]
         widgets = {
             "caption": forms.Textarea(
                 attrs={
@@ -68,7 +68,7 @@ class PostForm(forms.ModelForm):
         }
 
     def clean_tags(self):
-        tags = self.cleaned_data.get("tags", [])
+        tags = self.cleaned_data.get("tags") or []
         if isinstance(tags, str):
             tags = [t.strip() for t in tags.split(",") if t.strip()]
         return tags

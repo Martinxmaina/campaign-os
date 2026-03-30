@@ -34,6 +34,7 @@ urlpatterns = [
     path("compose/upload-media/", views.upload_media, name="upload_media"),
     path("compose/<uuid:post_id>/upload-media/", views.upload_media, name="upload_media_post"),
     path("compose/<uuid:post_id>/remove-media/<uuid:media_id>/", views.remove_media, name="remove_media"),
+    path("compose/remove-pending-media/<uuid:asset_id>/", views.remove_pending_media, name="remove_pending_media"),
     # Drafts
     path("drafts/", views.drafts_list, name="drafts_list"),
     # Content Categories

@@ -209,7 +209,9 @@ class PublishEngine:
         # return provider.publish_post(
         #     access_token=platform_post.social_account.access_token,
         #     content={
+        #         "title": platform_post.effective_title,
         #         "caption": platform_post.effective_caption,
+        #         "first_comment": platform_post.effective_first_comment,
         #         "media": ...,
         #     },
         # )

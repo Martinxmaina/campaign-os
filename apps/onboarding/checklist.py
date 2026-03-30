@@ -6,15 +6,12 @@ Used by the workspace dashboard to render the dynamic "Get Started" card.
 
 from django.urls import reverse
 
-from apps.workspaces.models import Workspace
-
 
 def get_checklist_items(workspace):
     """Return a list of checklist item dicts with dynamic completion status.
 
     Each item has: key, title, description, completed (bool), url, icon_color, icon_svg
     """
-    from apps.calendar.models import PostingSlot
     from apps.composer.models import Post
     from apps.members.models import WorkspaceMembership
     from apps.social_accounts.models import SocialAccount

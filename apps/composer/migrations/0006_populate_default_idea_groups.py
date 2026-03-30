@@ -13,7 +13,6 @@ DEFAULT_GROUPS = [
 def populate_groups(apps, schema_editor):
     """Create default IdeaGroups for every workspace that has ideas,
     and assign each idea to the matching group based on its status."""
-    Workspace = apps.get_model("workspaces", "Workspace")
     IdeaGroup = apps.get_model("composer", "IdeaGroup")
     Idea = apps.get_model("composer", "Idea")
 

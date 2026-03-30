@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" sizes="180x180" href="{% static 'favicon/apple-touch-icon.png' %}">
     <link rel="manifest" href="{% static 'favicon/site.webmanifest' %}">
     <link rel="stylesheet" href="{% static 'css/dist/styles.css' %}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css">
     <script>
         // Set sidebar state class on <html> before first paint to prevent flash
         if (localStorage.getItem('sidebarCollapsed') === 'true') {
@@ -270,7 +271,7 @@
         <!-- Main content area -->
         <div class="flex-1 flex flex-col overflow-hidden">
             <!-- Main content -->
-            <main class="border border-stone-200 m-2.5 bg-white rounded-xl flex-1 pt-6 px-6">
+            <main class="border border-stone-200 m-2.5 bg-white rounded-xl flex-1 p-6 overflow-hidden flex flex-col">
                 {% block page_header %}{% endblock %}
                 {% if messages %}
                 <div class="mb-4 space-y-2">
@@ -339,6 +340,32 @@
         });
     </script>
     <script src="{% static 'js/alpine.min.js' %}" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.querySelectorAll('.form-datetime[type="date"]').forEach(function(el) {
+                var fp = flatpickr(el, {
+                    dateFormat: 'Y-m-d',
+                    altInput: true,
+                    altFormat: 'M j, Y',
+                    disableMobile: true,
+                });
+                fp.altInput.placeholder = el.getAttribute('data-placeholder') || 'Select date…';
+            });
+            document.querySelectorAll('.form-datetime[type="time"]').forEach(function(el) {
+                var fp = flatpickr(el, {
+                    enableTime: true,
+                    noCalendar: true,
+                    dateFormat: 'H:i',
+                    altInput: true,
+                    altFormat: 'h:i K',
+                    time_24hr: false,
+                    disableMobile: true,
+                });
+                fp.altInput.placeholder = el.getAttribute('data-placeholder') || 'Select time…';
+            });
+        });
+    </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
