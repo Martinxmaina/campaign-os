@@ -258,60 +258,70 @@
         gap: 6px;
         color: var(--text-tertiary);
         font-size: 0.8125rem;
-        max-width: 200px;
+        max-width: 150px;
         margin-top: 16px;
+        cursor: pointer;
         transition: border-color 150ms, background 150ms;
     }
     .idea-media-zone.drag-over {
         border-color: var(--primary);
         background: rgba(var(--primary-rgb, 249, 115, 22), 0.05);
     }
-    .idea-media-preview {
+    .idea-media-strip-layout {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: flex-start;
+    }
+    .idea-media-zone.idea-media-zone-tile {
+        margin-top: 0;
+        width: 130px;
+        max-width: 130px;
+        min-height: 130px;
+        height: 130px;
+        padding: 14px 10px;
+    }
+    .idea-media-existing-card {
+        position: relative;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        width: 130px;
+        height: 130px;
+        background: var(--neutral-100);
+    }
+    .idea-media-existing-card img,
+    .idea-media-existing-card video {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+    .idea-media-existing-card .remove-btn {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 38px;
+        height: 38px;
+        border: 2px solid #fff;
+        border-radius: 9999px;
+        background: rgba(38, 38, 38, 0.78);
+        color: #fff;
+        cursor: pointer;
         display: flex;
         align-items: center;
-        gap: 10px;
-        margin-top: 16px;
-        padding: 10px 14px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        max-width: 320px;
+        justify-content: center;
+        padding: 0;
+        transition: background 150ms;
     }
-    .idea-media-preview img {
-        width: 48px;
-        height: 48px;
-        object-fit: cover;
-        border-radius: 6px;
-        flex-shrink: 0;
+    .idea-media-existing-card .remove-btn:hover {
+        background: rgba(23, 23, 23, 0.9);
     }
-    .idea-media-preview .file-info {
-        flex: 1;
-        min-width: 0;
-    }
-    .idea-media-preview .file-name {
-        font-size: 0.8125rem;
-        font-weight: 500;
-        color: var(--text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-    .idea-media-preview .file-size {
-        font-size: 0.6875rem;
-        color: var(--text-tertiary);
-    }
-    .idea-media-preview .remove-btn {
-        border: none;
-        background: none;
-        color: var(--text-tertiary);
-        cursor: pointer;
-        padding: 4px;
-        border-radius: 4px;
-        transition: color 150ms, background 150ms;
-        flex-shrink: 0;
-    }
-    .idea-media-preview .remove-btn:hover {
-        color: var(--danger, #ef4444);
-        background: var(--neutral-100);
+    @media (max-width: 640px) {
+        .idea-media-strip-layout {
+            gap: 10px;
+        }
     }
     .idea-selected-tags {
         display: flex;
@@ -501,10 +511,7 @@
     <div class="p-6">
         <!-- Ideas tab -->
         <div x-show="activeTab === 'ideas'">
-            <div id="kanban-board"
-                 hx-get="{% url 'composer:idea_board' workspace_id=workspace.id %}{% if active_tag %}?tag={{ active_tag }}{% endif %}"
-                 hx-trigger="ideaChanged from:body"
-                 hx-swap="innerHTML">
+            <div id="kanban-board">
                 {% include "composer/partials/kanban_board.html" %}
             </div>
         </div>
@@ -563,13 +570,16 @@
             <button type="button" class="idea-modal-close" @click="closeCreateModal()" title="Close">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
-            <form hx-post="{% url 'composer:idea_create' workspace_id=workspace.id %}"
-                  hx-encoding="multipart/form-data"
-                  hx-swap="none"
-                  @htmx:after-request.window="if ($event.detail.successful && $event.detail.elt === $el) { closeCreateModal(); $el.reset(); }">
+            <form action="{% url 'composer:idea_create' workspace_id=workspace.id %}"
+                  method="post"
+                  enctype="multipart/form-data"
+                  @submit.prevent="submitCreateIdea($event)">
+                {% csrf_token %}
                 <!-- Hidden fields -->
                 <input type="hidden" name="group" :value="createSelectedGroup">
                 <input type="hidden" name="tags" :value="createSelectedTags.join(',')">
+                <input type="hidden" name="media_asset_ids" :value="createMediaAssetIdsCsv()">
+                <input type="hidden" name="media_asset_id" :value="createPrimaryMediaAssetId()">
 
                 <!-- Header -->
                 <div class="idea-modal-header">
@@ -663,38 +673,35 @@
                 <div class="idea-modal-body" @click="createGroupDropdownOpen = false; createTagDropdownOpen = false">
                     <input type="text" name="title" required class="idea-title-input" placeholder="Give your idea a title">
                     <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"></textarea>
-                    <input type="file" name="media" x-ref="ideaFileInput" accept="image/*,video/*,.gif" style="display:none"
+                    <input type="file" name="media" x-ref="ideaFileInput" accept="image/*,video/*,.gif" style="display:none" multiple
                            @change="_handleFileSelect($event)">
 
-                    <!-- Media drop zone -->
-                    <template x-if="!createMediaPreview">
+                    <div class="idea-media-strip-layout">
+                        <template x-for="(media, index) in createMediaAssets" :key="media.asset_id + '-' + index">
+                            <div class="idea-media-existing-card">
+                                <template x-if="media.media_type === 'video'">
+                                    <video :src="media.url" muted playsinline preload="metadata"></video>
+                                </template>
+                                <template x-if="media.media_type !== 'video'">
+                                    <img :src="media.url" alt="Preview">
+                                </template>
+                                <button type="button" class="remove-btn" @click="_removeCreateMedia(index)" title="Remove">
+                                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                        </template>
                         <div class="idea-media-zone"
-                             :class="{ 'drag-over': _mediaDragOver }"
+                             :class="{ 'idea-media-zone-tile': true, 'drag-over': _mediaDragOver }"
+                             @click="$refs.ideaFileInput.click()"
                              @dragover.prevent="_mediaDragOver = true"
                              @dragleave.prevent="_mediaDragOver = false"
                              @drop.prevent="_mediaDragOver = false; _handleMediaDrop($event)">
                             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            <span>Drag &amp; drop</span>
-                            <span>or <strong style="color: var(--primary); cursor: pointer;" @click="$refs.ideaFileInput.click()">select a file</strong></span>
+                            <span x-show="!createMediaAssets.length">Drag &amp; drop</span>
+                            <span x-show="createMediaAssets.length">Add another file</span>
+                            <span>or <strong style="color: var(--primary); cursor: pointer;">select a file</strong></span>
                         </div>
-                    </template>
-                    <!-- Media preview -->
-                    <template x-if="createMediaPreview">
-                        <div class="idea-media-preview">
-                            <img :src="createMediaPreview" alt="Preview">
-                            <div class="file-info">
-                                <div class="file-name" x-text="createMediaName"></div>
-                                <div class="file-size" x-text="_formatFileSize(createMediaFile?.size)"></div>
-                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
-                                        style="color: var(--primary);" @click="$refs.ideaFileInput.click()">
-                                    Replace file
-                                </button>
-                            </div>
-                            <button type="button" class="remove-btn" @click="_removeMedia()" title="Remove">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                    </template>
+                    </div>
                 </div>
 
                 <!-- Footer -->
@@ -738,6 +745,8 @@
                         Create Post
                     </button>
                     <button type="submit"
+                            :disabled="createMediaUploadCount > 0 || isCreateSaving"
+                            :class="(createMediaUploadCount > 0 || isCreateSaving) && 'opacity-50 cursor-not-allowed'"
                             class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
                             style="background: var(--neutral-100); color: var(--text-primary);"
                             onmouseenter="this.style.background='var(--neutral-200)'"
@@ -759,14 +768,17 @@
             <button type="button" class="idea-modal-close" @click="editingIdea = null" title="Close">
                 <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
-            <form :hx-post="editingIdea ? `/workspace/{{ workspace.id }}/ideas/${editingIdea.id}/edit/` : ''"
-                  hx-encoding="multipart/form-data"
-                  hx-swap="none"
-                  @htmx:after-request.window="if ($event.detail.successful && editingIdea) { editingIdea = null; }">
+            <form :action="editingIdea ? `/workspace/{{ workspace.id }}/ideas/${editingIdea.id}/edit/` : ''"
+                  method="post"
+                  enctype="multipart/form-data"
+                  @submit.prevent="submitEditIdea($event)">
+                {% csrf_token %}
                 <!-- Hidden fields -->
                 <input type="hidden" name="group" :value="editSelectedGroup">
                 <input type="hidden" name="tags" :value="editSelectedTags.join(',')">
-                <input type="hidden" name="remove_media" :value="editRemoveMedia ? 'true' : ''">
+                <input type="hidden" name="media_asset_ids" :value="editMediaAssetIdsCsv()">
+                <input type="hidden" name="media_asset_id" :value="editPrimaryMediaAssetId()">
+                <input type="hidden" name="remove_media" :value="editMediaAssets.length ? '' : 'true'">
 
                 <!-- Header -->
                 <div class="idea-modal-header">
@@ -863,54 +875,35 @@
                            class="idea-title-input" placeholder="Give your idea a title">
                     <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"
                               x-text="editingIdea?.description || ''"></textarea>
-                    <input type="file" name="media" x-ref="editIdeaFileInput" accept="image/*,video/*,.gif" style="display:none"
+                    <input type="file" name="media" x-ref="editIdeaFileInput" accept="image/*,video/*,.gif" style="display:none" multiple
                            @change="_handleEditFileSelect($event)">
 
-                    <!-- Existing media from server -->
-                    <template x-if="editMediaUrl && !editMediaPreview && !editRemoveMedia">
-                        <div class="idea-media-preview">
-                            <img :src="editMediaUrl" alt="Preview">
-                            <div class="file-info">
-                                <div class="file-name" x-text="editMediaName"></div>
-                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
-                                        style="color: var(--primary);" @click="$refs.editIdeaFileInput.click()">
-                                    Replace file
+                    <div class="idea-media-strip-layout">
+                        <template x-for="(media, index) in editMediaAssets" :key="media.asset_id + '-' + index">
+                            <div class="idea-media-existing-card">
+                                <template x-if="media.media_type === 'video'">
+                                    <video :src="media.url" muted playsinline preload="metadata"></video>
+                                </template>
+                                <template x-if="media.media_type !== 'video'">
+                                    <img :src="media.url" alt="Preview">
+                                </template>
+                                <button type="button" class="remove-btn" @click="_removeEditMedia(index)" title="Remove">
+                                    <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                                 </button>
                             </div>
-                            <button type="button" class="remove-btn" @click="_removeEditMedia()" title="Remove">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                    </template>
-                    <!-- New file preview -->
-                    <template x-if="editMediaPreview">
-                        <div class="idea-media-preview">
-                            <img :src="editMediaPreview" alt="Preview">
-                            <div class="file-info">
-                                <div class="file-name" x-text="editMediaName"></div>
-                                <div class="file-size" x-text="_formatFileSize(editMediaFile?.size)"></div>
-                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
-                                        style="color: var(--primary);" @click="$refs.editIdeaFileInput.click()">
-                                    Replace file
-                                </button>
-                            </div>
-                            <button type="button" class="remove-btn" @click="_removeEditMedia()" title="Remove">
-                                <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                            </button>
-                        </div>
-                    </template>
-                    <!-- Drop zone (no media) -->
-                    <template x-if="!editMediaUrl && !editMediaPreview">
+                        </template>
                         <div class="idea-media-zone"
-                             :class="{ 'drag-over': _editMediaDragOver }"
+                             :class="{ 'idea-media-zone-tile': true, 'drag-over': _editMediaDragOver }"
+                             @click="$refs.editIdeaFileInput.click()"
                              @dragover.prevent="_editMediaDragOver = true"
                              @dragleave.prevent="_editMediaDragOver = false"
                              @drop.prevent="_editMediaDragOver = false; _handleEditMediaDrop($event)">
                             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                            <span>Drag &amp; drop</span>
-                            <span>or <strong style="color: var(--primary); cursor: pointer;" @click="$refs.editIdeaFileInput.click()">select a file</strong></span>
+                            <span x-show="!editMediaAssets.length">Drag &amp; drop</span>
+                            <span x-show="editMediaAssets.length">Add another file</span>
+                            <span>or <strong style="color: var(--primary); cursor: pointer;">select a file</strong></span>
                         </div>
-                    </template>
+                    </div>
                 </div>
 
                 <!-- Footer -->
@@ -931,6 +924,8 @@
                         Create Post
                     </button>
                     <button type="submit"
+                            :disabled="editMediaUploadCount > 0 || isEditSaving"
+                            :class="(editMediaUploadCount > 0 || isEditSaving) && 'opacity-50 cursor-not-allowed'"
                             class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
                             style="background: var(--neutral-100); color: var(--text-primary);"
                             onmouseenter="this.style.background='var(--neutral-200)'"
@@ -1013,7 +1008,7 @@
                                 style="background: rgba(var(--primary-rgb, 249, 115, 22), 0.12); color: var(--primary);"
                                 onmouseenter="this.style.background='rgba(var(--primary-rgb, 249, 115, 22), 0.2)'"
                                 onmouseleave="this.style.background='rgba(var(--primary-rgb, 249, 115, 22), 0.12)'">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
                             Use Template
                         </button>
                     </div>
@@ -1045,8 +1040,52 @@
 {% block extra_js %}
 <script>
 function kanbanBoard() {
+    const ideaHelpers = window.ideaModalHelpers || {
+        mediaAssetIdsCsv(items) {
+            return (items || []).map(function(item) { return item.asset_id; }).join(',');
+        },
+        appendUploadedMedia(items, data, file) {
+            if (!items || !data || !data.asset_id) return;
+            var exists = items.some(function(item) { return item.asset_id === data.asset_id; });
+            if (exists) return;
+            items.push({
+                asset_id: data.asset_id,
+                url: data.url || '',
+                filename: data.filename || (file && file.name) || '',
+                media_type: data.media_type || ((file && file.type && file.type.startsWith('video/')) ? 'video' : 'image'),
+            });
+        },
+        getCsrfToken() {
+            var tokenInput = document.querySelector('[name=csrfmiddlewaretoken]');
+            if (tokenInput && tokenInput.value) return tokenInput.value;
+            var cookieMatch = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+            return cookieMatch ? decodeURIComponent(cookieMatch[1]) : '';
+        },
+        uploadIdeaMediaAsset(uploadUrl, file, onUploaded) {
+            var csrfToken = this.getCsrfToken();
+            if (!csrfToken) return Promise.reject(new Error('csrf_missing'));
+            var formData = new FormData();
+            formData.append('file', file);
+            return fetch(uploadUrl, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData,
+            })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('upload_failed');
+                    return response.json();
+                })
+                .then((data) => {
+                    if (!data.asset_id) throw new Error('upload_failed');
+                    if (typeof onUploaded === 'function') onUploaded(data, file);
+                    return true;
+                });
+        },
+    };
+
     return {
         activeTab: '{{ tab }}',
+        activeTag: '{{ active_tag|default_if_none:""|escapejs }}',
         showCreateModal: false,
         showExploreModal: false,
         createGroupId: '',
@@ -1055,13 +1094,13 @@ function kanbanBoard() {
         createGroupDropdownOpen: false,
         createTagDropdownOpen: false,
         createTagSearch: '',
+        createMediaAssets: [],
+        createMediaUploadCount: 0,
+        isCreateSaving: false,
         showIdeaCreateTagModal: false,
         newIdeaTagName: '',
         ideaTagModalTarget: 'create',
         emojiPickerOpen: false,
-        createMediaFile: null,
-        createMediaPreview: '',
-        createMediaName: '',
         _mediaDragOver: false,
         viewingTemplate: null,
         editingIdea: null,
@@ -1070,11 +1109,9 @@ function kanbanBoard() {
         editGroupDropdownOpen: false,
         editTagDropdownOpen: false,
         editTagSearch: '',
-        editMediaUrl: '',
-        editMediaPreview: '',
-        editMediaName: '',
-        editMediaFile: null,
-        editRemoveMedia: false,
+        editMediaAssets: [],
+        editMediaUploadCount: 0,
+        isEditSaving: false,
         _editMediaDragOver: false,
         allTags: [{% for tag in all_tags %}'{{ tag|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}],
         draggedIdeaId: null,
@@ -1227,10 +1264,26 @@ function kanbanBoard() {
             this.closeIdeaCreateTagModal();
             this.emojiPickerOpen = false;
             this._emojiSearch = '';
-            this.createMediaFile = null;
-            this.createMediaPreview = '';
-            this.createMediaName = '';
+            this.createMediaAssets = [];
+            this.createMediaUploadCount = 0;
+            this.isCreateSaving = false;
             if (this.$refs.ideaFileInput) this.$refs.ideaFileInput.value = '';
+        },
+
+        createMediaAssetIdsCsv() {
+            return ideaHelpers.mediaAssetIdsCsv(this.createMediaAssets);
+        },
+
+        createPrimaryMediaAssetId() {
+            return this.createMediaAssets.length ? this.createMediaAssets[0].asset_id : '';
+        },
+
+        editMediaAssetIdsCsv() {
+            return ideaHelpers.mediaAssetIdsCsv(this.editMediaAssets);
+        },
+
+        editPrimaryMediaAssetId() {
+            return this.editMediaAssets.length ? this.editMediaAssets[0].asset_id : '';
         },
 
         // --- Emoji picker ---
@@ -1279,90 +1332,365 @@ function kanbanBoard() {
         // --- Media file handling ---
 
         _handleFileSelect(event) {
-            var file = event.target.files[0];
-            if (file) this._previewFile(file);
+            this._enqueueMediaFiles(event.target.files, 'create');
+            event.target.value = '';
         },
 
         _handleMediaDrop(event) {
-            var file = event.dataTransfer.files[0];
-            if (file) this._previewFile(file);
+            this._enqueueMediaFiles(event.dataTransfer.files, 'create');
         },
 
-        _previewFile(file) {
-            this.createMediaFile = file;
-            this.createMediaName = file.name;
-            // Sync file to the input so it's included in HTMX form submission
-            var dt = new DataTransfer();
-            dt.items.add(file);
-            if (this.$refs.ideaFileInput) this.$refs.ideaFileInput.files = dt.files;
-            if (file.type.startsWith('image/')) {
-                var reader = new FileReader();
-                var self = this;
-                reader.onload = function(e) {
-                    self.createMediaPreview = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            } else {
-                // Non-image: show a generic placeholder
-                this.createMediaPreview = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="%23999" viewBox="0 0 24 24" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>');
+        _enqueueMediaFiles(fileList, target) {
+            var files = Array.from(fileList || []);
+            for (var i = 0; i < files.length; i += 1) {
+                this._uploadIdeaMediaAsset(files[i], target);
             }
         },
 
-        _removeMedia() {
-            this.createMediaFile = null;
-            this.createMediaPreview = '';
-            this.createMediaName = '';
-            // Reset the file input so the same file can be re-selected
-            var input = this.$refs.ideaFileInput;
-            if (input) input.value = '';
+        _appendUploadedMedia(target, data, file) {
+            var collection = target === 'edit' ? this.editMediaAssets : this.createMediaAssets;
+            ideaHelpers.appendUploadedMedia(collection, data, file);
+        },
+
+        _removeCreateMedia(index) {
+            if (index < 0 || index >= this.createMediaAssets.length) return;
+            this.createMediaAssets.splice(index, 1);
         },
 
         // --- Edit media handlers ---
         _handleEditFileSelect(event) {
-            var file = event.target.files[0];
-            if (file) this._previewEditFile(file);
+            this._enqueueMediaFiles(event.target.files, 'edit');
+            event.target.value = '';
         },
 
         _handleEditMediaDrop(event) {
-            var file = event.dataTransfer.files[0];
-            if (file) this._previewEditFile(file);
+            this._enqueueMediaFiles(event.dataTransfer.files, 'edit');
         },
 
-        _previewEditFile(file) {
-            this.editMediaFile = file;
-            this.editMediaName = file.name;
-            this.editMediaUrl = '';
-            this.editRemoveMedia = false;
-            var dt = new DataTransfer();
-            dt.items.add(file);
-            if (this.$refs.editIdeaFileInput) this.$refs.editIdeaFileInput.files = dt.files;
-            if (file.type.startsWith('image/')) {
-                var reader = new FileReader();
-                var self = this;
-                reader.onload = function(e) {
-                    self.editMediaPreview = e.target.result;
-                };
-                reader.readAsDataURL(file);
-            } else {
-                this.editMediaPreview = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="%23999" viewBox="0 0 24 24" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>');
+        _removeEditMedia(index) {
+            if (index < 0 || index >= this.editMediaAssets.length) return;
+            this.editMediaAssets.splice(index, 1);
+        },
+
+        init() {
+            this._refreshColumnMeta();
+        },
+
+        _getCsrfToken() {
+            return ideaHelpers.getCsrfToken();
+        },
+
+        _getBoardRoot() {
+            return document.getElementById('kanban-board');
+        },
+
+        _getBoardContainer() {
+            var root = this._getBoardRoot();
+            return root ? root.querySelector('.flex') : null;
+        },
+
+        _parseFragmentElement(html) {
+            if (!html) return null;
+            var tpl = document.createElement('template');
+            tpl.innerHTML = html.trim();
+            return tpl.content.firstElementChild;
+        },
+
+        _findCardById(ideaId) {
+            if (!ideaId) return null;
+            return document.querySelector('.idea-card[data-idea-id="' + ideaId + '"]');
+        },
+
+        _findColumnById(groupId) {
+            if (!groupId) return null;
+            return document.querySelector('.kanban-column[data-group-id="' + groupId + '"]');
+        },
+
+        _extractErrorMessage(response, data, fallback) {
+            if (data && typeof data.error === 'string' && data.error.trim()) return data.error;
+            if (data && typeof data.detail === 'string' && data.detail.trim()) return data.detail;
+            if (typeof fallback === 'string' && fallback.trim()) return fallback;
+            if (response && response.status === 400) return 'Request validation failed.';
+            return 'Request failed.';
+        },
+
+        _requestKanbanMutation(url, options) {
+            var csrfToken = this._getCsrfToken();
+            if (!csrfToken) return Promise.reject(new Error('Security token missing. Please reload the page.'));
+            var opts = options || {};
+            var headers = Object.assign(
+                {
+                    'X-CSRFToken': csrfToken,
+                    'Accept': 'application/json',
+                },
+                opts.headers || {}
+            );
+            return fetch(url, {
+                method: opts.method || 'POST',
+                headers: headers,
+                body: opts.body,
+            }).then(async (response) => {
+                var contentType = response.headers.get('content-type') || '';
+                var data = null;
+                var text = '';
+                if (contentType.includes('application/json')) {
+                    data = await response.json().catch(function() { return null; });
+                } else {
+                    text = await response.text().catch(function() { return ''; });
+                }
+                if (!response.ok) {
+                    throw new Error(this._extractErrorMessage(response, data, text));
+                }
+                return data || {};
+            });
+        },
+
+        _submitIdeaMutation(formEl) {
+            if (!formEl) return Promise.reject(new Error('Idea form is missing.'));
+            var url = formEl.getAttribute('action') || formEl.getAttribute('hx-post');
+            if (!url) return Promise.reject(new Error('Idea form action is missing.'));
+            return this._requestKanbanMutation(url, { body: new FormData(formEl) });
+        },
+
+        _ideaMatchesActiveTag(tags) {
+            if (!this.activeTag) return true;
+            if (!Array.isArray(tags)) return false;
+            return tags.includes(this.activeTag);
+        },
+
+        _insertCardIntoGroup(groupId, cardEl, prepend) {
+            var column = this._findColumnById(groupId);
+            if (!column || !cardEl) return false;
+            var container = column.querySelector('.kanban-cards');
+            if (!container) return false;
+            if (prepend) container.prepend(cardEl);
+            else container.appendChild(cardEl);
+            return true;
+        },
+
+        _removeCardById(ideaId) {
+            var card = this._findCardById(ideaId);
+            if (!card) return false;
+            card.remove();
+            return true;
+        },
+
+        _upsertIdeaCard(payload, options) {
+            if (!payload || !payload.idea_id) return false;
+            var settings = options || {};
+            var matchesFilter = this._ideaMatchesActiveTag(payload.tags || []);
+            if (!matchesFilter) {
+                this._removeCardById(payload.idea_id);
+                this._updateColumnCounts();
+                return true;
             }
+            var nextGroupId = payload.group_id || '';
+            var cardEl = this._parseFragmentElement(payload.card_html || '');
+            if (!cardEl) return false;
+            var existing = this._findCardById(payload.idea_id);
+            if (existing) {
+                var existingColumn = existing.closest('.kanban-column');
+                var existingGroupId = existingColumn ? (existingColumn.dataset.groupId || '') : '';
+                if (existingGroupId === nextGroupId) {
+                    existing.replaceWith(cardEl);
+                } else {
+                    existing.remove();
+                    if (!this._insertCardIntoGroup(nextGroupId, cardEl, true)) return false;
+                }
+            } else if (!this._insertCardIntoGroup(nextGroupId, cardEl, settings.prepend !== false)) {
+                return false;
+            }
+            this._updateColumnCounts();
+            return true;
         },
 
-        _removeEditMedia() {
-            this.editMediaFile = null;
-            this.editMediaPreview = '';
-            this.editMediaUrl = '';
-            this.editMediaName = '';
-            this.editRemoveMedia = true;
-            var input = this.$refs.editIdeaFileInput;
-            if (input) input.value = '';
+        _insertColumnFromPayload(payload) {
+            if (!payload || !payload.group_id) return false;
+            var columnEl = this._parseFragmentElement(payload.column_html || '');
+            if (!columnEl) return false;
+            var container = this._getBoardContainer();
+            if (!container) return false;
+            var anchor = container.querySelector('[data-new-group-tile]');
+            if (anchor) container.insertBefore(columnEl, anchor);
+            else container.appendChild(columnEl);
+            this._refreshColumnMeta();
+            return true;
         },
 
-        _formatFileSize(bytes) {
-            if (!bytes) return '';
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        _removeColumnById(groupId) {
+            var column = this._findColumnById(groupId);
+            if (!column) return false;
+            column.remove();
+            this._refreshColumnMeta();
+            return true;
+        },
+
+        _refreshColumnMeta() {
+            var container = this._getBoardContainer();
+            var map = {};
+            if (container) {
+                container.querySelectorAll('.kanban-column').forEach(function(column) {
+                    var groupId = column.dataset.groupId || '';
+                    if (!groupId) return;
+                    var label = column.querySelector('.group-label');
+                    map[groupId] = label ? label.textContent.trim() : 'Unassigned';
+                });
+            }
+            this._columnMap = map;
+            var groupIds = Object.keys(map);
+            this._defaultGroupId = groupIds.length ? groupIds[0] : '';
+            if (!this.createSelectedGroup || !map[this.createSelectedGroup]) {
+                this.createSelectedGroup = this._defaultGroupId;
+            }
+            if (this.editingIdea && (!this.editSelectedGroup || !map[this.editSelectedGroup])) {
+                this.editSelectedGroup = this._defaultGroupId;
+            }
+            this._updateColumnCounts();
+        },
+
+        refreshBoardHard() {
+            var url = '{% url "composer:idea_board" workspace_id=workspace.id %}';
+            if (this.activeTag) {
+                url += '?tag=' + encodeURIComponent(this.activeTag);
+            }
+            return fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                .then(function(response) {
+                    if (!response.ok) throw new Error('Could not refresh board.');
+                    return response.text();
+                })
+                .then((html) => {
+                    var root = this._getBoardRoot();
+                    if (!root) return;
+                    root.innerHTML = html;
+                    this._refreshColumnMeta();
+                });
+        },
+
+        submitCreateIdea(event) {
+            if (this.createMediaUploadCount > 0 || this.isCreateSaving) return;
+            var formEl = event.target;
+            this.isCreateSaving = true;
+            this._submitIdeaMutation(formEl)
+                .then((payload) => {
+                    if (!this._upsertIdeaCard(payload, { prepend: true })) {
+                        return this.refreshBoardHard();
+                    }
+                })
+                .then(() => {
+                    this._refreshColumnMeta();
+                })
+                .then(() => {
+                    formEl.reset();
+                    this.closeCreateModal();
+                })
+                .catch((error) => {
+                    window.alert(error && error.message ? error.message : 'Could not save the idea. Please try again.');
+                    this.refreshBoardHard().catch(function() {});
+                })
+                .finally(() => {
+                    this.isCreateSaving = false;
+                });
+        },
+
+        submitEditIdea(event) {
+            if (this.editMediaUploadCount > 0 || this.isEditSaving) return;
+            var formEl = event.target;
+            this.isEditSaving = true;
+            this._submitIdeaMutation(formEl)
+                .then((payload) => {
+                    if (!this._upsertIdeaCard(payload, { prepend: true })) {
+                        return this.refreshBoardHard();
+                    }
+                })
+                .then(() => {
+                    this._refreshColumnMeta();
+                    this.editingIdea = null;
+                })
+                .catch((error) => {
+                    window.alert(error && error.message ? error.message : 'Could not save the idea. Please try again.');
+                    this.refreshBoardHard().catch(function() {});
+                })
+                .finally(() => {
+                    this.isEditSaving = false;
+                });
+        },
+
+        _postUrlEncodedMutation(url, values) {
+            var params = new URLSearchParams();
+            Object.keys(values || {}).forEach(function(key) {
+                params.set(key, values[key]);
+            });
+            return this._requestKanbanMutation(url, {
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: params.toString(),
+            });
+        },
+
+        deleteIdea(ideaId) {
+            if (!ideaId) return;
+            this._requestKanbanMutation('/workspace/{{ workspace.id }}/ideas/' + ideaId + '/delete/', {})
+                .then(() => {
+                    if (!this._removeCardById(ideaId)) {
+                        return this.refreshBoardHard();
+                    }
+                })
+                .then(() => {
+                    this._refreshColumnMeta();
+                })
+                .catch((error) => {
+                    window.alert(error && error.message ? error.message : 'Could not delete the idea. Please try again.');
+                    this.refreshBoardHard().catch(function() {});
+                });
+        },
+
+        createGroup(name) {
+            var trimmed = (name || '').trim();
+            if (!trimmed) return;
+            this._postUrlEncodedMutation('{% url "composer:idea_group_create" workspace_id=workspace.id %}', { name: trimmed })
+                .then((payload) => {
+                    if (!this._insertColumnFromPayload(payload)) {
+                        return this.refreshBoardHard();
+                    }
+                })
+                .catch((error) => {
+                    window.alert(error && error.message ? error.message : 'Could not create column. Please try again.');
+                    this.refreshBoardHard().catch(function() {});
+                });
+        },
+
+        deleteGroup(groupId) {
+            if (!groupId) return;
+            this._requestKanbanMutation('/workspace/{{ workspace.id }}/ideas/groups/' + groupId + '/delete/', {})
+                .then(() => {
+                    if (!this._removeColumnById(groupId)) {
+                        return this.refreshBoardHard();
+                    }
+                })
+                .catch((error) => {
+                    window.alert(error && error.message ? error.message : 'Could not delete column. Please try again.');
+                    this.refreshBoardHard().catch(function() {});
+                });
+        },
+
+        _uploadIdeaMediaAsset(file, target) {
+            if (!file) return;
+            if (target === 'edit') this.editMediaUploadCount += 1;
+            else this.createMediaUploadCount += 1;
+            ideaHelpers
+                .uploadIdeaMediaAsset(
+                    '{% url "composer:idea_upload_media" workspace_id=workspace.id %}',
+                    file,
+                    (data, uploadedFile) => {
+                        this._appendUploadedMedia(target, data, uploadedFile);
+                    }
+                )
+                .catch(() => {
+                    window.alert('One of the files failed to upload. Please try again.');
+                })
+                .finally(() => {
+                    if (target === 'edit') this.editMediaUploadCount = Math.max(0, this.editMediaUploadCount - 1);
+                    else this.createMediaUploadCount = Math.max(0, this.createMediaUploadCount - 1);
+                });
         },
 
         // --- Column drag-and-drop ---
@@ -1415,7 +1743,8 @@ function kanbanBoard() {
             event.stopPropagation();
 
             // Optimistic UI: swap columns in the DOM
-            var container = document.querySelector('#kanban-board .flex');
+            var container = this._getBoardContainer();
+            if (!container) return;
             var cols = Array.from(container.querySelectorAll('.kanban-column'));
             var sourceCol = cols.find(function(c) { return c.dataset.groupId === sourceGroupId; });
             var targetCol = cols.find(function(c) { return c.dataset.groupId === targetGroupId; });
@@ -1428,6 +1757,7 @@ function kanbanBoard() {
                     container.insertBefore(sourceCol, targetCol);
                 }
             }
+            this._refreshColumnMeta();
 
             // Persist new order to server
             var newOrder = Array.from(container.querySelectorAll('.kanban-column')).map(function(c) { return c.dataset.groupId; });
@@ -1479,15 +1809,14 @@ function kanbanBoard() {
             if (!ideaId) return;
 
             // Optimistic UI: move the card in the DOM immediately
-            var card = document.querySelector('.idea-card[data-idea-id="' + ideaId + '"]');
+            var card = this._findCardById(ideaId);
             if (card) {
                 card.classList.remove('dragging');
                 dropZone.prepend(card);
-                // Update column counts
                 this._updateColumnCounts();
             }
 
-            // Fire server request in background (no ideaChanged trigger needed)
+            // Fire server request in background (no full-board reload)
             var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
                 || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
             fetch('/workspace/{{ workspace.id }}/ideas/' + ideaId + '/move/', {
@@ -1508,43 +1837,47 @@ function kanbanBoard() {
             });
         },
 
-        openEdit(ideaId, title, description, tags, groupId, mediaUrl, mediaName) {
-            this.editingIdea = { id: ideaId, title: title, description: description, tags: tags };
+        openEdit(ideaId, title, description, tagsJson, groupId, mediaJson) {
+            var parsedMedia = [];
+            if (mediaJson) {
+                try {
+                    parsedMedia = JSON.parse(mediaJson);
+                } catch (_err) {
+                    parsedMedia = [];
+                }
+            }
+            if (!Array.isArray(parsedMedia)) parsedMedia = [];
+            var parsedTags = [];
+            if (tagsJson) {
+                try {
+                    parsedTags = JSON.parse(tagsJson);
+                } catch (_err) {
+                    parsedTags = tagsJson.split(',').map(function(t) { return t.trim(); }).filter(Boolean);
+                }
+            }
+            if (!Array.isArray(parsedTags)) parsedTags = [];
+
+            this.editingIdea = { id: ideaId, title: title, description: description, tags: parsedTags };
             this.editSelectedGroup = groupId || this._defaultGroupId;
-            this.editSelectedTags = tags ? tags.split(',').map(function(t) { return t.trim(); }).filter(Boolean) : [];
+            this.editSelectedTags = parsedTags.slice();
             this.editGroupDropdownOpen = false;
             this.editTagDropdownOpen = false;
             this.editTagSearch = '';
-            this.editMediaUrl = mediaUrl || '';
-            this.editMediaName = mediaName || '';
-            this.editMediaPreview = '';
-            this.editMediaFile = null;
-            this.editRemoveMedia = false;
+            this.editMediaAssets = parsedMedia
+                .filter(function(item) { return item && item.asset_id; })
+                .map(function(item) {
+                    return {
+                        asset_id: item.asset_id,
+                        url: item.url || '',
+                        filename: item.filename || '',
+                        media_type: item.media_type || 'image',
+                    };
+                });
+            this.editMediaUploadCount = 0;
+            this.isEditSaving = false;
             this._editMediaDragOver = false;
             this.closeIdeaCreateTagModal();
             if (this.$refs.editIdeaFileInput) this.$refs.editIdeaFileInput.value = '';
-        },
-
-        deleteIdea(ideaId) {
-            htmx.ajax('POST',
-                '/workspace/{{ workspace.id }}/ideas/' + ideaId + '/delete/',
-                {}
-            );
-        },
-
-        createGroup(name) {
-            if (!name.trim()) return;
-            htmx.ajax('POST',
-                '{% url "composer:idea_group_create" workspace_id=workspace.id %}',
-                { values: { name: name.trim() } }
-            );
-        },
-
-        deleteGroup(groupId) {
-            htmx.ajax('POST',
-                '/workspace/{{ workspace.id }}/ideas/groups/' + groupId + '/delete/',
-                {}
-            );
         }
     };
 }
