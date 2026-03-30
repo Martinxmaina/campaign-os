@@ -2,6 +2,7 @@
 
 from datetime import datetime, time, timedelta
 
+from django.db import models
 from django.utils import timezone
 
 from .models import PostingSlot, Queue, QueueEntry
@@ -102,12 +103,22 @@ def assign_queue_slots(queue):
         entry.save(update_fields=["assigned_slot_datetime"])
 
 
-def add_to_queue(post, queue):
-    """Add a post to the end of a queue and recalculate slot assignments."""
+def add_to_queue(post, queue, priority=False):
+    """Add a post to a queue and recalculate slot assignments.
+
+    If *priority* is True the post is inserted at position 0 (top of the
+    queue) and all existing entries are shifted down.  Otherwise it is
+    appended at the end.
+    """
     from django.db.models import Max
 
-    max_pos = queue.entries.aggregate(max_pos=Max("position"))["max_pos"]
-    position = (max_pos or 0) + 1
+    if priority:
+        # Shift all existing entries down by 1
+        queue.entries.update(position=models.F("position") + 1)
+        position = 0
+    else:
+        max_pos = queue.entries.aggregate(max_pos=Max("position"))["max_pos"]
+        position = (max_pos or 0) + 1
 
     QueueEntry.objects.update_or_create(
         queue=queue,
