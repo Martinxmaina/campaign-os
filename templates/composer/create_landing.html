@@ -633,6 +633,13 @@
                                         </button>
                                     </div>
                                 </template>
+                                <div class="border-t border-stone-100 px-1 py-1">
+                                    <button type="button" @click="openIdeaCreateTagModal('create')"
+                                            class="flex items-center gap-2 w-full px-2.5 py-1.5 text-sm text-stone-600 hover:bg-stone-50 rounded-md cursor-pointer transition-colors">
+                                        <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                        Create new tag
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -656,6 +663,8 @@
                 <div class="idea-modal-body" @click="createGroupDropdownOpen = false; createTagDropdownOpen = false">
                     <input type="text" name="title" required class="idea-title-input" placeholder="Give your idea a title">
                     <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"></textarea>
+                    <input type="file" name="media" x-ref="ideaFileInput" accept="image/*,video/*,.gif" style="display:none"
+                           @change="_handleFileSelect($event)">
 
                     <!-- Media drop zone -->
                     <template x-if="!createMediaPreview">
@@ -664,8 +673,6 @@
                              @dragover.prevent="_mediaDragOver = true"
                              @dragleave.prevent="_mediaDragOver = false"
                              @drop.prevent="_mediaDragOver = false; _handleMediaDrop($event)">
-                            <input type="file" name="media" x-ref="ideaFileInput" accept="image/*,video/*,.gif" style="display:none"
-                                   @change="_handleFileSelect($event)">
                             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             <span>Drag &amp; drop</span>
                             <span>or <strong style="color: var(--primary); cursor: pointer;" @click="$refs.ideaFileInput.click()">select a file</strong></span>
@@ -678,6 +685,10 @@
                             <div class="file-info">
                                 <div class="file-name" x-text="createMediaName"></div>
                                 <div class="file-size" x-text="_formatFileSize(createMediaFile?.size)"></div>
+                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
+                                        style="color: var(--primary);" @click="$refs.ideaFileInput.click()">
+                                    Replace file
+                                </button>
                             </div>
                             <button type="button" class="remove-btn" @click="_removeMedia()" title="Remove">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -819,6 +830,13 @@
                                         </button>
                                     </div>
                                 </template>
+                                <div class="border-t border-stone-100 px-1 py-1">
+                                    <button type="button" @click="openIdeaCreateTagModal('edit')"
+                                            class="flex items-center gap-2 w-full px-2.5 py-1.5 text-sm text-stone-600 hover:bg-stone-50 rounded-md cursor-pointer transition-colors">
+                                        <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                        Create new tag
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -845,6 +863,8 @@
                            class="idea-title-input" placeholder="Give your idea a title">
                     <textarea name="description" class="idea-desc-input" placeholder="Let it flow... or"
                               x-text="editingIdea?.description || ''"></textarea>
+                    <input type="file" name="media" x-ref="editIdeaFileInput" accept="image/*,video/*,.gif" style="display:none"
+                           @change="_handleEditFileSelect($event)">
 
                     <!-- Existing media from server -->
                     <template x-if="editMediaUrl && !editMediaPreview && !editRemoveMedia">
@@ -852,6 +872,10 @@
                             <img :src="editMediaUrl" alt="Preview">
                             <div class="file-info">
                                 <div class="file-name" x-text="editMediaName"></div>
+                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
+                                        style="color: var(--primary);" @click="$refs.editIdeaFileInput.click()">
+                                    Replace file
+                                </button>
                             </div>
                             <button type="button" class="remove-btn" @click="_removeEditMedia()" title="Remove">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -865,6 +889,10 @@
                             <div class="file-info">
                                 <div class="file-name" x-text="editMediaName"></div>
                                 <div class="file-size" x-text="_formatFileSize(editMediaFile?.size)"></div>
+                                <button type="button" class="text-xs font-medium mt-1 cursor-pointer hover:underline"
+                                        style="color: var(--primary);" @click="$refs.editIdeaFileInput.click()">
+                                    Replace file
+                                </button>
                             </div>
                             <button type="button" class="remove-btn" @click="_removeEditMedia()" title="Remove">
                                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -878,8 +906,6 @@
                              @dragover.prevent="_editMediaDragOver = true"
                              @dragleave.prevent="_editMediaDragOver = false"
                              @drop.prevent="_editMediaDragOver = false; _handleEditMediaDrop($event)">
-                            <input type="file" name="media" x-ref="editIdeaFileInput" accept="image/*,video/*,.gif" style="display:none"
-                                   @change="_handleEditFileSelect($event)">
                             <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             <span>Drag &amp; drop</span>
                             <span>or <strong style="color: var(--primary); cursor: pointer;" @click="$refs.editIdeaFileInput.click()">select a file</strong></span>
@@ -915,6 +941,32 @@
             </form>
         </div>
     </div>
+
+    <template x-teleport="body">
+        <div x-show="showIdeaCreateTagModal" x-cloak class="fixed inset-0 z-[220] flex items-center justify-center" @keydown.escape.window="closeIdeaCreateTagModal()">
+            <div class="fixed inset-0 bg-black/30" @click="closeIdeaCreateTagModal()"></div>
+            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" @click.stop>
+                <h3 class="text-base font-semibold text-stone-800 mb-4">Create new tag</h3>
+                <input type="text" x-ref="ideaNewTagNameInput" x-model="newIdeaTagName"
+                       @keydown.enter.prevent="createIdeaTagFromModal()"
+                       class="w-full text-sm px-3 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
+                       placeholder="Tag name...">
+                <div class="flex justify-end gap-2 mt-4">
+                    <button type="button" @click="closeIdeaCreateTagModal()"
+                            class="px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-lg cursor-pointer transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button"
+                            @click="createIdeaTagFromModal()"
+                            class="px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors"
+                            style="background: var(--primary);"
+                            :class="newIdeaTagName.trim() ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'">
+                        Create
+                    </button>
+                </div>
+            </div>
+        </div>
+    </template>
 
     <!-- Template Detail Modal -->
     <div x-show="viewingTemplate" x-cloak
@@ -1003,6 +1055,9 @@ function kanbanBoard() {
         createGroupDropdownOpen: false,
         createTagDropdownOpen: false,
         createTagSearch: '',
+        showIdeaCreateTagModal: false,
+        newIdeaTagName: '',
+        ideaTagModalTarget: 'create',
         emojiPickerOpen: false,
         createMediaFile: null,
         createMediaPreview: '',
@@ -1118,6 +1173,39 @@ function kanbanBoard() {
             this._persistTag(name);
         },
 
+        openIdeaCreateTagModal(target) {
+            this.ideaTagModalTarget = target === 'edit' ? 'edit' : 'create';
+            if (this.ideaTagModalTarget === 'edit') {
+                this.editTagDropdownOpen = false;
+                this.newIdeaTagName = this.editTagSearch;
+                this.editTagSearch = '';
+            } else {
+                this.createTagDropdownOpen = false;
+                this.newIdeaTagName = this.createTagSearch;
+                this.createTagSearch = '';
+            }
+            this.showIdeaCreateTagModal = true;
+            this.$nextTick(() => {
+                if (this.$refs.ideaNewTagNameInput) this.$refs.ideaNewTagNameInput.focus();
+            });
+        },
+
+        closeIdeaCreateTagModal() {
+            this.showIdeaCreateTagModal = false;
+            this.newIdeaTagName = '';
+        },
+
+        createIdeaTagFromModal() {
+            var name = this.newIdeaTagName.trim();
+            if (!name) return;
+            if (this.ideaTagModalTarget === 'edit') {
+                this.persistAndToggleEditTag(name);
+            } else {
+                this.persistAndToggleCreateTag(name);
+            }
+            this.closeIdeaCreateTagModal();
+        },
+
         _persistTag(name) {
             var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
             if (!csrfToken) return;
@@ -1136,11 +1224,13 @@ function kanbanBoard() {
             this.createGroupDropdownOpen = false;
             this.createTagDropdownOpen = false;
             this.createTagSearch = '';
+            this.closeIdeaCreateTagModal();
             this.emojiPickerOpen = false;
             this._emojiSearch = '';
             this.createMediaFile = null;
             this.createMediaPreview = '';
             this.createMediaName = '';
+            if (this.$refs.ideaFileInput) this.$refs.ideaFileInput.value = '';
         },
 
         // --- Emoji picker ---
@@ -1431,6 +1521,8 @@ function kanbanBoard() {
             this.editMediaFile = null;
             this.editRemoveMedia = false;
             this._editMediaDragOver = false;
+            this.closeIdeaCreateTagModal();
+            if (this.$refs.editIdeaFileInput) this.$refs.editIdeaFileInput.value = '';
         },
 
         deleteIdea(ideaId) {
