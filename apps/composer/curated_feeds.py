@@ -4,6 +4,8 @@ Categories and feeds are stored as static data — they don't change
 per-workspace and don't need database storage.
 """
 
+from urllib.parse import urlsplit
+
 FEED_CATEGORIES = [
     {"slug": "buffer-favorites", "label": "Buffer Favorites"},
     {"slug": "tech", "label": "Tech"},
@@ -137,5 +139,24 @@ def get_feed_categories():
     return FEED_CATEGORIES
 
 
+def _build_favicon_url(website_url):
+    """Return a best-effort favicon URL for a feed website."""
+    if not website_url:
+        return ""
+
+    parsed = urlsplit(website_url)
+    if not parsed.scheme or not parsed.netloc:
+        return ""
+
+    return f"{parsed.scheme}://{parsed.netloc}/favicon.ico"
+
+
 def get_feeds_for_category(slug):
-    return CURATED_FEEDS.get(slug, [])
+    feeds = CURATED_FEEDS.get(slug, [])
+    return [
+        {
+            **feed,
+            "favicon": _build_favicon_url(feed.get("website", "")),
+        }
+        for feed in feeds
+    ]

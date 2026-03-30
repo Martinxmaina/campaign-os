@@ -518,8 +518,10 @@
 
         <!-- Feeds tab -->
         <div x-show="activeTab === 'feeds'" x-cloak
+             class="h-[calc(100vh-160px)] overflow-hidden"
              @open-explore.window="showExploreModal = true; $nextTick(() => htmx.trigger(document.getElementById('explore-feeds-content'), 'load'))">
             <div id="feeds-tab-content"
+                 class="h-full"
                  hx-get="{% url 'composer:feed_list' workspace_id=workspace.id %}"
                  hx-trigger="intersect once, feedsUpdated from:body"
                  hx-swap="innerHTML">
@@ -564,7 +566,7 @@
             <form hx-post="{% url 'composer:idea_create' workspace_id=workspace.id %}"
                   hx-encoding="multipart/form-data"
                   hx-swap="none"
-                  @htmx:after-request.window="if ($event.detail.successful) { closeCreateModal(); $event.detail.elt.reset(); }">
+                  @htmx:after-request.window="if ($event.detail.successful && $event.detail.elt === $el) { closeCreateModal(); $el.reset(); }">
                 <!-- Hidden fields -->
                 <input type="hidden" name="group" :value="createSelectedGroup">
                 <input type="hidden" name="tags" :value="createSelectedTags.join(',')">

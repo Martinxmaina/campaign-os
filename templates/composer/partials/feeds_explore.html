@@ -23,9 +23,16 @@
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[400px] overflow-y-auto">
         {% for feed in curated_feeds %}
         <div class="flex items-center gap-3 px-4 py-3 border border-stone-200 rounded-xl">
-            <!-- Feed icon placeholder -->
+            <!-- Feed icon -->
             <div class="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center flex-shrink-0">
-                <svg class="w-4 h-4 text-stone-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>
+                {% if feed.favicon %}
+                <img src="{{ feed.favicon }}"
+                     alt=""
+                     loading="lazy"
+                     class="w-5 h-5 rounded object-contain"
+                     onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden');">
+                {% endif %}
+                <svg class="w-4 h-4 text-stone-400 {% if feed.favicon %}hidden{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a9 9 0 019 9"/><path d="M4 4a16 16 0 0116 16"/><circle cx="5" cy="19" r="1"/></svg>
             </div>
 
             <!-- Feed info -->

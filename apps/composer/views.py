@@ -2,14 +2,20 @@
 
 import contextlib
 import json
-from datetime import datetime
+import re
+import xml.etree.ElementTree as ET
+from datetime import UTC, datetime
 
+import httpx
+from dateutil import parser as date_parser
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.utils.html import strip_tags
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.members.decorators import require_permission
@@ -1684,17 +1690,354 @@ def tag_create(request, workspace_id):
 # ── Feeds ──────────────────────────────────────────────────────────────────
 
 
+FEED_EVENTS_PAGE_SIZE = 15
+FEED_EVENTS_CACHE_TTL_SECONDS = 10 * 60
+_IMG_SRC_RE = re.compile(r"""<img[^>]+src=["']([^"']+)["']""", re.IGNORECASE)
+
+
+def _feed_events_cache_key(workspace_id):
+    return f"composer:feed-events:{workspace_id}"
+
+
+def _normalize_selected_feed_id(selected_feed_id, feeds):
+    valid_feed_ids = {str(feed.id) for feed in feeds}
+    if selected_feed_id in valid_feed_ids:
+        return selected_feed_id
+    return "all"
+
+
+def _coerce_positive_int(value, default=0):
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return default
+    return parsed if parsed >= 0 else default
+
+
+def _xml_local_name(tag):
+    """Return local XML tag name without namespace."""
+    if not tag:
+        return ""
+    if "}" in tag:
+        return tag.rsplit("}", 1)[-1].lower()
+    if ":" in tag:
+        return tag.split(":", 1)[-1].lower()
+    return tag.lower()
+
+
+def _first_child(element, *names):
+    wanted = {name.lower() for name in names}
+    for child in element:
+        if _xml_local_name(child.tag) in wanted:
+            return child
+    return None
+
+
+def _first_child_text(element, *names):
+    child = _first_child(element, *names)
+    if child is None:
+        return ""
+    return (child.text or "").strip()
+
+
+def _extract_atom_link(entry):
+    for child in entry:
+        if _xml_local_name(child.tag) != "link":
+            continue
+        href = (child.attrib.get("href") or "").strip()
+        rel = (child.attrib.get("rel") or "").strip().lower()
+        if href and rel in ("", "alternate"):
+            return href
+    for child in entry:
+        if _xml_local_name(child.tag) != "link":
+            continue
+        href = (child.attrib.get("href") or "").strip()
+        if href:
+            return href
+    return ""
+
+
+def _extract_image_url(entry, summary_raw):
+    for node in entry.iter():
+        name = _xml_local_name(node.tag)
+        if name not in {"thumbnail", "content", "enclosure"}:
+            continue
+        url = (node.attrib.get("url") or node.attrib.get("href") or node.attrib.get("src") or "").strip()
+        media_type = (node.attrib.get("type") or "").lower()
+        medium = (node.attrib.get("medium") or "").lower()
+        if url and (
+            name == "thumbnail"
+            or medium == "image"
+            or media_type.startswith("image/")
+            or not media_type
+        ):
+            return url
+
+    if summary_raw:
+        match = _IMG_SRC_RE.search(summary_raw)
+        if match:
+            return match.group(1)
+    return ""
+
+
+def _clean_summary(raw_summary):
+    if not raw_summary:
+        return ""
+    return re.sub(r"\s+", " ", strip_tags(raw_summary)).strip()
+
+
+def _parse_published_at(raw_value):
+    if not raw_value:
+        return None
+    with contextlib.suppress(ValueError, TypeError, OverflowError):
+        parsed = date_parser.parse(raw_value)
+        if parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=UTC)
+        return parsed.astimezone(UTC)
+    return None
+
+
+def _parse_feed_document(xml_content):
+    """Parse RSS/Atom document into metadata and raw entries."""
+    try:
+        root = ET.fromstring(xml_content)
+    except ET.ParseError:
+        return None
+
+    root_name = _xml_local_name(root.tag)
+    if root_name == "rss":
+        channel = _first_child(root, "channel")
+        if channel is None:
+            return None
+        entries = [child for child in channel if _xml_local_name(child.tag) == "item"]
+        return {
+            "title": _first_child_text(channel, "title"),
+            "website_url": _first_child_text(channel, "link"),
+            "entries": entries,
+            "entry_kind": "rss",
+        }
+
+    if root_name == "feed":
+        entries = [child for child in root if _xml_local_name(child.tag) == "entry"]
+        return {
+            "title": _first_child_text(root, "title"),
+            "website_url": _extract_atom_link(root),
+            "entries": entries,
+            "entry_kind": "atom",
+        }
+
+    if root_name == "rdf":
+        channel = _first_child(root, "channel")
+        entries = [child for child in root if _xml_local_name(child.tag) == "item"]
+        return {
+            "title": _first_child_text(channel, "title") if channel is not None else "",
+            "website_url": _first_child_text(channel, "link") if channel is not None else "",
+            "entries": entries,
+            "entry_kind": "rss",
+        }
+
+    return None
+
+
+def _build_event_from_entry(feed, parsed_feed, entry):
+    kind = parsed_feed["entry_kind"]
+    if kind == "atom":
+        raw_title = _first_child_text(entry, "title")
+        raw_link = _extract_atom_link(entry)
+        raw_summary = _first_child_text(entry, "summary") or _first_child_text(entry, "content")
+        raw_published = (
+            _first_child_text(entry, "published")
+            or _first_child_text(entry, "updated")
+            or _first_child_text(entry, "issued")
+        )
+    else:
+        raw_title = _first_child_text(entry, "title")
+        raw_link = _first_child_text(entry, "link")
+        raw_summary = (
+            _first_child_text(entry, "description")
+            or _first_child_text(entry, "summary")
+            or _first_child_text(entry, "content")
+        )
+        raw_published = (
+            _first_child_text(entry, "pubDate")
+            or _first_child_text(entry, "published")
+            or _first_child_text(entry, "updated")
+            or _first_child_text(entry, "date")
+        )
+
+    title = raw_title or parsed_feed["title"] or feed.name or "Untitled"
+    link = raw_link or parsed_feed["website_url"] or feed.website_url
+    summary = _clean_summary(raw_summary)
+    image_url = _extract_image_url(entry, raw_summary)
+    published_at = _parse_published_at(raw_published)
+    event_id = (link or f"{feed.id}:{title}:{raw_published}").strip()
+    return {
+        "event_id": event_id,
+        "feed_id": str(feed.id),
+        "feed_name": feed.name,
+        "feed_favicon_url": feed.favicon_url,
+        "feed_website_url": feed.website_url or parsed_feed["website_url"],
+        "title": title,
+        "link": link,
+        "summary": summary,
+        "image_url": image_url,
+        "published_at": published_at,
+    }
+
+
+def _fetch_feed_events_for_workspace(feeds):
+    """Fetch and aggregate recent events across all workspace feeds."""
+    if not feeds:
+        return []
+
+    headers = {
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+        "User-Agent": "Postbean RSS Reader/1.0",
+    }
+    all_events = []
+    with httpx.Client(headers=headers, timeout=8.0, follow_redirects=True) as client:
+        for feed in feeds:
+            with contextlib.suppress(httpx.RequestError):
+                response = client.get(feed.url)
+                if response.status_code >= 400:
+                    continue
+                parsed_feed = _parse_feed_document(response.content)
+                if not parsed_feed:
+                    continue
+                for entry in parsed_feed["entries"][:50]:
+                    all_events.append(_build_event_from_entry(feed, parsed_feed, entry))
+
+    deduped_events = []
+    seen = set()
+    for event in all_events:
+        dedupe_key = (event["feed_id"], event["event_id"])
+        if dedupe_key in seen:
+            continue
+        seen.add(dedupe_key)
+        deduped_events.append(event)
+
+    deduped_events.sort(
+        key=lambda event: event["published_at"] or datetime(1970, 1, 1, tzinfo=UTC),
+        reverse=True,
+    )
+    return deduped_events
+
+
+def _get_cached_workspace_feed_events(workspace, feeds, force_refresh=False):
+    """Return cached feed events and last refresh time for workspace feeds."""
+    cache_key = _feed_events_cache_key(workspace.id)
+    signature = tuple(
+        (str(feed.id), feed.url, feed.name, feed.website_url)
+        for feed in feeds
+    )
+    cached = cache.get(cache_key)
+    if (
+        cached
+        and not force_refresh
+        and cached.get("signature") == signature
+    ):
+        return cached.get("events", []), cached.get("fetched_at")
+
+    events = _fetch_feed_events_for_workspace(feeds)
+    fetched_at = timezone.now()
+    cache.set(cache_key, {
+        "signature": signature,
+        "events": events,
+        "fetched_at": fetched_at,
+    }, FEED_EVENTS_CACHE_TTL_SECONDS)
+    return events, fetched_at
+
+
+def _filter_events_for_feed(events, selected_feed_id):
+    if selected_feed_id == "all":
+        return events
+    return [event for event in events if event["feed_id"] == selected_feed_id]
+
+
+def _build_feed_events_context(workspace, selected_feed_id="all", offset=0):
+    feeds = list(Feed.objects.for_workspace(workspace.id))
+    selected_feed_id = _normalize_selected_feed_id(selected_feed_id, feeds)
+    selected_feed = next((feed for feed in feeds if str(feed.id) == selected_feed_id), None)
+    events, last_refreshed_at = _get_cached_workspace_feed_events(workspace, feeds)
+    filtered_events = _filter_events_for_feed(events, selected_feed_id)
+    page_events = filtered_events[offset:offset + FEED_EVENTS_PAGE_SIZE]
+    next_offset = offset + FEED_EVENTS_PAGE_SIZE
+    has_more = len(filtered_events) > next_offset
+    return {
+        "feeds": feeds,
+        "selected_feed_id": selected_feed_id,
+        "selected_feed": selected_feed,
+        "events": page_events,
+        "next_offset": next_offset,
+        "has_more": has_more,
+        "last_refreshed_at": last_refreshed_at,
+        "total_event_count": len(filtered_events),
+    }
+
+
+def _render_feeds_tab(
+    request,
+    workspace,
+    *,
+    show_add_modal=False,
+    add_rss_url="",
+    add_error="",
+    selected_feed_id="all",
+):
+    """Render the feeds tab partial with modal state and first event page."""
+    context = _build_feed_events_context(workspace, selected_feed_id=selected_feed_id, offset=0)
+    context.update({
+        "workspace": workspace,
+        "show_add_modal": show_add_modal,
+        "add_rss_url": add_rss_url,
+        "add_error": add_error,
+    })
+    return render(request, "composer/partials/feeds_tab.html", context)
+
+
+def _validate_rss_url(rss_url):
+    """Validate that a URL points to a reachable RSS/Atom XML feed."""
+    headers = {
+        "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+        "User-Agent": "Postbean RSS Validator/1.0",
+    }
+    try:
+        response = httpx.get(rss_url, headers=headers, timeout=8.0, follow_redirects=True)
+    except httpx.RequestError:
+        return False, "Could not reach this URL. Please check the link and try again.", {}
+
+    if response.status_code >= 400:
+        return False, "This URL could not be loaded as a feed.", {}
+
+    parsed_feed = _parse_feed_document(response.content)
+    if not parsed_feed:
+        return False, "This URL is reachable, but it does not appear to be a valid RSS/Atom feed.", {}
+
+    return True, "", {
+        "title": parsed_feed.get("title", "").strip(),
+        "website_url": parsed_feed.get("website_url", "").strip(),
+    }
+
+
 @login_required
 @require_permission("create_posts")
 @require_GET
 def feed_list(request, workspace_id):
     """Return the feeds tab partial (empty state or feed list)."""
     workspace = _get_workspace(request, workspace_id)
-    feeds = Feed.objects.for_workspace(workspace.id)
-    return render(request, "composer/partials/feeds_tab.html", {
-        "workspace": workspace,
-        "feeds": feeds,
-    })
+    selected_feed_id = request.GET.get("feed_id", "all")
+    is_append = request.GET.get("append") == "1"
+    offset = _coerce_positive_int(request.GET.get("offset"), default=0)
+
+    if is_append:
+        context = _build_feed_events_context(workspace, selected_feed_id=selected_feed_id, offset=offset)
+        context.update({
+            "workspace": workspace,
+            "show_empty": False,
+        })
+        return render(request, "composer/partials/feed_events_batch.html", context)
+
+    return _render_feeds_tab(request, workspace, selected_feed_id=selected_feed_id)
 
 
 @login_required
@@ -1702,8 +2045,8 @@ def feed_list(request, workspace_id):
 @require_POST
 def feed_add(request, workspace_id):
     """Add a feed subscription to the workspace."""
-    from django.core.validators import URLValidator
     from django.core.exceptions import ValidationError
+    from django.core.validators import URLValidator
 
     workspace = _get_workspace(request, workspace_id)
     rss_url = request.POST.get("rss_url", "").strip()
@@ -1711,41 +2054,78 @@ def feed_add(request, workspace_id):
     website_url = request.POST.get("website_url", "").strip()
     source = request.POST.get("source", "")
     category = request.POST.get("category", "buffer-favorites")
+    selected_feed_id = request.POST.get("feed_id", "all")
+    derived_metadata = {}
 
     if not rss_url:
-        return HttpResponse("Feed URL is required.", status=400)
+        if source == "explore":
+            return HttpResponse("Feed URL is required.", status=400)
+        return _render_feeds_tab(
+            request,
+            workspace,
+            show_add_modal=True,
+            add_rss_url=rss_url,
+            add_error="Feed URL is required.",
+            selected_feed_id=selected_feed_id,
+        )
 
     validator = URLValidator()
     try:
         validator(rss_url)
     except ValidationError:
-        return HttpResponse("Invalid URL.", status=400)
+        if source == "explore":
+            return HttpResponse("Invalid URL.", status=400)
+        return _render_feeds_tab(
+            request,
+            workspace,
+            show_add_modal=True,
+            add_rss_url=rss_url,
+            add_error="Invalid URL.",
+            selected_feed_id=selected_feed_id,
+        )
+
+    if source != "explore":
+        is_valid_rss, validation_error, derived_metadata = _validate_rss_url(rss_url)
+        if not is_valid_rss:
+            return _render_feeds_tab(
+                request,
+                workspace,
+                show_add_modal=True,
+                add_rss_url=rss_url,
+                add_error=validation_error,
+                selected_feed_id=selected_feed_id,
+            )
 
     if Feed.objects.for_workspace(workspace.id).filter(url=rss_url).exists():
         # Already subscribed — if from explore, just re-render explore view
         if source == "explore":
             return _render_explore(request, workspace, category)
-        return HttpResponse("Already subscribed to this feed.", status=409)
+        return _render_feeds_tab(
+            request,
+            workspace,
+            show_add_modal=True,
+            add_rss_url=rss_url,
+            add_error="Already subscribed to this feed.",
+            selected_feed_id=selected_feed_id,
+        )
 
+    resolved_name = name or derived_metadata.get("title") or rss_url
+    resolved_website_url = website_url or derived_metadata.get("website_url", "")
     Feed.objects.create(
         workspace=workspace,
-        name=name or rss_url,
+        name=resolved_name,
         url=rss_url,
-        website_url=website_url,
+        website_url=resolved_website_url,
         added_by=request.user,
     )
+    cache.delete(_feed_events_cache_key(workspace.id))
 
     if source == "explore":
         response = _render_explore(request, workspace, category)
         response["HX-Trigger"] = "feedsUpdated"
         return response
 
-    feeds = Feed.objects.for_workspace(workspace.id)
-    response = render(request, "composer/partials/feeds_tab.html", {
-        "workspace": workspace,
-        "feeds": feeds,
-    })
-    return response
+    return _render_feeds_tab(request, workspace, selected_feed_id=selected_feed_id)
 
 
 @login_required
@@ -1754,14 +2134,12 @@ def feed_add(request, workspace_id):
 def feed_delete(request, workspace_id, feed_id):
     """Remove a feed subscription."""
     workspace = _get_workspace(request, workspace_id)
+    selected_feed_id = request.POST.get("feed_id", "all")
     feed = get_object_or_404(Feed, id=feed_id, workspace=workspace)
     feed.delete()
+    cache.delete(_feed_events_cache_key(workspace.id))
 
-    feeds = Feed.objects.for_workspace(workspace.id)
-    return render(request, "composer/partials/feeds_tab.html", {
-        "workspace": workspace,
-        "feeds": feeds,
-    })
+    return _render_feeds_tab(request, workspace, selected_feed_id=selected_feed_id)
 
 
 @login_required

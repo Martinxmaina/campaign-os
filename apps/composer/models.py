@@ -12,6 +12,7 @@ Models:
 """
 
 import uuid
+from urllib.parse import urlsplit
 
 from django.conf import settings
 from django.db import models
@@ -619,6 +620,18 @@ class Feed(models.Model):
         db_table = "composer_feed"
         ordering = ["name"]
         unique_together = [("workspace", "url")]
+
+    @property
+    def favicon_url(self):
+        """Return a best-effort favicon URL derived from website_url."""
+        if not self.website_url:
+            return ""
+
+        parsed = urlsplit(self.website_url)
+        if not parsed.scheme or not parsed.netloc:
+            return ""
+
+        return f"{parsed.scheme}://{parsed.netloc}/favicon.ico"
 
     def __str__(self):
         return self.name
