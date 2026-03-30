@@ -56,6 +56,34 @@ class ContentCategory(models.Model):
         return self.name
 
 
+class Tag(models.Model):
+    """A reusable tag scoped to a workspace.
+
+    Tags can be applied to Posts, Ideas, and other content types.
+    They are workspace-scoped so each workspace has its own tag namespace.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="tags",
+    )
+    name = models.CharField(max_length=100)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_tag"
+        unique_together = ("workspace", "name")
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class IdeaGroup(models.Model):
     """A Kanban column/group for organising ideas, scoped to a workspace."""
 
@@ -108,6 +136,13 @@ class Idea(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True, default="")
     tags = models.JSONField(default=list, blank=True)
+    media_asset = models.ForeignKey(
+        "media_library.MediaAsset",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="idea_usages",
+    )
 
     # Kanban
     status = models.CharField(
@@ -556,3 +591,34 @@ class CSVImportJob(models.Model):
 
     def __str__(self):
         return f"CSVImportJob({self.status}): {self.total_rows} rows"
+
+
+class Feed(models.Model):
+    """An RSS feed subscription scoped to a workspace."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="feeds",
+    )
+    name = models.CharField(max_length=255)
+    url = models.URLField(max_length=500, help_text="RSS feed URL")
+    website_url = models.URLField(max_length=500, blank=True, default="")
+    added_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_feed"
+        ordering = ["name"]
+        unique_together = [("workspace", "url")]
+
+    def __str__(self):
+        return self.name

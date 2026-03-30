@@ -20,6 +20,7 @@ from apps.workspaces.models import Workspace
 from .forms import ContentCategoryForm, PostForm
 from .models import (
     ContentCategory,
+    Feed,
     Idea,
     IdeaGroup,
     PlatformPost,
@@ -27,6 +28,7 @@ from .models import (
     PostMedia,
     PostTemplate,
     PostVersion,
+    Tag,
 )
 
 
@@ -206,6 +208,9 @@ def compose(request, workspace_id, post_id=None):
 
         post_comments = get_comments_for_post(post, request.user)
 
+    # Workspace tags for the tag dropdown
+    all_tags = Tag.objects.for_workspace(workspace.id)
+
     context = {
         "workspace": workspace,
         "post": post,
@@ -229,6 +234,7 @@ def compose(request, workspace_id, post_id=None):
         "approval_history": approval_history,
         "post_comments": post_comments,
         "pending_assets": pending_assets,
+        "all_tags": all_tags,
     }
     return render(request, "composer/compose.html", context)
 
@@ -369,6 +375,9 @@ def save_post(request, workspace_id, post_id=None):
             post.status = "draft"
 
     post.save()
+
+    # Sync any new tags to the Tag model
+    _sync_tags_to_model(workspace, post.tags)
 
     # Handle recurring post creation
     make_recurring = request.POST.get("make_recurring")
@@ -599,10 +608,14 @@ def preview(request, workspace_id):
 
 @login_required
 @require_GET
-def media_picker(request, workspace_id):
+def media_picker(request, workspace_id, post_id=None):
     """Modal picker for selecting media from the library."""
     workspace = _get_workspace(request, workspace_id)
     from apps.media_library.models import MediaAsset
+
+    post = None
+    if post_id:
+        post = get_object_or_404(Post, id=post_id, workspace=workspace)
 
     assets = MediaAsset.objects.for_workspace(workspace.id).order_by("-created_at")[:50]
     return render(
@@ -611,6 +624,7 @@ def media_picker(request, workspace_id):
         {
             "assets": assets,
             "workspace": workspace,
+            "post": post,
         },
     )
 
@@ -645,6 +659,38 @@ def attach_media(request, workspace_id, post_id):
         {
             "media_attachments": post.media_attachments.select_related("media_asset").all(),
             "post": post,
+            "workspace": workspace,
+        },
+    )
+
+
+@login_required
+@require_POST
+def attach_pending_media(request, workspace_id):
+    """Attach a library media asset as pending (before post is saved)."""
+    workspace = _get_workspace(request, workspace_id)
+    media_asset_id = request.POST.get("media_asset_id")
+
+    if not media_asset_id:
+        return JsonResponse({"error": "media_asset_id required"}, status=400)
+
+    from apps.media_library.models import MediaAsset
+
+    asset = get_object_or_404(MediaAsset, id=media_asset_id, workspace=workspace)
+
+    session_key = f"pending_media_{workspace.id}"
+    pending = request.session.get(session_key, [])
+    asset_id_str = str(asset.id)
+    if asset_id_str not in pending:
+        pending.append(asset_id_str)
+        request.session[session_key] = pending
+
+    pending_assets = MediaAsset.objects.filter(id__in=pending, workspace=workspace)
+    return render(
+        request,
+        "composer/partials/media_list_pending.html",
+        {
+            "pending_assets": pending_assets,
             "workspace": workspace,
         },
     )
@@ -832,7 +878,7 @@ def _idea_columns(workspace, tag=None):
         )
         groups = IdeaGroup.objects.for_workspace(workspace.id).order_by("position", "created_at")
 
-    ideas = Idea.objects.for_workspace(workspace.id).select_related("author").order_by("position", "-created_at")
+    ideas = Idea.objects.for_workspace(workspace.id).select_related("author", "media_asset").order_by("position", "-created_at")
     if tag:
         ideas = ideas.filter(tags__contains=[tag])
 
@@ -847,14 +893,10 @@ def _idea_columns(workspace, tag=None):
             }
         )
 
-    # Collect unique tags across all ideas (unfiltered) for the dropdown
-    all_ideas = Idea.objects.for_workspace(workspace.id)
-    all_tags = set()
-    for idea in all_ideas.only("tags"):
-        if idea.tags:
-            all_tags.update(idea.tags)
+    # All workspace tags from the Tag model
+    all_tags = list(Tag.objects.for_workspace(workspace.id).values_list("name", flat=True))
 
-    return columns, sorted(all_tags)
+    return columns, all_tags
 
 
 @login_required
@@ -873,6 +915,8 @@ def create_landing(request, workspace_id):
 
     columns, all_tags = _idea_columns(workspace, tag)
 
+    feeds = Feed.objects.for_workspace(workspace.id)
+
     context = {
         "workspace": workspace,
         "tab": tab,
@@ -882,6 +926,7 @@ def create_landing(request, workspace_id):
         "featured_templates": get_featured_templates(),
         "builtin_templates": get_all_templates(),
         "template_categories": CATEGORIES,
+        "feeds": feeds,
     }
     return render(request, "composer/create_landing.html", context)
 
@@ -907,6 +952,33 @@ def idea_create(request, workspace_id):
     else:
         group = IdeaGroup.objects.for_workspace(workspace.id).order_by("position").first()
 
+    # Handle media file upload
+    media_asset = None
+    uploaded_file = request.FILES.get("media")
+    if uploaded_file:
+        from apps.media_library.models import MediaAsset
+
+        content_type = uploaded_file.content_type or ""
+        if content_type == "image/gif":
+            media_type = MediaAsset.MediaType.GIF
+        elif content_type.startswith("image/"):
+            media_type = MediaAsset.MediaType.IMAGE
+        elif content_type.startswith("video/"):
+            media_type = MediaAsset.MediaType.VIDEO
+        else:
+            media_type = MediaAsset.MediaType.DOCUMENT
+
+        media_asset = MediaAsset.objects.create(
+            workspace=workspace,
+            uploaded_by=request.user,
+            file=uploaded_file,
+            filename=uploaded_file.name,
+            media_type=media_type,
+            mime_type=content_type,
+            file_size=uploaded_file.size,
+            source="upload",
+        )
+
     Idea.objects.create(
         workspace=workspace,
         author=request.user,
@@ -915,7 +987,11 @@ def idea_create(request, workspace_id):
         tags=tags,
         group=group,
         status=Idea.Status.UNASSIGNED,
+        media_asset=media_asset,
     )
+
+    # Sync any new tags to the Tag model
+    _sync_tags_to_model(workspace, tags)
 
     return HttpResponse(
         status=204,
@@ -936,7 +1012,39 @@ def idea_edit(request, workspace_id, idea_id):
     tags_raw = request.POST.get("tags", "")
     if tags_raw:
         idea.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+
+    # Handle media: new upload, explicit removal, or leave unchanged
+    uploaded_file = request.FILES.get("media")
+    if uploaded_file:
+        from apps.media_library.models import MediaAsset
+
+        content_type = uploaded_file.content_type or ""
+        if content_type == "image/gif":
+            media_type = MediaAsset.MediaType.GIF
+        elif content_type.startswith("image/"):
+            media_type = MediaAsset.MediaType.IMAGE
+        elif content_type.startswith("video/"):
+            media_type = MediaAsset.MediaType.VIDEO
+        else:
+            media_type = MediaAsset.MediaType.DOCUMENT
+
+        idea.media_asset = MediaAsset.objects.create(
+            workspace=workspace,
+            uploaded_by=request.user,
+            file=uploaded_file,
+            filename=uploaded_file.name,
+            media_type=media_type,
+            mime_type=content_type,
+            file_size=uploaded_file.size,
+            source="upload",
+        )
+    elif request.POST.get("remove_media") == "true":
+        idea.media_asset = None
+
     idea.save()
+
+    # Sync any new tags to the Tag model
+    _sync_tags_to_model(workspace, idea.tags)
 
     return HttpResponse(
         status=204,
@@ -1531,3 +1639,155 @@ def csv_confirm_import(request, workspace_id):
             "total_rows": len(rows),
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Tag CRUD (JSON API endpoints)
+# ---------------------------------------------------------------------------
+
+
+def _sync_tags_to_model(workspace, tag_names):
+    """Ensure Tag records exist for all given tag names in a workspace."""
+    if not tag_names:
+        return
+    existing = set(Tag.objects.for_workspace(workspace.id).filter(name__in=tag_names).values_list("name", flat=True))
+    new_tags = [Tag(workspace=workspace, name=name) for name in tag_names if name not in existing]
+    if new_tags:
+        Tag.objects.bulk_create(new_tags, ignore_conflicts=True)
+
+
+@login_required
+@require_GET
+def tag_list(request, workspace_id):
+    """Return workspace tags as JSON, optionally filtered by search query."""
+    workspace = _get_workspace(request, workspace_id)
+    q = request.GET.get("q", "").strip().lower()
+    tags = Tag.objects.for_workspace(workspace.id)
+    if q:
+        tags = tags.filter(name__icontains=q)
+    tag_data = [{"id": str(t.id), "name": t.name} for t in tags[:50]]
+    return JsonResponse(tag_data, safe=False)
+
+
+@login_required
+@require_POST
+def tag_create(request, workspace_id):
+    """Create a new tag and return it as JSON."""
+    workspace = _get_workspace(request, workspace_id)
+    name = request.POST.get("name", "").strip()
+    if not name:
+        return JsonResponse({"error": "Tag name is required."}, status=400)
+    tag, created = Tag.objects.get_or_create(workspace=workspace, name=name)
+    return JsonResponse({"id": str(tag.id), "name": tag.name, "created": created})
+
+
+# ── Feeds ──────────────────────────────────────────────────────────────────
+
+
+@login_required
+@require_permission("create_posts")
+@require_GET
+def feed_list(request, workspace_id):
+    """Return the feeds tab partial (empty state or feed list)."""
+    workspace = _get_workspace(request, workspace_id)
+    feeds = Feed.objects.for_workspace(workspace.id)
+    return render(request, "composer/partials/feeds_tab.html", {
+        "workspace": workspace,
+        "feeds": feeds,
+    })
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def feed_add(request, workspace_id):
+    """Add a feed subscription to the workspace."""
+    from django.core.validators import URLValidator
+    from django.core.exceptions import ValidationError
+
+    workspace = _get_workspace(request, workspace_id)
+    rss_url = request.POST.get("rss_url", "").strip()
+    name = request.POST.get("name", "").strip()
+    website_url = request.POST.get("website_url", "").strip()
+    source = request.POST.get("source", "")
+    category = request.POST.get("category", "buffer-favorites")
+
+    if not rss_url:
+        return HttpResponse("Feed URL is required.", status=400)
+
+    validator = URLValidator()
+    try:
+        validator(rss_url)
+    except ValidationError:
+        return HttpResponse("Invalid URL.", status=400)
+
+    if Feed.objects.for_workspace(workspace.id).filter(url=rss_url).exists():
+        # Already subscribed — if from explore, just re-render explore view
+        if source == "explore":
+            return _render_explore(request, workspace, category)
+        return HttpResponse("Already subscribed to this feed.", status=409)
+
+    Feed.objects.create(
+        workspace=workspace,
+        name=name or rss_url,
+        url=rss_url,
+        website_url=website_url,
+        added_by=request.user,
+    )
+
+    if source == "explore":
+        response = _render_explore(request, workspace, category)
+        response["HX-Trigger"] = "feedsUpdated"
+        return response
+
+    feeds = Feed.objects.for_workspace(workspace.id)
+    response = render(request, "composer/partials/feeds_tab.html", {
+        "workspace": workspace,
+        "feeds": feeds,
+    })
+    return response
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
+def feed_delete(request, workspace_id, feed_id):
+    """Remove a feed subscription."""
+    workspace = _get_workspace(request, workspace_id)
+    feed = get_object_or_404(Feed, id=feed_id, workspace=workspace)
+    feed.delete()
+
+    feeds = Feed.objects.for_workspace(workspace.id)
+    return render(request, "composer/partials/feeds_tab.html", {
+        "workspace": workspace,
+        "feeds": feeds,
+    })
+
+
+@login_required
+@require_permission("create_posts")
+@require_GET
+def feed_explore(request, workspace_id):
+    """Return the explore feeds modal content for a given category."""
+    workspace = _get_workspace(request, workspace_id)
+    category = request.GET.get("category", "buffer-favorites")
+    return _render_explore(request, workspace, category)
+
+
+def _render_explore(request, workspace, category):
+    """Shared helper to render the explore feeds partial."""
+    from .curated_feeds import get_feed_categories, get_feeds_for_category
+
+    subscribed_urls = set(
+        Feed.objects.for_workspace(workspace.id).values_list("url", flat=True)
+    )
+    curated = get_feeds_for_category(category)
+    for feed in curated:
+        feed["subscribed"] = feed["rss"] in subscribed_urls
+
+    return render(request, "composer/partials/feeds_explore.html", {
+        "workspace": workspace,
+        "categories": get_feed_categories(),
+        "active_category": category,
+        "curated_feeds": curated,
+    })

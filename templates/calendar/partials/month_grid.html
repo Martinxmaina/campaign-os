@@ -58,11 +58,23 @@ Enhanced with: holidays, custom events, category colors, recurring badges.
                draggable="true"
                @dragstart="startDrag($event, '{{ post.id }}')"
                @dragend="endDrag($event)">
-                {% if post.category %}
+                {% with first_pp=post.platform_posts.all.0 %}
+                {% if first_pp %}
+                <span class="w-4 h-4 rounded flex items-center justify-center pi-{{ first_pp.social_account.platform }} flex-shrink-0 text-white">
+                    {% include "social_accounts/partials/_platform_icon.html" with platform=first_pp.social_account.platform size="3" %}
+                </span>
+                {% elif post.category %}
                 <span class="w-1.5 h-full rounded-full flex-shrink-0 -ml-1 mr-0.5" style="background: {{ post.category.color }};"></span>
                 {% else %}
                 <span class="chip-dot"></span>
                 {% endif %}
+                {% endwith %}
+                {% with first_media=post.media_attachments.all.0 %}
+                {% if first_media %}
+                <img src="{% if first_media.media_asset.thumbnail %}{{ first_media.media_asset.thumbnail.url }}{% else %}{{ first_media.media_asset.file.url }}{% endif %}"
+                     alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                {% endif %}
+                {% endwith %}
                 <span class="truncate">{{ post.caption_snippet|truncatechars:28 }}</span>
                 {% if post.recurrence_rule %}
                 <svg class="w-3 h-3 text-current opacity-50 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>

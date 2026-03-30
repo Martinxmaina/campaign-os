@@ -30,7 +30,9 @@ urlpatterns = [
     path("compose/preview/", views.preview, name="preview"),
     # Media
     path("compose/media-picker/", views.media_picker, name="media_picker"),
+    path("compose/<uuid:post_id>/media-picker/", views.media_picker, name="media_picker_post"),
     path("compose/<uuid:post_id>/attach-media/", views.attach_media, name="attach_media"),
+    path("compose/attach-pending-media/", views.attach_pending_media, name="attach_pending_media"),
     path("compose/upload-media/", views.upload_media, name="upload_media"),
     path("compose/<uuid:post_id>/upload-media/", views.upload_media, name="upload_media_post"),
     path("compose/<uuid:post_id>/remove-media/<uuid:media_id>/", views.remove_media, name="remove_media"),
@@ -52,4 +54,12 @@ urlpatterns = [
     path("import/csv/", views.csv_upload, name="csv_upload"),
     path("import/csv/preview/", views.csv_preview, name="csv_preview"),
     path("import/csv/confirm/", views.csv_confirm_import, name="csv_confirm_import"),
+    # Tags
+    path("tags/", views.tag_list, name="tag_list"),
+    path("tags/create/", views.tag_create, name="tag_create"),
+    # Feeds
+    path("feeds/", views.feed_list, name="feed_list"),
+    path("feeds/add/", views.feed_add, name="feed_add"),
+    path("feeds/<uuid:feed_id>/delete/", views.feed_delete, name="feed_delete"),
+    path("feeds/explore/", views.feed_explore, name="feed_explore"),
 ]

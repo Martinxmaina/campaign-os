@@ -484,39 +484,141 @@
                 </div>
                 {% endif %}
 
-                <!-- Tags (tokenized chip input) -->
-                <div x-data="{
+                <!-- Tags (dropdown with search & create) -->
+                <div class="relative" x-data="{
                     tags: {{ post.tags|default:'[]'|safe }},
-                    newTag: '',
-                    addTag() {
-                        let t = this.newTag.trim();
-                        if (t && !this.tags.includes(t)) { this.tags.push(t); }
-                        this.newTag = '';
+                    tagDropdownOpen: false,
+                    tagSearch: '',
+                    allTags: [{% for tag in all_tags %}'{{ tag.name|escapejs }}'{% if not forloop.last %},{% endif %}{% endfor %}],
+                    get filteredTags() {
+                        const q = this.tagSearch.toLowerCase();
+                        return this.allTags.filter(t => !q || t.toLowerCase().includes(q));
+                    },
+                    toggleTag(name) {
+                        const idx = this.tags.indexOf(name);
+                        if (idx >= 0) { this.tags.splice(idx, 1); }
+                        else { this.tags.push(name); }
+                    },
+                    createTag() {
+                        const name = this.tagSearch.trim();
+                        if (!name) return;
+                        if (!this.allTags.includes(name)) { this.allTags.push(name); this.allTags.sort(); }
+                        if (!this.tags.includes(name)) { this.tags.push(name); }
+                        this.tagSearch = '';
+                        /* Persist to server */
+                        fetch('{% url "composer:tag_create" workspace_id=workspace.id %}', {
+                            method: 'POST',
+                            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value, 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'name=' + encodeURIComponent(name),
+                        });
                     },
                     removeTag(idx) { this.tags.splice(idx, 1); },
-                    handleKey(e) {
-                        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); this.addTag(); }
-                        if (e.key === 'Backspace' && !this.newTag && this.tags.length) { this.tags.pop(); }
-                    }
-                }">
+                    showCreateTagModal: false,
+                    newTagName: '',
+                    _persistTag(name) {
+                        if (!this.allTags.includes(name)) { this.allTags.push(name); this.allTags.sort(); }
+                        if (!this.tags.includes(name)) { this.tags.push(name); }
+                        fetch('{% url "composer:tag_create" workspace_id=workspace.id %}', {
+                            method: 'POST',
+                            headers: { 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value, 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: 'name=' + encodeURIComponent(name),
+                        });
+                    },
+                }" @click.away="tagDropdownOpen = false">
                     <label class="block text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Tags</label>
                     <input type="hidden" name="tags" :value="tags.join(',')">
-                    <div class="flex flex-wrap items-center gap-1.5 w-full min-h-[42px] px-3 py-2 rounded-xl border border-stone-200 bg-white focus-within:border-orange-500 focus-within:ring-2 focus-within:ring-orange-100 transition-all duration-150 cursor-text"
-                         @click="$refs.tagInput.focus()">
-                        <template x-for="(tag, idx) in tags" :key="idx">
+
+                    <!-- Selected tags chips + trigger -->
+                    <div class="flex flex-wrap items-center gap-1.5 w-full min-h-[42px] px-3 py-2 rounded-xl border border-stone-200 bg-white transition-all duration-150 cursor-pointer"
+                         :class="tagDropdownOpen && 'border-orange-500 ring-2 ring-orange-100'"
+                         @click="tagDropdownOpen = !tagDropdownOpen; if(tagDropdownOpen) $nextTick(() => { $refs.tagSearchInput.focus(); $refs.tagSearchInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); })">
+                        <template x-for="(tag, idx) in tags" :key="tag">
                             <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-stone-100 text-stone-700">
                                 <span x-text="tag"></span>
-                                <button type="button" @click="removeTag(idx)" class="w-3.5 h-3.5 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+                                <button type="button" @click.stop="removeTag(idx)" class="w-3.5 h-3.5 rounded-full flex items-center justify-center text-stone-400 hover:text-red-500 hover:bg-red-50 transition-colors">
                                     <svg class="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
                                 </button>
                             </span>
                         </template>
-                        <input type="text" x-ref="tagInput" x-model="newTag"
-                               @keydown="handleKey($event)"
-                               @blur="if(newTag.trim()) addTag()"
-                               class="flex-1 min-w-[80px] text-sm border-none outline-none bg-transparent p-0 text-stone-700 placeholder:text-stone-400"
-                               placeholder="Type and press Enter…">
+                        <span x-show="!tags.length" class="text-sm text-stone-400">Select tags...</span>
                     </div>
+
+                    <!-- Dropdown -->
+                    <div x-show="tagDropdownOpen" x-cloak x-transition
+                         class="mt-1 bg-white rounded-xl shadow-lg ring-1 ring-stone-200 py-1 max-h-[220px] overflow-y-auto"
+                         @click.stop>
+                        <!-- Search input -->
+                        <div class="px-2 py-1.5 border-b border-stone-100">
+                            <input type="text" x-ref="tagSearchInput" x-model="tagSearch"
+                                   @keydown.enter.prevent="if (tagSearch.trim() && !filteredTags.includes(tagSearch.trim())) { createTag(); } else if (filteredTags.length === 1) { toggleTag(filteredTags[0]); tagSearch = ''; }"
+                                   class="w-full text-sm px-2 py-1.5 rounded-lg border border-stone-200 outline-none focus:border-orange-400 transition-colors"
+                                   placeholder="Search or create tag...">
+                        </div>
+                        <!-- Tag list -->
+                        <template x-for="tag in filteredTags" :key="tag">
+                            <label class="flex items-center gap-2 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50 cursor-pointer rounded-md mx-1">
+                                <input type="checkbox" class="rounded accent-orange-500"
+                                       :checked="tags.includes(tag)"
+                                       @change="toggleTag(tag)">
+                                <span x-text="tag"></span>
+                            </label>
+                        </template>
+                        <!-- No results / Create -->
+                        <template x-if="tagSearch.trim() && !filteredTags.length">
+                            <button type="button" @click="createTag()"
+                                    class="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-50 rounded-md mx-1">
+                                <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                Create "<span x-text="tagSearch.trim()" class="font-semibold"></span>"
+                            </button>
+                        </template>
+                        <template x-if="tagSearch.trim() && filteredTags.length && !filteredTags.includes(tagSearch.trim())">
+                            <div class="border-t border-stone-100 mt-1 pt-1">
+                                <button type="button" @click="createTag()"
+                                        class="flex items-center gap-2 w-full px-3 py-1.5 text-sm text-stone-600 hover:bg-stone-50 rounded-md mx-1">
+                                    <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                    Create "<span x-text="tagSearch.trim()" class="font-semibold"></span>"
+                                </button>
+                            </div>
+                        </template>
+                        <template x-if="!tagSearch.trim() && !allTags.length">
+                            <div class="px-3 py-2 text-xs text-stone-400">No tags yet. Type to create one.</div>
+                        </template>
+                        <!-- Create new tag -->
+                        <div class="border-t border-stone-100 px-1 py-1">
+                            <button type="button" @click="tagDropdownOpen = false; showCreateTagModal = true; newTagName = tagSearch; tagSearch = ''; $nextTick(() => $refs.newTagNameInput.focus())"
+                                    class="flex items-center gap-2 w-full px-2.5 py-1.5 text-sm text-stone-600 hover:bg-stone-50 rounded-md cursor-pointer transition-colors">
+                                <svg class="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                                Create new tag
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Create Tag Modal (teleported to body to escape stacking contexts) -->
+                    <template x-teleport="body">
+                        <div x-show="showCreateTagModal" x-cloak class="fixed inset-0 z-[200] flex items-center justify-center" @keydown.escape.window="showCreateTagModal = false">
+                            <div class="fixed inset-0 bg-black/30" @click="showCreateTagModal = false"></div>
+                            <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" @click.stop>
+                                <h3 class="text-base font-semibold text-stone-800 mb-4">Create new tag</h3>
+                                <input type="text" x-ref="newTagNameInput" x-model="newTagName"
+                                       @keydown.enter.prevent="if(newTagName.trim()) { _persistTag(newTagName.trim()); showCreateTagModal = false; newTagName = ''; }"
+                                       class="w-full text-sm px-3 py-2.5 rounded-xl border border-stone-200 outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100 transition-all"
+                                       placeholder="Tag name...">
+                                <div class="flex justify-end gap-2 mt-4">
+                                    <button type="button" @click="showCreateTagModal = false; newTagName = ''"
+                                            class="px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100 rounded-lg cursor-pointer transition-colors">
+                                        Cancel
+                                    </button>
+                                    <button type="button"
+                                            @click="if(newTagName.trim()) { _persistTag(newTagName.trim()); showCreateTagModal = false; newTagName = ''; }"
+                                            class="px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors"
+                                            style="background: var(--primary);"
+                                            :class="newTagName.trim() ? 'cursor-pointer' : 'opacity-50 cursor-not-allowed'">
+                                        Create
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </div>
 
@@ -792,7 +894,7 @@
                 </button>
             </div>
             <div class="p-6 overflow-y-auto max-h-[calc(70vh-72px)]"
-                 hx-get="{% url 'composer:media_picker' workspace_id=workspace.id %}"
+                 hx-get="{% if post %}{% url 'composer:media_picker_post' workspace_id=workspace.id post_id=post.id %}{% else %}{% url 'composer:media_picker' workspace_id=workspace.id %}{% endif %}"
                  hx-trigger="intersect once"
                  hx-swap="innerHTML">
                 <div class="flex items-center justify-center py-12 text-stone-400">

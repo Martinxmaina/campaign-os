@@ -68,12 +68,28 @@ def sidebar_context(request):
             Post.objects.for_workspace(workspace.id).filter(status__in=["pending_review", "pending_client"]).count()
         )
 
+    # Idea columns and tags for the quick-create modal in the sidebar
+    sidebar_idea_columns = []
+    sidebar_idea_tags = []
+    if workspace:
+        from apps.composer.models import IdeaGroup, Tag
+
+        groups = IdeaGroup.objects.for_workspace(workspace.id).order_by("position", "created_at")
+        if groups.exists():
+            sidebar_idea_columns = [{"id": str(g.id), "label": g.name} for g in groups]
+        else:
+            # Use default labels without creating them here
+            sidebar_idea_columns = []
+        sidebar_idea_tags = list(Tag.objects.for_workspace(workspace.id).values_list("name", flat=True))
+
     return {
         "sidebar_workspaces": sidebar_workspaces,
         "sidebar_channels": sidebar_channels,
         "sidebar_connectable_platforms": sidebar_connectable_platforms,
         "sidebar_unread_inbox_count": sidebar_unread_inbox_count,
         "sidebar_pending_approvals": sidebar_pending_approvals,
+        "sidebar_idea_columns": sidebar_idea_columns,
+        "sidebar_idea_tags": sidebar_idea_tags,
     }
 
 
