@@ -47,8 +47,8 @@ All members can view; action buttons shown conditionally based on can_approve pe
                         </span>
                         <div class="flex gap-1">
                             {% for pp in post.platform_posts.all %}
-                            <span class="w-5 h-5 rounded-[5px] flex items-center justify-center text-[8px] font-bold text-white pi-{{ pp.social_account.platform }}">
-                                {{ pp.social_account.platform_icon|upper }}
+                            <span class="w-5 h-5 rounded-[5px] flex items-center justify-center">
+                                {% include "partials/_platform_icon.html" with platform=pp.social_account.platform size="sm" %}
                             </span>
                             {% endfor %}
                         </div>

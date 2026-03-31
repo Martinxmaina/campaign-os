@@ -169,7 +169,7 @@
     .pi-google_business { background: #4285F4; }
     .pi-mastodon   { background: #6364FF; }
 
-    /* Add-post button on calendar cells */
+    /* Add-post button on calendar cells — default (has posts): small top-right */
     .cal-add-btn {
         display: none;
         position: absolute; top: 6px; right: 6px;
@@ -183,7 +183,26 @@
     }
     .cal-add-btn:hover { background: #EA580C; transform: scale(1.1); }
     .cal-add-cell { position: relative; }
-    .cal-add-cell:hover .cal-add-btn { display: flex; }
+    .cal-add-cell.has-posts:hover .cal-add-btn { display: flex; }
+
+    /* Empty cells: larger centered button */
+    .cal-add-cell:not(.has-posts) .cal-add-btn {
+        top: 50%; left: 50%; right: auto;
+        transform: translate(-50%, -50%);
+        width: 32px; height: 32px;
+        background: transparent; color: #A8A29E;
+        box-shadow: none;
+        border: 2px dashed #D6D3D1;
+    }
+    .cal-add-cell:not(.has-posts) .cal-add-btn svg { width: 16px; height: 16px; }
+    .cal-add-cell:not(.has-posts):hover .cal-add-btn {
+        display: flex;
+        color: #F97316; border-color: #F97316;
+    }
+    .cal-add-cell:not(.has-posts) .cal-add-btn:hover {
+        background: #FFF7ED;
+        transform: translate(-50%, -50%) scale(1.1);
+    }
 
     /* Draggable feedback */
     .post-chip.dragging { opacity: 0.5; transform: rotate(2deg); }
