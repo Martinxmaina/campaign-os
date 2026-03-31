@@ -178,17 +178,27 @@ body {
   flex-shrink: 0;
 }
 
-/* Sidebar collapsed state */
-.sidebar-collapsed .sidebar-nav-item {
-  justify-content: center;
-  padding: 8px;
-  gap: 0;
+/* Sidebar collapsed state — desktop only */
+@media (min-width: 1024px) {
+  .sidebar-collapsed .sidebar-nav-item {
+    justify-content: center;
+    padding: 8px;
+    gap: 0;
+  }
+  .sidebar-collapsed .sidebar-nav-label,
+  .sidebar-collapsed .sidebar-section-label,
+  .sidebar-collapsed .sidebar-section-label-wrap,
+  .sidebar-collapsed .sidebar-badge {
+    display: none;
+  }
 }
-.sidebar-collapsed .sidebar-nav-label,
-.sidebar-collapsed .sidebar-section-label,
-.sidebar-collapsed .sidebar-section-label-wrap,
-.sidebar-collapsed .sidebar-badge {
-  display: none;
+
+/* Mobile: larger touch targets for sidebar nav */
+@media (max-width: 1023px) {
+  .sidebar-nav-item {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
 }
 
 /* Focus ring utility */
