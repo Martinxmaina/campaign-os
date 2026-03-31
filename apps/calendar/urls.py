@@ -12,7 +12,10 @@ urlpatterns = [
     # Posting slots
     path("posting-slots/", views.posting_slots, name="posting_slots"),
     path("posting-slots/save/", views.save_posting_slot, name="save_posting_slot"),
+    path("posting-slots/grid/", views.account_posting_slots_partial, name="account_slots_partial"),
+    path("posting-slots/toggle-day/", views.toggle_posting_slot_day, name="toggle_posting_slot_day"),
     path("posting-slots/<uuid:slot_id>/delete/", views.delete_posting_slot, name="delete_posting_slot"),
+    path("posting-slots/<uuid:slot_id>/update/", views.update_posting_slot, name="update_posting_slot"),
     # Queues
     path("queues/", views.queue_list, name="queue_list"),
     path("queues/create/", views.queue_create, name="queue_create"),

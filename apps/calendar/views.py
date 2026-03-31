@@ -3,7 +3,7 @@
 import calendar as cal_mod
 import json
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
@@ -43,6 +43,14 @@ COMMON_TIMEZONES = [
     "America/Los_Angeles",
     "America/New_York",
 ]
+
+
+def _slots_updated_response(account_id):
+    """Return a 204 response with an HX-Trigger header for slot grid refresh."""
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": json.dumps({"slotsUpdated": {"accountId": str(account_id)}})},
+    )
 
 
 def _get_workspace(request, workspace_id):
@@ -688,8 +696,6 @@ def save_posting_slot(request, workspace_id):
         workspace=workspace,
     )
 
-    from datetime import time
-
     try:
         slot_time = time.fromisoformat(time_str)
     except (ValueError, TypeError):
@@ -703,7 +709,7 @@ def save_posting_slot(request, workspace_id):
     )
 
     if request.htmx:
-        return HttpResponse(status=204, headers={"HX-Trigger": "slotsUpdated"})
+        return _slots_updated_response(account.id)
     return JsonResponse({"id": str(slot.id), "created": created})
 
 
@@ -716,11 +722,94 @@ def delete_posting_slot(request, workspace_id, slot_id):
     # Verify the slot belongs to this workspace
     if slot.social_account.workspace_id != workspace.id:
         return JsonResponse({"error": "Not found."}, status=404)
+
+    account_id = str(slot.social_account_id)
     slot.delete()
+    if request.htmx:
+        return _slots_updated_response(account_id)
+    return JsonResponse({"deleted": True})
+
+
+@login_required
+def account_posting_slots_partial(request, workspace_id):
+    """Return the posting slots grid partial for a single account (HTMX)."""
+    workspace = _get_workspace(request, workspace_id)
+    account_id = request.GET.get("social_account_id")
+    account = get_object_or_404(
+        SocialAccount.objects.prefetch_related("posting_slots"),
+        id=account_id,
+        workspace=workspace,
+    )
+    return render(
+        request,
+        "social_accounts/partials/_posting_slots_grid.html",
+        {"account": account, "workspace_id": workspace_id},
+    )
+
+
+@login_required
+@require_POST
+def toggle_posting_slot_day(request, workspace_id):
+    """Toggle is_active for all posting slots of an account on a given day."""
+    workspace = _get_workspace(request, workspace_id)
+    account_id = request.POST.get("social_account_id")
+    day = request.POST.get("day_of_week")
+
+    if not account_id or day is None:
+        return JsonResponse({"error": "Missing fields."}, status=400)
+
+    account = get_object_or_404(SocialAccount, id=account_id, workspace=workspace)
+    try:
+        day_int = int(day)
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Invalid day_of_week."}, status=400)
+    slots = PostingSlot.objects.filter(social_account=account, day_of_week=day_int)
+
+    if not slots.exists():
+        return HttpResponse(status=204)
+
+    # If all active → deactivate; otherwise → activate all
+    all_active = not slots.filter(is_active=False).exists()
+    slots.update(is_active=not all_active)
 
     if request.htmx:
-        return HttpResponse(status=204, headers={"HX-Trigger": "slotsUpdated"})
-    return JsonResponse({"deleted": True})
+        return _slots_updated_response(account_id)
+    return JsonResponse({"toggled": True})
+
+
+@login_required
+@require_POST
+def update_posting_slot(request, workspace_id, slot_id):
+    """Update a posting slot's time."""
+    workspace = _get_workspace(request, workspace_id)
+    slot = get_object_or_404(PostingSlot, id=slot_id)
+    if slot.social_account.workspace_id != workspace.id:
+        return JsonResponse({"error": "Not found."}, status=404)
+
+    time_str = request.POST.get("time")
+    if not time_str:
+        return JsonResponse({"error": "Time is required."}, status=400)
+
+    try:
+        new_time = time.fromisoformat(time_str)
+    except (ValueError, TypeError):
+        return JsonResponse({"error": "Invalid time format."}, status=400)
+
+    # Check for duplicate
+    if PostingSlot.objects.filter(
+        social_account=slot.social_account,
+        day_of_week=slot.day_of_week,
+        time=new_time,
+    ).exclude(id=slot.id).exists():
+        return JsonResponse({"error": "A slot at that time already exists."}, status=409)
+
+    slot.time = new_time
+    slot.save(update_fields=["time", "updated_at"])
+
+    account_id = str(slot.social_account_id)
+    if request.htmx:
+        return _slots_updated_response(account_id)
+    return JsonResponse({"updated": True})
 
 
 # ---------------------------------------------------------------------------
