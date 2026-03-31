@@ -106,6 +106,7 @@ def account_list(request, workspace_id):
             "workspace_id": workspace_id,
             "configured_platforms": configured_platforms,
             "platform_choices": PlatformCredential.Platform.choices,
+            "settings_active": "social_accounts",
         },
     )
 

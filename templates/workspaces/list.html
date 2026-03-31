@@ -15,7 +15,7 @@
     {% if workspaces %}
     <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 24px;">
         {% for workspace in workspaces %}
-        <a href="{% url 'workspaces:detail' workspace_id=workspace.id %}" style="
+        <a href="{% url 'calendar:calendar' workspace_id=workspace.id %}" style="
             display: block;
             background: var(--surface-0);
             border: 1px solid var(--border);

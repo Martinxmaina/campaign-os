@@ -21,7 +21,7 @@ def dashboard(request):
 
     user = request.user
     if user.last_workspace_id:
-        return redirect("workspaces:detail", workspace_id=user.last_workspace_id)
+        return redirect("calendar:calendar", workspace_id=user.last_workspace_id)
 
     # Fallback: try to find any workspace the user belongs to
     membership = (
@@ -30,7 +30,7 @@ def dashboard(request):
     if membership:
         user.last_workspace_id = membership.workspace.id
         user.save(update_fields=["last_workspace_id"])
-        return redirect("workspaces:detail", workspace_id=membership.workspace.id)
+        return redirect("calendar:calendar", workspace_id=membership.workspace.id)
 
     return render(request, "accounts/dashboard.html")
 

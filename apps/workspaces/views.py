@@ -5,45 +5,9 @@ from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
 from apps.members.models import OrgMembership, WorkspaceMembership
-from apps.onboarding.checklist import get_checklist_items
-from apps.onboarding.models import OnboardingChecklist
 
 from .models import Workspace
 
-
-@login_required
-def detail(request, workspace_id):
-    try:
-        workspace = Workspace.objects.get(id=workspace_id)
-    except Workspace.DoesNotExist:
-        raise Http404 from None
-
-    # Verify user has access
-    if not WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
-        raise Http404
-
-    # Persist last used workspace
-    request.user.last_workspace_id = workspace.id
-    request.user.save(update_fields=["last_workspace_id"])
-
-    # Onboarding checklist
-    checklist_dismissed = OnboardingChecklist.objects.filter(
-        user=request.user, workspace=workspace, is_dismissed=True
-    ).exists()
-    checklist_items = [] if checklist_dismissed else get_checklist_items(workspace)
-    completed_count = sum(1 for item in checklist_items if item["completed"])
-
-    return render(
-        request,
-        "workspaces/detail.html",
-        {
-            "workspace": workspace,
-            "checklist_items": checklist_items,
-            "checklist_dismissed": checklist_dismissed,
-            "checklist_completed_count": completed_count,
-            "checklist_total_count": len(checklist_items),
-        },
-    )
 
 
 @login_required
@@ -81,7 +45,7 @@ def workspace_create(request):
     request.user.last_workspace_id = workspace.id
     request.user.save(update_fields=["last_workspace_id"])
 
-    return redirect("workspaces:detail", workspace_id=workspace.id)
+    return redirect("calendar:calendar", workspace_id=workspace.id)
 
 
 @login_required
