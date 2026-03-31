@@ -4,6 +4,7 @@ from django.http import Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods, require_POST
 
+from apps.members.decorators import require_org_role
 from apps.members.models import OrgMembership, WorkspaceMembership
 
 from .models import Workspace
@@ -19,6 +20,7 @@ def workspace_list(request):
 
 @login_required
 @require_POST
+@require_org_role("admin")
 def workspace_create(request):
     """Create a new workspace in the user's organization."""
     name = request.POST.get("name", "").strip()

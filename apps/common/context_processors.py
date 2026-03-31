@@ -78,8 +78,15 @@ def sidebar_context(request):
         sidebar_idea_columns = [{"id": str(g.id), "label": g.name} for g in groups] if groups.exists() else []
         sidebar_idea_tags = list(Tag.objects.for_workspace(workspace.id).values_list("name", flat=True))
 
+    # Workspace creation permission (org owners and admins only)
+    can_create_workspace = False
+    org_membership = getattr(request, "org_membership", None)
+    if org_membership and org_membership.org_role in ("owner", "admin"):
+        can_create_workspace = True
+
     return {
         "sidebar_workspaces": sidebar_workspaces,
+        "can_create_workspace": can_create_workspace,
         "sidebar_channels": sidebar_channels,
         "sidebar_connectable_platforms": sidebar_connectable_platforms,
         "sidebar_unread_inbox_count": sidebar_unread_inbox_count,
