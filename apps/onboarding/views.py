@@ -198,7 +198,7 @@ def dismiss_checklist(request, workspace_id):
     if request.headers.get("HX-Request"):
         return HttpResponse(status=200)
 
-    return redirect("workspaces:detail", workspace_id=workspace_id)
+    return redirect("calendar:calendar", workspace_id=workspace_id)
 
 
 # ------------------------------------------------------------------
