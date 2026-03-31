@@ -177,6 +177,9 @@ body {
   justify-content: center;
   flex-shrink: 0;
 }
+img.sidebar-logo-mark {
+  background: transparent;
+}
 
 /* Sidebar collapsed state — desktop only */
 @media (min-width: 1024px) {
