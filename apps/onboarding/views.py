@@ -183,6 +183,16 @@ def send_link_email(request, workspace_id, link_id):
 
 
 @login_required
+@require_GET
+def checklist_partial(request, workspace_id):
+    """Return the checklist partial for htmx polling."""
+    from apps.onboarding.context_processors import onboarding_checklist
+
+    ctx = onboarding_checklist(request)
+    return render(request, "onboarding/partials/_checklist.html", ctx)
+
+
+@login_required
 @require_POST
 def dismiss_checklist(request, workspace_id):
     """Dismiss the onboarding checklist for the current user + workspace."""

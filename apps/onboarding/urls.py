@@ -22,6 +22,11 @@ urlpatterns = [
         name="send_link_email",
     ),
     path(
+        "<uuid:workspace_id>/checklist/",
+        views.checklist_partial,
+        name="checklist_partial",
+    ),
+    path(
         "<uuid:workspace_id>/checklist/dismiss/",
         views.dismiss_checklist,
         name="dismiss_checklist",
