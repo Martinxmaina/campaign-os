@@ -127,8 +127,7 @@
 
         <div class="flex items-center gap-3">
             <button @click="showAddModal = true; $nextTick(() => $refs.customUrlInput.focus())"
-                    class="inline-flex items-center gap-1.5 px-4 py-2.5 text-sm font-semibold text-white rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:shadow-[0_6px_20px_rgba(249,115,22,0.35)] hover:-translate-y-px active:translate-y-0 transition-all duration-150 cursor-pointer"
-                    style="background: var(--primary);">
+                    class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full hover:bg-orange-100 hover:border-orange-300 active:bg-orange-100 transition-all duration-150 cursor-pointer">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
                 Add Feed
             </button>
