@@ -1,6 +1,6 @@
 {% comment %}Slide-over detail panel content. Expects: asset, workspace, versions{% endcomment %}
 
-<div class="flex flex-col h-full">
+<div class="flex flex-col h-full" x-data="{ showDeleteConfirm: false }">
   <!-- Header -->
   <div class="flex items-center justify-between px-5 py-4 border-b" style="border-color: var(--border, #E7E5E4);">
     <h2 class="text-sm font-bold truncate pr-4" style="color: var(--text-primary, #1C1917);">{{ asset.original_filename }}</h2>
@@ -55,17 +55,49 @@
       Download
     </a>
     {% if not asset.is_shared %}
-    <button class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full transition-all ml-auto"
+    <button class="inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-full transition-all ml-auto cursor-pointer"
             style="color: var(--error-500, #EF4444);"
             onmouseenter="this.style.background='var(--error-50)'"
             onmouseleave="this.style.background='transparent'"
-            hx-post="{% url 'media_library:asset_delete' workspace_id=workspace.id asset_id=asset.id %}"
-            hx-confirm="Are you sure you want to delete this asset? This cannot be undone."
-            hx-target="closest .ml-asset-card"
-            hx-swap="outerHTML">
+            @click="showDeleteConfirm = true">
       <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
       Delete
     </button>
+
+    <!-- Delete confirmation modal -->
+    <div x-show="showDeleteConfirm" x-cloak
+         class="fixed inset-0 z-[60] flex items-center justify-center"
+         @keydown.escape.window="showDeleteConfirm = false">
+      <div class="absolute inset-0 bg-black/30 backdrop-blur-sm" @click="showDeleteConfirm = false"></div>
+      <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-6" @click.stop>
+        <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-3"
+             style="background: var(--error-50, #FEF2F2);">
+          <svg class="w-5 h-5" style="color: var(--error-500, #EF4444);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </div>
+        <h3 class="text-base font-semibold text-center mb-1" style="color: var(--text-primary, #1C1917);">Delete asset?</h3>
+        <p class="text-sm text-center mb-5" style="color: var(--text-secondary, #57534E);">This cannot be undone. The file will be permanently removed.</p>
+        <div class="flex gap-2">
+          <button type="button" @click="showDeleteConfirm = false"
+                  class="flex-1 px-4 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer"
+                  style="color: var(--text-secondary, #57534E); border: 1px solid var(--border, #E7E5E4);"
+                  onmouseenter="this.style.background='var(--surface-2, #F5F5F4)'"
+                  onmouseleave="this.style.background='transparent'">
+            Cancel
+          </button>
+          <button type="button"
+                  class="flex-1 px-4 py-2 text-sm font-semibold text-white rounded-lg transition-colors cursor-pointer"
+                  style="background: var(--error-500, #EF4444);"
+                  onmouseenter="this.style.background='var(--error-600, #DC2626)'"
+                  onmouseleave="this.style.background='var(--error-500, #EF4444)'"
+                  hx-post="{% url 'media_library:asset_delete' workspace_id=workspace.id asset_id=asset.id %}"
+                  hx-target="#detail-panel"
+                  hx-swap="innerHTML"
+                  @htmx:after-request.camel="if ($event.detail.successful) { detailOpen = false; htmx.ajax('GET', window.location.href, {target: '#asset-grid', swap: 'innerHTML'}); }">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
     {% endif %}
   </div>
 

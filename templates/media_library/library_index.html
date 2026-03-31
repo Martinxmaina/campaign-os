@@ -99,7 +99,7 @@
 {% block page_title %}Media Library{% endblock %}
 
 {% block content %}
-<div x-data="mediaLibrary()" class="flex h-full -m-6 -mb-6">
+<div x-data="mediaLibrary()" class="flex flex-1 min-h-0 -m-6 -mb-6">
 
   <!-- ═══════ FOLDER SIDEBAR ═══════ -->
   <div class="ml-sidebar w-56 flex-shrink-0 flex flex-col overflow-y-auto rounded-tl-xl rounded-bl-xl">
@@ -107,7 +107,7 @@
       <div class="flex items-center justify-between mb-3">
         <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-tertiary, #78716C);">Folders</span>
         <button @click="showNewFolder = true"
-                class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-stone-100"
+                class="w-6 h-6 flex items-center justify-center rounded-md hover:bg-stone-100 cursor-pointer transition-colors"
                 style="color: var(--text-tertiary, #78716C);"
                 title="New folder">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -162,7 +162,7 @@
                style="border-color: var(--border, #E7E5E4); background: var(--surface-0, #FFF);"
                onfocus="this.style.borderColor='var(--primary, #F97316)'; this.style.boxShadow='0 0 0 3px var(--primary-ring, #FED7AA)'"
                onblur="this.style.borderColor='var(--border, #E7E5E4)'; this.style.boxShadow='none'"
-               hx-get="{% url 'media_library:search' workspace_id=workspace.id %}"
+               hx-get="{% url 'media_library:index' workspace_id=workspace.id %}{% if current_folder %}?folder={{ current_folder }}{% endif %}"
                hx-trigger="keyup changed delay:400ms"
                hx-target="#asset-grid"
                hx-include="[name='q']">
@@ -170,10 +170,10 @@
 
       <!-- Type filters -->
       <div class="flex items-center gap-1.5">
-        <a href="{% url 'media_library:index' workspace_id=workspace.id %}"
+        <a href="{% url 'media_library:index' workspace_id=workspace.id %}{% if current_folder %}?folder={{ current_folder }}{% endif %}"
            class="ml-filter-pill {% if not current_type %}active{% endif %}">All</a>
         {% for type_val, type_label in file_types %}
-        <a href="{% url 'media_library:index' workspace_id=workspace.id %}?type={{ type_val }}"
+        <a href="{% url 'media_library:index' workspace_id=workspace.id %}?type={{ type_val }}{% if current_folder %}&folder={{ current_folder }}{% endif %}"
            class="ml-filter-pill {% if current_type == type_val %}active{% endif %}">{{ type_label }}</a>
         {% endfor %}
       </div>
@@ -182,9 +182,9 @@
 
       <!-- Sort -->
       <select name="sort"
-              class="text-xs border rounded-lg px-3 py-2 outline-none cursor-pointer"
-              style="border-color: var(--border, #E7E5E4); color: var(--text-secondary, #57534E);"
-              hx-get="{% url 'media_library:index' workspace_id=workspace.id %}"
+              class="text-xs border rounded-lg pl-3 pr-7 py-2 outline-none cursor-pointer appearance-none"
+              style="border-color: var(--border, #E7E5E4); color: var(--text-secondary, #57534E); background-image: url(&quot;data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2378716C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 8px center;"
+              hx-get="{% url 'media_library:index' workspace_id=workspace.id %}{% if current_folder %}?folder={{ current_folder }}{% endif %}"
               hx-trigger="change"
               hx-target="#asset-grid"
               hx-include="[name='q'], [name='sort']">
@@ -212,10 +212,7 @@
 
       <!-- Upload button -->
       <button @click="$refs.fileInput.click()"
-              class="inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold text-white rounded-full transition-all cursor-pointer"
-              style="background: var(--primary, #F97316); box-shadow: var(--shadow-primary, 0 4px 14px rgba(249,115,22,0.28));"
-              onmouseenter="this.style.background='var(--primary-hover, #EA580C)'; this.style.transform='translateY(-1px)'"
-              onmouseleave="this.style.background='var(--primary, #F97316)'; this.style.transform='translateY(0)'">
+              class="inline-flex items-center gap-1.5 px-4 py-1.5 text-sm font-semibold text-orange-600 bg-orange-50 border border-orange-200 rounded-full hover:bg-orange-100 hover:border-orange-300 active:bg-orange-100 transition-all duration-150 cursor-pointer">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         Upload
       </button>
@@ -317,6 +314,7 @@ function mediaLibrary() {
     uploadQueue: [],
     detailOpen: false,
     showNewFolder: false,
+    currentFolder: '{{ current_folder|default:"" }}',
 
     handleFiles(files) {
       if (!files || files.length === 0) return;
@@ -355,6 +353,9 @@ function mediaLibrary() {
       this.uploadQueue.forEach((item, index) => {
         const formData = new FormData();
         formData.append('files', item.file);
+        if (this.currentFolder) {
+          formData.append('folder_id', this.currentFolder);
+        }
 
         const xhr = new XMLHttpRequest();
         xhr.upload.addEventListener('progress', (e) => {

@@ -9,6 +9,8 @@
     <div class="w-9 h-9 rounded-lg overflow-hidden flex-shrink-0" style="background: var(--surface-2, #F5F5F4);">
       {% if asset.thumbnail %}
         <img src="{{ asset.thumbnail.url }}" alt="" class="w-full h-full object-cover">
+      {% elif asset.file_type == 'image' or asset.file_type == 'gif' %}
+        <img src="{{ asset.file.url }}" alt="" class="w-full h-full object-cover">
       {% else %}
         <div class="w-full h-full flex items-center justify-center">
           {% if asset.file_type == 'video' %}
