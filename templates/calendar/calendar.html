@@ -4,8 +4,8 @@
 {% block title %}Publish — {{ workspace.name }} — Postbean{% endblock %}
 
 {% block page_header %}
-<div class="flex items-center justify-between mb-[25px]">
-    <h1 class="text-2xl font-semibold text-stone-900" style="letter-spacing: -0.01em;">Publish</h1>
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4 lg:mb-[25px]">
+    <h1 class="text-xl sm:text-2xl font-semibold text-stone-900" style="letter-spacing: -0.01em;">Publish</h1>
 
     <div class="flex items-center gap-3">
         <!-- List / Calendar toggle -->
@@ -44,12 +44,15 @@
 <style>
     /* Calendar-specific styles */
     .cal-day {
-        min-height: 130px;
+        min-height: 80px;
         border-right: 1px solid #E7E5E4;
         border-bottom: 1px solid #E7E5E4;
-        padding: 8px;
+        padding: 6px;
         transition: background 150ms ease;
         background: white;
+    }
+    @media (min-width: 768px) {
+        .cal-day { min-height: 130px; padding: 8px; }
     }
     .cal-day:hover { background: #FAFAF9; }
     .cal-day.past { background: #F5F5F4; }
@@ -132,6 +135,9 @@
     .publish-tab:hover { color: #1C1917; border-bottom-color: #D6D3D1; }
     .publish-tab.active { color: #C2410C; border-bottom-color: #F97316; }
 
+    /* Hide scrollbar on filter containers */
+    .cal-filters-scroll::-webkit-scrollbar { display: none; }
+
     /* Filter dropdowns (shared by list and calendar modes) */
     .publish-filter-select,
     .cal-filter-select {
@@ -141,6 +147,8 @@
         border: 1px solid #E7E5E4;
         cursor: pointer; transition: all 150ms ease;
         appearance: none;
+        white-space: nowrap;
+        flex-shrink: 0;
         background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2378716C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 8px center;

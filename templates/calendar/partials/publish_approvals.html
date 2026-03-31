@@ -39,6 +39,34 @@ All members can view; action buttons shown conditionally based on can_approve pe
                 <input type="checkbox" :value="'{{ post.id }}'" x-model="selectedPosts"
                        class="w-4 h-4 rounded border-stone-300 text-orange-500 focus:ring-orange-300">
                 {% endif %}
+                <!-- Media thumbnail -->
+                {% with first_att=post.media_attachments.all.0 %}
+                {% if first_att %}
+                <div class="w-12 h-12 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 relative">
+                    {% if first_att.media_asset.thumbnail %}
+                        <img src="{{ first_att.media_asset.thumbnail.url }}" alt="" class="w-full h-full object-cover">
+                    {% elif first_att.media_asset.media_type == 'image' or first_att.media_asset.media_type == 'gif' %}
+                        <img src="{{ first_att.media_asset.file.url }}" alt="" class="w-full h-full object-cover">
+                    {% else %}
+                        <div class="w-full h-full flex items-center justify-center">
+                            <svg class="w-4 h-4 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
+                        </div>
+                    {% endif %}
+                    {% if first_att.media_asset.media_type == 'video' and first_att.media_asset.thumbnail %}
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center">
+                            <svg class="w-2.5 h-2.5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% if post.media_attachments.count > 1 %}
+                    <div class="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] font-bold px-1 rounded-tl">
+                        +{{ post.media_attachments.count|add:"-1" }}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endwith %}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
                         <span class="post-chip status-{{ post.status }} inline-flex">

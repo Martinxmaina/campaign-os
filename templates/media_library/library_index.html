@@ -99,10 +99,28 @@
 {% block page_title %}Media Library{% endblock %}
 
 {% block content %}
-<div x-data="mediaLibrary()" class="flex flex-1 min-h-0 -m-6 -mb-6">
+<div x-data="{ ...mediaLibrary(), folderSidebarOpen: false }" class="flex flex-1 min-h-0 -m-3 sm:-m-4 lg:-m-6 -mb-3 sm:-mb-4 lg:-mb-6">
+
+  <!-- Mobile folder sidebar toggle -->
+  <button @click="folderSidebarOpen = !folderSidebarOpen"
+          class="lg:hidden fixed bottom-4 left-4 z-40 flex items-center gap-2 px-3 py-2.5 bg-white border border-stone-200 rounded-xl shadow-lg text-sm font-medium text-stone-600 hover:bg-stone-50 transition-colors cursor-pointer"
+          x-show="!detailOpen">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6a2 2 0 012-2h2l2 2h6a2 2 0 012 2v2M4 6v10a2 2 0 002 2h12a2 2 0 002-2V10a2 2 0 00-2-2H4z"/></svg>
+    Folders
+  </button>
+
+  <!-- Mobile folder sidebar backdrop -->
+  <div x-show="folderSidebarOpen" x-cloak @click="folderSidebarOpen = false"
+       class="fixed inset-0 bg-black/30 z-40 lg:hidden"
+       x-transition:enter="transition ease-out duration-200" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100"
+       x-transition:leave="transition ease-in duration-150" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0"></div>
 
   <!-- ═══════ FOLDER SIDEBAR ═══════ -->
-  <div class="ml-sidebar w-56 flex-shrink-0 flex flex-col overflow-y-auto rounded-tl-xl rounded-bl-xl">
+  <div class="ml-sidebar w-56 flex-shrink-0 flex flex-col overflow-y-auto rounded-tl-xl rounded-bl-xl
+              fixed inset-y-0 left-0 z-50 transition-transform duration-200
+              lg:relative lg:z-auto lg:translate-x-0"
+       :class="folderSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+       @click="if (window.innerWidth < 1024 && $event.target.closest('a')) { folderSidebarOpen = false }">
     <div class="p-4">
       <div class="flex items-center justify-between mb-3">
         <span class="text-xs font-bold uppercase tracking-wider" style="color: var(--text-tertiary, #78716C);">Folders</span>
@@ -149,10 +167,10 @@
   <div class="flex-1 flex flex-col overflow-hidden">
 
     <!-- ── Toolbar ── -->
-    <div class="flex items-center gap-3 px-6 py-3 border-b rounded-tr-xl" style="border-color: var(--border, #E7E5E4); background: var(--surface-0, #FFF);">
+    <div class="flex flex-wrap items-center gap-2 sm:gap-3 px-3 sm:px-4 lg:px-6 py-3 border-b rounded-tr-xl" style="border-color: var(--border, #E7E5E4); background: var(--surface-0, #FFF);">
 
       <!-- Search -->
-      <div class="relative flex-1 max-w-sm">
+      <div class="relative flex-1 min-w-[160px] sm:max-w-sm">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style="color: var(--text-ghost, #A8A29E);" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input type="search"
                name="q"
@@ -169,7 +187,7 @@
       </div>
 
       <!-- Type filters -->
-      <div class="flex items-center gap-1.5">
+      <div class="flex items-center gap-1.5 overflow-x-auto flex-nowrap">
         <a href="{% url 'media_library:index' workspace_id=workspace.id %}{% if current_folder %}?folder={{ current_folder }}{% endif %}"
            class="ml-filter-pill {% if not current_type %}active{% endif %}">All</a>
         {% for type_val, type_label in file_types %}
@@ -222,7 +240,7 @@
 
     <!-- ── Upload Dropzone / Progress ── -->
     <div x-show="uploading || dragOver" x-cloak
-         class="mx-6 mt-4"
+         class="mx-3 sm:mx-4 lg:mx-6 mt-4"
          @dragover.prevent="dragOver = true"
          @dragleave.prevent="dragOver = false"
          @drop.prevent="handleDrop($event)">
@@ -264,7 +282,7 @@
     </div>
 
     <!-- ── Drop target overlay (whole content area) ── -->
-    <div class="flex-1 overflow-y-auto px-6 py-4"
+    <div class="flex-1 overflow-y-auto px-3 sm:px-4 lg:px-6 py-4"
          @dragover.prevent="dragOver = true"
          @dragleave.self.prevent="dragOver = false"
          @drop.prevent="handleDrop($event)">
@@ -288,7 +306,7 @@
          x-transition:leave="transition ease-in duration-150"
          x-transition:leave-start="opacity-100"
          x-transition:leave-end="opacity-0"></div>
-    <div class="relative w-full max-w-lg bg-white shadow-xl overflow-y-auto"
+    <div class="relative w-full sm:max-w-lg bg-white shadow-xl overflow-y-auto"
          x-show="detailOpen"
          x-transition:enter="transition ease-out duration-250"
          x-transition:enter-start="translate-x-full"

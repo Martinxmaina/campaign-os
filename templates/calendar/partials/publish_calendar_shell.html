@@ -3,7 +3,7 @@ Calendar mode shell for the Publish page.
 Toolbar: nav arrows + period + Today + view dropdown | right: filter dropdowns.
 {% endcomment %}
 
-<div class="flex-1 flex flex-col min-h-0 -mx-6"
+<div class="flex-1 flex flex-col min-h-0 -mx-3 sm:-mx-4 lg:-mx-6"
      x-data="{ ...calendarApp(), showEventForm: false, viewOpen: false }"
      @calendar-refresh.window="htmx.trigger('#calendar-content', 'refresh')"
      hx-trigger="calendarRefresh from:body"
@@ -12,7 +12,7 @@ Toolbar: nav arrows + period + Today + view dropdown | right: filter dropdowns.
      hx-swap="innerHTML">
 
     <!-- Toolbar -->
-    <div class="bg-white border-b border-stone-200 px-6 pb-2 flex items-center gap-3">
+    <div class="bg-white border-b border-stone-200 px-3 sm:px-4 lg:px-6 pb-2 flex flex-wrap items-center gap-2 sm:gap-3">
 
         <!-- Left: Navigation arrows + period label + Today + View dropdown -->
         <div class="flex items-center gap-2">
@@ -63,9 +63,9 @@ Toolbar: nav arrows + period + Today + view dropdown | right: filter dropdowns.
         </div>
 
         <!-- Right side: filter dropdowns -->
-        <div class="flex items-center gap-2 ml-auto">
+        <div class="cal-filters-scroll flex items-center gap-2 ml-auto overflow-x-auto flex-nowrap" style="-webkit-overflow-scrolling: touch; scrollbar-width: none;">
             <!-- Status filter -->
-            <div class="relative">
+            <div class="relative flex-shrink-0">
                 <svg class="cal-filter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
                 <select class="cal-filter-select has-icon" name="status">
                     <option value="">All Posts</option>
@@ -76,7 +76,7 @@ Toolbar: nav arrows + period + Today + view dropdown | right: filter dropdowns.
             </div>
 
             <!-- Channels filter -->
-            <div class="relative">
+            <div class="relative flex-shrink-0">
                 <svg class="cal-filter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 006 0v-1a10 10 0 10-3.92 7.94"/></svg>
                 <select class="cal-filter-select has-icon" name="channel">
                     <option value="">Channels</option>
@@ -87,7 +87,7 @@ Toolbar: nav arrows + period + Today + view dropdown | right: filter dropdowns.
             </div>
 
             <!-- Tags filter -->
-            <div class="relative">
+            <div class="relative flex-shrink-0">
                 <svg class="cal-filter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>
                 <select class="cal-filter-select has-icon" name="tag">
                     <option value="">Tags</option>
@@ -98,7 +98,7 @@ Toolbar: nav arrows + period + Today + view dropdown | right: filter dropdowns.
             </div>
 
             <!-- Timezone -->
-            <div class="relative">
+            <div class="relative flex-shrink-0">
                 <svg class="cal-filter-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                 <select class="cal-filter-select has-icon" name="tz">
                     {% for tz in timezone_choices %}

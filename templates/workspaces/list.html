@@ -53,7 +53,7 @@
         box-shadow: var(--shadow-xs);
     ">
         <h3 style="font-size: 0.875rem; font-weight: 600; color: var(--text-primary); margin-bottom: 12px;">New workspace</h3>
-        <form method="post" action="{% url 'workspaces:create' %}" style="display: flex; gap: 10px; align-items: flex-end;">
+        <form method="post" action="{% url 'workspaces:create' %}" class="flex flex-col sm:flex-row gap-2.5 sm:items-end">
             {% csrf_token %}
             <div style="flex: 1;">
                 <input
