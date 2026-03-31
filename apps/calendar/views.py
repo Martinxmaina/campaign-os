@@ -178,7 +178,11 @@ def _apply_publish_filters(qs, request):
 def calendar_view(request, workspace_id):
     """Main publish page — renders calendar or list mode."""
     workspace = _get_workspace(request, workspace_id)
-    mode = request.GET.get("mode", "calendar")
+    has_connected_accounts = SocialAccount.objects.filter(
+        workspace=workspace, connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+    ).exists()
+    default_mode = "calendar" if has_connected_accounts else "list"
+    mode = request.GET.get("mode", default_mode)
     active_tab = request.GET.get("tab", "queue")
     view_type = request.GET.get("view", "month")
     target_date = _parse_date(request.GET.get("date"))
