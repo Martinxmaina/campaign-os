@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from .base import SocialProvider
@@ -11,6 +12,7 @@ from .types import (
     AccountProfile,
     AuthType,
     CommentResult,
+    InboxMessage,
     MediaType,
     OAuthTokens,
     PostMetrics,
@@ -18,6 +20,7 @@ from .types import (
     PublishContent,
     PublishResult,
     RateLimitConfig,
+    ReplyResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -282,6 +285,119 @@ class YouTubeProvider(SocialProvider):
             platform_comment_id=comment_id,
             extra=body,
         )
+
+    # ------------------------------------------------------------------
+    # Inbox
+    # ------------------------------------------------------------------
+
+    def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
+        # Resolve channel ID
+        ch_resp = self._request(
+            "GET",
+            f"{API_BASE}/channels",
+            access_token=access_token,
+            params={"part": "id", "mine": "true"},
+        )
+        ch_items = ch_resp.json().get("items", [])
+        if not ch_items:
+            return []
+        channel_id = ch_items[0]["id"]
+
+        messages: list[InboxMessage] = []
+        page_token: str | None = None
+
+        while True:
+            params: dict = {
+                "part": "snippet,replies",
+                "allThreadsRelatedToChannelId": channel_id,
+                "maxResults": 100,
+                "order": "time",
+            }
+            if page_token:
+                params["pageToken"] = page_token
+
+            resp = self._request(
+                "GET",
+                f"{API_BASE}/commentThreads",
+                access_token=access_token,
+                params=params,
+            )
+            body = resp.json()
+
+            for thread in body.get("items", []):
+                top_snippet = thread["snippet"]["topLevelComment"]["snippet"]
+                published = datetime.fromisoformat(
+                    top_snippet["publishedAt"].replace("Z", "+00:00")
+                )
+
+                if since and published < since:
+                    continue
+
+                top_comment_id = thread["snippet"]["topLevelComment"]["id"]
+                video_id = top_snippet["videoId"]
+
+                messages.append(
+                    InboxMessage(
+                        platform_message_id=top_comment_id,
+                        sender_id=top_snippet.get("authorChannelId", {}).get("value", ""),
+                        sender_name=top_snippet.get("authorDisplayName", ""),
+                        text=top_snippet.get("textDisplay", ""),
+                        timestamp=published,
+                        message_type="comment",
+                        extra={
+                            "video_id": video_id,
+                            "comment_id": top_comment_id,
+                            "sender_avatar_url": top_snippet.get("authorProfileImageUrl", ""),
+                        },
+                    )
+                )
+
+                # Include reply comments in the thread
+                for reply in thread.get("replies", {}).get("comments", []):
+                    r_snippet = reply["snippet"]
+                    r_published = datetime.fromisoformat(
+                        r_snippet["publishedAt"].replace("Z", "+00:00")
+                    )
+                    if since and r_published < since:
+                        continue
+                    messages.append(
+                        InboxMessage(
+                            platform_message_id=reply["id"],
+                            sender_id=r_snippet.get("authorChannelId", {}).get("value", ""),
+                            sender_name=r_snippet.get("authorDisplayName", ""),
+                            text=r_snippet.get("textDisplay", ""),
+                            timestamp=r_published,
+                            message_type="comment",
+                            extra={
+                                "video_id": video_id,
+                                "comment_id": reply["id"],
+                                "parent_id": top_comment_id,
+                                "sender_avatar_url": r_snippet.get("authorProfileImageUrl", ""),
+                            },
+                        )
+                    )
+
+            page_token = body.get("nextPageToken")
+            if not page_token:
+                break
+
+        return messages
+
+    def reply_to_message(self, access_token: str, message_id: str, text: str, extra: dict | None = None) -> ReplyResult:
+        resp = self._request(
+            "POST",
+            f"{API_BASE}/comments",
+            access_token=access_token,
+            params={"part": "snippet"},
+            json={
+                "snippet": {
+                    "parentId": message_id,
+                    "textOriginal": text,
+                }
+            },
+        )
+        body = resp.json()
+        return ReplyResult(platform_message_id=body.get("id", ""), extra=body)
 
     # ------------------------------------------------------------------
     # Analytics

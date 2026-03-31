@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 from .base import SocialProvider
@@ -10,12 +11,14 @@ from .exceptions import OAuthError, PublishError
 from .types import (
     AccountProfile,
     AuthType,
+    InboxMessage,
     MediaType,
     OAuthTokens,
     PostType,
     PublishContent,
     PublishResult,
     RateLimitConfig,
+    ReplyResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -64,7 +67,7 @@ class TikTokProvider(SocialProvider):
 
     @property
     def required_scopes(self) -> list[str]:
-        return ["user.info.basic", "video.publish", "video.upload"]
+        return ["user.info.basic", "video.publish", "video.upload", "comment.list", "comment.list.manage"]
 
     @property
     def rate_limits(self) -> RateLimitConfig:
@@ -275,6 +278,97 @@ class TikTokProvider(SocialProvider):
         return PublishResult(
             platform_post_id=publish_id,
             extra=init_body.get("data", {}),
+        )
+
+    # ------------------------------------------------------------------
+    # Inbox
+    # ------------------------------------------------------------------
+
+    def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
+        # Fetch recent videos
+        resp = self._request(
+            "POST",
+            f"{API_BASE}/video/list/",
+            access_token=access_token,
+            json={"max_count": 20},
+        )
+        videos = resp.json().get("data", {}).get("videos", [])
+
+        messages: list[InboxMessage] = []
+
+        for video in videos:
+            video_id = video.get("id", "")
+            if not video_id:
+                continue
+
+            cursor = 0
+            while True:
+                c_resp = self._request(
+                    "POST",
+                    f"{API_BASE}/comment/list/",
+                    access_token=access_token,
+                    json={"video_id": video_id, "max_count": 50, "cursor": cursor},
+                )
+                c_data = c_resp.json().get("data", {})
+                comments = c_data.get("comments", [])
+                if not comments:
+                    break
+
+                for comment in comments:
+                    created = datetime.fromtimestamp(
+                        comment.get("create_time", 0), tz=timezone.utc
+                    )
+                    if since and created < since:
+                        continue
+
+                    user = comment.get("user", {})
+                    comment_id = comment.get("id", "")
+
+                    messages.append(
+                        InboxMessage(
+                            platform_message_id=comment_id,
+                            sender_id=user.get("open_id", user.get("unique_id", "")),
+                            sender_name=user.get("display_name", ""),
+                            text=comment.get("text", ""),
+                            timestamp=created,
+                            message_type="comment",
+                            extra={
+                                "video_id": video_id,
+                                "comment_id": comment_id,
+                                "sender_avatar_url": user.get("avatar_url", ""),
+                            },
+                        )
+                    )
+
+                if not c_data.get("has_more", False):
+                    break
+                cursor = c_data.get("cursor", 0)
+
+        return messages
+
+    def reply_to_message(self, access_token: str, message_id: str, text: str, extra: dict | None = None) -> ReplyResult:
+        extra = extra or {}
+        video_id = extra.get("video_id", "")
+        if not video_id:
+            raise PublishError(
+                "video_id required in extra for TikTok reply",
+                platform=self.platform_name,
+            )
+
+        resp = self._request(
+            "POST",
+            f"{API_BASE}/comment/reply/create/",
+            access_token=access_token,
+            json={
+                "video_id": video_id,
+                "comment_id": message_id,
+                "text": text,
+            },
+        )
+        data = resp.json().get("data", {})
+        return ReplyResult(
+            platform_message_id=data.get("comment_id", ""),
+            extra=data,
         )
 
     # ------------------------------------------------------------------

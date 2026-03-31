@@ -230,6 +230,7 @@ def send_reply(request, workspace_id, message_id):
             access_token=account.oauth_access_token,
             message_id=message.platform_message_id,
             text=body,
+            extra=message.extra,
         )
         platform_reply_id = result.platform_message_id
     except NotImplementedError:

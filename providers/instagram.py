@@ -419,7 +419,7 @@ class InstagramProvider(SocialProvider):
                 )
         return messages
 
-    def reply_to_message(self, access_token: str, message_id: str, text: str) -> ReplyResult:
+    def reply_to_message(self, access_token: str, message_id: str, text: str, extra: dict | None = None) -> ReplyResult:
         """Reply to a conversation. message_id should be the conversation ID."""
         resp = self._request(
             "POST",

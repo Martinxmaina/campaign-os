@@ -408,12 +408,12 @@ Facebook, Instagram, and Threads all use the same Meta app credentials.
 ### TikTok
 
 1. Go to the [TikTok Developer Portal](https://developers.tiktok.com/) and create a new app
-2. Add the products **Login Kit** and **Content Posting API**
+2. Add the products **Login Kit**, **Content Posting API**, and **Comment API**
 3. Configure the redirect URI under your app's settings:
    ```
    {APP_URL}/social-accounts/callback/tiktok/
    ```
-4. Required scopes: `user.info.basic`, `video.publish`, `video.upload`
+4. Required scopes: `user.info.basic`, `video.publish`, `video.upload`, `comment.list`, `comment.list.manage`
 5. Note: TikTok uses **Client Key** (not Client ID). Copy the **Client Key** and **Client Secret** from your app dashboard
 6. Set the environment variables:
    ```
@@ -471,6 +471,32 @@ No developer app registration needed. Users connect by entering their Bluesky ha
 ### Mastodon
 
 No developer app registration needed. Postbean automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
+
+## Inbox Support
+
+| Platform | Fetch Comments | Reply to Comments | DMs |
+|----------|---------------|-------------------|-----|
+| Facebook | Yes | Yes | Yes |
+| Instagram | Yes | Yes | Yes |
+| YouTube | Yes | Yes | No |
+| LinkedIn | Yes | Yes | No |
+| TikTok | Yes | Yes* | No |
+| Mastodon | Yes | Yes | No |
+
+\*TikTok replies require the `comment.list.manage` scope, which must be approved by TikTok.
+
+### Backfill Historical Messages
+
+To import historical messages (e.g., from the last 7 days):
+
+```bash
+python manage.py backfill_inbox --days 7
+```
+
+Options:
+- `--days N` — Number of days to backfill (default: 7)
+- `--platform NAME` — Only backfill a specific platform (e.g., `youtube`, `linkedin`, `tiktok`)
+- `--account-id UUID` — Only backfill a specific account
 
 ## Tech Stack
 

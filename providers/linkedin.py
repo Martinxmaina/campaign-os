@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 from urllib.parse import urlencode
 
 import httpx
@@ -13,6 +14,7 @@ from .types import (
     AccountProfile,
     AuthType,
     CommentResult,
+    InboxMessage,
     MediaType,
     OAuthTokens,
     PostMetrics,
@@ -20,6 +22,7 @@ from .types import (
     PublishContent,
     PublishResult,
     RateLimitConfig,
+    ReplyResult,
 )
 
 logger = logging.getLogger(__name__)
@@ -426,6 +429,117 @@ class LinkedInProvider(SocialProvider):
         data = resp.json()
         comment_urn = resp.headers.get("x-restli-id", data.get("id", ""))
         return CommentResult(platform_comment_id=comment_urn, extra=data)
+
+    # ------------------------------------------------------------------
+    # Inbox
+    # ------------------------------------------------------------------
+
+    def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
+        # Determine author URN
+        profile = self.get_profile(access_token)
+        author = f"urn:li:person:{profile.platform_id}"
+
+        # Fetch recent posts by this author
+        params: dict = {"q": "author", "author": author, "count": 20}
+        resp = self._request(
+            "GET",
+            f"{API_BASE}/rest/posts",
+            access_token=access_token,
+            headers=LINKEDIN_HEADERS,
+            params=params,
+        )
+        posts = resp.json().get("elements", [])
+
+        messages: list[InboxMessage] = []
+
+        for post in posts:
+            post_urn = post.get("id", "")
+            if not post_urn:
+                continue
+
+            # Fetch comments on this post
+            start = 0
+            while True:
+                c_resp = self._request(
+                    "GET",
+                    f"{API_BASE}/rest/socialActions/{post_urn}/comments",
+                    access_token=access_token,
+                    headers=LINKEDIN_HEADERS,
+                    params={"start": start, "count": 100},
+                )
+                c_data = c_resp.json()
+                elements = c_data.get("elements", [])
+                if not elements:
+                    break
+
+                for comment in elements:
+                    created_at_ms = comment.get("created", {}).get("time", 0)
+                    created_at = datetime.fromtimestamp(created_at_ms / 1000, tz=timezone.utc)
+
+                    if since and created_at < since:
+                        continue
+
+                    actor_urn = comment.get("actor", "")
+                    comment_urn = comment.get("$URN", comment.get("id", ""))
+                    comment_text = comment.get("message", {}).get("text", "")
+
+                    # Use actor~ expansion if available, otherwise fall back to URN
+                    actor_info = comment.get("actor~", {})
+                    sender_name = (
+                        actor_info.get("name")
+                        or actor_info.get("localizedFirstName", "")
+                        or actor_urn
+                    )
+
+                    messages.append(
+                        InboxMessage(
+                            platform_message_id=comment_urn,
+                            sender_id=actor_urn,
+                            sender_name=sender_name,
+                            text=comment_text,
+                            timestamp=created_at,
+                            message_type="comment",
+                            extra={
+                                "post_urn": post_urn,
+                                "comment_urn": comment_urn,
+                                "actor_urn": actor_urn,
+                            },
+                        )
+                    )
+
+                # Check if there are more comments
+                if len(elements) < 100:
+                    break
+                start += 100
+
+        return messages
+
+    def reply_to_message(self, access_token: str, message_id: str, text: str, extra: dict | None = None) -> ReplyResult:
+        extra = extra or {}
+        post_urn = extra.get("post_urn", "")
+        if not post_urn:
+            raise APIError(
+                "post_urn required in extra for LinkedIn reply",
+                platform=self.platform_name,
+            )
+
+        profile = self.get_profile(access_token)
+        actor = f"urn:li:person:{profile.platform_id}"
+
+        resp = self._request(
+            "POST",
+            f"{API_BASE}/rest/socialActions/{post_urn}/comments",
+            access_token=access_token,
+            headers=LINKEDIN_HEADERS,
+            json={
+                "actor": actor,
+                "message": {"text": text},
+                "parentComment": message_id,
+            },
+        )
+        data = resp.json()
+        comment_urn = resp.headers.get("x-restli-id", data.get("id", ""))
+        return ReplyResult(platform_message_id=comment_urn, extra=data)
 
     # ------------------------------------------------------------------
     # Analytics
