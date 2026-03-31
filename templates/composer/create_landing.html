@@ -737,7 +737,9 @@
                         </div>
                         <span style="width: 1px; height: 20px; background: var(--border);"></span>
                     </span>
-                    <button type="button" @click="closeCreateModal()"
+                    <button type="button" @click="createPostFromIdea($event, 'create')"
+                            :disabled="createMediaUploadCount > 0 || isCreateSaving"
+                            :class="(createMediaUploadCount > 0 || isCreateSaving) && 'opacity-50 cursor-not-allowed'"
                             class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
                             style="background: var(--neutral-100); color: var(--text-primary);"
                             onmouseenter="this.style.background='var(--neutral-200)'"
@@ -916,7 +918,9 @@
                             onmouseleave="this.style.background='transparent'">
                         Delete
                     </button>
-                    <button type="button" @click="editingIdea = null"
+                    <button type="button" @click="createPostFromIdea($event, 'edit')"
+                            :disabled="editMediaUploadCount > 0 || isEditSaving"
+                            :class="(editMediaUploadCount > 0 || isEditSaving) && 'opacity-50 cursor-not-allowed'"
                             class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer"
                             style="background: var(--neutral-100); color: var(--text-primary);"
                             onmouseenter="this.style.background='var(--neutral-200)'"
@@ -1612,6 +1616,66 @@ function kanbanBoard() {
                 })
                 .finally(() => {
                     this.isEditSaving = false;
+                });
+        },
+
+        createPostFromIdea(event, mode) {
+            var isEdit = mode === 'edit';
+            var mediaUploadCount = isEdit ? this.editMediaUploadCount : this.createMediaUploadCount;
+            var isSaving = isEdit ? this.isEditSaving : this.isCreateSaving;
+            if (mediaUploadCount > 0 || isSaving) return;
+
+            var formEl = event && event.target ? event.target.closest('form') : null;
+            if (!formEl) return;
+
+            if (isEdit) this.isEditSaving = true;
+            else this.isCreateSaving = true;
+
+            var ideaPayload = null;
+            this._submitIdeaMutation(formEl)
+                .then((payload) => {
+                    ideaPayload = payload || {};
+                    if (!ideaPayload.idea_id) {
+                        throw new Error('Could not save the idea before creating a post.');
+                    }
+                    if (!this._upsertIdeaCard(ideaPayload, { prepend: true })) {
+                        return this.refreshBoardHard();
+                    }
+                })
+                .then(() => {
+                    this._refreshColumnMeta();
+                    return this._createPostFromIdea(ideaPayload.idea_id);
+                })
+                .then((payload) => {
+                    if (!payload || !payload.compose_url) {
+                        throw new Error('Could not open the composer for this idea.');
+                    }
+                    if (isEdit) {
+                        this.editingIdea = null;
+                    } else {
+                        formEl.reset();
+                        this.closeCreateModal();
+                    }
+                    window.location.href = payload.compose_url;
+                })
+                .catch((error) => {
+                    window.alert(error && error.message ? error.message : 'Could not create a post from this idea. Please try again.');
+                    this.refreshBoardHard().catch(function() {});
+                })
+                .finally(() => {
+                    if (isEdit) this.isEditSaving = false;
+                    else this.isCreateSaving = false;
+                });
+        },
+
+        _createPostFromIdea(ideaId) {
+            if (!ideaId) return Promise.reject(new Error('Idea is missing.'));
+            return this._requestKanbanMutation('/workspace/{{ workspace.id }}/ideas/' + ideaId + '/create-post/', {})
+                .then((payload) => {
+                    if (!payload || !payload.ok || !payload.post_id || !payload.compose_url) {
+                        throw new Error('Could not create a post from this idea.');
+                    }
+                    return payload;
                 });
         },
 

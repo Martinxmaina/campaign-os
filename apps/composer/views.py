@@ -1319,6 +1319,92 @@ def idea_edit(request, workspace_id, idea_id):
 @login_required
 @require_permission("create_posts")
 @require_POST
+def idea_create_post(request, workspace_id, idea_id):
+    """Create a new draft post from an idea and return composer redirect metadata."""
+    workspace = _get_workspace(request, workspace_id)
+    idea = get_object_or_404(
+        Idea.objects.for_workspace(workspace.id)
+        .select_related("media_asset")
+        .prefetch_related("media_attachments__media_asset"),
+        id=idea_id,
+    )
+
+    tags = []
+    if isinstance(idea.tags, list):
+        tags = [tag.strip() for tag in idea.tags if isinstance(tag, str) and tag.strip()]
+
+    ordered_media_asset_ids = []
+    seen_media_ids = set()
+    for attachment in idea.media_attachments.all():
+        if not attachment.media_asset_id:
+            continue
+        media_id = str(attachment.media_asset_id)
+        if media_id in seen_media_ids:
+            continue
+        seen_media_ids.add(media_id)
+        ordered_media_asset_ids.append(media_id)
+
+    # Legacy fallback: old ideas may only have the single media pointer set.
+    if not ordered_media_asset_ids and idea.media_asset_id:
+        ordered_media_asset_ids.append(str(idea.media_asset_id))
+
+    connected_accounts = list(
+        SocialAccount.objects.for_workspace(workspace.id)
+        .filter(connection_status=SocialAccount.ConnectionStatus.CONNECTED)
+        .order_by("platform", "account_name", "id")
+    )
+
+    with transaction.atomic():
+        post = Post.objects.create(
+            workspace=workspace,
+            author=request.user,
+            status=Post.Status.DRAFT,
+            title=idea.title or "",
+            caption=idea.description or "",
+            tags=tags,
+        )
+
+        if ordered_media_asset_ids:
+            PostMedia.objects.bulk_create(
+                [
+                    PostMedia(
+                        post=post,
+                        media_asset_id=asset_id,
+                        position=index,
+                    )
+                    for index, asset_id in enumerate(ordered_media_asset_ids)
+                ]
+            )
+
+        if connected_accounts:
+            PlatformPost.objects.bulk_create(
+                [
+                    PlatformPost(
+                        post=post,
+                        social_account=account,
+                    )
+                    for account in connected_accounts
+                ]
+            )
+
+        idea.post = post
+        idea.save(update_fields=["post", "updated_at"])
+
+    from django.urls import reverse
+
+    compose_url = reverse("composer:compose_edit", kwargs={"workspace_id": workspace.id, "post_id": post.id})
+    return JsonResponse(
+        {
+            "ok": True,
+            "post_id": str(post.id),
+            "compose_url": compose_url,
+        }
+    )
+
+
+@login_required
+@require_permission("create_posts")
+@require_POST
 def idea_delete(request, workspace_id, idea_id):
     """Delete an idea via HTMX."""
     workspace = _get_workspace(request, workspace_id)

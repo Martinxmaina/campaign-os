@@ -10,6 +10,7 @@ urlpatterns = [
     # Idea CRUD (HTMX endpoints)
     path("ideas/upload-media/", views.idea_upload_media, name="idea_upload_media"),
     path("ideas/create/", views.idea_create, name="idea_create"),
+    path("ideas/<uuid:idea_id>/create-post/", views.idea_create_post, name="idea_create_post"),
     path("ideas/<uuid:idea_id>/edit/", views.idea_edit, name="idea_edit"),
     path("ideas/<uuid:idea_id>/delete/", views.idea_delete, name="idea_delete"),
     path("ideas/<uuid:idea_id>/move/", views.idea_move, name="idea_move"),
