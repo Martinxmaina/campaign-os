@@ -112,8 +112,8 @@ Shows all scheduled posts grouped by date. Loaded via HTMX into #tab-content.
         <div class="w-16 h-16 mx-auto rounded-2xl bg-stone-100 flex items-center justify-center mb-4">
             <svg class="w-7 h-7 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         </div>
-        <p class="text-sm font-medium text-stone-500 mb-1">No scheduled posts</p>
-        <p class="text-xs text-stone-400 mb-5 max-w-[240px] mx-auto">Scheduled posts will appear here when you schedule or queue them</p>
+        <p class="text-sm font-medium text-stone-500 mb-1">No queued posts</p>
+        <p class="text-xs text-stone-400 mb-5 max-w-[240px] mx-auto">Queued posts will appear here when you queue them</p>
         <a href="{% url 'composer:compose' workspace_id=workspace.id %}"
            class="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-semibold text-white bg-orange-500 rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:bg-orange-600 hover:shadow-[0_6px_20px_rgba(249,115,22,0.35)] hover:-translate-y-px transition-all duration-150">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
