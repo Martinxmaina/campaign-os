@@ -134,13 +134,28 @@ def _handle_name_update(request, user):
 
 def _handle_password_update(request, user):
     """Handle password change."""
+    current_password = request.POST.get("current_password", "")
     password = request.POST.get("password", "")
+    password_confirm = request.POST.get("password_confirm", "")
+
+    if not current_password:
+        messages.error(request, "Current password is required.")
+        return
+
+    if not user.check_password(current_password):
+        messages.error(request, "Current password is incorrect.")
+        return
+
     if not password:
-        messages.error(request, "Password cannot be empty.")
+        messages.error(request, "New password cannot be empty.")
         return
 
     if len(password) < 8:
-        messages.error(request, "Password must be at least 8 characters.")
+        messages.error(request, "New password must be at least 8 characters.")
+        return
+
+    if password != password_confirm:
+        messages.error(request, "New passwords do not match.")
         return
 
     user.set_password(password)
