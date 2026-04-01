@@ -96,6 +96,10 @@ def accept_invitation(invitation, user):
     if invitation.is_accepted:
         raise ValueError("This invitation has already been accepted.")
 
+    # Verify the accepting user's email matches the invitation
+    if user.email.lower() != invitation.email.lower():
+        raise ValueError("This invitation was sent to a different email address.")
+
     # Create org membership (skip if exists, e.g. user was already added)
     org_membership, created = OrgMembership.objects.get_or_create(
         user=user,

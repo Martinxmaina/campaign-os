@@ -1,6 +1,7 @@
 from allauth.account.signals import user_signed_up
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.utils import timezone
 
 
 def provision_organization_and_workspace(user):
@@ -9,12 +10,22 @@ def provision_organization_and_workspace(user):
     Skips if the user already belongs to an organization (e.g. invited users).
     Safe to call multiple times — the guard is idempotent.
     """
-    from apps.members.models import OrgMembership, WorkspaceMembership
+    from apps.members.models import Invitation, OrgMembership, WorkspaceMembership
     from apps.organizations.models import Organization
     from apps.workspaces.models import Workspace
 
     # Skip if user was invited to an existing org or already provisioned
     if OrgMembership.objects.filter(user=user).exists():
+        return
+
+    # Skip if there's a pending invitation for this email — the user_signed_up
+    # signal will handle invite acceptance. This prevents post_save (which fires
+    # before user_signed_up) from creating a default org for invited users.
+    if Invitation.objects.filter(
+        email__iexact=user.email,
+        accepted_at__isnull=True,
+        expires_at__gt=timezone.now(),
+    ).exists():
         return
 
     org = Organization.objects.create(
