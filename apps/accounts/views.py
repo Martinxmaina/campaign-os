@@ -1,8 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import ValidationError
-from django.core.validators import validate_email
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_http_methods
@@ -49,8 +47,6 @@ def account_settings(request):
             _handle_photo_update(request, user)
         elif action == "update_name":
             _handle_name_update(request, user)
-        elif action == "update_email":
-            _handle_email_update(request, user)
         elif action == "update_password":
             _handle_password_update(request, user)
         elif action == "delete_account":
@@ -134,32 +130,6 @@ def _handle_name_update(request, user):
     user.save(update_fields=["name"])
     messages.success(request, "Name updated.")
 
-
-def _handle_email_update(request, user):
-    """Handle email change with uniqueness validation."""
-    from apps.accounts.models import User
-
-    email = request.POST.get("email", "").strip().lower()
-    if not email:
-        messages.error(request, "Email cannot be empty.")
-        return
-
-    try:
-        validate_email(email)
-    except ValidationError:
-        messages.error(request, "Please enter a valid email address.")
-        return
-
-    if email == user.email:
-        return  # No change
-
-    if User.objects.filter(email=email).exclude(pk=user.pk).exists():
-        messages.error(request, "This email is already in use.")
-        return
-
-    user.email = email
-    user.save(update_fields=["email"])
-    messages.success(request, "Email updated.")
 
 
 def _handle_password_update(request, user):

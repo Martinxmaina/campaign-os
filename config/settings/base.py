@@ -108,7 +108,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # Database
 DATABASES = {
-    "default": env.db("DATABASE_URL", default="postgres://postgres:postgres@localhost:5432/postbean"),
+    "default": env.db("DATABASE_URL", default="postgres://postgres:postgres@localhost:5432/brightbean"),
 }
 
 # Custom user model
@@ -233,7 +233,7 @@ MEDIA_LIBRARY_FFMPEG_TIMEOUT = 300  # 5 minutes
 MEDIA_LIBRARY_MAX_CONCURRENT_TRANSCODES = 2
 
 # Encryption key derivation salt
-ENCRYPTION_KEY_SALT = b"postbean-field-encryption-v1"
+ENCRYPTION_KEY_SALT = b"brightbean-field-encryption-v1"
 
 # Sentry
 SENTRY_DSN = env("SENTRY_DSN")

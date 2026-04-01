@@ -1,5 +1,5 @@
 {% extends "layouts/settings.html" %}
-{% block title %}Profile — Settings — Postbean{% endblock %}
+{% block title %}Profile — Settings — Brightbean{% endblock %}
 {% block content %}
 <div class="max-w-2xl">
     <h2 class="text-xl font-semibold mb-8" style="color: var(--text-primary);">Profile</h2>
@@ -76,31 +76,11 @@
         </div>
     </form>
 
-    <!-- Email section -->
-    <form method="POST" class="mb-10">
-        {% csrf_token %}
-        <input type="hidden" name="action" value="update_email">
-        <div class="flex items-end gap-4">
-            <div class="flex-1">
-                <label for="email" class="block text-sm font-semibold mb-2" style="color: var(--text-primary);">Email</label>
-                <div class="relative">
-                    <input type="email" id="email" name="email" value="{{ user.email }}" required
-                           class="w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors"
-                           style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);"
-                           onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'"
-                           onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
-                    <svg class="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="color: var(--success);"><polyline points="20 6 9 17 4 12"/></svg>
-                </div>
-            </div>
-            <button type="submit"
-                    class="px-5 py-2 text-sm font-medium rounded-full transition-colors cursor-pointer whitespace-nowrap"
-                    style="background: var(--neutral-100); color: var(--text-primary);"
-                    onmouseenter="this.style.background='var(--neutral-200)'"
-                    onmouseleave="this.style.background='var(--neutral-100)'">
-                Save Changes
-            </button>
-        </div>
-    </form>
+    <!-- Email (read-only) -->
+    <div class="mb-10">
+        <label class="block text-sm font-semibold mb-2" style="color: var(--text-primary);">Email</label>
+        <p class="text-sm" style="color: var(--text-secondary);">{{ user.email }}</p>
+    </div>
 
     <!-- Password section -->
     <form method="POST" class="mb-10">
@@ -159,7 +139,7 @@
             <div>
                 <h3 class="text-base font-semibold mb-1" style="color: var(--text-primary);">Delete your account</h3>
                 <p class="text-sm" style="color: var(--text-secondary); max-width: 480px;">
-                    When you delete your account, you lose access to Postbean account services, and we permanently delete your personal data.
+                    When you delete your account, you lose access to Brightbean account services, and we permanently delete your personal data.
                 </p>
             </div>
 

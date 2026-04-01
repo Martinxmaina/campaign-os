@@ -102,10 +102,10 @@ class MastodonProvider(SocialProvider):
             "POST",
             url,
             json={
-                "client_name": "PostBean",
+                "client_name": "Brightbean",
                 "redirect_uris": redirect_uri,
                 "scopes": " ".join(self.required_scopes),
-                "website": "https://postbean.app",
+                "website": "https://brightbean.xyz",
             },
         )
         data = resp.json()

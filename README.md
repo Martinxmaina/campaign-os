@@ -1,19 +1,19 @@
-# Postbean
+# Brightbean
 
 Open-source, self-hostable social media management platform built for agencies and SMBs. Supports Facebook, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Threads, Bluesky, Google Business Profile, and Mastodon.
 
 ## Quick Start (Docker)
 
 ```bash
-git clone https://github.com/yourorg/postbean.git
-cd postbean
+git clone https://github.com/brightbeanxyz/brightbean-social-management.git
+cd brightbean-social-management
 cp .env.example .env
 ```
 
 Edit `.env` — change `DATABASE_URL` to point to the Docker service name:
 
 ```
-DATABASE_URL=postgres://postgres:postgres@postgres:5432/postbean
+DATABASE_URL=postgres://postgres:postgres@postgres:5432/brightbean
 ```
 
 Then start everything:
@@ -41,8 +41,8 @@ Use Docker only for PostgreSQL, run Django on your host for faster iteration.
 **1. Clone and configure**
 
 ```bash
-git clone https://github.com/yourorg/postbean.git
-cd postbean
+git clone https://github.com/brightbeanxyz/brightbean-social-management.git
+cd brightbean-social-management
 cp .env.example .env
 ```
 
@@ -147,8 +147,8 @@ Run everything natively — no Docker, no PostgreSQL install. Uses SQLite for th
 **1. Clone and configure**
 
 ```bash
-git clone https://github.com/yourorg/postbean.git
-cd postbean
+git clone https://github.com/brightbeanxyz/brightbean-social-management.git
+cd brightbean-social-management
 cp .env.example .env
 ```
 
@@ -255,15 +255,15 @@ ruff format .
 
 ```bash
 # On your server:
-git clone https://github.com/yourorg/postbean.git
-cd postbean
+git clone https://github.com/brightbeanxyz/brightbean-social-management.git
+cd brightbean-social-management
 cp .env.example .env
 # Edit .env:
 #   SECRET_KEY=<generate a random 50+ char string>
 #   DEBUG=false
 #   ALLOWED_HOSTS=yourdomain.com
 #   APP_URL=https://yourdomain.com
-#   DATABASE_URL=postgres://postgres:<strong-password>@postgres:5432/postbean
+#   DATABASE_URL=postgres://postgres:<strong-password>@postgres:5432/brightbean
 
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 docker compose exec app python manage.py migrate
@@ -295,7 +295,7 @@ See `architecture.md` for detailed per-platform instructions and cost breakdowns
 ## Project Structure
 
 ```
-postbean/
+brightbean-social-management/
 ├── config/
 │   ├── settings/
 │   │   ├── base.py            # Shared settings
@@ -358,7 +358,7 @@ To connect social media accounts, you need API credentials from each platform's 
 {APP_URL}/social-accounts/callback/{platform}/
 ```
 
-For example, if your `APP_URL` is `https://postbean.example.com`, the Facebook redirect URI would be `https://postbean.example.com/social-accounts/callback/facebook/`.
+For example, if your `APP_URL` is `https://brightbean.example.com`, the Facebook redirect URI would be `https://brightbean.example.com/social-accounts/callback/facebook/`.
 
 ### Meta (Facebook, Instagram, Threads)
 
@@ -466,11 +466,11 @@ No developer app registration needed. Users connect by entering their Bluesky ha
 
 1. Log in to [Bluesky](https://bsky.app/)
 2. Go to **Settings → App Passwords**
-3. Create a new app password and use it when connecting your account in Postbean
+3. Create a new app password and use it when connecting your account in Brightbean
 
 ### Mastodon
 
-No developer app registration needed. Postbean automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
+No developer app registration needed. Brightbean automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
 
 ## Inbox Support
 

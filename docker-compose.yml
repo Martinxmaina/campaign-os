@@ -11,7 +11,7 @@ services:
       - .env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.development
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postbean
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/brightbean
     depends_on:
       postgres:
         condition: service_healthy
@@ -26,7 +26,7 @@ services:
       - .env
     environment:
       - DJANGO_SETTINGS_MODULE=config.settings.development
-      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/postbean
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/brightbean
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,7 +36,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: postbean
+      POSTGRES_DB: brightbean
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:

@@ -34,7 +34,7 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_DB: postbean_test
+          POSTGRES_DB: brightbean_test
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
@@ -47,7 +47,7 @@ jobs:
     env:
       DJANGO_SETTINGS_MODULE: config.settings.test
       SECRET_KEY: test-secret-key-not-for-production
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postbean_test
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/brightbean_test
       DB_HOST: localhost
       DB_USER: postgres
       DB_PASSWORD: postgres
@@ -69,6 +69,6 @@ jobs:
         with:
           context: .
           push: false
-          tags: postbean:latest
+          tags: brightbean:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max

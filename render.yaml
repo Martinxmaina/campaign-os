@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: postbean-web
+    name: brightbean-web
     runtime: docker
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health/
@@ -11,13 +11,13 @@ services:
         generateValue: true
       - key: DATABASE_URL
         fromDatabase:
-          name: postbean-db
+          name: brightbean-db
           property: connectionString
       - key: STORAGE_BACKEND
         value: s3
 
   - type: worker
-    name: postbean-worker
+    name: brightbean-worker
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerCommand: python manage.py process_tasks
@@ -26,14 +26,14 @@ services:
         value: config.settings.production
       - key: SECRET_KEY
         fromService:
-          name: postbean-web
+          name: brightbean-web
           type: web
           envVarKey: SECRET_KEY
       - key: DATABASE_URL
         fromDatabase:
-          name: postbean-db
+          name: brightbean-db
           property: connectionString
 
 databases:
-  - name: postbean-db
+  - name: brightbean-db
     plan: starter

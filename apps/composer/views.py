@@ -2275,7 +2275,7 @@ def _fetch_feed_events_for_workspace(feeds):
 
     headers = {
         "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
-        "User-Agent": "Postbean RSS Reader/1.0",
+        "User-Agent": "Brightbean RSS Reader/1.0",
     }
     all_events = []
     with httpx.Client(headers=headers, timeout=8.0, follow_redirects=True) as client:
@@ -2381,7 +2381,7 @@ def _validate_rss_url(rss_url):
     """Validate that a URL points to a reachable RSS/Atom XML feed."""
     headers = {
         "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
-        "User-Agent": "Postbean RSS Validator/1.0",
+        "User-Agent": "Brightbean RSS Validator/1.0",
     }
     try:
         response = httpx.get(rss_url, headers=headers, timeout=8.0, follow_redirects=True)

@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Postbean{% endblock %}</title>
+    <title>{% block title %}Brightbean{% endblock %}</title>
     <link rel="icon" href="{% static 'favicon/favicon.ico' %}" sizes="any">
     <link rel="icon" type="image/svg+xml" href="{% static 'favicon/favicon.svg' %}">
     <link rel="icon" type="image/png" sizes="96x96" href="{% static 'favicon/favicon-96x96.png' %}">
@@ -264,7 +264,7 @@
                     <span class="flex-1 font-bold text-[0.9375rem] tracking-tight text-stone-900 truncate" x-show="!sidebarCollapsed" x-cloak>{{ sidebar_workspaces.0.name }}</span>
                     {% else %}
                     <div class="sidebar-logo-mark flex-shrink-0">P</div>
-                    <span class="flex-1 font-bold text-[0.9375rem] tracking-tight text-stone-900 truncate" x-show="!sidebarCollapsed" x-cloak>Postbean</span>
+                    <span class="flex-1 font-bold text-[0.9375rem] tracking-tight text-stone-900 truncate" x-show="!sidebarCollapsed" x-cloak>Brightbean</span>
                     {% endif %}
                     {% endwith %}
                     <svg class="w-4 h-4 text-stone-400 flex-shrink-0 transition-transform" :class="wsOpen && 'rotate-180'" x-show="!sidebarCollapsed" x-cloak fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
@@ -666,9 +666,13 @@
                 <div class="sidebar-org-expanded flex items-center gap-1" x-show="!sidebarCollapsed">
                     <button @click="orgMenuOpen = !orgMenuOpen"
                             class="flex-1 flex items-center gap-2 px-1 py-1 rounded-lg hover:bg-black/[0.04] transition-colors cursor-pointer min-w-0">
+                        {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" alt="" class="w-8 h-8 rounded-full object-cover flex-shrink-0">
+                        {% else %}
                         <div class="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center flex-shrink-0">
                             <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         </div>
+                        {% endif %}
                         <div class="flex-1 min-w-0 text-left">
                             <p class="text-sm font-semibold text-stone-800 truncate">{{ request.org.name|default:"My Organization" }}</p>
                             <p class="text-[11px] text-stone-400 truncate">{{ user.email }}</p>
@@ -688,8 +692,12 @@
                         <svg viewBox="0 0 24 24" fill="none" width="16" height="16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="scale-x-[-1]"><path d="M9 3V21M16 15L13 12L16 9M5 3H19C20.1046 3 21 3.89543 21 5V19C21 20.1046 20.1046 21 19 21H5C3.89543 21 3 20.1046 3 19V5C3 3.89543 3.89543 3 5 3Z"/></svg>
                     </button>
                     <button @click="orgMenuOpen = !orgMenuOpen"
-                            class="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center cursor-pointer hover:bg-stone-300 transition-colors">
+                            class="w-8 h-8 rounded-full {% if not user.avatar %}bg-stone-200{% endif %} flex items-center justify-center cursor-pointer hover:bg-stone-300 transition-colors">
+                        {% if user.avatar %}
+                        <img src="{{ user.avatar.url }}" alt="" class="w-8 h-8 rounded-full object-cover">
+                        {% else %}
                         <svg class="w-4 h-4 text-stone-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        {% endif %}
                     </button>
                 </div>
 
@@ -763,7 +771,7 @@
                     <span class="text-sm font-semibold text-stone-800 truncate max-w-[160px]">{{ current_ws.name }}</span>
                     {% else %}
                     <div class="w-7 h-7 rounded-md flex items-center justify-center text-white text-[11px] font-bold" style="background: var(--primary);">P</div>
-                    <span class="text-sm font-semibold text-stone-800">Postbean</span>
+                    <span class="text-sm font-semibold text-stone-800">Brightbean</span>
                     {% endif %}
                     {% endwith %}
                 </div>
