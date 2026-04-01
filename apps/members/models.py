@@ -126,6 +126,11 @@ class Invitation(models.Model):
         related_name="invitations",
     )
     email = models.EmailField()
+    org_role = models.CharField(
+        max_length=20,
+        choices=OrgMembership.OrgRole.choices,
+        default=OrgMembership.OrgRole.MEMBER,
+    )
     workspace_assignments = models.JSONField(
         default=list,
         help_text='List of {"workspace_id": "...", "role": "..."}',

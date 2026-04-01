@@ -48,7 +48,28 @@ def provision_organization_and_workspace(user):
 
 @receiver(user_signed_up)
 def create_organization_on_signup(sender, request, user, **kwargs):
-    """Handle allauth signup — create org + workspace."""
+    """Handle allauth signup — create org + workspace.
+
+    If the user signed up via an invitation link, accept the invitation
+    instead of creating a default org. The invite token is stored in
+    the session by the accept_invite view.
+    """
+    pending_token = request.session.pop("pending_invite_token", None)
+    if pending_token:
+        from apps.members.models import Invitation
+        from apps.members.services import accept_invitation
+
+        try:
+            invitation = Invitation.objects.get(
+                token=pending_token,
+                accepted_at__isnull=True,
+            )
+            if not invitation.is_expired:
+                accept_invitation(invitation, user)
+                return  # Skip default provisioning
+        except Invitation.DoesNotExist:
+            pass  # Fall through to default provisioning
+
     provision_organization_and_workspace(user)
 
 
