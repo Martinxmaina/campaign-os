@@ -72,6 +72,41 @@ def settings_view(request):
     return render(request, "organizations/settings.html", context)
 
 
+@login_required
+@require_org_role(OrgMembership.OrgRole.MEMBER)
+def workspaces_view(request):
+    org = request.org
+    workspaces = (
+        Workspace.objects.filter(organization=org, is_archived=False)
+        .prefetch_related("memberships__user")
+        .order_by("name")
+    )
+
+    # Build workspace data with members and current user's role
+    workspace_data = []
+    for ws in workspaces:
+        members = list(ws.memberships.select_related("user").all())
+        user_membership = next(
+            (m for m in members if m.user_id == request.user.id), None
+        )
+        can_manage = user_membership and user_membership.workspace_role in (
+            WorkspaceMembership.WorkspaceRole.OWNER,
+            WorkspaceMembership.WorkspaceRole.MANAGER,
+        )
+        workspace_data.append({
+            "workspace": ws,
+            "members": members,
+            "member_count": len(members),
+            "can_manage": can_manage,
+        })
+
+    context = {
+        "workspace_data": workspace_data,
+        "settings_active": "workspaces",
+    }
+    return render(request, "organizations/workspaces.html", context)
+
+
 def _handle_name_update(request, org):
     """Handle organization name change."""
     name = request.POST.get("name", "").strip()
