@@ -1,7 +1,6 @@
 from allauth.account.signals import user_signed_up
 from django.db.models.signals import post_save
 from django.dispatch import receiver
-from django.utils import timezone
 
 
 def provision_organization_and_workspace(user):
@@ -10,22 +9,12 @@ def provision_organization_and_workspace(user):
     Skips if the user already belongs to an organization (e.g. invited users).
     Safe to call multiple times — the guard is idempotent.
     """
-    from apps.members.models import Invitation, OrgMembership, WorkspaceMembership
+    from apps.members.models import OrgMembership, WorkspaceMembership
     from apps.organizations.models import Organization
     from apps.workspaces.models import Workspace
 
     # Skip if user was invited to an existing org or already provisioned
     if OrgMembership.objects.filter(user=user).exists():
-        return
-
-    # Skip if there's a pending invitation for this email — the user_signed_up
-    # signal will handle invite acceptance. This prevents post_save (which fires
-    # before user_signed_up) from creating a default org for invited users.
-    if Invitation.objects.filter(
-        email__iexact=user.email,
-        accepted_at__isnull=True,
-        expires_at__gt=timezone.now(),
-    ).exists():
         return
 
     org = Organization.objects.create(
@@ -64,11 +53,17 @@ def create_organization_on_signup(sender, request, user, **kwargs):
     If the user signed up via an invitation link, accept the invitation
     instead of creating a default org. The invite token is stored in
     the session by the accept_invite view.
+
+    By this point, post_save has already fired and provisioned a default
+    "My Organization". If invite acceptance succeeds, we clean up that
+    default org so the user only belongs to the invited org.
     """
     pending_token = request.session.pop("pending_invite_token", None)
     if pending_token:
-        from apps.members.models import Invitation
+        from apps.members.models import Invitation, OrgMembership
         from apps.members.services import accept_invitation
+        from apps.organizations.models import Organization
+        from apps.workspaces.models import Workspace
 
         try:
             invitation = Invitation.objects.get(
@@ -76,11 +71,36 @@ def create_organization_on_signup(sender, request, user, **kwargs):
                 accepted_at__isnull=True,
             )
             if not invitation.is_expired:
+                invited_org_id = invitation.organization_id
+
+                # Accept the invitation (creates OrgMembership + WorkspaceMemberships)
                 accept_invitation(invitation, user)
-                return  # Skip default provisioning
+
+                # Clean up the default org that post_save created, if it's
+                # different from the invited org.
+                default_memberships = OrgMembership.objects.filter(
+                    user=user,
+                ).exclude(organization_id=invited_org_id)
+                for membership in default_memberships:
+                    org = membership.organization
+                    membership.delete()
+                    # Only delete the org if it's the auto-provisioned one
+                    # and has no other members.
+                    if (
+                        org.name == "My Organization"
+                        and not org.memberships.exists()
+                    ):
+                        Workspace.objects.filter(organization=org).delete()
+                        org.delete()
+
+                return  # Done — user is now in the invited org only
         except Invitation.DoesNotExist:
             pass  # Fall through to default provisioning
+        except ValueError:
+            pass  # Invite acceptance failed (e.g. email mismatch) — keep default org
 
+    # No invite or invite failed — ensure default provisioning happened.
+    # post_save already handled this, so this is a no-op (idempotent guard).
     provision_organization_and_workspace(user)
 
 
