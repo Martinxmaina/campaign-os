@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 import httpx
@@ -474,7 +474,7 @@ class LinkedInProvider(SocialProvider):
 
                 for comment in elements:
                     created_at_ms = comment.get("created", {}).get("time", 0)
-                    created_at = datetime.fromtimestamp(created_at_ms / 1000, tz=timezone.utc)
+                    created_at = datetime.fromtimestamp(created_at_ms / 1000, tz=UTC)
 
                     if since and created_at < since:
                         continue
@@ -485,11 +485,7 @@ class LinkedInProvider(SocialProvider):
 
                     # Use actor~ expansion if available, otherwise fall back to URN
                     actor_info = comment.get("actor~", {})
-                    sender_name = (
-                        actor_info.get("name")
-                        or actor_info.get("localizedFirstName", "")
-                        or actor_urn
-                    )
+                    sender_name = actor_info.get("name") or actor_info.get("localizedFirstName", "") or actor_urn
 
                     messages.append(
                         InboxMessage(

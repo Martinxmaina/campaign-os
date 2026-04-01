@@ -48,7 +48,55 @@ def provision_organization_and_workspace(user):
 
 @receiver(user_signed_up)
 def create_organization_on_signup(sender, request, user, **kwargs):
-    """Handle allauth signup — create org + workspace."""
+    """Handle allauth signup — create org + workspace.
+
+    If the user signed up via an invitation link, accept the invitation
+    instead of creating a default org. The invite token is stored in
+    the session by the accept_invite view.
+
+    By this point, post_save has already fired and provisioned a default
+    "My Organization". If invite acceptance succeeds, we clean up that
+    default org so the user only belongs to the invited org.
+    """
+    pending_token = request.session.pop("pending_invite_token", None)
+    if pending_token:
+        from apps.members.models import Invitation, OrgMembership
+        from apps.members.services import accept_invitation
+        from apps.workspaces.models import Workspace
+
+        try:
+            invitation = Invitation.objects.get(
+                token=pending_token,
+                accepted_at__isnull=True,
+            )
+            if not invitation.is_expired:
+                invited_org_id = invitation.organization_id
+
+                # Accept the invitation (creates OrgMembership + WorkspaceMemberships)
+                accept_invitation(invitation, user)
+
+                # Clean up the default org that post_save created, if it's
+                # different from the invited org.
+                default_memberships = OrgMembership.objects.filter(
+                    user=user,
+                ).exclude(organization_id=invited_org_id)
+                for membership in default_memberships:
+                    org = membership.organization
+                    membership.delete()
+                    # Only delete the org if it's the auto-provisioned one
+                    # and has no other members.
+                    if org.name == "My Organization" and not org.memberships.exists():
+                        Workspace.objects.filter(organization=org).delete()
+                        org.delete()
+
+                return  # Done — user is now in the invited org only
+        except Invitation.DoesNotExist:
+            pass  # Fall through to default provisioning
+        except ValueError:
+            pass  # Invite acceptance failed (e.g. email mismatch) — keep default org
+
+    # No invite or invite failed — ensure default provisioning happened.
+    # post_save already handled this, so this is a no-op (idempotent guard).
     provision_organization_and_workspace(user)
 
 
