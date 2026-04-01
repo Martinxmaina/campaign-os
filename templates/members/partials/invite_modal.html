@@ -6,11 +6,11 @@
         <div @click.outside="showInviteModal = false"
              x-show="showInviteModal"
              x-transition
-             class="w-full max-w-lg rounded-xl shadow-xl"
+             class="w-full max-w-lg rounded-xl shadow-xl flex flex-col max-h-[90vh]"
              style="background: var(--surface-0);">
 
             <!-- Header -->
-            <div class="flex items-center justify-between px-6 py-4" style="border-bottom: 1px solid var(--border);">
+            <div class="flex items-center justify-between px-6 py-4 flex-shrink-0" style="border-bottom: 1px solid var(--border);">
                 <h3 class="text-base font-semibold" style="color: var(--text-primary);">Invite Team Member</h3>
                 <button @click="showInviteModal = false" class="cursor-pointer" style="color: var(--text-tertiary);">
                     <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -22,17 +22,17 @@
                   hx-target="#invitations-list"
                   hx-swap="beforeend"
                   @htmx:after-request.window="if(event.detail.successful) { showInviteModal = false; document.getElementById('no-invites-placeholder')?.remove(); }"
-                  class="px-6 py-5">
+                  class="px-6 py-5 overflow-y-auto">
                 {% csrf_token %}
 
                 <!-- Email -->
                 <div class="mb-5">
                     <label for="invite-email" class="block text-sm font-medium mb-1.5" style="color: var(--text-primary);">Email Address</label>
                     <input type="email" id="invite-email" name="email" required placeholder="colleague@example.com"
-                           class="w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors"
-                           style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);"
-                           onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'"
-                           onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
+                           class="w-full px-4 py-2.5 text-sm rounded-lg outline-none transition-all"
+                           style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-1);"
+                           onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 3px var(--primary-ring)'; this.style.background='var(--surface-0)'"
+                           onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'; this.style.background='var(--surface-1)'">
                 </div>
 
                 <!-- Org Role -->
