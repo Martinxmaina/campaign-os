@@ -38,13 +38,17 @@
                 <!-- Org Role -->
                 <div class="mb-5">
                     <label class="block text-sm font-medium mb-1.5" style="color: var(--text-primary);">Organization Role</label>
-                    <div class="flex gap-3">
+                    <div class="flex gap-4">
                         {% for value, label in org_role_choices %}
-                        <label class="flex items-center gap-2 cursor-pointer text-sm" style="color: var(--text-primary);">
+                        <div class="flex items-center">
                             <input type="radio" name="org_role" value="{{ value }}" {% if value == "member" %}checked{% endif %}
-                                   class="accent-orange-500">
-                            {{ label }}
-                        </label>
+                                   id="invite-role-{{ value }}"
+                                   class="w-4 h-4 cursor-pointer"
+                                   style="accent-color: var(--primary);">
+                            <label for="invite-role-{{ value }}" class="select-none ms-2 text-sm font-medium cursor-pointer" style="color: var(--text-primary);">
+                                {{ label }}
+                            </label>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
@@ -63,8 +67,10 @@
                                 {{ ws.name }}
                             </label>
                             <select name="ws_role_{{ ws.id }}"
-                                    class="text-xs px-2 py-1 rounded border outline-none"
-                                    style="border-color: var(--border); background: var(--surface-0); color: var(--text-primary);">
+                                    class="text-xs font-semibold cursor-pointer"
+                                    style="padding: 4px 24px 4px 8px; border-radius: 8px; color: var(--text-secondary); background: var(--surface-0); border: 1px solid var(--border); appearance: none; background-image: url(&quot;data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%2378716C' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E&quot;); background-repeat: no-repeat; background-position: right 6px center; transition: all 150ms ease; outline: none;"
+                                    onfocus="this.style.borderColor='var(--primary)'; this.style.boxShadow='0 0 0 2px rgba(249,115,22,0.15)'"
+                                    onblur="this.style.borderColor='var(--border)'; this.style.boxShadow='none'">
                                 {% for value, label in workspace_role_choices %}
                                 <option value="{{ value }}" {% if value == "editor" %}selected{% endif %}>{{ label }}</option>
                                 {% endfor %}
