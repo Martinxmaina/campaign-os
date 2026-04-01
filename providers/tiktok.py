@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import urlencode
 
 from .base import SocialProvider
@@ -316,7 +316,7 @@ class TikTokProvider(SocialProvider):
 
                 for comment in comments:
                     created = datetime.fromtimestamp(
-                        comment.get("create_time", 0), tz=timezone.utc
+                        comment.get("create_time", 0), tz=UTC
                     )
                     if since and created < since:
                         continue

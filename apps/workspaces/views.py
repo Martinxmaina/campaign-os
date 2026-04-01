@@ -10,7 +10,6 @@ from apps.members.models import OrgMembership, WorkspaceMembership
 from .models import Workspace
 
 
-
 @login_required
 def workspace_list(request):
     memberships = WorkspaceMembership.objects.filter(user=request.user).select_related("workspace")
