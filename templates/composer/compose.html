@@ -653,6 +653,8 @@
 
                 {% if show_submit_button %}
                 <button type="submit" name="action" value="submit_for_approval"
+                        :disabled="selectedAccounts.length === 0"
+                        :class="selectedAccounts.length === 0 && 'opacity-50 cursor-not-allowed'"
                         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 rounded-lg hover:bg-orange-50 transition-all duration-150 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                     Submit for Approval
@@ -661,6 +663,8 @@
 
                 {% if show_resubmit_button %}
                 <button type="submit" name="action" value="resubmit_for_approval"
+                        :disabled="selectedAccounts.length === 0"
+                        :class="selectedAccounts.length === 0 && 'opacity-50 cursor-not-allowed'"
                         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-orange-600 hover:text-orange-700 rounded-lg hover:bg-orange-50 transition-all duration-150 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182"/></svg>
                     Resubmit
@@ -671,6 +675,8 @@
                 <div class="relative inline-flex" id="publish-anchor">
                     <!-- Mode selector (left) -->
                     <button type="button" id="publish-mode-btn"
+                            :disabled="selectedAccounts.length === 0"
+                            :class="selectedAccounts.length === 0 && 'opacity-50 cursor-not-allowed'"
                             class="inline-flex items-center gap-1.5 pl-3 pr-2 py-2 text-sm font-semibold text-orange-700 bg-orange-100 rounded-l-lg hover:bg-orange-200 border border-orange-200 border-r-0 transition-all duration-150 cursor-pointer">
                         <svg id="publish-mode-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3l14 9-14 9V3z"/></svg>
                         <span id="publish-mode-label">Now</span>
@@ -678,6 +684,8 @@
                     </button>
                     <!-- Action button (right) -->
                     <button type="submit" id="publish-action-btn" name="action" value="publish_now"
+                            :disabled="selectedAccounts.length === 0"
+                            :class="selectedAccounts.length === 0 && 'opacity-50 cursor-not-allowed'"
                             class="inline-flex items-center gap-1.5 pl-4 pr-5 py-2 text-sm font-semibold text-white bg-orange-500 rounded-r-lg hover:bg-orange-600 border border-orange-500 hover:border-orange-600 shadow-sm transition-all duration-150 cursor-pointer">
                         <span id="publish-action-label">Publish Now</span>
                     </button>
