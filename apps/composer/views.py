@@ -864,6 +864,20 @@ def drafts_list(request, workspace_id):
     )
 
 
+@login_required
+@require_POST
+def post_delete(request, workspace_id, post_id):
+    """Delete a post via HTMX."""
+    workspace = _get_workspace(request, workspace_id)
+    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+    post.delete()
+
+    return HttpResponse(
+        status=204,
+        headers={"HX-Trigger": "postChanged"},
+    )
+
+
 # ---------------------------------------------------------------------------
 # Create landing page & Idea CRUD
 # ---------------------------------------------------------------------------

@@ -41,6 +41,8 @@ urlpatterns = [
     path("compose/remove-pending-media/<uuid:asset_id>/", views.remove_pending_media, name="remove_pending_media"),
     # Drafts
     path("drafts/", views.drafts_list, name="drafts_list"),
+    # Post delete
+    path("compose/<uuid:post_id>/delete/", views.post_delete, name="post_delete"),
     # Content Categories
     path("categories/", views.category_list, name="category_list"),
     path("categories/create/", views.category_create, name="category_create"),

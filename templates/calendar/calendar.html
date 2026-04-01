@@ -288,6 +288,10 @@ function publishList() {
             sent: '{% url "calendar:publish_tab_sent" workspace_id=workspace.id %}',
         },
 
+        init() {
+            window.addEventListener('post-deleted', () => this.reloadTab());
+        },
+
         switchTab(tab) {
             this.activeTab = tab;
             this.reloadTab();
