@@ -24,6 +24,8 @@ urlpatterns = [
     path("webhooks/", include("apps.inbox.webhook_urls")),
     # Approval Workflow (Stream F)
     path("workspace/<uuid:workspace_id>/", include("apps.approvals.urls")),
+    # Client Portal Admin (workspace settings)
+    path("workspace/<uuid:workspace_id>/settings/clients/", include("apps.client_portal.urls_admin")),
     # Media Library
     path("workspace/<uuid:workspace_id>/media/", include("apps.media_library.urls")),
     path("approvals/org/", org_approval_queue, name="org_approval_queue"),

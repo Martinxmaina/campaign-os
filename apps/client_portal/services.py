@@ -114,6 +114,15 @@ def verify_magic_link(token_string):
     return token.user, token.workspace, True
 
 
+def revoke_magic_link(token_id, workspace):
+    """Revoke an active magic link by expiring it immediately."""
+    MagicLinkToken.objects.filter(
+        id=token_id,
+        workspace=workspace,
+        expires_at__gt=timezone.now(),
+    ).update(expires_at=timezone.now())
+
+
 def create_portal_session(request, user, workspace):
     """Create a portal session for the client user.
 
