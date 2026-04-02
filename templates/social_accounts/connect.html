@@ -76,15 +76,5 @@
         {% endfor %}
     </div>
     </div>
-
-    <!-- Help text -->
-    <div class="mt-8 p-4 bg-stone-50 rounded-xl border border-stone-200">
-        <div class="flex gap-3">
-            <svg class="w-5 h-5 text-stone-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <div>
-                <p class="text-sm text-stone-600">Platforms marked <strong class="text-stone-700">Not Configured</strong> require API credentials to be set up by an administrator in <a href="{% url 'credentials:list' %}" class="text-orange-600 hover:text-orange-700 font-medium">Platform Credentials</a>.</p>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
