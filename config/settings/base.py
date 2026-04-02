@@ -176,6 +176,27 @@ AUTHENTICATION_BACKENDS = [
     "allauth.account.auth_backends.AuthenticationBackend",
 ]
 
+# Google OAuth for user login/signup (separate from PLATFORM_GOOGLE_* used for publishing)
+GOOGLE_AUTH_CLIENT_ID = env("GOOGLE_AUTH_CLIENT_ID", default="")
+GOOGLE_AUTH_CLIENT_SECRET = env("GOOGLE_AUTH_CLIENT_SECRET", default="")
+
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "APP": {
+            "client_id": GOOGLE_AUTH_CLIENT_ID,
+            "secret": GOOGLE_AUTH_CLIENT_SECRET,
+        },
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "VERIFIED_EMAIL": True,
+    },
+}
+
+SOCIALACCOUNT_EMAIL_AUTHENTICATION = True
+SOCIALACCOUNT_EMAIL_AUTHENTICATION_AUTO_CONNECT = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.SocialAccountAdapter"
+
 # Sessions
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
 SESSION_COOKIE_AGE = 30 * 24 * 60 * 60  # 30 days
@@ -211,6 +232,7 @@ CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Tailwind inline styles
 CSP_IMG_SRC = ("'self'", "data:", "https:")
 CSP_FONT_SRC = ("'self'",)
 CSP_CONNECT_SRC = ("'self'",)
+CSP_FORM_ACTION = ("'self'", "https://accounts.google.com")
 
 # DRF
 REST_FRAMEWORK = {
