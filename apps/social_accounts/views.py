@@ -189,7 +189,7 @@ def oauth_callback(request, platform):
         session_data = request.session.pop(OAUTH_SESSION_KEY, {})
         workspace_id = session_data.get("workspace_id")
         if workspace_id:
-            return redirect("social_accounts:list", workspace_id=workspace_id)
+            return redirect("calendar:calendar", workspace_id=workspace_id)
         return redirect("dashboard")
 
     code = request.GET.get("code")
@@ -288,7 +288,7 @@ def oauth_callback(request, platform):
                     expires_in=tokens.expires_in,
                 )
                 messages.success(request, f"Connected {page['name']} successfully.")
-                return redirect("social_accounts:list", workspace_id=workspace_id)
+                return redirect("calendar:calendar", workspace_id=workspace_id)
 
         # Standard single-account flow
         _create_or_update_account(
@@ -308,7 +308,7 @@ def oauth_callback(request, platform):
             "Failed to connect account. Please try again.",
         )
 
-    return redirect("social_accounts:list", workspace_id=workspace_id)
+    return redirect("calendar:calendar", workspace_id=workspace_id)
 
 
 # ------------------------------------------------------------------
@@ -382,7 +382,7 @@ def select_account(request):
         names = ", ".join(connected)
         messages.success(request, f"Connected: {names}")
 
-    return redirect("social_accounts:list", workspace_id=workspace_id)
+    return redirect("calendar:calendar", workspace_id=workspace_id)
 
 
 # ------------------------------------------------------------------
@@ -440,7 +440,7 @@ def connect_bluesky(request, workspace_id):
             {"workspace_id": workspace_id},
         )
 
-    return redirect("social_accounts:list", workspace_id=workspace_id)
+    return redirect("calendar:calendar", workspace_id=workspace_id)
 
 
 # ------------------------------------------------------------------
