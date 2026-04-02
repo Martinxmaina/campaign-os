@@ -32,20 +32,27 @@ class RBACMiddleware:
         request.workspace = None
         request.workspace_membership = None
 
-        # Resolve org membership early (doesn't need resolver_match)
+        # Resolve org and workspace context early.
+        # Workspace-from-URL resolution happens in process_view() (after URL
+        # resolution). Here we only resolve org directly and fall back to
+        # last_workspace_id for global pages that have no workspace_id in the URL.
         if hasattr(request, "user") and request.user.is_authenticated:
             # Resolve org membership.
             # In v1, each user belongs to exactly one organization.
-            # If a workspace_id is in the URL, resolve org through the workspace
-            # to ensure consistency.
-            workspace_id = request.resolver_match.kwargs.get("workspace_id") if request.resolver_match else None
+            org_membership = OrgMembership.objects.filter(user=request.user).select_related("organization").first()
+            if org_membership:
+                request.org = org_membership.organization
+                request.org_membership = org_membership
 
-            if workspace_id:
-                # Resolve workspace membership first, then derive org from it
+            # Fall back to last_workspace_id so global pages
+            # (e.g. /notifications/) can still show workspace nav.
+            # For workspace-specific URLs, process_view() will override this.
+            if getattr(request.user, "last_workspace_id", None):
                 ws_membership = (
                     WorkspaceMembership.objects.filter(
                         user=request.user,
-                        workspace_id=workspace_id,
+                        workspace_id=request.user.last_workspace_id,
+                        workspace__is_archived=False,
                     )
                     .select_related("workspace__organization", "custom_role")
                     .first()
@@ -53,26 +60,6 @@ class RBACMiddleware:
                 if ws_membership:
                     request.workspace = ws_membership.workspace
                     request.workspace_membership = ws_membership
-                    # Resolve org from the workspace's organization
-                    org = ws_membership.workspace.organization
-                    org_membership = (
-                        OrgMembership.objects.filter(
-                            user=request.user,
-                            organization=org,
-                        )
-                        .select_related("organization")
-                        .first()
-                    )
-                    if org_membership:
-                        request.org = org_membership.organization
-                        request.org_membership = org_membership
-
-            # If no workspace in URL (or workspace resolution failed), resolve org directly
-            if request.org is None:
-                org_membership = OrgMembership.objects.filter(user=request.user).select_related("organization").first()
-                if org_membership:
-                    request.org = org_membership.organization
-                    request.org_membership = org_membership
 
         return self.get_response(request)
 

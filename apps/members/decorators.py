@@ -54,16 +54,7 @@ def require_workspace_role(min_role):
             if not request.workspace_membership:
                 raise PermissionDenied("You are not a member of this workspace.")
             membership = request.workspace_membership
-            # If user has a custom role, we can't use the hierarchy directly.
-            # Custom roles bypass the hierarchy — use require_permission instead
-            # for fine-grained checks. For require_workspace_role, custom role
-            # users are denied unless their built-in role field also meets the bar.
-            if membership.custom_role:
-                # Custom role users: the workspace_role field still holds their
-                # base role. Check the hierarchy on that.
-                user_level = role_hierarchy.get(membership.workspace_role, 0)
-            else:
-                user_level = role_hierarchy.get(membership.workspace_role, 0)
+            user_level = role_hierarchy.get(membership.workspace_role, 0)
             required_level = role_hierarchy.get(min_role, 0)
             if user_level < required_level:
                 raise PermissionDenied("Insufficient workspace role.")
