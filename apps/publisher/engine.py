@@ -10,14 +10,20 @@ This module implements the core publish loop:
 """
 
 import logging
+import os
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 from apps.composer.models import PlatformPost, Post
+from apps.credentials.models import PlatformCredential
+from providers import get_provider
+from providers.types import PostType, PublishContent
 
 from .models import PublishLog, RateLimitState
 
@@ -200,31 +206,114 @@ class PublishEngine:
     def _dispatch_to_provider(self, platform_post):
         """Dispatch to the appropriate platform provider.
 
-        This is a stub — actual provider implementations live in providers/.
+        Resolves credentials, refreshes tokens if needed, builds a
+        PublishContent payload, and calls provider.publish_post().
         Returns: {"success": bool, "platform_post_id": str, ...}
         """
-        # TODO: Import and call the actual provider module
-        # from providers.registry import get_provider
-        # provider = get_provider(platform_post.social_account.platform)
-        # return provider.publish_post(
-        #     access_token=platform_post.social_account.access_token,
-        #     content={
-        #         "title": platform_post.effective_title,
-        #         "caption": platform_post.effective_caption,
-        #         "first_comment": platform_post.effective_first_comment,
-        #         "media": ...,
-        #     },
-        # )
+        account = platform_post.social_account
+        platform = account.platform
 
-        logger.info(
-            "Publishing to %s (account: %s) — provider not yet implemented",
-            platform_post.social_account.platform,
-            platform_post.social_account.account_name,
+        # Resolve app credentials (org-specific first, then env fallback)
+        try:
+            cred = PlatformCredential.objects.for_org(
+                account.workspace.organization_id
+            ).get(platform=platform, is_configured=True)
+            credentials = cred.credentials
+        except PlatformCredential.DoesNotExist:
+            env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+            credentials = env_creds.get(platform, {})
+
+        provider = get_provider(platform, credentials)
+
+        # Refresh token if expired or expiring soon
+        access_token = account.oauth_access_token
+        if account.token_expires_at and account.is_token_expiring_soon:
+            try:
+                new_tokens = provider.refresh_token(account.oauth_refresh_token)
+                account.oauth_access_token = new_tokens.access_token
+                if new_tokens.refresh_token:
+                    account.oauth_refresh_token = new_tokens.refresh_token
+                if new_tokens.expires_in:
+                    account.token_expires_at = timezone.now() + timedelta(
+                        seconds=new_tokens.expires_in
+                    )
+                account.connection_status = account.ConnectionStatus.CONNECTED
+                account.save(
+                    update_fields=[
+                        "oauth_access_token",
+                        "oauth_refresh_token",
+                        "token_expires_at",
+                        "connection_status",
+                        "updated_at",
+                    ]
+                )
+                access_token = new_tokens.access_token
+                logger.info("Refreshed token for %s", account)
+            except Exception:
+                logger.exception("Token refresh failed for %s", account)
+
+        # Download media from storage (S3/cloud) to temp files for upload
+        media_files = []
+        temp_files = []
+        attachments = list(
+            platform_post.post.media_attachments.select_related("media_asset")
+            .order_by("position")
         )
-        return {
-            "success": False,
-            "error": f"Provider for {platform_post.social_account.platform} not yet implemented.",
-        }
+
+        post_type = PostType.TEXT
+        try:
+            for pm in attachments:
+                asset = pm.media_asset
+                if not asset.file:
+                    continue
+                # Determine post type from first media asset
+                if not media_files:
+                    if asset.media_type == "video":
+                        post_type = PostType.VIDEO
+                    elif asset.media_type == "image":
+                        post_type = PostType.IMAGE
+
+                # Download to a temp file (works with any storage backend)
+                suffix = os.path.splitext(asset.filename)[1] or ".tmp"
+                tmp = tempfile.NamedTemporaryFile(
+                    suffix=suffix, delete=False
+                )
+                temp_files.append(tmp.name)
+                with asset.file.open("rb") as src:
+                    for chunk in iter(lambda: src.read(8192), b""):
+                        tmp.write(chunk)
+                tmp.close()
+                media_files.append(tmp.name)
+
+            content = PublishContent(
+                text=platform_post.effective_caption or "",
+                title=platform_post.effective_title,
+                description=platform_post.effective_caption,
+                first_comment=platform_post.effective_first_comment,
+                media_files=media_files,
+                post_type=post_type,
+                extra={"tags": platform_post.post.tags or []},
+            )
+
+            logger.info(
+                "Publishing to %s (account: %s)",
+                platform,
+                account.account_name,
+            )
+            result = provider.publish_post(access_token, content)
+            return {
+                "success": True,
+                "platform_post_id": result.platform_post_id,
+                "url": result.url,
+                "response": result.extra,
+            }
+        finally:
+            # Clean up temp files regardless of success/failure
+            for path in temp_files:
+                try:
+                    os.unlink(path)
+                except OSError:
+                    pass
 
     def _schedule_retry(self, platform_post, error_msg):
         """Schedule a retry with exponential backoff."""
@@ -282,17 +371,32 @@ class PublishEngine:
         # 5-second delay to avoid spam detection
         time.sleep(FIRST_COMMENT_DELAY)
 
+        account = platform_post.social_account
         try:
-            # TODO: Use provider to post comment
-            # provider = get_provider(platform_post.social_account.platform)
-            # provider.publish_comment(
-            #     access_token=platform_post.social_account.access_token,
-            #     post_id=platform_post.platform_post_id,
-            #     text=comment_text,
-            # )
+            # Resolve credentials
+            try:
+                cred = PlatformCredential.objects.for_org(
+                    account.workspace.organization_id
+                ).get(platform=account.platform, is_configured=True)
+                credentials = cred.credentials
+            except PlatformCredential.DoesNotExist:
+                env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+                credentials = env_creds.get(account.platform, {})
+
+            provider = get_provider(account.platform, credentials)
+            provider.publish_comment(
+                access_token=account.oauth_access_token,
+                post_id=platform_post.platform_post_id,
+                text=comment_text,
+            )
             logger.info(
-                "First comment for PlatformPost %s — provider not yet implemented",
+                "Posted first comment for PlatformPost %s",
                 platform_post.id,
+            )
+        except NotImplementedError:
+            logger.info(
+                "First comment not supported for %s",
+                account.platform,
             )
         except Exception:
             logger.exception(
