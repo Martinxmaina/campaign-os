@@ -38,6 +38,10 @@ class PostForm(forms.ModelForm):
         widget=forms.TimeInput(attrs={"type": "time"}),
     )
 
+    # Override JSONField's auto-generated form field — the frontend sends tags
+    # as a comma-separated string, not JSON.  clean_tags() converts to a list.
+    tags = forms.CharField(required=False, widget=forms.HiddenInput())
+
     class Meta:
         model = Post
         fields = ["title", "caption", "first_comment", "internal_notes", "tags", "category"]

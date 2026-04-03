@@ -140,16 +140,14 @@ def compose(request, workspace_id, post_id=None):
         selected_account_ids = []
         media_attachments = []
 
-    # Load pending media from session (for new posts not yet saved)
+    # Clear any stale pending media from previous compose sessions.
+    # Each compose page load starts fresh; the upload flow re-populates
+    # the session as the user adds files.
     from apps.media_library.models import MediaAsset
 
     session_key = f"pending_media_{workspace.id}"
-    pending_media_ids = request.session.get(session_key, [])
-    pending_assets = (
-        MediaAsset.objects.filter(id__in=pending_media_ids, workspace=workspace)
-        if pending_media_ids and not post
-        else MediaAsset.objects.none()
-    )
+    request.session.pop(session_key, None)
+    pending_assets = MediaAsset.objects.none()
 
     # Connected social accounts for this workspace
     social_accounts = (
@@ -222,6 +220,27 @@ def compose(request, workspace_id, post_id=None):
     # Workspace tags for the tag dropdown
     all_tags = Tag.objects.for_workspace(workspace.id)
 
+    # Build media_items for the initial preview render
+    media_items = []
+    for att in media_attachments:
+        asset = att.media_asset
+        media_items.append(
+            {
+                "url": asset.file.url if asset.file else "",
+                "is_video": asset.is_video,
+                "filename": asset.filename,
+            }
+        )
+    if not media_items:
+        for asset in pending_assets:
+            media_items.append(
+                {
+                    "url": asset.file.url if asset.file else "",
+                    "is_video": asset.is_video,
+                    "filename": asset.filename,
+                }
+            )
+
     context = {
         "workspace": workspace,
         "post": post,
@@ -229,6 +248,7 @@ def compose(request, workspace_id, post_id=None):
         "social_accounts": social_accounts,
         "selected_account_ids": [str(aid) for aid in selected_account_ids],
         "media_attachments": media_attachments,
+        "media_items": media_items,
         "char_limits_json": json.dumps(char_limits),
         "default_first_comment": default_first_comment,
         "default_hashtags": json.dumps(default_hashtags),
@@ -289,8 +309,17 @@ def save_post(request, workspace_id, post_id=None):
             naive_dt = datetime.combine(sched_date, sched_time)
             aware_dt = naive_dt.replace(tzinfo=tz)
             post.scheduled_at = aware_dt
-            # Only transition if not already scheduled (scheduled → scheduled is invalid)
+            # Transition to scheduled (with fallback through draft for states like
+            # changes_requested, rejected, failed that can't go directly).
             if post.status != "scheduled":
+                if not post.can_transition_to("scheduled"):
+                    if post.can_transition_to("draft"):
+                        post.transition_to("draft")
+                    else:
+                        return JsonResponse(
+                            {"errors": {"status": f"Cannot schedule a post in '{post.get_status_display()}' status."}},
+                            status=400,
+                        )
                 post.transition_to("scheduled")
         else:
             return JsonResponse({"errors": {"schedule": "Date and time required."}}, status=400)
@@ -301,6 +330,16 @@ def save_post(request, workspace_id, post_id=None):
         if not perms.get("publish_directly", False):
             raise PermissionDenied("You do not have permission to publish directly.")
         post.scheduled_at = timezone.now()
+        # Transition to scheduled (with fallback through draft for states like
+        # changes_requested, rejected, failed that can't go directly).
+        if not post.can_transition_to("scheduled"):
+            if post.can_transition_to("draft"):
+                post.transition_to("draft")
+            else:
+                return JsonResponse(
+                    {"errors": {"status": f"Cannot publish a post in '{post.get_status_display()}' status."}},
+                    status=400,
+                )
         post.transition_to("scheduled")  # Worker picks up scheduled posts where scheduled_at <= now()
     elif action == "add_to_queue":
         queue_id = request.POST.get("queue_id")
@@ -386,6 +425,25 @@ def save_post(request, workspace_id, post_id=None):
             post.status = "draft"
 
     post.save()
+
+    # Attach pending session media for new posts
+    if not post_id:
+        from apps.media_library.models import MediaAsset as _MediaAsset
+
+        session_key = f"pending_media_{workspace.id}"
+        pending_ids = request.session.get(session_key, [])
+        if pending_ids:
+            for idx, asset_id in enumerate(pending_ids):
+                try:
+                    asset = _MediaAsset.objects.get(id=asset_id, workspace=workspace)
+                    PostMedia.objects.get_or_create(
+                        post=post,
+                        media_asset=asset,
+                        defaults={"position": idx},
+                    )
+                except _MediaAsset.DoesNotExist:
+                    continue
+            del request.session[session_key]
 
     # Sync any new tags to the Tag model
     _sync_tags_to_model(workspace, post.tags)
@@ -512,6 +570,25 @@ def autosave(request, workspace_id, post_id=None):
         post.tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
 
     post.save()
+
+    # Attach pending session media when creating a new post
+    if is_new:
+        from apps.media_library.models import MediaAsset
+
+        session_key = f"pending_media_{workspace.id}"
+        pending_ids = request.session.get(session_key, [])
+        if pending_ids:
+            for idx, asset_id in enumerate(pending_ids):
+                try:
+                    asset = MediaAsset.objects.get(id=asset_id, workspace=workspace)
+                    PostMedia.objects.get_or_create(
+                        post=post,
+                        media_asset=asset,
+                        defaults={"position": idx},
+                    )
+                except MediaAsset.DoesNotExist:
+                    continue
+            del request.session[session_key]
 
     # Sync platform selections
     selected_ids_str = request.POST.get("selected_accounts", "")
