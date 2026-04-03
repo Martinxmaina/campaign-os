@@ -410,13 +410,24 @@ def _week_view_data(request, workspace, target_date, context):
             key = (local_dt.date(), local_dt.hour)
             posts_by_slot[key].append(post)
 
-    hours = list(range(6, 23))  # 6 AM to 10 PM
+    hours = list(range(0, 24))
+
+    # Build a grid structure the template can iterate:
+    # week_slots = [(hour, [(day, posts), ...]), ...]
+    week_slots = []
+    for hour in hours:
+        day_slots = []
+        for day in week_days:
+            key = (day, hour)
+            day_slots.append((day, posts_by_slot.get(key, [])))
+        week_slots.append((hour, day_slots))
 
     context.update(
         {
             "week_days": week_days,
             "hours": hours,
-            "posts_by_slot": dict(posts_by_slot),
+            "week_slots": week_slots,
+            "today": date.today(),
             "prev_date": (monday - timedelta(weeks=1)).isoformat(),
             "next_date": (monday + timedelta(weeks=1)).isoformat(),
             "period_label": f"{week_days[0].strftime('%b %d')} – {week_days[6].strftime('%b %d, %Y')}",
@@ -448,10 +459,19 @@ def _day_view_data(request, workspace, target_date, context):
 
     hours = list(range(0, 24))
 
+    # Build a list of (hour, posts) tuples for easy template iteration
+    day_slots = [(hour, posts_by_hour.get(hour, [])) for hour in hours]
+
+    from django.utils import timezone as _tz
+
+    now = _tz.now()
     context.update(
         {
-            "posts_by_hour": dict(posts_by_hour),
+            "day_slots": day_slots,
             "hours": hours,
+            "target_date": target_date,
+            "is_today": target_date == date.today(),
+            "current_hour": now.hour,
             "prev_date": (target_date - timedelta(days=1)).isoformat(),
             "next_date": (target_date + timedelta(days=1)).isoformat(),
             "period_label": target_date.strftime("%A, %B %d, %Y"),

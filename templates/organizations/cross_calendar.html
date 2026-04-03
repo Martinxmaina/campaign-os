@@ -4,11 +4,14 @@
 {% block title %}Organization Calendar — Brightbean{% endblock %}
 
 {% block page_header %}
-<h1 class="text-base font-semibold text-stone-900" style="letter-spacing: -0.01em;">Organization Calendar</h1>
+<h1 class="text-xl font-semibold text-stone-900 mb-6" style="letter-spacing: -0.01em;">Organization Calendar</h1>
 {% endblock %}
 
 {% block extra_head %}
 <style>
+    /* Fix parent overflow clipping the calendar */
+    main:has(.cross-calendar-main) > div { overflow: visible !important; }
+
     .cross-cal-day {
         min-height: 110px;
         border-right: 1px solid #E7E5E4;
@@ -104,7 +107,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="-m-6" x-data="{ viewOpen: false, wsOpen: false }">
+<div class="cross-calendar-main" x-data="{ viewOpen: false, wsOpen: false }">
     <!-- Toolbar -->
     <div class="bg-white border-b border-stone-200 px-6 py-3 flex items-center gap-3">
         <!-- Navigation arrows -->
@@ -280,9 +283,10 @@
                         {% endif %}
                         {% endwith %}
                         {% with first_media=post.media_attachments.all.0 %}
-                        {% if first_media %}
-                        <img src="{% if first_media.media_asset.thumbnail %}{{ first_media.media_asset.thumbnail.url }}{% else %}{{ first_media.media_asset.file.url }}{% endif %}"
-                             alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                        {% if first_media and first_media.media_asset.thumbnail %}
+                        <img src="{{ first_media.media_asset.thumbnail.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                        {% elif first_media and not first_media.media_asset.is_video %}
+                        <img src="{{ first_media.media_asset.file.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
                         {% endif %}
                         {% endwith %}
                         <span class="truncate">{{ post.caption_snippet|truncatechars:28 }}</span>

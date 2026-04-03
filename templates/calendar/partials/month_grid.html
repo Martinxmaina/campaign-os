@@ -71,9 +71,10 @@ Enhanced with: holidays, custom events, category colors, recurring badges.
                 {% endif %}
                 {% endwith %}
                 {% with first_media=post.media_attachments.all.0 %}
-                {% if first_media %}
-                <img src="{% if first_media.media_asset.thumbnail %}{{ first_media.media_asset.thumbnail.url }}{% else %}{{ first_media.media_asset.file.url }}{% endif %}"
-                     alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                {% if first_media and first_media.media_asset.thumbnail %}
+                <img src="{{ first_media.media_asset.thumbnail.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                {% elif first_media and not first_media.media_asset.is_video %}
+                <img src="{{ first_media.media_asset.file.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
                 {% endif %}
                 {% endwith %}
                 <span class="truncate">{{ post.caption_snippet|truncatechars:28 }}</span>

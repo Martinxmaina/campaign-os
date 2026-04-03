@@ -325,12 +325,20 @@ def _build_week_context(base_posts, target_date, today):
             key = (post.scheduled_at.date(), post.scheduled_at.hour)
             posts_by_slot[key].append(post)
 
-    hours = list(range(6, 23))
+    hours = list(range(0, 24))
+
+    week_slots = []
+    for hour in hours:
+        day_slots = []
+        for day in week_days:
+            key = (day, hour)
+            day_slots.append((day, posts_by_slot.get(key, [])))
+        week_slots.append((hour, day_slots))
 
     return {
         "week_days": week_days,
         "hours": hours,
-        "posts_by_slot": dict(posts_by_slot),
+        "week_slots": week_slots,
         "today": today,
         "period_label": f"{week_days[0].strftime('%b %d')} – {week_days[6].strftime('%b %d, %Y')}",
         "prev_date": (monday - timedelta(weeks=1)).isoformat(),
@@ -348,10 +356,16 @@ def _build_day_context(base_posts, target_date, today):
 
     hours = list(range(0, 24))
 
+    day_slots = [(hour, posts_by_hour.get(hour, [])) for hour in hours]
+
+    now = django_tz.now()
+
     return {
-        "posts_by_hour": dict(posts_by_hour),
+        "day_slots": day_slots,
         "hours": hours,
         "today": today,
+        "is_today": target_date == today,
+        "current_hour": now.hour,
         "period_label": target_date.strftime("%A, %B %d, %Y"),
         "prev_date": (target_date - timedelta(days=1)).isoformat(),
         "next_date": (target_date + timedelta(days=1)).isoformat(),

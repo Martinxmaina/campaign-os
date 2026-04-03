@@ -1,14 +1,14 @@
 {% comment %}
 Org calendar day view — single-day timeline with hourly divisions.
-Context: posts_by_hour, hours, target_date, default_workspace.
+Context: day_slots, target_date, default_workspace.
 {% endcomment %}
 
 <div class="bg-white mx-auto" style="animation: slideUp 200ms cubic-bezier(0.16,1,0.3,1) both; max-height: calc(100vh - 260px); overflow-y: auto;">
-    {% for hour in hours %}
-    <div class="flex border-b border-stone-100 min-h-[64px] cal-add-cell" style="position: relative;">
+    {% for hour, hour_posts in day_slots %}
+    <div class="flex border-b border-stone-100 min-h-[64px] cal-add-cell {% if is_today and hour == current_hour %}bg-orange-50/50{% endif %}" style="position: relative;">
         <!-- Time label -->
         <div class="w-20 flex-shrink-0 border-r border-stone-200 px-3 py-2 text-right">
-            <span class="text-xs font-medium text-stone-400 tabular-nums">
+            <span class="text-xs font-medium tabular-nums {% if is_today and hour == current_hour %}text-orange-600 font-semibold{% else %}text-stone-400{% endif %}">
                 {% if hour < 10 %}0{% endif %}{{ hour }}:00
             </span>
         </div>
@@ -19,8 +19,28 @@ Context: posts_by_hour, hours, target_date, default_workspace.
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             </a>
             {% endif %}
-            {% with hour_posts=posts_by_hour|default_if_none:"" %}
-            {% endwith %}
+            {% for post in hour_posts %}
+            <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
+               class="cross-post-chip status-{{ post.status }}"
+               title="{{ post.workspace.name }}: {{ post.caption_snippet }}">
+                <span class="ws-dot" style="background: {{ post.workspace.primary_color|default:'#F97316' }};"></span>
+                {% with first_pp=post.platform_posts.all.0 %}
+                {% if first_pp %}
+                <span class="w-4 h-4 rounded flex items-center justify-center pi-{{ first_pp.social_account.platform }} flex-shrink-0 text-white">
+                    {% include "social_accounts/partials/_platform_icon.html" with platform=first_pp.social_account.platform size="3" %}
+                </span>
+                {% endif %}
+                {% endwith %}
+                {% with first_media=post.media_attachments.all.0 %}
+                {% if first_media and first_media.media_asset.thumbnail %}
+                <img src="{{ first_media.media_asset.thumbnail.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                {% elif first_media and not first_media.media_asset.is_video %}
+                <img src="{{ first_media.media_asset.file.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
+                {% endif %}
+                {% endwith %}
+                <span class="truncate">{{ post.caption_snippet|truncatechars:28 }}</span>
+            </a>
+            {% endfor %}
         </div>
     </div>
     {% endfor %}

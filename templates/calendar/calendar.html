@@ -43,6 +43,9 @@
 
 {% block extra_head %}
 <style>
+    /* Fix parent overflow clipping the calendar */
+    main:has(#publish-body) > div { overflow: visible !important; }
+
     /* Calendar-specific styles */
     .cal-day {
         min-height: 80px;
@@ -58,7 +61,7 @@
     .cal-day:hover { background: #FAFAF9; }
     .cal-day.past { background: #F5F5F4; }
     .cal-day.past:hover { background: #EEEEEC; }
-    .cal-day.today { background: white; }
+    .cal-day.today { background: #FFF7ED; }
     .cal-day.other-month { opacity: 0.4; }
     .cal-day .day-num {
         font-size: 13px; font-weight: 600;
@@ -69,7 +72,7 @@
     }
     .cal-day.past .day-num { color: #78716C; }
     .cal-day.today .day-num {
-        background: #4ADE80; color: white;
+        background: #F97316; color: white;
     }
 
     .post-chip {
