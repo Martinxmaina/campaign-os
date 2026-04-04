@@ -1253,6 +1253,7 @@ function composerApp() {
                     if (self.autosavedPostId && !self.uploadUrl.includes(self.autosavedPostId)) {
                         self.uploadUrl = `/workspace/{{ workspace.id }}/compose/${self.autosavedPostId}/upload-media/`;
                     }
+                    document.body.dispatchEvent(new CustomEvent('previewUpdate'));
                 } else {
                     self._showUploadError(thumb, file);
                 }
@@ -1307,6 +1308,7 @@ async function removePendingMedia(assetId, url, btn) {
         if (resp.ok) {
             const html = await resp.text();
             document.getElementById('media-list').innerHTML = html;
+            document.body.dispatchEvent(new CustomEvent('previewUpdate'));
         }
     } catch (err) {
         console.error('Remove failed:', err);
