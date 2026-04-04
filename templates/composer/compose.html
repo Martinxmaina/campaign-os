@@ -1385,7 +1385,7 @@ async function removePendingMedia(assetId, url, btn) {
     if (scheduleConfirm) {
         scheduleConfirm.addEventListener('click', function(e) {
             e.stopPropagation();
-            setMode('schedule', 'Schedule', 'Schedule Post', 'calendar');
+            setMode('schedule', 'Set date and time', 'Schedule Post', 'calendar');
             hidePopover();
         });
     }
@@ -1403,6 +1403,14 @@ async function removePendingMedia(assetId, url, btn) {
             hidePopover();
         }
     });
+
+    // If the composer was opened with a prefilled scheduled date/time
+    // (e.g. from the calendar "+" CTA), auto-switch to Schedule mode.
+    var schedDateInput = document.querySelector('input[name="scheduled_date"]');
+    var schedTimeInput = document.querySelector('input[name="scheduled_time"]');
+    if (schedDateInput && schedDateInput.value && schedTimeInput && schedTimeInput.value) {
+        setMode('schedule', 'Set date and time', 'Schedule Post', 'calendar');
+    }
 })();
 </script>
 {% endblock %}

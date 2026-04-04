@@ -136,7 +136,26 @@ def compose(request, workspace_id, post_id=None):
         media_attachments = post.media_attachments.select_related("media_asset").all()
     else:
         post = None
-        form = PostForm()
+        # Pre-fill scheduled date/time from query params (e.g. when coming from calendar "+" CTA)
+        initial = {}
+        qs_date = request.GET.get("scheduled_date")
+        qs_time = request.GET.get("scheduled_time")
+        if qs_date:
+            try:
+                initial["scheduled_date"] = datetime.strptime(qs_date, "%Y-%m-%d").date().isoformat()
+            except ValueError:
+                pass
+        if qs_time:
+            parsed_time = None
+            for fmt in ("%H:%M", "%H:%M:%S"):
+                try:
+                    parsed_time = datetime.strptime(qs_time, fmt).time()
+                    break
+                except ValueError:
+                    continue
+            if parsed_time is not None:
+                initial["scheduled_time"] = parsed_time.strftime("%H:%M")
+        form = PostForm(initial=initial)
         selected_account_ids = []
         media_attachments = []
 
