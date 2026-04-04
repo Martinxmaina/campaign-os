@@ -35,9 +35,6 @@ def process_media_asset(asset_id):
             _process_image(asset)
         elif asset.media_type == MediaAsset.MediaType.VIDEO:
             _process_video(asset)
-        elif asset.media_type == MediaAsset.MediaType.DOCUMENT:
-            _process_document(asset)
-
         asset.processing_status = MediaAsset.ProcessingStatus.COMPLETED
         asset.save(update_fields=["processing_status", "width", "height", "duration", "thumbnail", "updated_at"])
     except Exception:
@@ -78,11 +75,6 @@ def _process_video(asset):
         import os
 
         os.unlink(tmp_path)
-
-
-def _process_document(asset):
-    """Process a document (PDF). Thumbnail generation skipped for now."""
-    pass
 
 
 @background(schedule=0)

@@ -235,6 +235,8 @@ def send_reply(request, workspace_id, message_id):
         platform_reply_id = result.platform_message_id
     except NotImplementedError:
         logger.info("Provider %s does not support reply_to_message.", account.platform)
+    except (ConnectionError, TimeoutError, OSError) as exc:
+        logger.exception("Network error sending reply for message %s: %s", message.id, exc)
     except Exception:
         logger.exception("Failed to send reply for message %s", message.id)
 

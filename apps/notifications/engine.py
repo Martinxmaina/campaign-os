@@ -117,14 +117,21 @@ def notify(
     return notification
 
 
-def _resolve_channels(user, event_type: str) -> list[str]:
+def _resolve_channels(user, event_type: str, pref_cache: dict | None = None) -> list[str]:
     """Determine which channels are enabled for this user + event_type.
 
     Checks user preferences first; falls back to DEFAULT_CHANNELS.
+    Accepts an optional pref_cache dict to avoid repeated queries in batch operations.
     """
-    prefs = NotificationPreference.objects.filter(user=user, event_type=event_type).values_list("channel", "is_enabled")
-
-    pref_map = dict(prefs)
+    if pref_cache is not None and event_type in pref_cache:
+        pref_map = pref_cache[event_type]
+    else:
+        prefs = NotificationPreference.objects.filter(
+            user=user, event_type=event_type
+        ).values_list("channel", "is_enabled")
+        pref_map = dict(prefs)
+        if pref_cache is not None:
+            pref_cache[event_type] = pref_map
 
     defaults = DEFAULT_CHANNELS.get(event_type, {})
     channels: list[str] = []
@@ -141,9 +148,11 @@ def _resolve_channels(user, event_type: str) -> list[str]:
 
 def _is_in_quiet_hours(user) -> bool:
     """Check if the user is currently in their quiet hours window."""
+    from django.core.exceptions import ObjectDoesNotExist
+
     try:
         qh = user.quiet_hours
-    except Exception:
+    except (AttributeError, ObjectDoesNotExist):
         return False
 
     if not qh.is_enabled or not qh.start_time or not qh.end_time:
@@ -153,7 +162,7 @@ def _is_in_quiet_hours(user) -> bool:
 
     try:
         user_tz = zoneinfo.ZoneInfo(qh.timezone)
-    except (KeyError, Exception):
+    except (KeyError, zoneinfo.ZoneInfoNotFoundError):
         user_tz = zoneinfo.ZoneInfo("UTC")
 
     now_local = timezone.now().astimezone(user_tz).time()

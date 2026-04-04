@@ -16,6 +16,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
+from background_task import background
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -32,8 +33,9 @@ logger = logging.getLogger(__name__)
 # Retry backoff schedule (in seconds)
 RETRY_BACKOFF = [60, 300, 1800]  # 1min, 5min, 30min
 MAX_RETRIES = 3
-FIRST_COMMENT_DELAY = 5  # seconds
-MAX_CONCURRENT_PUBLISHES = 10
+FIRST_COMMENT_DELAY = getattr(settings, "PUBLISHER_FIRST_COMMENT_DELAY", 5)
+MAX_CONCURRENT_PUBLISHES = getattr(settings, "PUBLISHER_MAX_CONCURRENT_PUBLISHES", 10)
+MAX_CONCURRENT_POSTS = getattr(settings, "PUBLISHER_MAX_CONCURRENT_POSTS", 4)
 
 
 class PublishEngine:
@@ -47,12 +49,15 @@ class PublishEngine:
         due_posts = self._get_due_posts()
 
         published_count = 0
-        for post in due_posts:
-            try:
-                self._publish_post(post)
-                published_count += 1
-            except Exception:
-                logger.exception("Unexpected error publishing post %s", post.id)
+        with ThreadPoolExecutor(max_workers=min(len(due_posts), MAX_CONCURRENT_POSTS) or 1) as executor:
+            futures = {executor.submit(self._publish_post, post): post for post in due_posts}
+            for future in as_completed(futures):
+                post = futures[future]
+                try:
+                    future.result()
+                    published_count += 1
+                except Exception:
+                    logger.exception("Unexpected error publishing post %s", post.id)
 
         # Always process retries, even when no new posts are due
         self._process_retries()
@@ -73,7 +78,7 @@ class PublishEngine:
 
     def _publish_post(self, post):
         """Publish a single post across all its target platforms."""
-        # Transition to publishing (atomic to prevent duplicates)
+        # Transition post and platform posts atomically to prevent duplicate publishing
         with transaction.atomic():
             post = Post.objects.select_for_update().get(id=post.id)
             if post.status != Post.Status.SCHEDULED:
@@ -81,21 +86,20 @@ class PublishEngine:
             post.transition_to(Post.Status.PUBLISHING)
             post.save()
 
-        platform_posts = list(
-            post.platform_posts.filter(
-                publish_status=PlatformPost.PublishStatus.PENDING,
-            ).select_related("social_account")
-        )
+            platform_posts = list(
+                post.platform_posts.select_for_update()
+                .filter(publish_status=PlatformPost.PublishStatus.PENDING)
+                .select_related("social_account")
+            )
 
-        if not platform_posts:
-            post.transition_to(Post.Status.FAILED)
-            post.save()
-            return
+            if not platform_posts:
+                post.transition_to(Post.Status.FAILED)
+                post.save()
+                return
 
-        # Mark all as publishing
-        for pp in platform_posts:
-            pp.publish_status = PlatformPost.PublishStatus.PUBLISHING
-            pp.save()
+            PlatformPost.objects.filter(
+                id__in=[pp.id for pp in platform_posts]
+            ).update(publish_status=PlatformPost.PublishStatus.PUBLISHING)
 
         # Publish in parallel
         results = {}
@@ -123,11 +127,13 @@ class PublishEngine:
 
         post.save()
 
-        # Post first comments for successful publishes
+        # Schedule first comments for successful publishes (non-blocking)
         for pp in platform_posts:
             pp.refresh_from_db()
             if pp.publish_status == PlatformPost.PublishStatus.PUBLISHED:
-                self._post_first_comment(pp)
+                comment_text = pp.effective_first_comment
+                if comment_text:
+                    _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
 
     def _publish_platform_post(self, platform_post):
         """Publish a single PlatformPost to its target platform.
@@ -362,48 +368,6 @@ class PublishEngine:
             except Exception:
                 logger.exception("Error retrying PlatformPost %s", pp.id)
 
-    def _post_first_comment(self, platform_post):
-        """Post the first comment after publishing."""
-        comment_text = platform_post.effective_first_comment
-        if not comment_text:
-            return
-
-        # 5-second delay to avoid spam detection
-        time.sleep(FIRST_COMMENT_DELAY)
-
-        account = platform_post.social_account
-        try:
-            # Resolve credentials
-            try:
-                cred = PlatformCredential.objects.for_org(
-                    account.workspace.organization_id
-                ).get(platform=account.platform, is_configured=True)
-                credentials = cred.credentials
-            except PlatformCredential.DoesNotExist:
-                env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
-                credentials = env_creds.get(account.platform, {})
-
-            provider = get_provider(account.platform, credentials)
-            provider.publish_comment(
-                access_token=account.oauth_access_token,
-                post_id=platform_post.platform_post_id,
-                text=comment_text,
-            )
-            logger.info(
-                "Posted first comment for PlatformPost %s",
-                platform_post.id,
-            )
-        except NotImplementedError:
-            logger.info(
-                "First comment not supported for %s",
-                account.platform,
-            )
-        except Exception:
-            logger.exception(
-                "Failed to post first comment for PlatformPost %s",
-                platform_post.id,
-            )
-
     def _update_rate_limit(self, account, result):
         """Update rate limit state from API response headers."""
         remaining = result.get("rate_limit_remaining")
@@ -434,3 +398,42 @@ class PublishEngine:
         # If still pending/publishing, leave as-is
 
         post.save()
+
+
+@background(schedule=0)
+def _post_first_comment_task(platform_post_id):
+    """Post the first comment as a background task (avoids blocking the publisher thread)."""
+    try:
+        platform_post = PlatformPost.objects.select_related(
+            "social_account__workspace__organization"
+        ).get(pk=platform_post_id)
+    except PlatformPost.DoesNotExist:
+        logger.warning("PlatformPost %s not found for first comment.", platform_post_id)
+        return
+
+    comment_text = platform_post.effective_first_comment
+    if not comment_text:
+        return
+
+    account = platform_post.social_account
+    try:
+        try:
+            cred = PlatformCredential.objects.for_org(
+                account.workspace.organization_id
+            ).get(platform=account.platform, is_configured=True)
+            credentials = cred.credentials
+        except PlatformCredential.DoesNotExist:
+            env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+            credentials = env_creds.get(account.platform, {})
+
+        provider = get_provider(account.platform, credentials)
+        provider.publish_comment(
+            access_token=account.oauth_access_token,
+            post_id=platform_post.platform_post_id,
+            text=comment_text,
+        )
+        logger.info("Posted first comment for PlatformPost %s", platform_post.id)
+    except NotImplementedError:
+        logger.info("First comment not supported for %s", account.platform)
+    except Exception:
+        logger.exception("Failed to post first comment for PlatformPost %s", platform_post.id)

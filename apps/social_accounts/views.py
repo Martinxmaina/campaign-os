@@ -3,9 +3,12 @@
 Handles OAuth flows, account listing, connect/reconnect/disconnect actions.
 """
 
+import ipaddress
 import logging
 import secrets
+import socket
 from datetime import timedelta
+from urllib.parse import urlparse
 
 from django.conf import settings
 from django.contrib import messages
@@ -16,6 +19,8 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
+from django_ratelimit.decorators import ratelimit
+
 from apps.credentials.models import PlatformCredential
 from apps.members.decorators import require_permission
 
@@ -25,6 +30,26 @@ logger = logging.getLogger(__name__)
 
 OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 OAUTH_SESSION_KEY = "social_oauth"
+
+
+def _is_safe_url(url: str) -> bool:
+    """Validate that a URL does not resolve to a private/reserved IP (SSRF protection)."""
+    try:
+        parsed = urlparse(url)
+        hostname = parsed.hostname
+        if not hostname:
+            return False
+
+        # Resolve hostname to IP addresses
+        addr_infos = socket.getaddrinfo(hostname, parsed.port or 443, proto=socket.IPPROTO_TCP)
+        for family, _, _, _, sockaddr in addr_infos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if ip.is_private or ip.is_reserved or ip.is_loopback or ip.is_link_local:
+                return False
+
+        return True
+    except (socket.gaierror, ValueError, OSError):
+        return False
 
 
 def _get_provider_for_platform(platform: str, org_id, **extra_credentials):
@@ -122,6 +147,7 @@ def account_list(request, workspace_id):
 
 @login_required
 @require_permission("manage_social_accounts")
+@ratelimit(key="user", rate="20/m", method="POST", block=True)
 def connect_platform(request, workspace_id):
     """GET: show platform grid. POST: initiate OAuth flow."""
     configured_platforms = _get_configured_platforms(request.org.id)
@@ -179,6 +205,7 @@ def connect_platform(request, workspace_id):
 
 
 @login_required
+@ratelimit(key="user", rate="20/m", block=True)
 @require_GET
 def oauth_callback(request, platform):
     """Handle OAuth callback from the platform."""
@@ -301,6 +328,8 @@ def oauth_callback(request, platform):
         )
         messages.success(request, f"Connected {profile.name} successfully.")
 
+    except (signing.BadSignature, PermissionDenied):
+        raise
     except Exception:
         logger.exception("OAuth callback failed for %s", platform)
         messages.error(
@@ -471,6 +500,15 @@ def connect_mastodon(request, workspace_id):
     # Normalize URL
     if not instance_url.startswith(("http://", "https://")):
         instance_url = f"https://{instance_url}"
+
+    # Validate against SSRF — reject private/reserved IP ranges
+    if not _is_safe_url(instance_url):
+        messages.error(request, "Invalid instance URL. Private or reserved addresses are not allowed.")
+        return render(
+            request,
+            "social_accounts/mastodon_connect.html",
+            {"workspace_id": workspace_id},
+        )
 
     # Check for existing app registration or create one
     try:

@@ -22,7 +22,14 @@ logger = logging.getLogger(__name__)
 def _derive_key() -> bytes:
     """Derive a 256-bit encryption key from SECRET_KEY via HKDF."""
     secret = settings.SECRET_KEY.encode("utf-8")
-    salt = getattr(settings, "ENCRYPTION_KEY_SALT", b"brightbean-field-encryption-v1")
+    salt = getattr(settings, "ENCRYPTION_KEY_SALT", None)
+    if not salt:
+        raise ValueError(
+            "ENCRYPTION_KEY_SALT must be set. Generate a random value and add it "
+            "to your environment variables. This is required for secure encryption."
+        )
+    if isinstance(salt, str):
+        salt = salt.encode("utf-8")
     hkdf = HKDF(
         algorithm=SHA256(),
         length=32,

@@ -78,25 +78,33 @@ def generate_recurring_posts():
                 scheduled_at=scheduled_dt,
             )
 
-            # Clone platform posts
-            for pp in source.platform_posts.all():
-                PlatformPost.objects.create(
-                    post=new_post,
-                    social_account=pp.social_account,
-                    platform_specific_caption=pp.platform_specific_caption,
-                    platform_specific_first_comment=pp.platform_specific_first_comment,
-                    platform_specific_media=pp.platform_specific_media,
-                )
+            # Clone platform posts in bulk
+            source_pps = list(source.platform_posts.all())
+            if source_pps:
+                PlatformPost.objects.bulk_create([
+                    PlatformPost(
+                        post=new_post,
+                        social_account=pp.social_account,
+                        platform_specific_caption=pp.platform_specific_caption,
+                        platform_specific_first_comment=pp.platform_specific_first_comment,
+                        platform_specific_media=pp.platform_specific_media,
+                    )
+                    for pp in source_pps
+                ])
 
-            # Clone media attachments
-            for pm in source.media_attachments.all():
-                PostMedia.objects.create(
-                    post=new_post,
-                    media_asset=pm.media_asset,
-                    position=pm.position,
-                    alt_text=pm.alt_text,
-                    platform_overrides=pm.platform_overrides,
-                )
+            # Clone media attachments in bulk
+            source_media = list(source.media_attachments.all())
+            if source_media:
+                PostMedia.objects.bulk_create([
+                    PostMedia(
+                        post=new_post,
+                        media_asset=pm.media_asset,
+                        position=pm.position,
+                        alt_text=pm.alt_text,
+                        platform_overrides=pm.platform_overrides,
+                    )
+                    for pm in source_media
+                ])
 
             generated_total += 1
 
@@ -112,7 +120,8 @@ def _compute_recurrence_dates(base_date, frequency, interval, end_date):
     dates = []
     current = base_date
 
-    for _ in range(365):  # Safety limit
+    max_recurrences = LOOKAHEAD_DAYS * 2  # Safety limit
+    for _ in range(max_recurrences):
         if frequency == "daily":
             current = current + timedelta(days=interval)
         elif frequency == "weekly":

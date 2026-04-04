@@ -105,11 +105,15 @@ def _get_filtered_posts(workspace, request):
     if categories:
         qs = qs.filter(category_id__in=categories)
 
-    # Tag filter
+    # Tag filter (OR — match posts containing any selected tag)
     tags = request.GET.getlist("tag")
     if tags:
+        from django.db.models import Q
+
+        tag_q = Q()
         for tag in tags:
-            qs = qs.filter(tags__contains=[tag])
+            tag_q |= Q(tags__contains=[tag])
+        qs = qs.filter(tag_q)
 
     # Date range
     start_date = request.GET.get("start_date")

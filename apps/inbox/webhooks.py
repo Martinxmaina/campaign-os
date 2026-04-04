@@ -10,6 +10,7 @@ from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
+from django_ratelimit.decorators import ratelimit
 
 from apps.social_accounts.models import SocialAccount
 
@@ -20,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
+@ratelimit(key="ip", rate="60/m", block=True)
 @require_http_methods(["GET", "POST"])
 def facebook_webhook(request):
     """Facebook & Instagram webhook endpoint.
@@ -37,8 +39,13 @@ def _facebook_verify(request):
     mode = request.GET.get("hub.mode")
     token = request.GET.get("hub.verify_token")
     challenge = request.GET.get("hub.challenge", "")
+    configured_token = settings.FACEBOOK_WEBHOOK_VERIFY_TOKEN
 
-    if mode == "subscribe" and token == settings.FACEBOOK_WEBHOOK_VERIFY_TOKEN:
+    if not configured_token:
+        logger.error("FACEBOOK_WEBHOOK_VERIFY_TOKEN is not configured. Rejecting verification.")
+        return HttpResponseForbidden("Webhook verify token not configured.")
+
+    if mode == "subscribe" and token == configured_token:
         return HttpResponse(challenge, content_type="text/plain")
     return HttpResponseForbidden("Verification failed.")
 
@@ -87,8 +94,9 @@ def _process_facebook_events(payload: dict):
 
         accounts = SocialAccount.objects.filter(
             account_platform_id=page_id,
+            platform__in=["facebook", "instagram"],
             connection_status=SocialAccount.ConnectionStatus.CONNECTED,
-        ).select_related("workspace")
+        ).select_related("workspace__organization")
 
         for account in accounts:
             # Process changes (Facebook Page events)
@@ -208,6 +216,7 @@ def _create_if_new(
 
 
 @csrf_exempt
+@ratelimit(key="ip", rate="60/m", block=True)
 @require_http_methods(["GET", "POST"])
 def youtube_webhook(request):
     """YouTube PubSubHubbub webhook endpoint.
@@ -219,21 +228,24 @@ def youtube_webhook(request):
         challenge = request.GET.get("hub.challenge", "")
         return HttpResponse(challenge, content_type="text/plain")
 
-    # Verify HMAC if configured
+    # Verify HMAC — reject if secret is not configured
     webhook_secret = settings.YOUTUBE_WEBHOOK_SECRET
-    if webhook_secret:
-        signature = request.headers.get("X-Hub-Signature", "")
-        expected = (
-            "sha1="
-            + hmac.new(
-                webhook_secret.encode(),
-                request.body,
-                hashlib.sha1,
-            ).hexdigest()
-        )
-        if not hmac.compare_digest(expected, signature):
-            logger.warning("Invalid YouTube webhook signature.")
-            return HttpResponseForbidden("Invalid signature.")
+    if not webhook_secret:
+        logger.error("YOUTUBE_WEBHOOK_SECRET is not configured. Rejecting webhook POST.")
+        return HttpResponseForbidden("Webhook secret not configured.")
+
+    signature = request.headers.get("X-Hub-Signature", "")
+    expected = (
+        "sha1="
+        + hmac.new(
+            webhook_secret.encode(),
+            request.body,
+            hashlib.sha1,
+        ).hexdigest()
+    )
+    if not hmac.compare_digest(expected, signature):
+        logger.warning("Invalid YouTube webhook signature.")
+        return HttpResponseForbidden("Invalid signature.")
 
     try:
         _process_youtube_notification(request.body)
@@ -269,7 +281,7 @@ def _process_youtube_notification(body: bytes):
             account_platform_id=channel_id,
             platform="youtube",
             connection_status=SocialAccount.ConnectionStatus.CONNECTED,
-        ).select_related("workspace")
+        ).select_related("workspace__organization")
 
         for account in accounts:
             _create_if_new(

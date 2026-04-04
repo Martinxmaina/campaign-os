@@ -45,7 +45,7 @@ def library_index(request, workspace_id):
     qs = MediaAsset.objects.for_workspace_with_shared(
         workspace_id=workspace.id,
         organization_id=workspace.organization_id,
-    )
+    ).select_related("uploaded_by", "folder")
 
     # Filters
     file_type = request.GET.get("type")
@@ -267,23 +267,45 @@ def asset_edit(request, workspace_id, asset_id):
     if request.method == "POST":
         if asset.media_type in (MediaAsset.MediaType.IMAGE, MediaAsset.MediaType.GIF):
             operations = {}
-            # Parse crop data
+            # Parse and validate crop data
             if request.POST.get("crop_x") is not None and request.POST.get("crop_x") != "":
-                operations["crop"] = {
-                    "x": request.POST["crop_x"],
-                    "y": request.POST["crop_y"],
-                    "width": request.POST["crop_width"],
-                    "height": request.POST["crop_height"],
-                }
+                try:
+                    crop_x = int(request.POST["crop_x"])
+                    crop_y = int(request.POST["crop_y"])
+                    crop_w = int(request.POST["crop_width"])
+                    crop_h = int(request.POST["crop_height"])
+                    if crop_x < 0 or crop_y < 0 or crop_w <= 0 or crop_h <= 0:
+                        raise ValueError("Crop dimensions must be positive")
+                    operations["crop"] = {
+                        "x": crop_x,
+                        "y": crop_y,
+                        "width": crop_w,
+                        "height": crop_h,
+                    }
+                except (ValueError, TypeError):
+                    return JsonResponse({"error": "Invalid crop parameters"}, status=400)
             if request.POST.get("rotate"):
-                operations["rotate"] = request.POST["rotate"]
+                try:
+                    rotate_val = int(request.POST["rotate"])
+                    if rotate_val not in (0, 90, 180, 270):
+                        raise ValueError("Rotate must be 0, 90, 180, or 270")
+                    operations["rotate"] = rotate_val
+                except (ValueError, TypeError):
+                    return JsonResponse({"error": "Invalid rotate parameter"}, status=400)
             if request.POST.get("flip"):
-                operations["flip"] = request.POST["flip"]
+                flip_val = request.POST["flip"]
+                if flip_val not in ("horizontal", "vertical"):
+                    return JsonResponse({"error": "Invalid flip parameter"}, status=400)
+                operations["flip"] = flip_val
             if request.POST.get("resize_width") and request.POST.get("resize_height"):
-                operations["resize"] = {
-                    "width": request.POST["resize_width"],
-                    "height": request.POST["resize_height"],
-                }
+                try:
+                    rw = int(request.POST["resize_width"])
+                    rh = int(request.POST["resize_height"])
+                    if rw <= 0 or rh <= 0 or rw > 10000 or rh > 10000:
+                        raise ValueError("Resize dimensions out of range")
+                    operations["resize"] = {"width": rw, "height": rh}
+                except (ValueError, TypeError):
+                    return JsonResponse({"error": "Invalid resize parameters"}, status=400)
 
             if operations:
                 # Build change description

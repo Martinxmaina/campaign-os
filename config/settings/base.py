@@ -16,7 +16,7 @@ env = environ.Env(
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
 
-SECRET_KEY = env("SECRET_KEY", default="insecure-key-for-ci-only")
+SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 APP_URL = env("APP_URL")
@@ -76,6 +76,7 @@ MIDDLEWARE = [
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "allauth.account.middleware.AccountMiddleware",
+    "apps.accounts.middleware.AuthRateLimitMiddleware",
     "apps.accounts.middleware.TosAcceptanceMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
     "apps.members.middleware.RBACMiddleware",
@@ -106,6 +107,22 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+
+# Cache (used by rate limiting, session fallback)
+REDIS_URL = env("REDIS_URL")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": REDIS_URL,
+        }
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
 
 # Database
 DATABASES = {
@@ -201,7 +218,7 @@ SOCIALACCOUNT_ADAPTER = "apps.accounts.adapters.SocialAccountAdapter"
 
 # Sessions
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
-SESSION_COOKIE_AGE = 30 * 24 * 60 * 60  # 30 days
+SESSION_COOKIE_AGE = 14 * 24 * 60 * 60  # 14 days
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_SAVE_EVERY_REQUEST = True  # Sliding window
@@ -223,13 +240,10 @@ else:
 # Tailwind
 TAILWIND_APP_NAME = "theme"
 
-# CSP — Alpine.js uses x-on/x-data attributes which require unsafe-eval for
-# CSP_SCRIPT_SRC. This is a known Alpine.js limitation. The Alpine CSP build
-# (alpine/csp) avoids this but requires a different integration pattern.
-# For now, we use strict CSP where possible and accept the Alpine constraint.
-# Styles use unsafe-inline because Tailwind utility classes are inline.
+# CSP — Using Alpine.js CSP build (@alpinejs/csp) which does not require
+# unsafe-eval. Styles use unsafe-inline because Tailwind utility classes are inline.
 CSP_DEFAULT_SRC = ("'self'",)
-CSP_SCRIPT_SRC = ("'self'", "'unsafe-eval'")  # Required by Alpine.js x-data/x-on expressions
+CSP_SCRIPT_SRC = ("'self'",)  # Alpine.js CSP build (@alpinejs/csp) eliminates unsafe-eval
 CSP_STYLE_SRC = ("'self'", "'unsafe-inline'")  # Tailwind inline styles
 CSP_IMG_SRC = ("'self'", "data:", "https:")
 CSP_FONT_SRC = ("'self'",)
@@ -244,6 +258,15 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "login": "10/minute",
+        "oauth": "20/minute",
+        "api": "120/minute",
+        "uploads": "30/minute",
+    },
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.CursorPagination",
     "PAGE_SIZE": 50,
 }
@@ -256,8 +279,8 @@ MEDIA_LIBRARY_THUMBNAIL_SIZE = (400, 400)
 MEDIA_LIBRARY_FFMPEG_TIMEOUT = 300  # 5 minutes
 MEDIA_LIBRARY_MAX_CONCURRENT_TRANSCODES = 2
 
-# Encryption key derivation salt
-ENCRYPTION_KEY_SALT = b"brightbean-field-encryption-v1"
+# Encryption key derivation salt — MUST be set per-deployment via environment
+ENCRYPTION_KEY_SALT = env("ENCRYPTION_KEY_SALT", default="").encode("utf-8") or None
 
 # Sentry
 SENTRY_DSN = env("SENTRY_DSN")
@@ -305,3 +328,7 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
 # Webhook verification
 FACEBOOK_WEBHOOK_VERIFY_TOKEN = env("FACEBOOK_WEBHOOK_VERIFY_TOKEN", default="")
 YOUTUBE_WEBHOOK_SECRET = env("YOUTUBE_WEBHOOK_SECRET", default="")
+
+# Rate limiting
+RATELIMIT_ENABLE = not DEBUG
+RATELIMIT_USE_CACHE = "default"

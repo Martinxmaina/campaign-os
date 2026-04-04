@@ -1,3 +1,8 @@
+import os
+
+os.environ.setdefault("SECRET_KEY", "test-secret-key-not-for-production")
+os.environ.setdefault("ENCRYPTION_KEY_SALT", "test-salt-not-for-production")
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = False
