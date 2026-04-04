@@ -22,7 +22,7 @@ Context: week_days, week_slots, workspace.
             <span class="text-[11px] font-medium text-stone-400 tabular-nums">{{ hour }}:00</span>
         </div>
         {% for day, slot_posts in day_slots %}
-        <div class="border-r border-stone-100 last:border-r-0 p-1 cal-add-cell {% if day == today %}bg-orange-50/30{% endif %}"
+        <div class="border-r border-stone-100 last:border-r-0 p-1 cal-add-cell {% if slot_posts %}has-posts{% endif %} {% if day == today %}bg-orange-50/30{% endif %}"
              @dragover.prevent="allowDrop($event)"
              @drop="dropOnSlot($event, '{{ day|date:'Y-m-d' }}', {{ hour }})">
             <a href="{% url 'composer:compose' workspace_id=workspace.id %}?scheduled_date={{ day|date:'Y-m-d' }}&scheduled_time={{ hour }}:00" class="cal-add-btn" title="Create post">

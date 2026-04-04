@@ -216,6 +216,20 @@
         box-shadow: 0 6px 20px rgba(249,115,22,0.35);
     }
 
+    /* Day/week grids (non-month cells): hide add button entirely when cell has posts */
+    .cal-add-cell.has-posts:not(.cal-day) .cal-add-btn,
+    .cal-add-cell.has-posts:not(.cal-day):hover .cal-add-btn { display: none; }
+
+    /* Inline variant (day/week grid): flow in normal layout, no translate centering */
+    .cal-add-cell:not(.has-posts) .cal-add-btn.cal-add-btn--inline,
+    .cal-add-cell:not(.has-posts) .cal-add-btn.cal-add-btn--inline:hover {
+        top: auto; left: auto; right: auto;
+        transform: none;
+    }
+    .cal-add-cell:not(.has-posts) .cal-add-btn.cal-add-btn--inline:hover {
+        transform: scale(1.1);
+    }
+
     /* Draggable feedback */
     .post-chip.dragging { opacity: 0.5; transform: rotate(2deg); }
 
