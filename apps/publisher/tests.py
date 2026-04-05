@@ -60,22 +60,26 @@ class PublishEngineTest(TestCase):
         engine = PublishEngine()
         self.assertIsNotNone(engine)
 
-    @patch("apps.publisher.engine.Post.objects")
-    def test_get_due_posts_filters_correctly(self, mock_objects):
-        """Engine should query for scheduled posts where scheduled_at <= now."""
+    @patch("apps.publisher.engine.PlatformPost.objects")
+    def test_get_due_platform_posts_filters_correctly(self, mock_objects):
+        """Engine should query PlatformPosts with a Coalesce effective_at filter."""
         engine = PublishEngine()
         mock_qs = MagicMock()
         mock_objects.filter.return_value = mock_qs
+        mock_qs.annotate.return_value = mock_qs
+        mock_qs.filter.return_value = mock_qs
         mock_qs.select_related.return_value = mock_qs
-        mock_qs.prefetch_related.return_value = mock_qs
+        mock_qs.order_by.return_value = mock_qs
         mock_qs.__getitem__ = MagicMock(return_value=[])
 
-        engine._get_due_posts()
+        engine._get_due_platform_posts()
 
-        mock_objects.filter.assert_called_once()
-        call_kwargs = mock_objects.filter.call_args[1]
-        self.assertEqual(call_kwargs["status"], "scheduled")
-        self.assertIn("scheduled_at__lte", call_kwargs)
+        # First filter: status + publish_status
+        first_call = mock_objects.filter.call_args_list[0]
+        self.assertIn("publish_status", first_call.kwargs)
+        # Second filter (on annotated qs): effective_at__lte
+        second_call = mock_qs.filter.call_args_list[0]
+        self.assertIn("effective_at__lte", second_call.kwargs)
 
 
 class PublishLogModelTest(TestCase):

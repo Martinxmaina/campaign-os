@@ -116,6 +116,71 @@ def _save_version(post, user):
     )
 
 
+def _resolve_queues_for_post(queue_id, workspace, post_data):
+    """Resolve the Queues to add a post to.
+
+    Returns a list of Queue objects — one per selected social account when
+    no explicit ``queue_id`` is supplied by the composer form. If an explicit
+    queue_id is provided it is used exclusively.
+    """
+    from apps.calendar.models import Queue
+
+    if queue_id:
+        q = Queue.objects.filter(id=queue_id, workspace=workspace, is_active=True).first()
+        return [q] if q else []
+
+    selected_raw = post_data.get("selected_accounts", "") or ""
+    account_ids = [a.strip() for a in selected_raw.split(",") if a.strip()]
+    if not account_ids:
+        return []
+
+    queues = list(
+        Queue.objects.filter(
+            workspace=workspace, is_active=True, social_account_id__in=account_ids
+        ).order_by("created_at")
+    )
+    # De-duplicate by social_account (one queue per account)
+    seen = set()
+    unique = []
+    for q in queues:
+        if q.social_account_id in seen:
+            continue
+        seen.add(q.social_account_id)
+        unique.append(q)
+    return unique
+
+
+def _reassign_queue_slots_from_floor(queues, post, floor_date, workspace):
+    """Override per-platform scheduled_at for *post* with the next posting slot
+    on/after *floor_date* for each queue's social account.
+
+    Used when the composer was opened from a specific calendar day — we want
+    each platform to pick its earliest available slot starting that day,
+    independently.
+    """
+    from apps.calendar.services import _next_slot_datetimes
+    from apps.composer.services import sync_post_scheduled_at
+
+    ws_tz = workspace.effective_timezone or "UTC"
+    import zoneinfo
+
+    tz = zoneinfo.ZoneInfo(ws_tz)
+    floor_dt = datetime.combine(floor_date, datetime.min.time()).replace(tzinfo=tz)
+    floor_dt = max(floor_dt, timezone.now())
+
+    for q in queues:
+        slots = _next_slot_datetimes(q.social_account, floor_dt, count=1)
+        if not slots:
+            continue
+        pp = post.platform_posts.filter(social_account=q.social_account).first()
+        if pp is None:
+            continue
+        pp.scheduled_at = slots[0]
+        pp.save(update_fields=["scheduled_at", "updated_at"])
+
+    sync_post_scheduled_at(post)
+
+
 @login_required
 @require_permission("create_posts")
 def compose(request, workspace_id, post_id=None):
@@ -328,6 +393,9 @@ def save_post(request, workspace_id, post_id=None):
             naive_dt = datetime.combine(sched_date, sched_time)
             aware_dt = naive_dt.replace(tzinfo=tz)
             post.scheduled_at = aware_dt
+            # Propagate the manually chosen time to every PlatformPost so all
+            # selected platforms publish at the same moment.
+            post._schedule_propagate_dt = aware_dt  # handled after post.save()
             # Transition to scheduled (with fallback through draft for states like
             # changes_requested, rejected, failed that can't go directly).
             if post.status != "scheduled":
@@ -348,7 +416,9 @@ def save_post(request, workspace_id, post_id=None):
         perms = membership.effective_permissions if membership else {}
         if not perms.get("publish_directly", False):
             raise PermissionDenied("You do not have permission to publish directly.")
-        post.scheduled_at = timezone.now()
+        now_dt = timezone.now()
+        post.scheduled_at = now_dt
+        post._schedule_propagate_dt = now_dt  # handled after post.save()
         # Transition to scheduled (with fallback through draft for states like
         # changes_requested, rejected, failed that can't go directly).
         if not post.can_transition_to("scheduled"):
@@ -361,18 +431,30 @@ def save_post(request, workspace_id, post_id=None):
                 )
         post.transition_to("scheduled")  # Worker picks up scheduled posts where scheduled_at <= now()
     elif action == "add_to_queue":
-        queue_id = request.POST.get("queue_id")
-        if not queue_id:
-            return JsonResponse({"errors": {"queue": "Queue selection required."}}, status=400)
-        from apps.calendar.models import Queue
         from apps.calendar.services import add_to_queue
 
-        queue = get_object_or_404(Queue, id=queue_id, workspace=workspace, is_active=True)
+        queue_id = request.POST.get("queue_id")
+        queues = _resolve_queues_for_post(queue_id, workspace, request.POST)
+        if not queues:
+            return JsonResponse({"errors": {"queue": "No active queue found for the selected channel."}}, status=400)
         if not post.status or post.status in ("", "draft"):
             post.status = "draft"
         post.save()
-        add_to_queue(post, queue)
-        # Save version and return early — post.save() already called
+        # Ensure PlatformPost rows exist for every selected account before the
+        # queue service writes per-platform scheduled_at values.
+        _sync_platform_posts(request, post, workspace)
+        for q in queues:
+            add_to_queue(post, q)
+        # If opened from a specific calendar day (month/week/day "+" CTA), each
+        # queue should use that day as its floor — re-assign slots accordingly.
+        floor_date = form.cleaned_data.get("scheduled_date")
+        if floor_date:
+            _reassign_queue_slots_from_floor(queues, post, floor_date, workspace)
+        # Transition post.status to scheduled now that at least one platform is scheduled
+        if post.scheduled_at and post.status == "draft":
+            if post.can_transition_to("scheduled"):
+                post.transition_to("scheduled")
+                post.save(update_fields=["status", "updated_at"])
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(
@@ -383,17 +465,22 @@ def save_post(request, workspace_id, post_id=None):
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     elif action == "add_to_queue_priority":
-        queue_id = request.POST.get("queue_id")
-        if not queue_id:
-            return JsonResponse({"errors": {"queue": "Queue selection required."}}, status=400)
-        from apps.calendar.models import Queue
         from apps.calendar.services import add_to_queue
 
-        queue = get_object_or_404(Queue, id=queue_id, workspace=workspace, is_active=True)
+        queue_id = request.POST.get("queue_id")
+        queues = _resolve_queues_for_post(queue_id, workspace, request.POST)
+        if not queues:
+            return JsonResponse({"errors": {"queue": "No active queue found for the selected channel."}}, status=400)
         if not post.status or post.status in ("", "draft"):
             post.status = "draft"
         post.save()
-        add_to_queue(post, queue, priority=True)
+        _sync_platform_posts(request, post, workspace)
+        for q in queues:
+            add_to_queue(post, q, priority=True)
+        if post.scheduled_at and post.status == "draft":
+            if post.can_transition_to("scheduled"):
+                post.transition_to("scheduled")
+                post.save(update_fields=["status", "updated_at"])
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(
@@ -522,6 +609,12 @@ def save_post(request, workspace_id, post_id=None):
         pp.platform_specific_caption = override_caption if override_caption else None
         pp.platform_specific_first_comment = override_comment if override_comment else None
         pp.save()
+
+    # Propagate manually-chosen schedule/publish_now datetimes to every
+    # PlatformPost now that they exist.
+    propagate_dt = getattr(post, "_schedule_propagate_dt", None)
+    if propagate_dt is not None:
+        post.platform_posts.update(scheduled_at=propagate_dt)
 
     # Save version
     _save_version(post, request.user)

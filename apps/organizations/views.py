@@ -9,7 +9,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render
 from django.utils import timezone as django_tz
 from django.views.decorators.http import require_http_methods
-from apps.composer.models import Post, Tag
+from apps.composer.models import PlatformPost, Post, Tag
 from apps.members.decorators import require_org_role
 from apps.members.models import OrgMembership, WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
@@ -208,27 +208,30 @@ def cross_workspace_calendar(request):
     # Tags across filtered workspaces
     all_tags = sorted(set(Tag.objects.filter(workspace__in=filtered_workspaces).values_list("name", flat=True)))
 
-    # Base post queryset with filters
-    base_posts = (
-        Post.objects.filter(workspace__in=filtered_workspaces)
-        .select_related("workspace", "author")
-        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
+    # Base PlatformPost queryset with filters — each chip is one PP.
+    from django.db.models.functions import Coalesce
+
+    base_pps = (
+        PlatformPost.objects.filter(post__workspace__in=filtered_workspaces)
+        .select_related("post__workspace", "post__author", "social_account")
+        .prefetch_related("post__media_attachments__media_asset")
+        .annotate(effective_at=Coalesce("scheduled_at", "post__scheduled_at"))
     )
 
     # Channel filter
     channel = request.GET.get("channel")
     if channel:
-        base_posts = base_posts.filter(platform_posts__social_account_id=channel).distinct()
+        base_pps = base_pps.filter(social_account_id=channel)
 
     # Tag filter
     tag = request.GET.get("tag")
     if tag:
-        base_posts = base_posts.filter(tags__contains=[tag])
+        base_pps = base_pps.filter(post__tags__contains=[tag])
 
     # Status filter
     status = request.GET.get("status")
     if status:
-        base_posts = base_posts.filter(status=status)
+        base_pps = base_pps.filter(post__status=status)
 
     # Workspace colors for legend
     workspace_colors = {}
@@ -239,11 +242,11 @@ def cross_workspace_calendar(request):
 
     # Build view-specific data
     if view_type == "week":
-        context = _build_week_context(base_posts, target_date, today)
+        context = _build_week_context(base_pps, target_date, today)
     elif view_type == "day":
-        context = _build_day_context(base_posts, target_date, today)
+        context = _build_day_context(base_pps, target_date, today)
     else:
-        context = _build_month_context(base_posts, target_date, today)
+        context = _build_month_context(base_pps, target_date, today)
 
     context.update(
         {
@@ -264,22 +267,22 @@ def cross_workspace_calendar(request):
     return render(request, "organizations/cross_calendar.html", context)
 
 
-def _build_month_context(base_posts, target_date, today):
+def _build_month_context(base_pps, target_date, today):
     year, month = target_date.year, target_date.month
     cal = cal_mod.Calendar(firstweekday=0)
     weeks = cal.monthdatescalendar(year, month)
     first_day = weeks[0][0]
     last_day = weeks[-1][6]
 
-    posts = base_posts.filter(
-        scheduled_at__date__gte=first_day,
-        scheduled_at__date__lte=last_day,
-    ).order_by("scheduled_at")
+    platform_posts = base_pps.filter(
+        effective_at__date__gte=first_day,
+        effective_at__date__lte=last_day,
+    ).order_by("effective_at")
 
     posts_by_date = defaultdict(list)
-    for post in posts:
-        if post.scheduled_at:
-            posts_by_date[post.scheduled_at.date()].append(post)
+    for pp in platform_posts:
+        if pp.effective_at:
+            posts_by_date[pp.effective_at.date()].append(pp)
 
     calendar_weeks = []
     for week in weeks:
@@ -310,20 +313,20 @@ def _build_month_context(base_posts, target_date, today):
     }
 
 
-def _build_week_context(base_posts, target_date, today):
+def _build_week_context(base_pps, target_date, today):
     monday = target_date - timedelta(days=target_date.weekday())
     week_days = [monday + timedelta(days=i) for i in range(7)]
 
-    posts = base_posts.filter(
-        scheduled_at__date__gte=week_days[0],
-        scheduled_at__date__lte=week_days[6],
-    ).order_by("scheduled_at")
+    platform_posts = base_pps.filter(
+        effective_at__date__gte=week_days[0],
+        effective_at__date__lte=week_days[6],
+    ).order_by("effective_at")
 
     posts_by_slot = defaultdict(list)
-    for post in posts:
-        if post.scheduled_at:
-            key = (post.scheduled_at.date(), post.scheduled_at.hour)
-            posts_by_slot[key].append(post)
+    for pp in platform_posts:
+        if pp.effective_at:
+            key = (pp.effective_at.date(), pp.effective_at.hour)
+            posts_by_slot[key].append(pp)
 
     hours = list(range(0, 24))
 
@@ -346,13 +349,13 @@ def _build_week_context(base_posts, target_date, today):
     }
 
 
-def _build_day_context(base_posts, target_date, today):
-    posts = base_posts.filter(scheduled_at__date=target_date).order_by("scheduled_at")
+def _build_day_context(base_pps, target_date, today):
+    platform_posts = base_pps.filter(effective_at__date=target_date).order_by("effective_at")
 
     posts_by_hour = defaultdict(list)
-    for post in posts:
-        if post.scheduled_at:
-            posts_by_hour[post.scheduled_at.hour].append(post)
+    for pp in platform_posts:
+        if pp.effective_at:
+            posts_by_hour[pp.effective_at.hour].append(pp)
 
     hours = list(range(0, 24))
 

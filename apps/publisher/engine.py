@@ -19,6 +19,7 @@ from datetime import timedelta
 from background_task import background
 from django.conf import settings
 from django.db import transaction
+from django.db.models.functions import Coalesce
 from django.utils import timezone
 
 from apps.composer.models import PlatformPost, Post
@@ -42,59 +43,73 @@ class PublishEngine:
     """Orchestrates the publishing of scheduled posts."""
 
     def poll_and_publish(self):
-        """Main poll loop — find and publish due posts.
+        """Main poll loop — find and publish due platform posts.
 
-        Called every ~15 seconds by the background worker.
+        Called every ~15 seconds by the background worker. Groups due
+        PlatformPosts by parent Post and publishes each group.
         """
-        due_posts = self._get_due_posts()
+        due_pps = self._get_due_platform_posts()
+
+        # Group by parent post_id
+        groups: dict = {}
+        for pp in due_pps:
+            groups.setdefault(pp.post_id, []).append(pp)
 
         published_count = 0
-        with ThreadPoolExecutor(max_workers=min(len(due_posts), MAX_CONCURRENT_POSTS) or 1) as executor:
-            futures = {executor.submit(self._publish_post, post): post for post in due_posts}
+        with ThreadPoolExecutor(max_workers=min(len(groups), MAX_CONCURRENT_POSTS) or 1) as executor:
+            futures = {
+                executor.submit(self._publish_post_group, pps[0].post, pps): post_id
+                for post_id, pps in groups.items()
+            }
             for future in as_completed(futures):
-                post = futures[future]
+                post_id = futures[future]
                 try:
                     future.result()
                     published_count += 1
                 except Exception:
-                    logger.exception("Unexpected error publishing post %s", post.id)
+                    logger.exception("Unexpected error publishing post group %s", post_id)
 
         # Always process retries, even when no new posts are due
         self._process_retries()
 
         return published_count
 
-    def _get_due_posts(self):
-        """Find posts due for publishing."""
+    def _get_due_platform_posts(self):
+        """Find PlatformPosts due for publishing, using Coalesce fallback."""
         now = timezone.now()
         return list(
-            Post.objects.filter(
-                status=Post.Status.SCHEDULED,
-                scheduled_at__lte=now,
+            PlatformPost.objects.filter(
+                post__status__in=[Post.Status.SCHEDULED, Post.Status.PUBLISHING],
+                publish_status=PlatformPost.PublishStatus.PENDING,
             )
-            .select_related("workspace")
-            .prefetch_related("platform_posts__social_account")[:MAX_CONCURRENT_PUBLISHES]
+            .annotate(effective_at=Coalesce("scheduled_at", "post__scheduled_at"))
+            .filter(effective_at__lte=now)
+            .select_related("post__workspace", "social_account")
+            .order_by("effective_at")[:MAX_CONCURRENT_PUBLISHES]
         )
 
-    def _publish_post(self, post):
-        """Publish a single post across all its target platforms."""
+    def _publish_post_group(self, post, due_pps):
+        """Publish a group of due PlatformPosts belonging to the same Post."""
         # Transition post and platform posts atomically to prevent duplicate publishing
         with transaction.atomic():
             post = Post.objects.select_for_update().get(id=post.id)
-            if post.status != Post.Status.SCHEDULED:
-                return  # Already picked up by another worker
-            post.transition_to(Post.Status.PUBLISHING)
-            post.save()
+            if post.status not in (Post.Status.SCHEDULED, Post.Status.PUBLISHING):
+                return  # Already terminal
+            if post.status == Post.Status.SCHEDULED:
+                post.transition_to(Post.Status.PUBLISHING)
+                post.save()
 
+            # Re-filter due PPs under lock to avoid double-publishing
             platform_posts = list(
                 post.platform_posts.select_for_update()
-                .filter(publish_status=PlatformPost.PublishStatus.PENDING)
+                .filter(
+                    id__in=[pp.id for pp in due_pps],
+                    publish_status=PlatformPost.PublishStatus.PENDING,
+                )
                 .select_related("social_account")
             )
 
             if not platform_posts:
-                post.transition_to(Post.Status.FAILED)
-                post.save()
                 return
 
             PlatformPost.objects.filter(
@@ -112,20 +127,8 @@ class PublishEngine:
                 except Exception as e:
                     results[pp.id] = {"success": False, "error": str(e)}
 
-        # Determine overall post status
-        successes = sum(1 for r in results.values() if r.get("success"))
-        failures = sum(1 for r in results.values() if not r.get("success"))
-
-        if failures == 0:
-            post.transition_to(Post.Status.PUBLISHED)
-            post.published_at = timezone.now()
-        elif successes > 0:
-            post.status = Post.Status.PARTIALLY_PUBLISHED
-            post.published_at = timezone.now()
-        else:
-            post.status = Post.Status.FAILED
-
-        post.save()
+        # Aggregate parent status based on *all* children (not just the group).
+        self._update_parent_post_status(post)
 
         # Schedule first comments for successful publishes (non-blocking)
         for pp in platform_posts:
@@ -384,18 +387,30 @@ class PublishEngine:
             )
 
     def _update_parent_post_status(self, post):
-        """Update parent Post status based on all PlatformPost statuses."""
+        """Update parent Post status based on all PlatformPost statuses.
+
+        Waits for pending/publishing siblings — the post only transitions to a
+        terminal state once every child has resolved to published or failed.
+        """
         platform_posts = post.platform_posts.all()
         statuses = set(platform_posts.values_list("publish_status", flat=True))
+
+        # Any child still pending or publishing — stay in PUBLISHING, wait.
+        if "pending" in statuses or "publishing" in statuses:
+            if post.status != Post.Status.PUBLISHING:
+                post.status = Post.Status.PUBLISHING
+                post.save()
+            return
 
         if statuses == {"published"}:
             post.status = Post.Status.PUBLISHED
             post.published_at = timezone.now()
-        elif "published" in statuses and ("failed" in statuses or "pending" in statuses):
-            post.status = Post.Status.PARTIALLY_PUBLISHED
         elif statuses == {"failed"}:
             post.status = Post.Status.FAILED
-        # If still pending/publishing, leave as-is
+        elif "published" in statuses and "failed" in statuses:
+            post.status = Post.Status.PARTIALLY_PUBLISHED
+            if not post.published_at:
+                post.published_at = timezone.now()
 
         post.save()
 

@@ -19,31 +19,24 @@ Context: day_slots, target_date, workspace.
             <a href="{% url 'composer:compose' workspace_id=workspace.id %}?scheduled_date={{ target_date|date:'Y-m-d' }}&scheduled_time={{ hour }}:00" class="cal-add-btn cal-add-btn--inline" style="position:static; margin:0 auto;" title="Create post">
                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
             </a>
-            {% for post in hour_posts %}
-            <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=post.id %}"
-               class="post-chip status-{{ post.status }}"
+            {% for pp in hour_posts %}
+            <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=pp.post_id %}"
+               class="post-chip status-{{ pp.post.status }}"
                draggable="true"
-               @dragstart="startDrag($event, '{{ post.id }}')"
+               data-platform-post-id="{{ pp.id }}"
+               @dragstart="startDrag($event, '{{ pp.id }}')"
                @dragend="endDrag($event)">
-                {% with first_pp=post.platform_posts.all.0 %}
-                {% if first_pp %}
-                <span class="w-4 h-4 rounded flex items-center justify-center pi-{{ first_pp.social_account.platform }} flex-shrink-0 text-white">
-                    {% include "social_accounts/partials/_platform_icon.html" with platform=first_pp.social_account.platform size="3" %}
+                <span class="w-4 h-4 rounded flex items-center justify-center pi-{{ pp.social_account.platform }} flex-shrink-0 text-white">
+                    {% include "social_accounts/partials/_platform_icon.html" with platform=pp.social_account.platform size="3" %}
                 </span>
-                {% elif post.category %}
-                <span class="w-1.5 h-full rounded-full flex-shrink-0 -ml-1 mr-0.5" style="background: {{ post.category.color }};"></span>
-                {% else %}
-                <span class="chip-dot"></span>
-                {% endif %}
-                {% endwith %}
-                {% with first_media=post.media_attachments.all.0 %}
+                {% with first_media=pp.post.media_attachments.all.0 %}
                 {% if first_media and first_media.media_asset.thumbnail %}
                 <img src="{{ first_media.media_asset.thumbnail.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
                 {% elif first_media and not first_media.media_asset.is_video %}
                 <img src="{{ first_media.media_asset.file.url }}" alt="" class="w-5 h-5 rounded object-cover flex-shrink-0">
                 {% endif %}
                 {% endwith %}
-                <span class="truncate">{{ post.caption_snippet|truncatechars:28 }}</span>
+                <span class="truncate">{{ pp.post.caption_snippet|truncatechars:28 }}</span>
             </a>
             {% endfor %}
         </div>

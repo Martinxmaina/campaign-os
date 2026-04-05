@@ -11,7 +11,7 @@ from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
-from apps.composer.models import ContentCategory, Post
+from apps.composer.models import ContentCategory, PlatformPost, Post
 from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
@@ -122,6 +122,53 @@ def _get_filtered_posts(workspace, request):
         qs = qs.filter(scheduled_at__date__gte=_parse_date(start_date))
     if end_date:
         qs = qs.filter(scheduled_at__date__lte=_parse_date(end_date))
+
+    return qs
+
+
+def _get_filtered_platform_posts(workspace, request):
+    """Return a PlatformPost queryset filtered by calendar query params.
+
+    Each row carries an ``effective_at`` annotation that falls back to
+    ``post.scheduled_at`` when the PlatformPost has no per-platform override.
+    """
+    from django.db.models.functions import Coalesce
+
+    qs = (
+        PlatformPost.objects.filter(post__workspace_id=workspace.id)
+        .select_related("post", "post__author", "post__category", "social_account")
+        .annotate(effective_at=Coalesce("scheduled_at", "post__scheduled_at"))
+    )
+
+    # Status filter
+    statuses = request.GET.getlist("status")
+    if statuses:
+        qs = qs.filter(post__status__in=statuses)
+
+    # Platform filter
+    platforms = request.GET.getlist("platform")
+    if platforms:
+        qs = qs.filter(social_account__platform__in=platforms)
+
+    # Author filter
+    authors = request.GET.getlist("author")
+    if authors:
+        qs = qs.filter(post__author_id__in=authors)
+
+    # Category filter
+    categories = request.GET.getlist("category")
+    if categories:
+        qs = qs.filter(post__category_id__in=categories)
+
+    # Tag filter (OR)
+    tags = request.GET.getlist("tag")
+    if tags:
+        from django.db.models import Q
+
+        tag_q = Q()
+        for tag in tags:
+            tag_q |= Q(post__tags__contains=[tag])
+        qs = qs.filter(tag_q)
 
     return qs
 
@@ -304,16 +351,16 @@ def _month_view_data(request, workspace, target_date, context):
     cal = cal_mod.Calendar(firstweekday=0)  # Monday first
     weeks = cal.monthdatescalendar(year, month)
 
-    # Get all posts for this month range
+    # Get all platform posts for this month range (one chip per PlatformPost)
     first_day = weeks[0][0]
     last_day = weeks[-1][6]
-    posts = (
-        _get_filtered_posts(workspace, request)
+    platform_posts = (
+        _get_filtered_platform_posts(workspace, request)
         .filter(
-            scheduled_at__date__gte=first_day,
-            scheduled_at__date__lte=last_day,
+            effective_at__date__gte=first_day,
+            effective_at__date__lte=last_day,
         )
-        .order_by("scheduled_at")
+        .order_by("effective_at")
     )
 
     # Also include drafts without scheduled_at for the current month
@@ -326,11 +373,11 @@ def _month_view_data(request, workspace, target_date, context):
         .order_by("-updated_at")[:10]
     )
 
-    # Group posts by date
+    # Group PlatformPosts by date
     posts_by_date = defaultdict(list)
-    for post in posts:
-        if post.scheduled_at:
-            posts_by_date[post.scheduled_at.date()].append(post)
+    for pp in platform_posts:
+        if pp.effective_at:
+            posts_by_date[pp.effective_at.date()].append(pp)
 
     # Holiday overlay
     holidays_by_date = {}
@@ -397,22 +444,22 @@ def _week_view_data(request, workspace, target_date, context):
     monday = target_date - timedelta(days=target_date.weekday())
     week_days = [monday + timedelta(days=i) for i in range(7)]
 
-    posts = (
-        _get_filtered_posts(workspace, request)
+    platform_posts = (
+        _get_filtered_platform_posts(workspace, request)
         .filter(
-            scheduled_at__date__gte=week_days[0],
-            scheduled_at__date__lte=week_days[6],
+            effective_at__date__gte=week_days[0],
+            effective_at__date__lte=week_days[6],
         )
-        .order_by("scheduled_at")
+        .order_by("effective_at")
     )
 
-    # Group posts by (date, hour)
+    # Group PlatformPosts by (date, hour)
     posts_by_slot = defaultdict(list)
-    for post in posts:
-        if post.scheduled_at:
-            local_dt = post.scheduled_at
+    for pp in platform_posts:
+        if pp.effective_at:
+            local_dt = pp.effective_at
             key = (local_dt.date(), local_dt.hour)
-            posts_by_slot[key].append(post)
+            posts_by_slot[key].append(pp)
 
     hours = list(range(0, 24))
 
@@ -448,18 +495,18 @@ def _week_view(request, workspace, target_date, context):
 
 def _day_view_data(request, workspace, target_date, context):
     """Populate context with day view data (no rendering)."""
-    posts = (
-        _get_filtered_posts(workspace, request)
+    platform_posts = (
+        _get_filtered_platform_posts(workspace, request)
         .filter(
-            scheduled_at__date=target_date,
+            effective_at__date=target_date,
         )
-        .order_by("scheduled_at")
+        .order_by("effective_at")
     )
 
     posts_by_hour = defaultdict(list)
-    for post in posts:
-        if post.scheduled_at:
-            posts_by_hour[post.scheduled_at.hour].append(post)
+    for pp in platform_posts:
+        if pp.effective_at:
+            posts_by_hour[pp.effective_at.hour].append(pp)
 
     hours = list(range(0, 24))
 
@@ -658,15 +705,22 @@ def publish_tab_sent(request, workspace_id):
 @login_required
 @require_POST
 def reschedule_post(request, workspace_id):
-    """HTMX endpoint for drag-and-drop rescheduling."""
+    """HTMX endpoint for drag-and-drop rescheduling of a single PlatformPost."""
+    from apps.composer.services import sync_post_scheduled_at
+
     workspace = _get_workspace(request, workspace_id)
-    post_id = request.POST.get("post_id")
+    platform_post_id = request.POST.get("platform_post_id") or request.POST.get("post_id")
     new_datetime_str = request.POST.get("new_datetime")
 
-    if not post_id or not new_datetime_str:
-        return JsonResponse({"error": "post_id and new_datetime required"}, status=400)
+    if not platform_post_id or not new_datetime_str:
+        return JsonResponse({"error": "platform_post_id and new_datetime required"}, status=400)
 
-    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+    pp = get_object_or_404(
+        PlatformPost.objects.select_related("post__workspace", "post__author"),
+        id=platform_post_id,
+        post__workspace=workspace,
+    )
+    post = pp.post
 
     # Check permissions — only editable statuses can be rescheduled
     if post.status not in ("draft", "approved", "scheduled"):
@@ -688,16 +742,22 @@ def reschedule_post(request, workspace_id):
         new_dt = datetime.fromisoformat(new_datetime_str)
         if new_dt.tzinfo is None:
             new_dt = new_dt.replace(tzinfo=tz)
-        post.scheduled_at = new_dt
+        pp.scheduled_at = new_dt
+        pp.save(update_fields=["scheduled_at", "updated_at"])
         if post.status == "draft":
             post.status = "scheduled"
-        post.save()
+            post.save(update_fields=["status", "updated_at"])
+        sync_post_scheduled_at(post)
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": f"Invalid datetime: {e}"}, status=400)
 
     return HttpResponse(
         status=204,
-        headers={"HX-Trigger": json.dumps({"postRescheduled": {"postId": str(post.id)}})},
+        headers={
+            "HX-Trigger": json.dumps(
+                {"postRescheduled": {"platformPostId": str(pp.id), "postId": str(post.id)}}
+            )
+        },
     )
 
 

@@ -78,19 +78,34 @@ def generate_recurring_posts():
                 scheduled_at=scheduled_dt,
             )
 
-            # Clone platform posts in bulk
+            # Clone platform posts in bulk, preserving per-platform offsets
             source_pps = list(source.platform_posts.all())
             if source_pps:
-                PlatformPost.objects.bulk_create([
-                    PlatformPost(
-                        post=new_post,
-                        social_account=pp.social_account,
-                        platform_specific_caption=pp.platform_specific_caption,
-                        platform_specific_first_comment=pp.platform_specific_first_comment,
-                        platform_specific_media=pp.platform_specific_media,
+                new_pps = []
+                for pp in source_pps:
+                    # Preserve the offset between source PP's scheduled_at and
+                    # source post's scheduled_at, so per-platform time deltas
+                    # carry into each recurrence.
+                    pp_scheduled = None
+                    if pp.scheduled_at and source.scheduled_at:
+                        delta = pp.scheduled_at - source.scheduled_at
+                        pp_scheduled = scheduled_dt + delta
+                    new_pps.append(
+                        PlatformPost(
+                            post=new_post,
+                            social_account=pp.social_account,
+                            platform_specific_caption=pp.platform_specific_caption,
+                            platform_specific_first_comment=pp.platform_specific_first_comment,
+                            platform_specific_media=pp.platform_specific_media,
+                            scheduled_at=pp_scheduled,
+                        )
                     )
-                    for pp in source_pps
-                ])
+                PlatformPost.objects.bulk_create(new_pps)
+
+                # Sync Post.scheduled_at to min of children.
+                from apps.composer.services import sync_post_scheduled_at
+
+                sync_post_scheduled_at(new_post)
 
             # Clone media attachments in bulk
             source_media = list(source.media_attachments.all())

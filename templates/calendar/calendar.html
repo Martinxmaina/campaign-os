@@ -255,17 +255,17 @@
 function calendarApp() {
     return {
         activeView: '{{ view_type }}',
-        draggedPostId: null,
+        draggedPlatformPostId: null,
 
-        startDrag(event, postId) {
-            this.draggedPostId = postId;
+        startDrag(event, platformPostId) {
+            this.draggedPlatformPostId = platformPostId;
             event.dataTransfer.effectAllowed = 'move';
             event.target.classList.add('dragging');
         },
 
         endDrag(event) {
             event.target.classList.remove('dragging');
-            this.draggedPostId = null;
+            this.draggedPlatformPostId = null;
         },
 
         allowDrop(event) {
@@ -275,13 +275,13 @@ function calendarApp() {
 
         dropOnSlot(event, dateStr, hour) {
             event.preventDefault();
-            if (!this.draggedPostId) return;
+            if (!this.draggedPlatformPostId) return;
 
             const newDatetime = dateStr + 'T' + String(hour).padStart(2, '0') + ':00:00';
 
             htmx.ajax('POST', '{% url "calendar:reschedule" workspace_id=workspace.id %}', {
                 values: {
-                    post_id: this.draggedPostId,
+                    platform_post_id: this.draggedPlatformPostId,
                     new_datetime: newDatetime,
                 },
                 target: '#calendar-content',

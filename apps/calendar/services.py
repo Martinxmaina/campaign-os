@@ -80,8 +80,14 @@ def assign_queue_slots(queue):
     """Recalculate assigned_slot_datetime for all entries in a queue.
 
     Iterates entries in position order and assigns each to the next
-    available PostingSlot datetime for the queue's social account.
+    available PostingSlot datetime for the queue's social account. For each
+    entry, writes the slot datetime to the matching ``PlatformPost`` (the one
+    whose ``social_account`` equals ``queue.social_account``) and keeps
+    ``QueueEntry.assigned_slot_datetime`` in sync. ``Post.scheduled_at`` is
+    then refreshed via ``sync_post_scheduled_at`` as min-of-children.
     """
+    from apps.composer.services import sync_post_scheduled_at
+
     entries = queue.entries.select_related("post").order_by("position")
     if not entries.exists():
         return
@@ -89,16 +95,24 @@ def assign_queue_slots(queue):
     now = timezone.now()
     slot_times = _next_slot_datetimes(queue.social_account, now, count=len(entries) + 10)
 
+    touched_posts = []
     for idx, entry in enumerate(entries):
-        if idx < len(slot_times):
-            entry.assigned_slot_datetime = slot_times[idx]
-            entry.post.scheduled_at = slot_times[idx]
-            if entry.post.status == "draft":
-                entry.post.status = "scheduled"
-            entry.post.save(update_fields=["scheduled_at", "status", "updated_at"])
-        else:
-            entry.assigned_slot_datetime = None
+        slot_dt = slot_times[idx] if idx < len(slot_times) else None
+        entry.assigned_slot_datetime = slot_dt
         entry.save(update_fields=["assigned_slot_datetime"])
+
+        # Write the per-platform scheduled_at on the matching PlatformPost.
+        pp = entry.post.platform_posts.filter(
+            social_account=queue.social_account
+        ).first()
+        if pp is not None:
+            pp.scheduled_at = slot_dt
+            pp.save(update_fields=["scheduled_at", "updated_at"])
+
+        touched_posts.append(entry.post)
+
+    for post in touched_posts:
+        sync_post_scheduled_at(post)
 
 
 def add_to_queue(post, queue, priority=False):

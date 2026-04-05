@@ -419,6 +419,12 @@ class PlatformPost(models.Model):
     )
     publish_error = models.TextField(blank=True, default="")
     published_at = models.DateTimeField(blank=True, null=True)
+    scheduled_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        db_index=True,
+        help_text="Per-platform scheduled publish time. NULL falls back to Post.scheduled_at.",
+    )
     retry_count = models.PositiveIntegerField(default=0)
     next_retry_at = models.DateTimeField(blank=True, null=True)
 
@@ -428,6 +434,12 @@ class PlatformPost(models.Model):
     class Meta:
         db_table = "composer_platform_post"
         unique_together = [("post", "social_account")]
+        indexes = [
+            models.Index(
+                fields=["publish_status", "scheduled_at"],
+                name="idx_pp_status_sched",
+            ),
+        ]
 
     def __str__(self):
         return f"PlatformPost({self.social_account.platform}): {self.publish_status}"
