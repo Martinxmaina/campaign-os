@@ -279,13 +279,35 @@ def oauth_callback(request, platform):
         tokens = provider.exchange_code(code, redirect_uri)
         profile = provider.get_profile(tokens.access_token)
 
-        # Facebook multi-page: check if user manages multiple pages
+        # Facebook/Instagram: always connect personal profile, then handle pages
         if platform in (
             PlatformCredential.Platform.FACEBOOK,
             PlatformCredential.Platform.INSTAGRAM,
         ) and hasattr(provider, "get_user_pages"):
+            # Always connect the personal profile first
+            _create_or_update_account(
+                workspace_id=workspace_id,
+                platform=platform,
+                profile=profile,
+                access_token=tokens.access_token,
+                refresh_token=tokens.refresh_token,
+                expires_in=tokens.expires_in,
+            )
+
             pages = provider.get_user_pages(tokens.access_token)
-            if len(pages) > 1:
+            if pages:
+                # Include personal profile in the selection list
+                personal_entry = {
+                    "id": profile.platform_id,
+                    "name": f"{profile.name} (Personal)",
+                    "access_token": tokens.access_token,
+                    "category": "Personal Profile",
+                    "picture": profile.avatar_url,
+                    "is_personal": True,
+                    "already_connected": True,
+                }
+                all_accounts = [personal_entry] + pages
+
                 # Store in session for account selection
                 request.session["oauth_page_select"] = {
                     "workspace_id": workspace_id,
@@ -294,30 +316,20 @@ def oauth_callback(request, platform):
                         "access_token": tokens.access_token,
                         "refresh_token": tokens.refresh_token,
                     },
-                    "pages": pages,
+                    "pages": all_accounts,
                 }
                 return redirect("social_accounts:select_account")
-            elif len(pages) == 1:
-                # Auto-select the single page
-                page = pages[0]
-                _create_or_update_account(
-                    workspace_id=workspace_id,
-                    platform=platform,
-                    profile=type(profile)(
-                        platform_id=page["id"],
-                        name=page["name"],
-                        handle=page.get("handle"),
-                        avatar_url=page.get("picture", ""),
-                        follower_count=page.get("followers_count", 0),
-                    ),
-                    access_token=page.get("access_token", tokens.access_token),
-                    refresh_token=tokens.refresh_token,
-                    expires_in=tokens.expires_in,
+            else:
+                messages.warning(
+                    request,
+                    "Your personal account was connected, but no Facebook Pages were found. "
+                    "If you expected to connect a Page, try removing the app in "
+                    "Facebook Settings \u2192 Business Integrations, then reconnect.",
                 )
-                messages.success(request, f"Connected {page['name']} successfully.")
+                messages.success(request, f"Connected {profile.name} successfully.")
                 return redirect("calendar:calendar", workspace_id=workspace_id)
 
-        # Standard single-account flow
+        # Standard single-account flow (non-Facebook/Instagram platforms)
         _create_or_update_account(
             workspace_id=workspace_id,
             platform=platform,
@@ -388,6 +400,10 @@ def select_account(request):
 
     for page in page_data["pages"]:
         if page["id"] in selected_ids:
+            # Personal profile is already connected during the callback
+            if page.get("already_connected"):
+                connected.append(page["name"])
+                continue
             profile = AccountProfile(
                 platform_id=page["id"],
                 name=page["name"],

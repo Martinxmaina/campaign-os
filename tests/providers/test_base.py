@@ -10,11 +10,12 @@ from providers.types import AuthType, PostType
 class TestProviderRegistry:
     """Test provider registry completeness and get_provider()."""
 
-    def test_registry_contains_all_ten_platforms(self):
+    def test_registry_contains_all_platforms(self):
         expected = {
             "facebook",
             "instagram",
-            "linkedin",
+            "linkedin_personal",
+            "linkedin_company",
             "tiktok",
             "youtube",
             "pinterest",
@@ -120,8 +121,12 @@ class TestProviderMetadata:
         p = get_provider("instagram")
         assert p.max_caption_length == 2200
 
-    def test_linkedin_max_caption(self):
-        p = get_provider("linkedin")
+    def test_linkedin_personal_max_caption(self):
+        p = get_provider("linkedin_personal")
+        assert p.max_caption_length == 3000
+
+    def test_linkedin_company_max_caption(self):
+        p = get_provider("linkedin_company")
         assert p.max_caption_length == 3000
 
     def test_bluesky_max_caption(self):

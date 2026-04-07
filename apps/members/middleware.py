@@ -1,5 +1,7 @@
 """RBAC middleware that resolves org role + workspace role on every request."""
 
+from django.core.exceptions import PermissionDenied
+
 from .models import OrgMembership, WorkspaceMembership
 
 
@@ -76,6 +78,10 @@ class RBACMiddleware:
         if not workspace_id:
             return None
 
+        # Clear stale context from __call__ before resolving
+        request.workspace = None
+        request.workspace_membership = None
+
         ws_membership = (
             WorkspaceMembership.objects.filter(
                 user=request.user,
@@ -84,21 +90,23 @@ class RBACMiddleware:
             .select_related("workspace__organization", "custom_role")
             .first()
         )
-        if ws_membership:
-            request.workspace = ws_membership.workspace
-            request.workspace_membership = ws_membership
-            # Also resolve org from workspace for consistency
-            org = ws_membership.workspace.organization
-            org_membership = (
-                OrgMembership.objects.filter(
-                    user=request.user,
-                    organization=org,
-                )
-                .select_related("organization")
-                .first()
+        if not ws_membership:
+            raise PermissionDenied("You do not have access to this workspace.")
+
+        request.workspace = ws_membership.workspace
+        request.workspace_membership = ws_membership
+        # Also resolve org from workspace for consistency
+        org = ws_membership.workspace.organization
+        org_membership = (
+            OrgMembership.objects.filter(
+                user=request.user,
+                organization=org,
             )
-            if org_membership:
-                request.org = org_membership.organization
-                request.org_membership = org_membership
+            .select_related("organization")
+            .first()
+        )
+        if org_membership:
+            request.org = org_membership.organization
+            request.org_membership = org_membership
 
         return None

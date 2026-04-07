@@ -366,19 +366,29 @@ Facebook, Instagram, and Threads all use the same Meta app credentials.
 
 1. Go to [Meta for Developers](https://developers.facebook.com/) and create a new app (type: **Business**)
 2. Under **App Settings → Basic**, copy your **App ID** and **App Secret**
-3. Add the following products to your app:
-   - **Facebook Login** — set the redirect URI under **Facebook Login → Settings → Valid OAuth Redirect URIs**
-   - **Instagram Basic Display** (for Instagram publishing)
-   - Add the following redirect URIs:
-     ```
-     {APP_URL}/social-accounts/callback/facebook/
-     {APP_URL}/social-accounts/callback/instagram/
-     {APP_URL}/social-accounts/callback/threads/
-     ```
-4. Under **App Review → Permissions and Features**, request the required permissions:
-   - **Facebook:** `pages_manage_posts`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_metadata`, `pages_messaging`
-   - **Instagram:** `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_insights`
-   - **Threads:** `threads_basic`, `threads_content_publish`, `threads_manage_insights`, `threads_manage_replies`
+3. In the App Dashboard, go to **Use cases** and add the following four use cases. For each use case, click into it and go to **Permissions and features** to add the required optional permissions:
+
+   **Use case: "Manage everything on your Page"** (Facebook)
+   - This use case auto-includes `business_management`, `pages_show_list`, and `public_profile`
+   - Add these optional permissions: `pages_manage_posts`, `pages_read_engagement`, `pages_read_user_content`, `pages_manage_metadata`
+
+   **Use case: "Messenger from Meta"** (Facebook Messaging)
+   - Required to enable the `pages_messaging` permission, which is not available under the "Manage Pages" use case
+   - Add the optional permission: `pages_messaging`
+
+   **Use case: "Manage messaging & content on Instagram"** (Instagram)
+   - Add these permissions: `instagram_basic`, `instagram_content_publish`, `instagram_manage_comments`, `instagram_manage_insights`
+
+   **Use case: "Access the Threads API"** (Threads)
+   - This use case auto-includes `threads_basic`
+   - Add these optional permissions: `threads_content_publish`, `threads_manage_insights`, `threads_manage_replies`
+
+4. Under **Facebook Login → Settings → Valid OAuth Redirect URIs**, add the following redirect URIs:
+   ```
+   {APP_URL}/social-accounts/callback/facebook/
+   {APP_URL}/social-accounts/callback/instagram/
+   {APP_URL}/social-accounts/callback/threads/
+   ```
 5. Set the environment variables:
    ```
    PLATFORM_FACEBOOK_APP_ID=your-app-id
@@ -387,23 +397,27 @@ Facebook, Instagram, and Threads all use the same Meta app credentials.
 
 ### LinkedIn
 
+Brightbean uses a **single LinkedIn app** (with Community Management API) for both personal profile and Company Page connections — each flow simply requests different OAuth scopes. The connect page shows two cards: *LinkedIn (Personal Profile)* and *LinkedIn (Company Page)*.
+
 1. Go to the [LinkedIn Developer Portal](https://developer.linkedin.com/) and create a new app
 2. Verify your app's association with a LinkedIn Company Page
 3. Under **Products**, request access to:
-   - **Share on LinkedIn**
-   - **Sign In with LinkedIn using OpenID Connect**
-   - **Advertising API** (required for token refresh)
-4. Under **Auth**, add the redirect URI and note the **Client ID** and **Client Secret**
-   - Redirect URI:
-     ```
-     {APP_URL}/social-accounts/callback/linkedin/
-     ```
-5. Required scopes: `w_member_social`, `r_member_social`, `w_organization_social`, `r_organization_social`
+   - **Community Management API** *(restricted — requires LinkedIn review)*
+4. Under **Auth**, add **both** redirect URIs:
+   ```
+   {APP_URL}/social-accounts/callback/linkedin_personal/
+   {APP_URL}/social-accounts/callback/linkedin_company/
+   ```
+5. Scopes are requested per connection type:
+   - **Personal profile:** `r_basicprofile`, `w_member_social`, `r_member_social`
+   - **Company page:** `r_basicprofile`, `w_member_social`, `w_organization_social`, `r_organization_social`, `rw_organization_admin`
 6. Set the environment variables:
    ```
    PLATFORM_LINKEDIN_CLIENT_ID=your-client-id
    PLATFORM_LINKEDIN_CLIENT_SECRET=your-client-secret
    ```
+
+> **Refresh tokens:** Community Management API provides refresh tokens natively (365-day lifetime, access tokens last 60 days). No Advertising API product is needed. Note: the **Share on LinkedIn** and **Community Management API** products are mutually exclusive on the same app — use Community Management API as it covers both personal and organization scopes.
 
 ### TikTok
 

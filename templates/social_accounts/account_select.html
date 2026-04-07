@@ -18,10 +18,11 @@
             {% for page in pages %}
             <label class="flex items-center gap-4 p-4 bg-white rounded-xl border border-stone-200 cursor-pointer transition-all duration-200 hover:shadow-md hover:border-orange-200 has-[:checked]:border-orange-400 has-[:checked]:ring-2 has-[:checked]:ring-orange-100 has-[:checked]:bg-orange-50/30">
                 <input type="checkbox" name="selected_pages" value="{{ page.id }}"
-                       class="w-4 h-4 rounded border-stone-300 text-orange-500 focus:ring-orange-500 focus:ring-offset-0">
+                       {% if page.already_connected %}checked{% endif %}
+                       class="w-4 h-4 rounded border-stone-300 text-orange-500 focus:ring-orange-500 focus:ring-offset-0 cursor-pointer">
 
-                {% if page.picture.data.url %}
-                <img src="{{ page.picture.data.url }}" alt="{{ page.name }}" class="w-10 h-10 rounded-full object-cover ring-2 ring-stone-100">
+                {% if page.picture %}
+                <img src="{{ page.picture }}" alt="{{ page.name }}" class="w-10 h-10 rounded-full object-cover ring-2 ring-stone-100">
                 {% else %}
                 <div class="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
                     {% include "social_accounts/partials/_platform_icon.html" with platform=platform size="5" %}
@@ -43,9 +44,10 @@
         </div>
 
         <div class="flex items-center gap-3">
-            <button type="submit" class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-orange-500 rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:bg-orange-600 transition-all duration-200">
-                Connect Selected
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+            <button type="submit" id="connect-btn" class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-orange-500 rounded-full shadow-[0_4px_14px_rgba(249,115,22,0.28)] hover:bg-orange-600 transition-all duration-200 cursor-pointer">
+                <span id="connect-btn-text">Connect Selected</span>
+                <svg id="connect-btn-check" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                <svg id="connect-btn-spinner" class="w-4 h-4 animate-spin hidden" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             </button>
             <a href="{% url 'social_accounts:list' workspace_id=workspace_id %}" class="px-4 py-2.5 text-sm font-semibold text-stone-600 hover:text-stone-800 transition-colors">
                 Cancel
@@ -53,4 +55,19 @@
         </div>
     </form>
 </div>
+
+<script>
+    document.getElementById('connect-btn').closest('form').addEventListener('submit', function(e) {
+        const btn = document.getElementById('connect-btn');
+        if (btn.disabled) {
+            e.preventDefault();
+            return;
+        }
+        btn.disabled = true;
+        btn.classList.add('opacity-75');
+        document.getElementById('connect-btn-text').textContent = 'Connecting\u2026';
+        document.getElementById('connect-btn-check').classList.add('hidden');
+        document.getElementById('connect-btn-spinner').classList.remove('hidden');
+    });
+</script>
 {% endblock %}

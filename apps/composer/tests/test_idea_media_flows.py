@@ -325,7 +325,7 @@ class IdeaMediaFlowsTests(TestCase):
         asset_one = self._create_asset("convert-one.png")
         asset_two = self._create_asset("convert-two.png")
         connected_a = self._create_social_account("instagram", "a")
-        connected_b = self._create_social_account("linkedin", "b")
+        connected_b = self._create_social_account("linkedin_company", "b")
         self._create_social_account("facebook", "c", status=SocialAccount.ConnectionStatus.DISCONNECTED)
 
         idea = Idea.objects.create(

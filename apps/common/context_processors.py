@@ -115,7 +115,8 @@ def _platform_display_names():
     return [
         ("instagram", "Instagram"),
         ("facebook", "Facebook"),
-        ("linkedin", "LinkedIn"),
+        ("linkedin_personal", "LinkedIn (Personal)"),
+        ("linkedin_company", "LinkedIn (Company)"),
         ("tiktok", "TikTok"),
         ("youtube", "YouTube"),
         ("pinterest", "Pinterest"),

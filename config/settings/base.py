@@ -302,16 +302,19 @@ _GOOGLE_CREDENTIALS = {
     "client_id": env("PLATFORM_GOOGLE_CLIENT_ID", default=""),
     "client_secret": env("PLATFORM_GOOGLE_CLIENT_SECRET", default=""),
 }
+_LINKEDIN_CREDENTIALS = {
+    "client_id": env("PLATFORM_LINKEDIN_CLIENT_ID", default=""),
+    "client_secret": env("PLATFORM_LINKEDIN_CLIENT_SECRET", default=""),
+}
 
 PLATFORM_CREDENTIALS_FROM_ENV = {
     # Meta platforms — Facebook, Instagram, and Threads share the same app
     "facebook": _META_CREDENTIALS,
     "instagram": _META_CREDENTIALS,
     "threads": _META_CREDENTIALS,
-    "linkedin": {
-        "client_id": env("PLATFORM_LINKEDIN_CLIENT_ID", default=""),
-        "client_secret": env("PLATFORM_LINKEDIN_CLIENT_SECRET", default=""),
-    },
+    # LinkedIn — personal and company page variants share one Community Management API app
+    "linkedin_personal": _LINKEDIN_CREDENTIALS,
+    "linkedin_company": _LINKEDIN_CREDENTIALS,
     "tiktok": {
         "client_key": env("PLATFORM_TIKTOK_CLIENT_KEY", default=""),
         "client_secret": env("PLATFORM_TIKTOK_CLIENT_SECRET", default=""),

@@ -8,7 +8,7 @@ from django.shortcuts import get_object_or_404, render
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.composer.models import Post, PostVersion
-from apps.members.decorators import require_permission
+from apps.members.decorators import require_permission, require_workspace_role
 from apps.workspaces.models import Workspace
 
 from . import comments as comment_service
@@ -17,11 +17,15 @@ from .models import PostComment
 
 
 def _get_workspace(request, workspace_id):
+    from django.core.exceptions import PermissionDenied
+
+    from apps.members.models import WorkspaceMembership
+
     workspace = get_object_or_404(Workspace, id=workspace_id)
     if not request.user.is_authenticated:
-        from django.core.exceptions import PermissionDenied
-
         raise PermissionDenied("Authentication required.")
+    if not WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).exists():
+        raise PermissionDenied("You do not have access to this workspace.")
     return workspace
 
 
@@ -262,6 +266,7 @@ def bulk_action(request, workspace_id):
 
 
 @login_required
+@require_workspace_role("viewer")
 @require_POST
 def add_comment(request, workspace_id, post_id):
     """Add a comment to a post."""
@@ -302,6 +307,7 @@ def add_comment(request, workspace_id, post_id):
 
 
 @login_required
+@require_workspace_role("viewer")
 @require_POST
 def edit_comment(request, workspace_id, post_id, comment_id):
     """Edit a comment."""
@@ -330,6 +336,7 @@ def edit_comment(request, workspace_id, post_id, comment_id):
 
 
 @login_required
+@require_workspace_role("viewer")
 @require_POST
 def delete_comment(request, workspace_id, post_id, comment_id):
     """Soft-delete a comment."""
@@ -359,6 +366,7 @@ def delete_comment(request, workspace_id, post_id, comment_id):
 
 
 @login_required
+@require_workspace_role("viewer")
 @require_GET
 def version_diff(request, workspace_id, post_id):
     """Show diff between two post versions."""

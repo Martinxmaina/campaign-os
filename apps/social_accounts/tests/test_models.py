@@ -81,7 +81,7 @@ class TestSocialAccount:
         other_ws = workspace.__class__.objects.create(name="Other WS", organization=organization)
         SocialAccount.objects.create(
             workspace=other_ws,
-            platform="linkedin",
+            platform="linkedin_company",
             account_platform_id="789",
             account_name="Other Account",
         )

@@ -70,6 +70,8 @@ class FacebookProvider(SocialProvider):
     @property
     def required_scopes(self) -> list[str]:
         return [
+            "business_management",
+            "pages_show_list",
             "pages_manage_posts",
             "pages_read_engagement",
             "pages_read_user_content",
@@ -194,6 +196,14 @@ class FacebookProvider(SocialProvider):
             params={"fields": "id,name,access_token,category,picture"},
         )
         data = resp.json()
+        if "error" in data:
+            logger.error("Facebook /me/accounts error: %s", data["error"])
+            raise APIError(
+                f"Failed to fetch pages: {data['error'].get('message', 'Unknown error')}",
+                platform=self.platform_name,
+                raw_response=data,
+            )
+        logger.debug("Facebook /me/accounts returned %d pages", len(data.get("data", [])))
         pages: list[dict] = []
         for page in data.get("data", []):
             picture_url = None

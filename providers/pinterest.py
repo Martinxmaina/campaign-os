@@ -65,7 +65,7 @@ class PinterestProvider(SocialProvider):
 
     @property
     def required_scopes(self) -> list[str]:
-        return ["boards:read", "pins:read", "pins:write"]
+        return ["user_accounts:read", "boards:read", "pins:read", "pins:write"]
 
     @property
     def rate_limits(self) -> RateLimitConfig:

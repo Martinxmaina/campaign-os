@@ -172,15 +172,18 @@ class LinkedInProvider(SocialProvider):
     def get_profile(self, access_token: str) -> AccountProfile:
         resp = self._request(
             "GET",
-            f"{API_BASE}/v2/userinfo",
+            f"{API_BASE}/v2/me",
             access_token=access_token,
             headers=LINKEDIN_HEADERS,
         )
         data = resp.json()
+        first = data.get("localizedFirstName", "")
+        last = data.get("localizedLastName", "")
+        name = f"{first} {last}".strip() or data.get("vanityName", "")
         return AccountProfile(
-            platform_id=data.get("sub", ""),
-            name=data.get("name", ""),
-            avatar_url=data.get("picture"),
+            platform_id=data.get("id", ""),
+            name=name,
+            avatar_url=data.get("profilePicture", {}).get("displayImage"),
             extra=data,
         )
 

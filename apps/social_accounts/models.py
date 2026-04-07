@@ -85,7 +85,8 @@ class SocialAccount(models.Model):
     PLATFORM_CHAR_LIMITS = {
         "facebook": 63206,
         "instagram": 2200,
-        "linkedin": 3000,
+        "linkedin_personal": 3000,
+        "linkedin_company": 3000,
         "tiktok": 2200,
         "youtube": 5000,
         "pinterest": 500,
@@ -135,7 +136,8 @@ class SocialAccount(models.Model):
         icons = {
             "facebook": "f",
             "instagram": "ig",
-            "linkedin": "in",
+            "linkedin_personal": "in",
+            "linkedin_company": "in",
             "tiktok": "tk",
             "youtube": "yt",
             "pinterest": "pi",

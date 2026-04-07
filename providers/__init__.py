@@ -12,7 +12,8 @@ from .bluesky import BlueskyProvider
 from .facebook import FacebookProvider
 from .google_business import GoogleBusinessProvider
 from .instagram import InstagramProvider
-from .linkedin import LinkedInProvider
+from .linkedin_company import LinkedInCompanyProvider
+from .linkedin_personal import LinkedInPersonalProvider
 from .mastodon import MastodonProvider
 from .pinterest import PinterestProvider
 from .threads import ThreadsProvider
@@ -25,7 +26,8 @@ if TYPE_CHECKING:
 PROVIDER_REGISTRY: dict[str, type[SocialProvider]] = {
     "facebook": FacebookProvider,
     "instagram": InstagramProvider,
-    "linkedin": LinkedInProvider,
+    "linkedin_personal": LinkedInPersonalProvider,
+    "linkedin_company": LinkedInCompanyProvider,
     "tiktok": TikTokProvider,
     "youtube": YouTubeProvider,
     "pinterest": PinterestProvider,
