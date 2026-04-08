@@ -7,6 +7,12 @@
 
 Open-source, self-hostable social media management platform built for agencies and SMBs. Supports Facebook, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Threads, Bluesky, Google Business Profile, and Mastodon.
 
+### One-Click Deploy
+
+| Heroku | Render | Railway |
+|:------:|:------:|:-------:|
+| [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/brightbeanxyz/brightbean-social-management) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/brightbeanxyz/brightbean-social-management) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template?referralCode=brightbean&code=https://github.com/brightbeanxyz/brightbean-social-management) |
+
 ## Quick Start (Docker)
 
 ```bash
@@ -31,112 +37,6 @@ docker compose exec app python manage.py createsuperuser
 
 Open http://localhost:8000 - you're running.
 
-## Local Development (without Docker for the app)
-
-Use Docker only for PostgreSQL, run Django on your host for faster iteration.
-
-### Prerequisites
-
-- Python 3.12+
-- Node.js 20+ (for Tailwind CSS)
-- Docker (for PostgreSQL)
-
-### Setup
-
-**1. Clone and configure**
-
-```bash
-git clone https://github.com/brightbeanxyz/brightbean-social-management.git
-cd brightbean-social-management
-cp .env.example .env
-```
-
-The default `.env` is ready for local development - `DATABASE_URL` points to `localhost:5432` which is correct when running Django on your host.
-
-**2. Start PostgreSQL**
-
-```bash
-docker compose up postgres -d
-```
-
-Verify it's running:
-
-```bash
-docker compose ps
-# postgres should show "healthy"
-```
-
-**3. Set up Python**
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-**4. Set up Tailwind CSS**
-
-```bash
-cd theme/static_src
-npm install
-cd ../..
-```
-
-**5. Run database migrations**
-
-```bash
-python manage.py migrate
-```
-
-**6. Create your admin account**
-
-```bash
-python manage.py createsuperuser
-```
-
-**7. Start the app (3 terminal tabs)**
-
-Tab 1 - Tailwind watcher (recompiles CSS on template changes):
-```bash
-cd theme/static_src && npm run start
-```
-
-Tab 2 - Django dev server:
-```bash
-source .venv/bin/activate
-python manage.py runserver
-```
-
-Tab 3 - Background worker (processes scheduled posts, inbox sync, etc.):
-```bash
-source .venv/bin/activate
-python manage.py process_tasks
-```
-
-Open http://localhost:8000 and log in with the superuser you created.
-
-### What each process does
-
-| Process | Command | Purpose |
-|---------|---------|---------|
-| **Web server** | `python manage.py runserver` | Serves the Django app |
-| **Worker** | `python manage.py process_tasks` | Runs background jobs (publishing, inbox sync, analytics collection) |
-| **Tailwind** | `npm run start` (in `theme/static_src/`) | Watches templates and recompiles CSS |
-| **PostgreSQL** | `docker compose up postgres -d` | Database |
-
-### Daily workflow
-
-After initial setup, your daily startup is:
-
-```bash
-docker compose up postgres -d           # start DB (if not running)
-source .venv/bin/activate                # activate Python env
-python manage.py runserver               # start web server
-# (open another tab)
-python manage.py process_tasks           # start worker
-```
-
-Tailwind watcher is only needed when you're editing templates/CSS.
 
 ## Fully Local Development (without Docker)
 
@@ -539,7 +439,7 @@ Options:
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Django 5.x, Django REST Framework |
+| Backend | Django 5.x |
 | Frontend | Django templates, HTMX, Alpine.js |
 | CSS | Tailwind CSS 4 via django-tailwind |
 | Database | PostgreSQL 16+ |
