@@ -150,19 +150,20 @@ def delete_asset(asset):
 
 
 def _check_post_references(asset):
-    """Check if an asset is referenced by any scheduled posts.
+    """Check if an asset is referenced by any scheduled or publishing posts.
 
     Returns a list of post descriptions if referenced, empty list otherwise.
-    This is a placeholder that will be connected when the posts app is built.
     """
-    # TODO: Connect to posts app when built
-    # from apps.composer.models import PostMedia
-    # scheduled_refs = PostMedia.objects.filter(
-    #     media_asset=asset,
-    #     post__status="scheduled",
-    # ).select_related("post")
-    # return [{"id": ref.post_id, "caption": ref.post.caption[:80]} for ref in scheduled_refs]
-    return []
+    from apps.composer.models import PostMedia
+
+    scheduled_refs = PostMedia.objects.filter(
+        media_asset=asset,
+        post__status__in=("scheduled", "publishing"),
+    ).select_related("post")
+    return [
+        {"id": str(ref.post_id), "caption": (ref.post.caption or "")[:80]}
+        for ref in scheduled_refs
+    ]
 
 
 def extract_image_metadata(file_path_or_file):
