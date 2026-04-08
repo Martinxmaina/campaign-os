@@ -1,5 +1,10 @@
 # Brightbean
 
+[![CI](https://github.com/brightbeanxyz/brightbean-social-management/actions/workflows/ci.yml/badge.svg)](https://github.com/brightbeanxyz/brightbean-social-management/actions/workflows/ci.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
+[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
+[![Django 5.x](https://img.shields.io/badge/Django-5.x-green.svg)](https://www.djangoproject.com/)
+
 Open-source, self-hostable social media management platform built for agencies and SMBs. Supports Facebook, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Threads, Bluesky, Google Business Profile, and Mastodon.
 
 ## Quick Start (Docker)
@@ -543,6 +548,31 @@ Options:
 | Media | Pillow (images), FFmpeg (video) |
 | Deployment | Docker, Gunicorn, Caddy |
 
+## Troubleshooting
+
+**Docker: `postgres` container is unhealthy**
+Wait 10-15 seconds after `docker compose up` for the health check to pass, then retry your command. Check logs with `docker compose logs postgres`.
+
+**`python manage.py migrate` fails with connection errors**
+Make sure PostgreSQL is running and healthy. For Docker: `docker compose ps` should show postgres as "healthy". For local: verify the `DATABASE_URL` in `.env` matches your setup.
+
+**Tailwind CSS changes not appearing**
+Make sure the Tailwind watcher is running: `cd theme/static_src && npm run start`. If styles still don't update, try `npm run build` for a full rebuild.
+
+**OAuth callback errors ("redirect URI mismatch")**
+The redirect URI registered on the platform must exactly match `{APP_URL}/social-accounts/callback/{platform}/`. Check that `APP_URL` in `.env` matches the URL you're accessing (including `http` vs `https` and port number).
+
+**Background tasks not running (posts not publishing)**
+Make sure the worker is running: `python manage.py process_tasks`. In Docker: check `docker compose logs worker`.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, coding guidelines, and how to submit pull requests.
+
+## Security
+
+To report a security vulnerability, see [SECURITY.md](SECURITY.md). Do not open a public issue.
+
 ## License
 
-See [LICENSE](LICENSE) for details.
+[AGPL-3.0](LICENSE) - see LICENSE for details.
