@@ -7,6 +7,8 @@
 <style>
     /* Inbox-specific layout: remove parent padding, fill height */
     .inbox-shell { margin: -0.75rem; display: flex; flex-direction: column; height: calc(100% + 1.5rem); }
+    .inbox-shell { overflow: hidden; }
+    :has(> .inbox-shell) { overflow: visible !important; }
     @media (min-width: 640px) {
         .inbox-shell { margin: -1rem; height: calc(100% + 2rem); }
     }
