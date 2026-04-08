@@ -8,7 +8,7 @@ def provision_organization_and_workspace(user):
     """Create a default Organization, Workspace, and memberships for a new user.
 
     Skips if the user already belongs to an organization (e.g. invited users).
-    Safe to call multiple times — the guard is idempotent.
+    Safe to call multiple times - the guard is idempotent.
     """
     from apps.members.models import OrgMembership, WorkspaceMembership
     from apps.organizations.models import Organization
@@ -49,7 +49,7 @@ def provision_organization_and_workspace(user):
 
 @receiver(user_signed_up)
 def create_organization_on_signup(sender, request, user, **kwargs):
-    """Handle allauth signup — create org + workspace.
+    """Handle allauth signup - create org + workspace.
 
     If the user signed up via an invitation link, accept the invitation
     instead of creating a default org. The invite token is stored in
@@ -90,13 +90,13 @@ def create_organization_on_signup(sender, request, user, **kwargs):
                         Workspace.objects.filter(organization=org).delete()
                         org.delete()
 
-                return  # Done — user is now in the invited org only
+                return  # Done - user is now in the invited org only
         except Invitation.DoesNotExist:
             pass  # Fall through to default provisioning
         except ValueError:
-            pass  # Invite acceptance failed (e.g. email mismatch) — keep default org
+            pass  # Invite acceptance failed (e.g. email mismatch) - keep default org
 
-    # No invite or invite failed — ensure default provisioning happened.
+    # No invite or invite failed - ensure default provisioning happened.
     # post_save already handled this, so this is a no-op (idempotent guard).
     provision_organization_and_workspace(user)
 

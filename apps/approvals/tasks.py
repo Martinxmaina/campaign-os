@@ -62,14 +62,14 @@ def _process_stage(stage, status, threshold_hours, now):
 
         # Check if we should send a reminder
         if reminder.reminder_count >= MAX_REMINDERS:
-            # Already sent max reminders — escalate if not already done
+            # Already sent max reminders - escalate if not already done
             if not reminder.escalated:
                 _escalate(post, stage)
                 reminder.escalated = True
                 reminder.save(update_fields=["escalated"])
             continue
 
-        # Check cooldown (don't spam — wait at least threshold_hours between reminders)
+        # Check cooldown (don't spam - wait at least threshold_hours between reminders)
         if reminder.last_reminder_at:
             cooldown = reminder.last_reminder_at + timedelta(hours=threshold_hours)
             if now < cooldown:

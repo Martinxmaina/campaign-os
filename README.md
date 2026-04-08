@@ -10,7 +10,7 @@ cd brightbean-social-management
 cp .env.example .env
 ```
 
-Edit `.env` — change `DATABASE_URL` to point to the Docker service name:
+Edit `.env` - change `DATABASE_URL` to point to the Docker service name:
 
 ```
 DATABASE_URL=postgres://postgres:postgres@postgres:5432/brightbean
@@ -24,7 +24,7 @@ docker compose exec app python manage.py migrate
 docker compose exec app python manage.py createsuperuser
 ```
 
-Open http://localhost:8000 — you're running.
+Open http://localhost:8000 - you're running.
 
 ## Local Development (without Docker for the app)
 
@@ -46,7 +46,7 @@ cd brightbean-social-management
 cp .env.example .env
 ```
 
-The default `.env` is ready for local development — `DATABASE_URL` points to `localhost:5432` which is correct when running Django on your host.
+The default `.env` is ready for local development - `DATABASE_URL` points to `localhost:5432` which is correct when running Django on your host.
 
 **2. Start PostgreSQL**
 
@@ -91,18 +91,18 @@ python manage.py createsuperuser
 
 **7. Start the app (3 terminal tabs)**
 
-Tab 1 — Tailwind watcher (recompiles CSS on template changes):
+Tab 1 - Tailwind watcher (recompiles CSS on template changes):
 ```bash
 cd theme/static_src && npm run start
 ```
 
-Tab 2 — Django dev server:
+Tab 2 - Django dev server:
 ```bash
 source .venv/bin/activate
 python manage.py runserver
 ```
 
-Tab 3 — Background worker (processes scheduled posts, inbox sync, etc.):
+Tab 3 - Background worker (processes scheduled posts, inbox sync, etc.):
 ```bash
 source .venv/bin/activate
 python manage.py process_tasks
@@ -135,7 +135,7 @@ Tailwind watcher is only needed when you're editing templates/CSS.
 
 ## Fully Local Development (without Docker)
 
-Run everything natively — no Docker, no PostgreSQL install. Uses SQLite for the database.
+Run everything natively - no Docker, no PostgreSQL install. Uses SQLite for the database.
 
 ### Prerequisites
 
@@ -160,7 +160,7 @@ Open `.env` and replace the `DATABASE_URL` line:
 DATABASE_URL=sqlite:///db.sqlite3
 ```
 
-That's it — no database server to install or manage.
+That's it - no database server to install or manage.
 
 **3. Set up Python**
 
@@ -192,18 +192,18 @@ python manage.py createsuperuser
 
 **7. Start the app (3 terminal tabs)**
 
-Tab 1 — Tailwind watcher:
+Tab 1 - Tailwind watcher:
 ```bash
 cd theme/static_src && npm run start
 ```
 
-Tab 2 — Django dev server:
+Tab 2 - Django dev server:
 ```bash
 source .venv/bin/activate
 python manage.py runserver
 ```
 
-Tab 3 — Background worker:
+Tab 3 - Background worker:
 ```bash
 source .venv/bin/activate
 python manage.py process_tasks
@@ -288,7 +288,7 @@ docker compose exec app python manage.py migrate
 | **Railway** | `railway.toml` | Three services: web, worker, managed PostgreSQL. |
 | **Render** | `render.yaml` | Blueprint with web, worker, PostgreSQL. Must use paid tier. |
 
-All platforms with ephemeral filesystems require `STORAGE_BACKEND=s3` — see `.env.example` for S3 configuration.
+All platforms with ephemeral filesystems require `STORAGE_BACKEND=s3` - see `.env.example` for S3 configuration.
 
 See `architecture.md` for detailed per-platform instructions and cost breakdowns.
 
@@ -344,7 +344,7 @@ Key variables for local development:
 |----------|---------|-------------|
 | `SECRET_KEY` | (required) | Django secret key. Any random string for dev. |
 | `DEBUG` | `false` | Set to `true` for local development. |
-| `DATABASE_URL` | — | PostgreSQL connection string. |
+| `DATABASE_URL` | - | PostgreSQL connection string. |
 | `STORAGE_BACKEND` | `local` | `local` for filesystem, `s3` for S3-compatible storage. |
 | `EMAIL_BACKEND_TYPE` | `smtp` | Set to `smtp` for SMTP or leave default (console in dev). |
 
@@ -397,7 +397,7 @@ Facebook, Instagram, and Threads all use the same Meta app credentials.
 
 ### Instagram (Personal Account)
 
-The Instagram (Personal) connector uses the **Instagram API with Instagram Login** — a separate OAuth flow from the Facebook Login-based Instagram connector above. This supports personal, creator, and business Instagram accounts without requiring a linked Facebook Page.
+The Instagram (Personal) connector uses the **Instagram API with Instagram Login** - a separate OAuth flow from the Facebook Login-based Instagram connector above. This supports personal, creator, and business Instagram accounts without requiring a linked Facebook Page.
 
 1. In the same Meta app, go to **Use cases** and add the **"Instagram API"** use case
 2. Under **API setup with Instagram Login**, note your **Instagram App ID** and **Instagram App Secret** (these are different from your Facebook App ID/Secret)
@@ -415,12 +415,12 @@ The Instagram (Personal) connector uses the **Instagram API with Instagram Login
 
 ### LinkedIn
 
-Brightbean uses a **single LinkedIn app** (with Community Management API) for both personal profile and Company Page connections — each flow simply requests different OAuth scopes. The connect page shows two cards: *LinkedIn (Personal Profile)* and *LinkedIn (Company Page)*.
+Brightbean uses a **single LinkedIn app** (with Community Management API) for both personal profile and Company Page connections - each flow simply requests different OAuth scopes. The connect page shows two cards: *LinkedIn (Personal Profile)* and *LinkedIn (Company Page)*.
 
 1. Go to the [LinkedIn Developer Portal](https://developer.linkedin.com/) and create a new app
 2. Verify your app's association with a LinkedIn Company Page
 3. Under **Products**, request access to:
-   - **Community Management API** *(restricted — requires LinkedIn review)*
+   - **Community Management API** *(restricted - requires LinkedIn review)*
 4. Under **Auth**, add **both** redirect URIs:
    ```
    {APP_URL}/social-accounts/callback/linkedin_personal/
@@ -435,7 +435,7 @@ Brightbean uses a **single LinkedIn app** (with Community Management API) for bo
    PLATFORM_LINKEDIN_CLIENT_SECRET=your-client-secret
    ```
 
-> **Refresh tokens:** Community Management API provides refresh tokens natively (365-day lifetime, access tokens last 60 days). No Advertising API product is needed. Note: the **Share on LinkedIn** and **Community Management API** products are mutually exclusive on the same app — use Community Management API as it covers both personal and organization scopes.
+> **Refresh tokens:** Community Management API provides refresh tokens natively (365-day lifetime, access tokens last 60 days). No Advertising API product is needed. Note: the **Share on LinkedIn** and **Community Management API** products are mutually exclusive on the same app - use Community Management API as it covers both personal and organization scopes.
 
 ### TikTok
 
@@ -526,9 +526,9 @@ python manage.py backfill_inbox --days 7
 ```
 
 Options:
-- `--days N` — Number of days to backfill (default: 7)
-- `--platform NAME` — Only backfill a specific platform (e.g., `youtube`, `linkedin`, `tiktok`)
-- `--account-id UUID` — Only backfill a specific account
+- `--days N` - Number of days to backfill (default: 7)
+- `--platform NAME` - Only backfill a specific platform (e.g., `youtube`, `linkedin`, `tiktok`)
+- `--account-id UUID` - Only backfill a specific account
 
 ## Tech Stack
 

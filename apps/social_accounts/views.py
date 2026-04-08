@@ -250,7 +250,7 @@ def oauth_callback(request, platform):
 
     workspace_id = state_data["workspace_id"]
 
-    # Re-check workspace membership — user may have lost access during OAuth
+    # Re-check workspace membership - user may have lost access during OAuth
     from apps.members.models import WorkspaceMembership
 
     ws_membership = WorkspaceMembership.objects.filter(user=request.user, workspace_id=workspace_id).first()
@@ -517,7 +517,7 @@ def connect_mastodon(request, workspace_id):
     if not instance_url.startswith(("http://", "https://")):
         instance_url = f"https://{instance_url}"
 
-    # Validate against SSRF — reject private/reserved IP ranges
+    # Validate against SSRF - reject private/reserved IP ranges
     if not _is_safe_url(instance_url):
         messages.error(request, "Invalid instance URL. Private or reserved addresses are not allowed.")
         return render(

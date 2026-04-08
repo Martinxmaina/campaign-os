@@ -1,6 +1,6 @@
 """Curated RSS feed catalog for the Explore Feeds modal.
 
-Categories and feeds are stored as static data — they don't change
+Categories and feeds are stored as static data - they don't change
 per-workspace and don't need database storage.
 """
 

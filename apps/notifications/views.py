@@ -102,7 +102,7 @@ def unread_count(request):
 
 @login_required
 def preferences(request):
-    """Notification preferences page — per event type / channel toggles + quiet hours."""
+    """Notification preferences page - per event type / channel toggles + quiet hours."""
     if request.method == "POST":
         return _save_preferences(request)
 

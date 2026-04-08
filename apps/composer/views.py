@@ -137,7 +137,7 @@ def _save_version(post, user):
 def _resolve_queues_for_post(queue_id, workspace, post_data):
     """Resolve the Queues to add a post to.
 
-    Returns a list of Queue objects — one per selected social account when
+    Returns a list of Queue objects - one per selected social account when
     no explicit ``queue_id`` is supplied by the composer form. If an explicit
     queue_id is provided it is used exclusively.
     """
@@ -172,7 +172,7 @@ def _reassign_queue_slots_from_floor(queues, post, floor_date, workspace):
     """Override per-platform scheduled_at for *post* with the next posting slot
     on/after *floor_date* for each queue's social account.
 
-    Used when the composer was opened from a specific calendar day — we want
+    Used when the composer was opened from a specific calendar day - we want
     each platform to pick its earliest available slot starting that day,
     independently.
     """
@@ -455,7 +455,7 @@ def save_post(request, workspace_id, post_id=None):
         else:
             return JsonResponse({"errors": {"schedule": "Date and time required."}}, status=400)
     elif action == "publish_now":
-        # Server-side permission check — only roles with publish_directly can bypass approval
+        # Server-side permission check - only roles with publish_directly can bypass approval
         membership = request.workspace_membership
         perms = membership.effective_permissions if membership else {}
         if not perms.get("publish_directly", False):
@@ -490,7 +490,7 @@ def save_post(request, workspace_id, post_id=None):
         for q in queues:
             add_to_queue(post, q)
         # If opened from a specific calendar day (month/week/day "+" CTA), each
-        # queue should use that day as its floor — re-assign slots accordingly.
+        # queue should use that day as its floor - re-assign slots accordingly.
         floor_date = form.cleaned_data.get("scheduled_date")
         if floor_date:
             _reassign_queue_slots_from_floor(queues, post, floor_date, workspace)
@@ -570,7 +570,7 @@ def save_post(request, workspace_id, post_id=None):
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     else:
-        # save_draft — keep as draft
+        # save_draft - keep as draft
         if not post.status or post.status in ("", "draft"):
             post.status = "draft"
 
@@ -782,10 +782,10 @@ def autosave(request, workspace_id, post_id=None):
 @login_required
 @require_GET
 def preview(request, workspace_id):
-    """Live preview endpoint — renders platform-specific preview from form state.
+    """Live preview endpoint - renders platform-specific preview from form state.
 
     Called via HTMX with debounced POST from the composer.
-    Stateless — no DB queries except social account lookup.
+    Stateless - no DB queries except social account lookup.
     """
     workspace = _get_workspace(request, workspace_id)
     title = request.GET.get("title", "")
@@ -824,7 +824,7 @@ def preview(request, workspace_id):
                 }
             )
 
-    # Gather media for preview — check pending session media or post attachments
+    # Gather media for preview - check pending session media or post attachments
     from apps.media_library.models import MediaAsset
 
     media_items = []
@@ -1080,7 +1080,7 @@ def upload_media(request, workspace_id, post_id=None):
             },
         )
 
-    # No post yet — store pending media IDs in session so they can be
+    # No post yet - store pending media IDs in session so they can be
     # attached when the post is eventually saved.
     session_key = f"pending_media_{workspace.id}"
     pending = request.session.get(session_key, [])
@@ -1792,7 +1792,7 @@ def idea_move(request, workspace_id, idea_id):
             idea.position = int(new_position)
     idea.save()
 
-    # No HX-Trigger here — the frontend handles the move optimistically
+    # No HX-Trigger here - the frontend handles the move optimistically
     return HttpResponse(status=204)
 
 
@@ -2804,7 +2804,7 @@ def feed_add(request, workspace_id):
             )
 
     if Feed.objects.for_workspace(workspace.id).filter(url=rss_url).exists():
-        # Already subscribed — if from explore, just re-render explore view
+        # Already subscribed - if from explore, just re-render explore view
         if source == "explore":
             return _render_explore(request, workspace, category)
         return _render_feeds_tab(

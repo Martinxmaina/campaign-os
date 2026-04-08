@@ -240,7 +240,7 @@ else:
 # Tailwind
 TAILWIND_APP_NAME = "theme"
 
-# CSP — Using Alpine.js CSP build (@alpinejs/csp) which does not require
+# CSP - Using Alpine.js CSP build (@alpinejs/csp) which does not require
 # unsafe-eval. Styles use unsafe-inline because Tailwind utility classes are inline.
 CSP_DEFAULT_SRC = ("'self'",)
 CSP_SCRIPT_SRC = ("'self'",)  # Alpine.js CSP build (@alpinejs/csp) eliminates unsafe-eval
@@ -279,7 +279,7 @@ MEDIA_LIBRARY_THUMBNAIL_SIZE = (400, 400)
 MEDIA_LIBRARY_FFMPEG_TIMEOUT = 300  # 5 minutes
 MEDIA_LIBRARY_MAX_CONCURRENT_TRANSCODES = 2
 
-# Encryption key derivation salt — MUST be set per-deployment via environment
+# Encryption key derivation salt - MUST be set per-deployment via environment
 ENCRYPTION_KEY_SALT = env("ENCRYPTION_KEY_SALT", default="").encode("utf-8") or None
 
 # Sentry
@@ -312,20 +312,20 @@ _LINKEDIN_CREDENTIALS = {
 }
 
 PLATFORM_CREDENTIALS_FROM_ENV = {
-    # Meta platforms — Facebook, Instagram, and Threads share the same app
+    # Meta platforms - Facebook, Instagram, and Threads share the same app
     "facebook": _META_CREDENTIALS,
     "instagram": _META_CREDENTIALS,
     "threads": _META_CREDENTIALS,
-    # Instagram (Personal) — uses Instagram Login with separate Instagram App credentials
+    # Instagram (Personal) - uses Instagram Login with separate Instagram App credentials
     "instagram_personal": _INSTAGRAM_PERSONAL_CREDENTIALS,
-    # LinkedIn — personal and company page variants share one Community Management API app
+    # LinkedIn - personal and company page variants share one Community Management API app
     "linkedin_personal": _LINKEDIN_CREDENTIALS,
     "linkedin_company": _LINKEDIN_CREDENTIALS,
     "tiktok": {
         "client_key": env("PLATFORM_TIKTOK_CLIENT_KEY", default=""),
         "client_secret": env("PLATFORM_TIKTOK_CLIENT_SECRET", default=""),
     },
-    # Google platforms — YouTube and Google Business Profile share the same OAuth client
+    # Google platforms - YouTube and Google Business Profile share the same OAuth client
     "youtube": _GOOGLE_CREDENTIALS,
     "google_business": _GOOGLE_CREDENTIALS,
     "pinterest": {

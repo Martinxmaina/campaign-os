@@ -1,4 +1,4 @@
-"""Media library views — all function-based, matching existing project patterns."""
+"""Media library views - all function-based, matching existing project patterns."""
 
 import json
 

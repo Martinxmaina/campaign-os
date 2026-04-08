@@ -1,4 +1,4 @@
-"""Content Calendar models (F-2.3) — scheduling, time slots, queues, and events."""
+"""Content Calendar models (F-2.3) - scheduling, time slots, queues, and events."""
 
 import uuid
 

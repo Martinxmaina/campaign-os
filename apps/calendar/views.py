@@ -105,7 +105,7 @@ def _get_filtered_posts(workspace, request):
     if categories:
         qs = qs.filter(category_id__in=categories)
 
-    # Tag filter (OR — match posts containing any selected tag)
+    # Tag filter (OR - match posts containing any selected tag)
     tags = request.GET.getlist("tag")
     if tags:
         from django.db.models import Q
@@ -231,7 +231,7 @@ def _apply_publish_filters(qs, request):
 
 @login_required
 def calendar_view(request, workspace_id):
-    """Main publish page — renders calendar or list mode."""
+    """Main publish page - renders calendar or list mode."""
     workspace = _get_workspace(request, workspace_id)
     has_connected_accounts = SocialAccount.objects.filter(
         workspace=workspace,
@@ -572,7 +572,7 @@ def _list_view(request, workspace, target_date, context):
 
 @login_required
 def publish_tab_queue(request, workspace_id):
-    """HTMX partial: Queue tab content — shows all scheduled posts."""
+    """HTMX partial: Queue tab content - shows all scheduled posts."""
     workspace = _get_workspace(request, workspace_id)
     display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
 
@@ -727,7 +727,7 @@ def reschedule_post(request, workspace_id):
     )
     post = pp.post
 
-    # Check permissions — only editable statuses can be rescheduled
+    # Check permissions - only editable statuses can be rescheduled
     if post.status not in ("draft", "approved", "scheduled"):
         return JsonResponse({"error": "Post cannot be rescheduled in its current status."}, status=400)
 

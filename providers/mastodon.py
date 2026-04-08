@@ -159,7 +159,7 @@ class MastodonProvider(SocialProvider):
         )
 
     def refresh_token(self, refresh_token: str) -> OAuthTokens:
-        """Mastodon tokens do not expire by default — return existing token."""
+        """Mastodon tokens do not expire by default - return existing token."""
         return OAuthTokens(access_token=refresh_token)
 
     def revoke_token(self, access_token: str) -> bool:

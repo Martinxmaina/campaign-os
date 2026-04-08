@@ -170,7 +170,7 @@ def send_link_email(request, workspace_id, link_id):
     html_content = render_to_string("onboarding/email/connection_link.html", context)
 
     msg = EmailMultiAlternatives(
-        subject=f"{org.name} — Connect your social accounts",
+        subject=f"{org.name} - Connect your social accounts",
         body=text_content,
         from_email=getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@localhost"),
         to=[email],
@@ -444,7 +444,7 @@ def connection_oauth_callback(request, platform):
 
 @require_POST
 def connection_done(request, token):
-    """Client clicks 'Done' — notify workspace managers."""
+    """Client clicks 'Done' - notify workspace managers."""
     link = _get_connection_link_or_none(token)
     if not link:
         return render(request, "onboarding/connection_expired.html", status=404)

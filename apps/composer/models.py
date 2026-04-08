@@ -1,14 +1,14 @@
-"""Post Composer models (F-2.1) — core content creation entities.
+"""Post Composer models (F-2.1) - core content creation entities.
 
 Models:
-    ContentCategory — Content categories for posts (e.g., Educational, Promotional).
-    Idea — A content idea on the Kanban board, scoped to a workspace.
-    Post — The base content entity, scoped to a workspace.
-    PlatformPost — Per-platform variant of a post (caption/media overrides).
-    PostMedia — Media attachments with ordering and alt text.
-    PostVersion — Immutable snapshots for version history.
-    PostTemplate — Reusable post templates.
-    CSVImportJob — Tracks bulk CSV import jobs.
+    ContentCategory - Content categories for posts (e.g., Educational, Promotional).
+    Idea - A content idea on the Kanban board, scoped to a workspace.
+    Post - The base content entity, scoped to a workspace.
+    PlatformPost - Per-platform variant of a post (caption/media overrides).
+    PostMedia - Media attachments with ordering and alt text.
+    PostVersion - Immutable snapshots for version history.
+    PostTemplate - Reusable post templates.
+    CSVImportJob - Tracks bulk CSV import jobs.
 """
 
 import uuid

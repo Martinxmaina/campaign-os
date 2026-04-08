@@ -1,5 +1,5 @@
 """
-Built-in post templates — content prompts and starting points.
+Built-in post templates - content prompts and starting points.
 
 Each template is a dict with: id, emoji, title, description, category, color.
 Optional: body (the fill-in-the-blank template text), tags (list of tag strings).

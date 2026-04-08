@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}{% if is_edit %}Edit Post{% else %}New Post{% endif %} — {{ workspace.name }} — Brightbean{% endblock %}
+{% block title %}{% if is_edit %}Edit Post{% else %}New Post{% endif %} - {{ workspace.name }} - Brightbean{% endblock %}
 
 {% comment %}Header is rendered inside the content block to avoid overlap with the -m-6 layout{% endcomment %}
 
@@ -43,7 +43,7 @@
         .panel-right-backdrop { display: none !important; }
     }
 
-    /* Platform account checkbox pill — compact for header row */
+    /* Platform account checkbox pill - compact for header row */
     .acct-pill {
         display: flex; align-items: center; gap: 6px;
         padding: 5px 10px; border-radius: 9999px;
@@ -101,7 +101,7 @@
         transition: width 150ms ease, background 150ms ease;
     }
 
-    /* Caption area — the star of the show */
+    /* Caption area - the star of the show */
     .caption-wrap {
         border: 1.5px solid #E7E5E4;
         border-radius: 12px;
@@ -127,7 +127,7 @@
     }
     .caption-editor::placeholder { color: #A8A29E; }
 
-    /* First-comment editor — thinner variant */
+    /* First-comment editor - thinner variant */
     .comment-editor {
         font-family: system-ui, -apple-system, sans-serif;
         font-size: 14px; line-height: 1.55;
@@ -148,7 +148,7 @@
         box-shadow: 0 0 0 3px rgba(249,115,22,0.1);
     }
 
-    /* Media dropzone — compact inline version */
+    /* Media dropzone - compact inline version */
     .media-dropzone-inline {
         border: 1.5px dashed #D6D3D1;
         border-radius: 8px;
@@ -231,7 +231,7 @@
         .action-bar { padding: 20px 24px; gap: 8px; }
     }
 
-    /* Subtle entrance animation — uses 'both' but resets transform at 100% to avoid
+    /* Subtle entrance animation - uses 'both' but resets transform at 100% to avoid
        creating a permanent stacking context (which traps z-index of child popovers). */
     @keyframes slideUp {
         0%   { opacity: 0; transform: translateY(8px); }
@@ -287,10 +287,10 @@
     <!-- Panels -->
     <div class="flex flex-1 min-h-0">
 
-    <!-- Left panel removed — platforms moved to header, media moved to caption area -->
+    <!-- Left panel removed - platforms moved to header, media moved to caption area -->
 
     <!-- ════════════════════════════════════════════════════════════
-         CENTER PANEL — Caption Editor + Actions
+         CENTER PANEL - Caption Editor + Actions
          ════════════════════════════════════════════════════════════ -->
     <div class="panel-center flex flex-col bg-stone-50 min-h-0">
         <form id="composer-form"
@@ -330,7 +330,7 @@
                     {% endfor %}
                 </div>
 
-                <!-- Title (conditional — only when YouTube/Pinterest selected) -->
+                <!-- Title (conditional - only when YouTube/Pinterest selected) -->
                 <div x-show="anyPlatformNeedsTitle" x-transition x-cloak>
                     <label class="block text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2"
                            x-text="titleLabel">Title</label>
@@ -457,7 +457,7 @@
                             <span class="platform-icon pi-unknown w-5 h-5 text-[9px] rounded-[5px]"
                                   :class="'pi-' + (charLimits[accId]?.platform || '')"
                                   x-text="(charLimits[accId]?.platform || '').slice(0,2).toUpperCase()"></span>
-                            <span class="text-xs font-semibold text-stone-600" x-text="charLimits[accId]?.name + ' — Custom Override'"></span>
+                            <span class="text-xs font-semibold text-stone-600" x-text="charLimits[accId]?.name + ' - Custom Override'"></span>
                             <button type="button" class="ml-auto text-xs text-stone-400 hover:text-red-500" @click="overrides[accId] = false">Remove override</button>
                         </div>
                         <!-- Title override (only for platforms that need it) -->
@@ -502,7 +502,7 @@
                                                        class="w-4 h-4 mt-0.5 rounded border-stone-300 text-orange-500 focus:ring-orange-200">
                                                 <span class="text-sm text-stone-700">
                                                     Made for Kids
-                                                    <span class="block text-[11px] text-stone-400 font-normal">Required by COPPA — mark if this video is directed at children under 13</span>
+                                                    <span class="block text-[11px] text-stone-400 font-normal">Required by COPPA - mark if this video is directed at children under 13</span>
                                                 </span>
                                             </label>
                                             <!-- Visibility -->
@@ -758,7 +758,7 @@
                     </div>
                     <textarea name="internal_notes"
                               class="w-full text-sm font-normal px-4 py-3 rounded-xl border border-dashed border-stone-200 bg-stone-50/80 text-stone-600 outline-none focus:border-stone-300 transition-all duration-150 resize-none"
-                              placeholder="Internal team notes — not visible to clients…"
+                              placeholder="Internal team notes - not visible to clients…"
                               rows="2">{{ form.internal_notes.value|default:"" }}</textarea>
                 </div>
                 {% endif %}
@@ -829,7 +829,7 @@
                         <span id="publish-action-label">Add to Queue</span>
                     </button>
 
-                    <!-- Mode popover — positioned above -->
+                    <!-- Mode popover - positioned above -->
                     <div id="publish-popover" class="hidden absolute bottom-full right-0 mb-2 w-72 max-w-[calc(100vw-2rem)] bg-white rounded-xl shadow-xl border border-stone-200/80" style="z-index: 50;">
                             <!-- Main menu -->
                             <div id="publish-menu" class="p-1.5">
@@ -941,12 +941,12 @@
             {% elif post.status == 'changes_requested' %}
             <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-50 border border-orange-100 mb-3">
                 <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
-                <span class="text-sm font-medium text-orange-700">Changes requested — edit and resubmit</span>
+                <span class="text-sm font-medium text-orange-700">Changes requested - edit and resubmit</span>
             </div>
             {% elif post.status == 'rejected' %}
             <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-50 border border-red-100 mb-3">
                 <svg class="w-4 h-4 text-red-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                <span class="text-sm font-medium text-red-700">Rejected — edit and resubmit or delete</span>
+                <span class="text-sm font-medium text-red-700">Rejected - edit and resubmit or delete</span>
             </div>
             {% endif %}
 
@@ -1009,7 +1009,7 @@
     </div>
 
     <!-- ════════════════════════════════════════════════════════════
-         RIGHT PANEL — Live Preview
+         RIGHT PANEL - Live Preview
          ════════════════════════════════════════════════════════════ -->
     <!-- Backdrop for mobile drawer -->
     <div x-show="showPreviewPanel" x-cloak
@@ -1645,7 +1645,7 @@ async function removePendingMedia(assetId, url, btn) {
         });
     }
 
-    // Close on outside click — use mousedown to avoid race with button click
+    // Close on outside click - use mousedown to avoid race with button click
     // Exclude Flatpickr calendar dropdowns (appended to <body>)
     document.addEventListener('mousedown', function(e) {
         if (!popover.classList.contains('hidden') && !anchor.contains(e.target) && !e.target.closest('.flatpickr-calendar')) {

@@ -1,4 +1,4 @@
-"""Media Library models (F-6.1) — media asset storage and management."""
+"""Media Library models (F-6.1) - media asset storage and management."""
 
 import uuid
 

@@ -72,7 +72,7 @@ def approve_post(post, user, workspace, comment=""):
     """
     with transaction.atomic():
         if post.status == "pending_review" and workspace.approval_workflow_mode == "required_internal_and_client":
-            # Internal approval done — now needs client approval
+            # Internal approval done - now needs client approval
             post.transition_to("approved")
             post.save(update_fields=["status", "updated_at"])
             # Then immediately transition to pending_client

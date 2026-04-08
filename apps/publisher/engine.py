@@ -1,4 +1,4 @@
-"""Publishing Engine — background worker logic (F-2.4).
+"""Publishing Engine - background worker logic (F-2.4).
 
 This module implements the core publish loop:
 1. Poll for posts where scheduled_at <= now() and status = 'scheduled'.
@@ -43,7 +43,7 @@ class PublishEngine:
     """Orchestrates the publishing of scheduled posts."""
 
     def poll_and_publish(self):
-        """Main poll loop — find and publish due platform posts.
+        """Main poll loop - find and publish due platform posts.
 
         Called every ~15 seconds by the background worker. Groups due
         PlatformPosts by parent Post and publishes each group.
@@ -414,13 +414,13 @@ class PublishEngine:
     def _update_parent_post_status(self, post):
         """Update parent Post status based on all PlatformPost statuses.
 
-        Waits for pending/publishing siblings — the post only transitions to a
+        Waits for pending/publishing siblings - the post only transitions to a
         terminal state once every child has resolved to published or failed.
         """
         platform_posts = post.platform_posts.all()
         statuses = set(platform_posts.values_list("publish_status", flat=True))
 
-        # Any child still pending or publishing — stay in PUBLISHING, wait.
+        # Any child still pending or publishing - stay in PUBLISHING, wait.
         if "pending" in statuses or "publishing" in statuses:
             if post.status != Post.Status.PUBLISHING:
                 post.status = Post.Status.PUBLISHING

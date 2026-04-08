@@ -208,7 +208,7 @@ def cross_workspace_calendar(request):
     # Tags across filtered workspaces
     all_tags = sorted(set(Tag.objects.filter(workspace__in=filtered_workspaces).values_list("name", flat=True)))
 
-    # Base PlatformPost queryset with filters — each chip is one PP.
+    # Base PlatformPost queryset with filters - each chip is one PP.
     from django.db.models.functions import Coalesce
 
     base_pps = (

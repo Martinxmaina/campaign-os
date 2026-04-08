@@ -1,5 +1,5 @@
 {% comment %}
-List view — table format of posts.
+List view - table format of posts.
 Context: posts, workspace.
 {% endcomment %}
 
@@ -46,7 +46,7 @@ Context: posts, workspace.
                     </div>
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500">
-                    {{ post.author.display_name|default:"—" }}
+                    {{ post.author.display_name|default:"-" }}
                 </td>
             </tr>
             {% endfor %}

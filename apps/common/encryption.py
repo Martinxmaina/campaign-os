@@ -73,7 +73,7 @@ class EncryptedTextField(models.TextField):
             return decrypt_value(value)
         except (InvalidTag, ValueError, base64.binascii.Error) as e:
             logger.error("Failed to decrypt EncryptedTextField: %s", e)
-            raise ValueError("Decryption failed — possibly wrong SECRET_KEY or corrupted data") from e
+            raise ValueError("Decryption failed - possibly wrong SECRET_KEY or corrupted data") from e
 
     def to_python(self, value):
         return value
@@ -94,7 +94,7 @@ class EncryptedJSONField(models.TextField):
             return json.loads(decrypt_value(value))
         except (InvalidTag, ValueError, base64.binascii.Error) as e:
             logger.error("Failed to decrypt EncryptedJSONField: %s", e)
-            raise ValueError("Decryption failed — possibly wrong SECRET_KEY or corrupted data") from e
+            raise ValueError("Decryption failed - possibly wrong SECRET_KEY or corrupted data") from e
 
     def to_python(self, value):
         if isinstance(value, (dict, list)):

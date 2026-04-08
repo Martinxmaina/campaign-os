@@ -13,7 +13,7 @@
    ═══════════════════════════════════════════════════════════════ */
 
 :root {
-  /* Brand Tokens — BrightBean Orange */
+  /* Brand Tokens - BrightBean Orange */
   --brand-50:  #FFF7ED;
   --brand-100: #FFEDD5;
   --brand-200: #FED7AA;
@@ -36,7 +36,7 @@
   --primary-muted: var(--brand-100);
   --primary-ring:  var(--brand-200);
 
-  /* Neutrals — warm stone */
+  /* Neutrals - warm stone */
   --neutral-950: #171412;
   --neutral-900: #1C1917;
   --neutral-800: #292524;
@@ -130,7 +130,7 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SIDEBAR — uses CSS variables that Tailwind can't express
+   SIDEBAR - uses CSS variables that Tailwind can't express
    ═══════════════════════════════════════════════════════════════ */
 .sidebar-nav-item {
   display: flex;
@@ -188,7 +188,7 @@ img.sidebar-logo-mark {
   background: transparent;
 }
 
-/* Sidebar collapsed state — desktop only */
+/* Sidebar collapsed state - desktop only */
 @media (min-width: 1024px) {
   .sidebar-collapsed .sidebar-nav-item {
     justify-content: center;

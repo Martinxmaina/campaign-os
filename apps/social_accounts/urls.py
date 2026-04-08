@@ -26,7 +26,7 @@ urlpatterns = [
         views.connect_mastodon,
         name="connect_mastodon",
     ),
-    # OAuth callback (not workspace-scoped — platform redirects here)
+    # OAuth callback (not workspace-scoped - platform redirects here)
     path(
         "callback/<str:platform>/",
         views.oauth_callback,

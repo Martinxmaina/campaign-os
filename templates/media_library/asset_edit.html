@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %}Edit — {{ asset.original_filename }}{% endblock %}
+{% block title %}Edit - {{ asset.original_filename }}{% endblock %}
 
 {% block extra_head %}
 {% if asset.file_type == 'image' or asset.file_type == 'gif' %}
@@ -56,7 +56,7 @@
      onmouseleave="this.style.background='transparent'">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
   </a>
-  <h1 class="text-lg font-semibold" style="color: var(--text-primary, #1C1917);">Edit — {{ asset.original_filename }}</h1>
+  <h1 class="text-lg font-semibold" style="color: var(--text-primary, #1C1917);">Edit - {{ asset.original_filename }}</h1>
 </div>
 {% endblock %}
 

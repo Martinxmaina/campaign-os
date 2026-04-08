@@ -13,7 +13,7 @@ Companion to: Feature Specification v2
 | CSS | Tailwind CSS 4 via django-tailwind |
 | Database | PostgreSQL 16+ (also serves as job queue) |
 | Background jobs | django-background-tasks (PostgreSQL-backed, no Redis/Celery) |
-| Caching | Redis (optional — not required at launch, add later for real-time features) |
+| Caching | Redis (optional - not required at launch, add later for real-time features) |
 | Media storage | Local filesystem (default) or S3-compatible (Cloudflare R2, AWS S3, MinIO, Backblaze B2) |
 | Media processing | FFmpeg (video), Pillow (images) |
 | Email | Resend (cloud), SMTP-configurable (self-hosted) |
@@ -184,7 +184,7 @@ All intervals configurable via F-1.6.
 
 ### 6.1 Docker Compose (all deployments)
 
-**Development — 3 containers:**
+**Development - 3 containers:**
 
 ```
 app:      Django runserver + volume mount
@@ -194,7 +194,7 @@ postgres: postgres:16-alpine
 Tailwind: `python manage.py tailwind start` on host (watches + recompiles)
 ```
 
-**Production — 4 containers:**
+**Production - 4 containers:**
 
 ```
 app:      Gunicorn (4 workers, 2 threads)
@@ -231,7 +231,7 @@ Automated deploy: GitHub Actions → SSH → pull + restart. Backups: daily `pg_
 
 Config: `railway.toml` in repo. Three services: web, worker, managed PostgreSQL.
 
-Ephemeral filesystem — `STORAGE_BACKEND` must be `s3`. App detects Railway via `RAILWAY_ENVIRONMENT` and warns on misconfiguration.
+Ephemeral filesystem - `STORAGE_BACKEND` must be `s3`. App detects Railway via `RAILWAY_ENVIRONMENT` and warns on misconfiguration.
 
 **Cost:** ~$15-30/month.
 
@@ -239,7 +239,7 @@ Ephemeral filesystem — `STORAGE_BACKEND` must be `s3`. App detects Railway via
 
 Config: `render.yaml` blueprint in repo. Three services: web ($7), worker ($7), PostgreSQL ($7).
 
-Free tier sleeps (breaks worker) — must use paid. Ephemeral disk — requires S3.
+Free tier sleeps (breaks worker) - must use paid. Ephemeral disk - requires S3.
 
 **Cost:** $21/month minimum.
 
@@ -253,7 +253,7 @@ web: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads
 worker: python manage.py process_tasks
 ```
 
-**app.json** pre-configures: Basic dynos, PostgreSQL Essential-0, auto-generated SECRET_KEY, post-deploy migration, env var prompts. README includes deploy button linking to `https://heroku.com/deploy?template=https://github.com/yourorg/social-platform` — running app in ~5 minutes.
+**app.json** pre-configures: Basic dynos, PostgreSQL Essential-0, auto-generated SECRET_KEY, post-deploy migration, env var prompts. README includes deploy button linking to `https://heroku.com/deploy?template=https://github.com/yourorg/social-platform` - running app in ~5 minutes.
 
 | Component | Plan | Cost |
 |-----------|------|------|
@@ -263,7 +263,7 @@ worker: python manage.py process_tasks
 | **Total** | | **$19/month** |
 
 **Critical warnings:**
-- **Eco dynos break the app.** They sleep after 30 minutes — worker stops, nothing publishes. Must use Basic+.
+- **Eco dynos break the app.** They sleep after 30 minutes - worker stops, nothing publishes. Must use Basic+.
 - **Ephemeral filesystem.** `STORAGE_BACKEND` must be `s3`. App detects Heroku via `DYNO` env var and warns.
 - **20 connection limit.** Upgrade to Essential-1 ($15/month, 40 conn) if scaling beyond 2 web dynos.
 - **White-label custom domains** require manual `heroku domains:add` per domain. No on-demand TLS.
@@ -341,7 +341,7 @@ The repo includes a backup management command and documented restore procedure.
 **Backup command:**
 
 ```
-# Included management command — dumps database + lists media volume location
+# Included management command - dumps database + lists media volume location
 python manage.py backup --output /path/to/backup/
 
 # Produces:
@@ -357,7 +357,7 @@ docker compose exec app python manage.py backup --output /backups/
 The backup command:
 1. Runs `pg_dump` against the configured `DATABASE_URL`, compresses with gzip.
 2. If `STORAGE_BACKEND=local`, records the media volume path in the manifest so the user knows to also back up that Docker volume.
-3. If `STORAGE_BACKEND=s3`, records the bucket name — no media backup needed.
+3. If `STORAGE_BACKEND=s3`, records the bucket name - no media backup needed.
 4. Writes a `manifest.json` with: timestamp, application version, database size, storage backend, media path or bucket name.
 
 **Restore command:**
@@ -398,13 +398,13 @@ The publishing engine sends content out to platforms (outbound). For real-time i
 |----------|----------------|-----------------|
 | Facebook | Yes (Graph API Webhooks) | Page comments, mentions, messages, post reactions |
 | Instagram | Yes (via Facebook Graph API Webhooks) | Comments on media, mentions, story replies, messages |
-| LinkedIn | No | — (polling only) |
-| TikTok | No | — (polling only) |
+| LinkedIn | No | - (polling only) |
+| TikTok | No | - (polling only) |
 | YouTube | Yes (YouTube Data API push notifications via PubSubHubbub) | New comments on videos |
-| Pinterest | No | — (polling only) |
-| Threads | No | — (polling only) |
-| Bluesky | No (AT Protocol firehose exists but is not per-account) | — (polling only) |
-| Google Business Profile | No | — (polling only) |
+| Pinterest | No | - (polling only) |
+| Threads | No | - (polling only) |
+| Bluesky | No (AT Protocol firehose exists but is not per-account) | - (polling only) |
+| Google Business Profile | No | - (polling only) |
 | Mastodon | Yes (Streaming API via WebSocket, not HTTP webhooks) | Notifications, mentions, new followers |
 
 In practice, Facebook and Instagram are the only platforms where HTTP-based inbound webhooks meaningfully replace polling for inbox sync.
@@ -423,14 +423,14 @@ Each endpoint:
 2. Parses the platform-specific payload.
 3. Maps the payload to the internal `InboxMessage` model.
 4. Enqueues a background job to process the message (deduplication, sentiment tagging, notification dispatch).
-5. Returns 200 immediately (platforms require fast responses — typically within 5 seconds or they retry/disable the webhook).
+5. Returns 200 immediately (platforms require fast responses - typically within 5 seconds or they retry/disable the webhook).
 
 ### Signature Verification
 
 | Platform | Verification Method |
 |----------|-------------------|
 | Facebook / Instagram | HMAC-SHA256. Facebook signs the payload with the App Secret. The receiver computes `HMAC-SHA256(app_secret, raw_request_body)` and compares it to the `X-Hub-Signature-256` header. Reject if mismatch. |
-| YouTube | PubSubHubbub verification: on subscription, YouTube sends a `GET` challenge with a `hub.challenge` parameter. The endpoint must echo back the challenge. On notification, payloads are Atom XML — verify the `hub.secret` HMAC if configured during subscription. |
+| YouTube | PubSubHubbub verification: on subscription, YouTube sends a `GET` challenge with a `hub.challenge` parameter. The endpoint must echo back the challenge. On notification, payloads are Atom XML - verify the `hub.secret` HMAC if configured during subscription. |
 
 The App Secret used for Facebook/Instagram signature verification is the same credential stored in F-1.5 (Platform API Credentials). The verification function reads it from the `PlatformCredential` model.
 
@@ -455,7 +455,7 @@ The App Secret used for Facebook/Instagram signature verification is the same cr
 - **HTTPS required.** Facebook and YouTube reject webhook callbacks to HTTP endpoints. Self-hosters must have TLS configured (Caddy handles this automatically).
 - **Public URL required.** The webhook endpoint must be reachable from the internet. Self-hosters behind NAT or firewalls must configure port forwarding or use a tunnel.
 - **Different callback URLs per deployment.** Each self-hosted instance has its own domain, so each must register its own webhook callback URL with Facebook/YouTube. The setup wizard generates the correct URLs and provides copy-paste-ready instructions.
-- **Fallback to polling.** If a self-hoster cannot configure inbound webhooks (e.g., their server is not publicly accessible), the platform falls back to the polling-based inbox sync (every 5 minutes). Webhook configuration is optional — polling is always active as a baseline.
+- **Fallback to polling.** If a self-hoster cannot configure inbound webhooks (e.g., their server is not publicly accessible), the platform falls back to the polling-based inbox sync (every 5 minutes). Webhook configuration is optional - polling is always active as a baseline.
 
 ### Data Flow
 
@@ -506,7 +506,7 @@ EMAIL_HOST_PASSWORD=                 # SMTP only
 EMAIL_USE_TLS=true                   # SMTP only
 DEFAULT_FROM_EMAIL=noreply@yourdomain.com
 
-# PLATFORM CREDENTIALS (cloud — self-hosted uses admin UI)
+# PLATFORM CREDENTIALS (cloud - self-hosted uses admin UI)
 PLATFORM_FACEBOOK_APP_ID=
 PLATFORM_FACEBOOK_APP_SECRET=
 PLATFORM_LINKEDIN_CLIENT_ID=
@@ -518,7 +518,7 @@ PLATFORM_GOOGLE_CLIENT_SECRET=
 PLATFORM_PINTEREST_APP_ID=
 PLATFORM_PINTEREST_APP_SECRET=
 
-# AI (optional — also configurable via admin UI)
+# AI (optional - also configurable via admin UI)
 AI_OPENAI_API_KEY=
 AI_OPENAI_DEFAULT_MODEL=gpt-4o
 AI_ANTHROPIC_API_KEY=

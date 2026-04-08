@@ -1,10 +1,10 @@
-# Open-Source Social Media Management Platform — Feature Specification v2
+# Open-Source Social Media Management Platform - Feature Specification v2
 
 ## Product Positioning
 
-An open-source, self-hostable social media management platform built for agencies and SMBs. The cloud-hosted version and the self-hosted version are identical — every feature is free, forever, with no per-seat, per-channel, or per-workspace limits. Monetization comes exclusively from optional paid support plans and consulting, not from feature gating.
+An open-source, self-hostable social media management platform built for agencies and SMBs. The cloud-hosted version and the self-hosted version are identical - every feature is free, forever, with no per-seat, per-channel, or per-workspace limits. Monetization comes exclusively from optional paid support plans and consulting, not from feature gating.
 
-**Core promise:** Everything Sendible, SocialPilot, and ContentStudio charge $100–300/month for — completely free, whether cloud-hosted or self-hosted.
+**Core promise:** Everything Sendible, SocialPilot, and ContentStudio charge $100–300/month for - completely free, whether cloud-hosted or self-hosted.
 
 **Supported platforms:** Facebook Pages, Instagram (posts, reels, stories, carousels), LinkedIn (profiles + company pages), TikTok, YouTube (videos + shorts), Pinterest, Threads, Bluesky, Google Business Profile, Mastodon.
 
@@ -48,25 +48,25 @@ Each feature below is written as a self-contained spec that can be handed to a d
 
 ---
 
-## F-1.1 — Organization Management
+## F-1.1 - Organization Management
 
 ### Purpose
 An Organization is the top-level entity representing an agency, company, or individual user. It contains all workspaces, members, settings, and API credentials. Every user belongs to exactly one organization (multi-org support is out of scope for v1).
 
 ### User Stories
-- As a new user, I sign up and an Organization is automatically created for me — I do not need to configure anything before I can start working.
+- As a new user, I sign up and an Organization is automatically created for me - I do not need to configure anything before I can start working.
 - As an Org Owner, I can rename my organization, update its logo, and configure org-wide settings at any time from settings.
 - As an Org Owner, I can delete my organization, which permanently removes all data after a confirmation period.
 
 ### Functional Requirements
 
 **Creation:**
-- When a user signs up (email/password or OAuth), an Organization is automatically created in the background with zero user input. No onboarding wizard, no name prompt, no logo upload — the user lands directly on an empty dashboard ready to create their first workspace.
+- When a user signs up (email/password or OAuth), an Organization is automatically created in the background with zero user input. No onboarding wizard, no name prompt, no logo upload - the user lands directly on an empty dashboard ready to create their first workspace.
 - The auto-created organization uses sensible defaults: name is set to the user's name + "'s Organization" (e.g., "Jan's Organization"), no logo, timezone defaults to the user's browser-detected timezone.
 - The user who signs up is automatically assigned the Owner role.
 - All default settings (name, logo, timezone, branding) can be changed at any time from Organization Settings (accessible via sidebar → Settings → Organization).
 - One organization is created per signup. There is no multi-org switching in v1.
-- If the user was invited to an existing organization (via F-1.3 invitation flow), no new organization is created — they join the existing one.
+- If the user was invited to an existing organization (via F-1.3 invitation flow), no new organization is created - they join the existing one.
 
 **Settings (accessible to Owner and Admin roles):**
 - Organization name (string, 2–100 characters).
@@ -83,21 +83,21 @@ An Organization is the top-level entity representing an agency, company, or indi
 **Deletion Cancellation (during grace period):**
 - During the 7-day grace period, the Owner can cancel the scheduled deletion at any time.
 - Cancellation is available from two places: (1) a prominent banner at the top of every page in the app reading "Your organization is scheduled for deletion on [date]. Cancel deletion?" with a "Cancel Deletion" button, and (2) a link in the deletion confirmation email that says "Changed your mind? Cancel deletion."
-- Clicking "Cancel Deletion" immediately reverts the organization to normal state — the soft-delete timestamp is cleared, the banner disappears, and all functionality is restored.
-- Cancellation does not require email re-confirmation — clicking the button is sufficient since the user is already authenticated as the Owner.
+- Clicking "Cancel Deletion" immediately reverts the organization to normal state - the soft-delete timestamp is cleared, the banner disappears, and all functionality is restored.
+- Cancellation does not require email re-confirmation - clicking the button is sufficient since the user is already authenticated as the Owner.
 - After cancellation, the Owner can re-initiate deletion at any time, which restarts the full two-step process and a fresh 7-day grace period.
 - If the grace period expires without cancellation, deletion is irreversible.
 
 ### Data Model
-- `Organization`: id, name, logo_url, default_timezone, created_at, updated_at, deletion_requested_at (datetime, nullable — set when deletion is confirmed), deletion_scheduled_for (datetime, nullable — deletion_requested_at + 7 days), deleted_at (datetime, nullable — set when deletion is executed after grace period).
+- `Organization`: id, name, logo_url, default_timezone, created_at, updated_at, deletion_requested_at (datetime, nullable - set when deletion is confirmed), deletion_scheduled_for (datetime, nullable - deletion_requested_at + 7 days), deleted_at (datetime, nullable - set when deletion is executed after grace period).
 
 ### Dependencies
-- F-1.3 (Members & Roles) — for role-based access to settings.
-- F-5.2 (White-Label) — logo is reused for white-label branding.
-- F-1.5 (Platform API Credentials) — stored at org level.
+- F-1.3 (Members & Roles) - for role-based access to settings.
+- F-5.2 (White-Label) - logo is reused for white-label branding.
+- F-1.5 (Platform API Credentials) - stored at org level.
 
 ### Acceptance Criteria
-- A new user can sign up and land on an empty dashboard with a fully created organization in under 10 seconds — no onboarding steps, forms, or wizards block them.
+- A new user can sign up and land on an empty dashboard with a fully created organization in under 10 seconds - no onboarding steps, forms, or wizards block them.
 - The auto-created organization has a sensible default name derived from the user's name and a timezone matching their browser.
 - Org name and logo changes made later in settings reflect immediately across all views (sidebar, reports, white-label portal).
 - Org deletion sends confirmation email within 30 seconds. The Owner can cancel deletion at any time during the 7-day grace period. All data is permanently removed after the grace period ends without cancellation.
@@ -105,7 +105,7 @@ An Organization is the top-level entity representing an agency, company, or indi
 
 ---
 
-## F-1.2 — Workspace Management
+## F-1.2 - Workspace Management
 
 ### Purpose
 A Workspace is an isolated environment for one client or brand. All content, social accounts, media, analytics, and inbox messages are scoped to a workspace. No data leaks between workspaces. Agencies create one workspace per client.
@@ -152,15 +152,15 @@ A Workspace is an isolated environment for one client or brand. All content, soc
 **Cross-Workspace Views (Organization Dashboard):**
 - Org Admins and Owners can access an organization-level dashboard that aggregates data across workspaces.
 - Views available: "All Pending Approvals" (queue of posts awaiting approval across all workspaces), "All Scheduled Posts" (calendar view across all workspaces, color-coded by workspace), "All Failed Posts" (posts that failed to publish across all workspaces).
-- This dashboard is read-only — actions (approve, edit, retry) require navigating into the specific workspace.
+- This dashboard is read-only - actions (approve, edit, retry) require navigating into the specific workspace.
 
 ### Data Model
 - `Workspace`: id, organization_id, name, icon_url, description, timezone, primary_color, secondary_color, default_hashtags (json array), default_first_comment, approval_workflow_mode (enum), is_archived (boolean), created_at, updated_at.
 
 ### Dependencies
-- F-1.1 (Organization) — workspaces belong to an organization.
-- F-1.3 (Members & Roles) — workspace-level role assignments.
-- F-2.2 (Approval Workflow) — workflow mode is configured per workspace.
+- F-1.1 (Organization) - workspaces belong to an organization.
+- F-1.3 (Members & Roles) - workspace-level role assignments.
+- F-2.2 (Approval Workflow) - workflow mode is configured per workspace.
 
 ### Acceptance Criteria
 - Creating a workspace takes fewer than 3 clicks from the dashboard.
@@ -171,7 +171,7 @@ A Workspace is an isolated environment for one client or brand. All content, soc
 
 ---
 
-## F-1.3 — Members & Role-Based Access Control (RBAC)
+## F-1.3 - Members & Role-Based Access Control (RBAC)
 
 ### Purpose
 Control who can do what at both the organization level and the workspace level. Two-layer RBAC ensures agencies can give team members and clients precisely the access they need.
@@ -227,7 +227,7 @@ Control who can do what at both the organization level and the workspace level. 
 
 **Client Invitation (special flow):**
 - When inviting someone with the Client role, the invitation email uses a simplified onboarding flow.
-- Clients can optionally access the platform via magic link (no password required) — see F-1.4.
+- Clients can optionally access the platform via magic link (no password required) - see F-1.4.
 - Client accounts are flagged as external and are hidden from internal team member lists by default (toggle to show).
 
 **Member Removal:**
@@ -252,10 +252,10 @@ Control who can do what at both the organization level and the workspace level. 
 
 ---
 
-## F-1.4 — Client Portal
+## F-1.4 - Client Portal
 
 ### Purpose
-Provide clients with a minimal, branded interface to review and approve content and view performance reports — without requiring them to learn the full platform or see other clients' data.
+Provide clients with a minimal, branded interface to review and approve content and view performance reports - without requiring them to learn the full platform or see other clients' data.
 
 ### User Stories
 - As an agency Manager, I can send my client a magic link to review this week's scheduled posts.
@@ -283,7 +283,7 @@ Provide clients with a minimal, branded interface to review and approve content 
 
 *Published Content:*
 - Chronological list of published posts for the client's workspace.
-- Each post shows: published date, platform, caption snippet, engagement summary (likes, comments, shares, reach — numbers only, no charts).
+- Each post shows: published date, platform, caption snippet, engagement summary (likes, comments, shares, reach - numbers only, no charts).
 - Clicking a post opens a detail view with full engagement metrics.
 
 *Reports:*
@@ -307,7 +307,7 @@ Provide clients with a minimal, branded interface to review and approve content 
 
 **Notifications:**
 - When posts are submitted for client approval, the client receives an email with a magic link to the approval queue.
-- Email subject line is configurable per workspace (default: "[Workspace Name] — Posts ready for your review").
+- Email subject line is configurable per workspace (default: "[Workspace Name] - Posts ready for your review").
 - Email body shows the count of pending posts and a "Review now" button (magic link).
 - Reminder emails are sent if posts remain pending for a configurable number of hours (default: 48 hours). Maximum 2 reminders per post batch.
 
@@ -317,11 +317,11 @@ Provide clients with a minimal, branded interface to review and approve content 
 - Client portal pages are server-rendered views filtered by workspace_id and workspace_role = "client".
 
 ### Dependencies
-- F-1.3 (RBAC) — Client role permissions.
-- F-2.2 (Approval Workflow) — post approval/rejection actions.
-- F-4.3 (Report Builder) — reports visible in portal.
-- F-5.2 (White-Label) — branding applied to portal.
-- F-7.1 (Notification System) — email delivery of magic links and reminders.
+- F-1.3 (RBAC) - Client role permissions.
+- F-2.2 (Approval Workflow) - post approval/rejection actions.
+- F-4.3 (Report Builder) - reports visible in portal.
+- F-5.2 (White-Label) - branding applied to portal.
+- F-7.1 (Notification System) - email delivery of magic links and reminders.
 
 ### Acceptance Criteria
 - A client can go from receiving an email to reviewing their first post in under 15 seconds (magic link click → portal loads → approval queue visible).
@@ -332,7 +332,7 @@ Provide clients with a minimal, branded interface to review and approve content 
 
 ---
 
-## F-1.5 — Platform API Credentials Management
+## F-1.5 - Platform API Credentials Management
 
 ### Purpose
 Manage the API credentials (app IDs, app secrets, callback URLs) needed to connect to each social media platform's official API. For self-hosted deployments, users must provide their own developer app credentials. For the cloud version, shared app credentials are managed by the platform operator.
@@ -340,7 +340,7 @@ Manage the API credentials (app IDs, app secrets, callback URLs) needed to conne
 ### User Stories
 - As a self-hosted admin, I can enter my Facebook App ID and Secret so my instance can connect to the Facebook Graph API.
 - As a self-hosted admin, I can see which platforms are configured and which are missing credentials.
-- As a cloud user, I don't need to worry about API credentials — they're pre-configured.
+- As a cloud user, I don't need to worry about API credentials - they're pre-configured.
 
 ### Functional Requirements
 
@@ -386,9 +386,9 @@ Manage the API credentials (app IDs, app secrets, callback URLs) needed to conne
 - `PlatformCredential`: id, organization_id, platform (enum), credentials (encrypted json), is_configured (boolean), tested_at, test_result (enum: success, failure, untested), created_at, updated_at.
 
 ### Dependencies
-- F-2.4 (Publishing Engine) — uses these credentials for API calls.
-- F-3.1 (Social Inbox) — uses these credentials for reading messages.
-- F-4.1 (Analytics) — uses these credentials for fetching metrics.
+- F-2.4 (Publishing Engine) - uses these credentials for API calls.
+- F-3.1 (Social Inbox) - uses these credentials for reading messages.
+- F-4.1 (Analytics) - uses these credentials for fetching metrics.
 
 ### Acceptance Criteria
 - Self-hosted: entering valid Facebook credentials and clicking "Test Connection" returns a success state within 10 seconds.
@@ -398,10 +398,10 @@ Manage the API credentials (app IDs, app secrets, callback URLs) needed to conne
 
 ---
 
-## F-1.6 — Configurable Defaults & Platform Settings
+## F-1.6 - Configurable Defaults & Platform Settings
 
 ### Purpose
-Centralize all operational defaults into editable settings at the organization and workspace level. No behavioral values should be hardcoded in application code — every timing, threshold, limit, and default text referenced across features must be editable by the appropriate admin without a code change or redeployment.
+Centralize all operational defaults into editable settings at the organization and workspace level. No behavioral values should be hardcoded in application code - every timing, threshold, limit, and default text referenced across features must be editable by the appropriate admin without a code change or redeployment.
 
 ### User Stories
 - As an Org Owner, I can change the magic link expiry duration from 30 days to 14 days.
@@ -422,8 +422,8 @@ Located at Organization → Settings → "Defaults."
 | Invitation expiry (days) | 7 | How long a team member invitation link remains valid before it expires. |
 | Magic link expiry (days) | 30 | How long a client portal magic link remains valid. |
 | Session duration (days) | 30 | How long a user session lasts before requiring re-authentication (sliding window). |
-| Login rate limit — max attempts | 5 | Number of failed login attempts allowed per email before temporary lockout. |
-| Login rate limit — lockout duration (minutes) | 15 | Duration of the temporary lockout after exceeding max login attempts. |
+| Login rate limit - max attempts | 5 | Number of failed login attempts allowed per email before temporary lockout. |
+| Login rate limit - lockout duration (minutes) | 15 | Duration of the temporary lockout after exceeding max login attempts. |
 | Email batching delay (minutes) | 5 | When multiple notification events occur within this window, they are batched into a single email. Set to 0 to disable batching (send immediately). |
 | 2FA enforcement | Off | When enabled, all org members must set up two-factor authentication. |
 | Stock media attribution | On | When enabled, a credit line is auto-appended to post captions when using Unsplash/Pexels images. |
@@ -442,9 +442,9 @@ These override org-level defaults where applicable. If a workspace setting is le
 | **Approval & Reminders** | | |
 | Internal review reminder interval (hours) | 24 | Hours after a post enters "pending_review" before a reminder is sent to reviewers. |
 | Client approval reminder interval (hours) | 48 | Hours after a post enters "pending_client" before a reminder is sent to the client. |
-| Maximum reminders per post per stage | 2 | After this many reminders, no more are sent — instead the workspace Manager is notified the post is stalled. |
+| Maximum reminders per post per stage | 2 | After this many reminders, no more are sent - instead the workspace Manager is notified the post is stalled. |
 | Stalled post escalation | On | When max reminders are exhausted, notify the workspace Manager that a post is stalled. |
-| Approval email subject template | "[Workspace Name] — Posts ready for your review" | Customizable subject line for client approval request emails. Supports variables: `{workspace_name}`, `{post_count}`, `{date}`. |
+| Approval email subject template | "[Workspace Name] - Posts ready for your review" | Customizable subject line for client approval request emails. Supports variables: `{workspace_name}`, `{post_count}`, `{date}`. |
 | **Publishing** | | |
 | First comment delay (seconds) | 5 | Delay between main post publication and first comment posting. Some platforms flag instant comments as spam. |
 | Publish retry max attempts | 3 | Number of retry attempts before marking a platform post as failed. |
@@ -488,25 +488,25 @@ These control infrastructure-level behavior and are not exposed to regular org/w
 - Workspace settings show an "Inherit from organization" toggle per setting. When enabled, the workspace uses the org-level value and the input field is disabled.
 - Changes are saved immediately on blur or on an explicit "Save" button per section. A success toast confirms the save.
 - A "Reset to defaults" button per section reverts all settings in that section to their default values.
-- Changes take effect immediately for all future operations — they do not retroactively affect already-scheduled posts, already-sent reminders, or already-generated recurrences.
+- Changes take effect immediately for all future operations - they do not retroactively affect already-scheduled posts, already-sent reminders, or already-generated recurrences.
 
 ### Data Model
 - `OrgSetting`: id, organization_id, key (string, unique per org), value (json), updated_at.
-- `WorkspaceSetting`: id, workspace_id, key (string, unique per workspace), value (json, nullable — null means inherit from org), updated_at.
+- `WorkspaceSetting`: id, workspace_id, key (string, unique per workspace), value (json, nullable - null means inherit from org), updated_at.
 - Settings keys follow a namespaced convention: `approval.internal_reminder_hours`, `publishing.first_comment_delay_seconds`, `inbox.sync_interval_minutes`, etc.
 - A helper function `get_setting(workspace_id, key)` returns the workspace-level value if set, otherwise falls back to the org-level value, otherwise falls back to the application-level default.
 
 ### Dependencies
 - All features reference these settings instead of hardcoded values.
-- F-1.1, F-1.2 (Org/Workspace) — settings belong to these entities.
-- F-2.2 (Approval) — reminder intervals, max reminders.
-- F-2.3 (Calendar) — recurrence lookahead, queue warnings.
-- F-2.4 (Publishing Engine) — retry logic, first comment delay, poll interval.
-- F-3.1 (Inbox) — sync interval, auto-resolve, SLA timer.
-- F-4.1 (Analytics) — collection windows, optimal time thresholds.
-- F-7.1 (Notifications) — batching delay, quiet hours, digest mode.
-- F-1.4 (Client Portal) — magic link expiry, reminder intervals, email subject templates.
-- F-5.1 (Auth) — session duration, login rate limits, 2FA enforcement.
+- F-1.1, F-1.2 (Org/Workspace) - settings belong to these entities.
+- F-2.2 (Approval) - reminder intervals, max reminders.
+- F-2.3 (Calendar) - recurrence lookahead, queue warnings.
+- F-2.4 (Publishing Engine) - retry logic, first comment delay, poll interval.
+- F-3.1 (Inbox) - sync interval, auto-resolve, SLA timer.
+- F-4.1 (Analytics) - collection windows, optimal time thresholds.
+- F-7.1 (Notifications) - batching delay, quiet hours, digest mode.
+- F-1.4 (Client Portal) - magic link expiry, reminder intervals, email subject templates.
+- F-5.1 (Auth) - session duration, login rate limits, 2FA enforcement.
 
 ### Acceptance Criteria
 - Changing "Internal review reminder interval" from 24 to 12 hours in workspace settings causes the next reminder for a pending post in that workspace to fire after 12 hours (not 24).
@@ -518,14 +518,14 @@ These control infrastructure-level behavior and are not exposed to regular org/w
 
 ---
 
-## F-1.7 — Client Onboarding Flow
+## F-1.7 - Client Onboarding Flow
 
 ### Purpose
-Define the end-to-end process for onboarding a new client into the platform — from workspace creation through social account connection to first content review. This is the critical first experience for agencies and must be fast and frictionless.
+Define the end-to-end process for onboarding a new client into the platform - from workspace creation through social account connection to first content review. This is the critical first experience for agencies and must be fast and frictionless.
 
 ### User Stories
 - As a workspace Manager, I can onboard a new client in under 10 minutes: create a workspace, connect their accounts, invite them, and submit initial content for review.
-- As a client, I receive a clear, branded email inviting me to review my first posts — without needing to understand the platform.
+- As a client, I receive a clear, branded email inviting me to review my first posts - without needing to understand the platform.
 - As an agency admin, I can connect client social accounts on their behalf using access the client has granted to me (common agency practice).
 - As a client, I can connect my own social accounts via a guided link my agency sends me, without accessing the full platform.
 
@@ -540,12 +540,12 @@ Define the end-to-end process for onboarding a new client into the platform — 
 
 Two connection methods, depending on agency-client relationship:
 
-*Method A — Agency connects accounts directly (most common):*
-- The agency already has admin/editor access to the client's social media accounts (standard agency practice — client grants access through each platform's native permission system).
+*Method A - Agency connects accounts directly (most common):*
+- The agency already has admin/editor access to the client's social media accounts (standard agency practice - client grants access through each platform's native permission system).
 - The agency member clicks "Connect Account" in the workspace and completes the OAuth flow themselves, authenticating with their own Facebook/Instagram/LinkedIn/etc. credentials that have the necessary permissions on the client's pages/profiles.
 - This is the standard flow described in F-2.5.
 
-*Method B — Client connects their own accounts via invitation link:*
+*Method B - Client connects their own accounts via invitation link:*
 - For clients who prefer to connect their own accounts (privacy-conscious clients, or agencies that don't have admin access yet).
 - The agency member clicks "Invite client to connect accounts" in workspace settings → Social Accounts.
 - The system generates a single-purpose, time-limited URL (the "connection link"). This link is emailed to the client or copied to clipboard for sharing.
@@ -556,18 +556,18 @@ Two connection methods, depending on agency-client relationship:
   4. After each successful connection, shows a green checkmark and the connected account name/avatar.
   5. Has a "Done" button that closes the page and notifies the agency team that accounts have been connected.
 - The connection link does NOT grant the client access to the platform dashboard, composer, calendar, or any other features. It is solely for connecting social accounts.
-- Connection link expiry: configurable, default 7 days (references F-1.6 settings — add `client_connection_link_expiry_days` to workspace settings).
+- Connection link expiry: configurable, default 7 days (references F-1.6 settings - add `client_connection_link_expiry_days` to workspace settings).
 - Connection link is single-use per account connection but remains active for connecting multiple accounts until it expires.
 - The agency member can revoke or regenerate the connection link at any time.
 
 **Step 3: Client Invitation (optional, parallel to Step 2)**
 - The agency invites the client to the workspace with the "Client" role (F-1.3) so they can approve content later.
-- This step is independent of account connection — a client can be invited before, during, or after accounts are connected.
+- This step is independent of account connection - a client can be invited before, during, or after accounts are connected.
 - Invitation uses the standard flow (F-1.3) or magic link flow (F-1.4).
 
 **Step 4: First Content Batch**
 - After accounts are connected, the agency creates and schedules (or submits for approval) the first batch of posts.
-- No special feature needed here — this uses the standard composer (F-2.1) and approval workflow (F-2.2).
+- No special feature needed here - this uses the standard composer (F-2.1) and approval workflow (F-2.2).
 
 **Get Started Checklist:**
 - When a workspace is newly created and has not yet completed key setup steps, a "Get Started" checklist card is displayed prominently at the top of the workspace dashboard.
@@ -582,13 +582,13 @@ Two connection methods, depending on agency-client relationship:
 | Set up posting schedule | At least 1 posting slot configured for any connected account | "Set Schedule" → opens posting slots config |
 
 - Each completed step shows a checkmark. Incomplete steps show a circle outline with the action button.
-- The checklist can be dismissed ("Don't show again") — it does not reappear once dismissed. Dismissal is stored per user per workspace.
-- The checklist is purely informational and advisory — it does not block any functionality. Users can use any feature at any time regardless of checklist completion.
+- The checklist can be dismissed ("Don't show again") - it does not reappear once dismissed. Dismissal is stored per user per workspace.
+- The checklist is purely informational and advisory - it does not block any functionality. Users can use any feature at any time regardless of checklist completion.
 
 **Connection Link Page (detailed spec):**
 
 *Layout:*
-- Full-page, centered card layout. No sidebar, no navigation — this is a standalone page.
+- Full-page, centered card layout. No sidebar, no navigation - this is a standalone page.
 - Header: agency logo (from white-label, or platform logo if not configured), "Connect your social accounts" heading, workspace name subtitle.
 - Body: grid of platform cards. Each card shows: platform icon, platform name, "Connect" button (or "Connected ✓" with account name/avatar after connection).
 - Footer: "Need help? Contact [agency email from white-label settings, or platform support email]."
@@ -597,7 +597,7 @@ Two connection methods, depending on agency-client relationship:
 - Clicking "Connect" initiates the standard OAuth flow for that platform (F-2.5). The OAuth callback redirects back to this page.
 - After connecting an account, the card updates to show the connected account name and avatar with a green checkmark.
 - The client can connect multiple accounts across multiple platforms.
-- A "Done — Notify [Agency Name]" button at the bottom sends an in-app + email notification to all workspace Managers listing which accounts were connected.
+- A "Done - Notify [Agency Name]" button at the bottom sends an in-app + email notification to all workspace Managers listing which accounts were connected.
 
 *Security:*
 - The connection link token is cryptographically secure (32 bytes, URL-safe base64).
@@ -607,26 +607,26 @@ Two connection methods, depending on agency-client relationship:
 
 ### Data Model
 - `ConnectionLink`: id, workspace_id, token (string, unique, indexed), created_by (user_id), expires_at (datetime), revoked_at (datetime, nullable), created_at.
-- `ConnectionLinkUsage`: id, connection_link_id, social_account_id (FK — the account that was connected), connected_at (datetime).
+- `ConnectionLinkUsage`: id, connection_link_id, social_account_id (FK - the account that was connected), connected_at (datetime).
 - `OnboardingChecklist`: id, user_id, workspace_id, is_dismissed (boolean), dismissed_at (datetime, nullable).
 
 ### Dependencies
-- F-1.2 (Workspace) — workspace creation.
-- F-1.3 (RBAC) — client role invitation.
-- F-1.4 (Client Portal) — client access after onboarding.
-- F-1.6 (Configurable Defaults) — connection link expiry setting.
-- F-2.5 (Social Account Connection) — OAuth flows.
-- F-5.2 (White-Label) — branding on connection link page.
-- F-7.1 (Notifications) — notification when client finishes connecting accounts.
+- F-1.2 (Workspace) - workspace creation.
+- F-1.3 (RBAC) - client role invitation.
+- F-1.4 (Client Portal) - client access after onboarding.
+- F-1.6 (Configurable Defaults) - connection link expiry setting.
+- F-2.5 (Social Account Connection) - OAuth flows.
+- F-5.2 (White-Label) - branding on connection link page.
+- F-7.1 (Notifications) - notification when client finishes connecting accounts.
 
 ### Acceptance Criteria
 - A workspace Manager can generate a connection link and share it within 3 clicks.
 - A client receiving the connection link can connect an Instagram Business account within 60 seconds (excluding time on Instagram's auth page).
 - After the client connects accounts and clicks "Done," the workspace Manager receives a notification within 30 seconds listing the connected accounts.
-- The connection link page shows zero platform data — no posts, no analytics, no other accounts. Only the connect buttons and connected account confirmations.
-- An expired connection link shows a friendly "This link has expired — contact your agency" page.
+- The connection link page shows zero platform data - no posts, no analytics, no other accounts. Only the connect buttons and connected account confirmations.
+- An expired connection link shows a friendly "This link has expired - contact your agency" page.
 - The "Get Started" checklist correctly reflects completion state: connecting an account immediately checks off "Connect social accounts."
-- Dismissing the checklist persists — refreshing the page does not bring it back.
+- Dismissing the checklist persists - refreshing the page does not bring it back.
 
 ---
 ---
@@ -635,7 +635,7 @@ Two connection methods, depending on agency-client relationship:
 
 ---
 
-## F-2.1 — Post Composer
+## F-2.1 - Post Composer
 
 ### Purpose
 The central content creation interface. Users compose a single post and customize it per platform. The composer produces a Post entity that flows into the approval workflow and/or scheduling system.
@@ -668,10 +668,10 @@ The central content creation interface. Users compose a single post and customiz
 - By default, all platforms share the same caption and media.
 - A "Customize for [platform]" toggle per platform allows overriding: caption text, media selection/ordering, hashtags, alt text per image, first comment text.
 - Overrides are stored per PlatformPost (see F-2.4). The base post retains the "shared" version.
-- Platforms that do not support a feature hide the relevant control (e.g., Pinterest does not support first comment — that field is hidden when Pinterest is the only selected platform).
+- Platforms that do not support a feature hide the relevant control (e.g., Pinterest does not support first comment - that field is hidden when Pinterest is the only selected platform).
 
 **Media Attachment:**
-- Media picker allows: upload from device, select from workspace media library (F-6.1), search stock media (Unsplash, Pexels, GIPHY — see F-5.3), open Canva (see F-5.3).
+- Media picker allows: upload from device, select from workspace media library (F-6.1), search stock media (Unsplash, Pexels, GIPHY - see F-5.3), open Canva (see F-5.3).
 - Multiple media items can be attached. The composer detects the post type based on selection:
   - 1 image → Single image post.
   - 2–10 images → Carousel (on platforms that support it; otherwise, first image only with a warning).
@@ -690,12 +690,12 @@ The central content creation interface. Users compose a single post and customiz
 **Post Types:**
 - Standard post (text + optional media).
 - Reel / Short (vertical video, detected by aspect ratio and duration).
-- Story (Instagram, Facebook — ephemeral, 24h).
+- Story (Instagram, Facebook - ephemeral, 24h).
 - Carousel (multiple images/videos).
 - Poll (LinkedIn only in v1).
-- Article (LinkedIn only — long-form text with title).
-- Video (YouTube — with title, description, tags, visibility, category fields).
-- Pin (Pinterest — with board selection, link URL, title, description).
+- Article (LinkedIn only - long-form text with title).
+- Video (YouTube - with title, description, tags, visibility, category fields).
+- Pin (Pinterest - with board selection, link URL, title, description).
 
 When a post type is selected, the composer adapts its fields:
 - YouTube video shows: title (required, max 100 chars), description (max 5,000 chars), tags, visibility (public/unlisted/private), category dropdown, thumbnail upload.
@@ -725,17 +725,17 @@ When a post type is selected, the composer adapts its fields:
 
 **AI Assist:**
 - An "AI" button in the composer toolbar opens an AI assistant panel on the right side of the composer (overlaying or replacing the preview panel temporarily).
-- The AI assistant requires at least one AI provider configured at the org level (see F-5.3 — AI Integration). If no provider is configured, the button shows a tooltip directing the admin to settings.
-- **Provider/model selector (per-generation override):** At the top of the AI panel, a compact dropdown shows the currently selected provider and model (defaulting to the org-wide default). The user can change the provider (OpenAI, Anthropic, OpenRouter — only configured providers appear) and the model (dropdown of models for that provider, matching the options in F-5.3 settings). This selection persists for the duration of the composer session but does not change the org-wide default. Switching provider/model takes effect on the next AI action — it does not re-run previous generations.
+- The AI assistant requires at least one AI provider configured at the org level (see F-5.3 - AI Integration). If no provider is configured, the button shows a tooltip directing the admin to settings.
+- **Provider/model selector (per-generation override):** At the top of the AI panel, a compact dropdown shows the currently selected provider and model (defaulting to the org-wide default). The user can change the provider (OpenAI, Anthropic, OpenRouter - only configured providers appear) and the model (dropdown of models for that provider, matching the options in F-5.3 settings). This selection persists for the duration of the composer session but does not change the org-wide default. Switching provider/model takes effect on the next AI action - it does not re-run previous generations.
 - AI capabilities:
-  - **Generate caption:** Given the media (if image — sent as vision input if the AI provider supports it) and optional context (e.g., "Write a caption for a coffee shop's Instagram promoting a new latte"), generate 3 caption variations. A text input field above the generate button lets the user provide context/instructions.
+  - **Generate caption:** Given the media (if image - sent as vision input if the AI provider supports it) and optional context (e.g., "Write a caption for a coffee shop's Instagram promoting a new latte"), generate 3 caption variations. A text input field above the generate button lets the user provide context/instructions.
   - **Rewrite for tone:** Select existing caption text and choose a tone (professional, casual, humorous, inspirational, urgent). AI rewrites the caption in that tone.
   - **Suggest hashtags:** Based on the caption and media, suggest 10–15 relevant hashtags. User can click to add individual hashtags to the caption or first comment.
   - **Translate:** Translate the caption into a selected language. Language list: top 20 languages by internet users.
   - **Shorten/Lengthen:** Rewrite the caption to be shorter (e.g., fit within Bluesky's 300-char limit) or longer (expand a brief idea).
 - All AI operations are performed server-side via the selected provider's API. The request includes the model specified in the per-generation selector.
 - The user can accept, edit, or discard any AI-generated suggestion.
-- AI-generated content is not auto-inserted — the user always confirms before it replaces the caption. An "Insert" button places the selected suggestion into the caption field; a "Discard" button clears the suggestions.
+- AI-generated content is not auto-inserted - the user always confirms before it replaces the caption. An "Insert" button places the selected suggestion into the caption field; a "Discard" button clears the suggestions.
 
 **Templates:**
 - "Save as Template" button saves the current post's configuration (caption, media placeholders, category, platform selections, first comment, hashtags) as a reusable template.
@@ -751,40 +751,40 @@ When a post type is selected, the composer adapts its fields:
 - A "Drafts" section in the sidebar or calendar filter shows all drafts for the workspace.
 
 **Composer Actions (bottom bar):**
-- "Save Draft" — saves without scheduling.
-- "Submit for Approval" — visible if the workspace approval workflow is "optional" or "required". Transitions the post to "pending_review" status.
-- "Schedule" — opens a date/time picker. Visible if the user's role permits direct publishing and the approval workflow allows it.
-- "Publish Now" — immediately publishes. Visible only if the user's role permits direct publishing.
-- "Add to Queue" — adds the post to the next available slot in the selected queue (see F-2.3). Visible if queues are configured.
+- "Save Draft" - saves without scheduling.
+- "Submit for Approval" - visible if the workspace approval workflow is "optional" or "required". Transitions the post to "pending_review" status.
+- "Schedule" - opens a date/time picker. Visible if the user's role permits direct publishing and the approval workflow allows it.
+- "Publish Now" - immediately publishes. Visible only if the user's role permits direct publishing.
+- "Add to Queue" - adds the post to the next available slot in the selected queue (see F-2.3). Visible if queues are configured.
 
 ### Data Model
 - `Post`: id, workspace_id, author_id, status (enum: draft, pending_review, pending_client, approved, scheduled, publishing, published, partially_published, failed), caption (text), first_comment (text), category_id (nullable), tags (json array of strings), internal_notes (text), template_source_id (nullable), scheduled_at (datetime, nullable), published_at (datetime, nullable), created_at, updated_at.
-- `PlatformPost`: id, post_id, social_account_id, platform_specific_caption (text, nullable — null means use base caption), platform_specific_media (json, nullable), platform_specific_first_comment (text, nullable), platform_post_id (string, nullable — populated after publish), publish_status (enum: pending, published, failed), publish_error (text, nullable), published_at (datetime, nullable).
-- `PostMedia`: id, post_id, media_asset_id, position (integer, for ordering), alt_text (text, nullable), platform_overrides (json — e.g., {"instagram": {"crop": "4:5"}}).
-- `PostVersion`: id, post_id, version_number (integer), snapshot (json — full post state at time of save), created_by, created_at.
-- `PostTemplate`: id, workspace_id, name, description, template_data (json — caption, media references, category, platform selections, first comment, hashtags), created_by, created_at, updated_at.
+- `PlatformPost`: id, post_id, social_account_id, platform_specific_caption (text, nullable - null means use base caption), platform_specific_media (json, nullable), platform_specific_first_comment (text, nullable), platform_post_id (string, nullable - populated after publish), publish_status (enum: pending, published, failed), publish_error (text, nullable), published_at (datetime, nullable).
+- `PostMedia`: id, post_id, media_asset_id, position (integer, for ordering), alt_text (text, nullable), platform_overrides (json - e.g., {"instagram": {"crop": "4:5"}}).
+- `PostVersion`: id, post_id, version_number (integer), snapshot (json - full post state at time of save), created_by, created_at.
+- `PostTemplate`: id, workspace_id, name, description, template_data (json - caption, media references, category, platform selections, first comment, hashtags), created_by, created_at, updated_at.
 
 ### Dependencies
-- F-1.2 (Workspace) — workspace scoping, default hashtags, first comment template.
-- F-1.3 (RBAC) — role determines which composer actions are visible.
-- F-2.2 (Approval Workflow) — determines post status transitions.
-- F-2.3 (Calendar & Scheduling) — scheduled posts appear on the calendar.
-- F-2.4 (Publishing Engine) — executes the actual publish.
-- F-5.3 (Integrations — AI) — AI Assist functionality.
-- F-5.3 (Integrations — Canva/Stock) — media sourcing.
-- F-6.1 (Media Library) — media selection and storage.
+- F-1.2 (Workspace) - workspace scoping, default hashtags, first comment template.
+- F-1.3 (RBAC) - role determines which composer actions are visible.
+- F-2.2 (Approval Workflow) - determines post status transitions.
+- F-2.3 (Calendar & Scheduling) - scheduled posts appear on the calendar.
+- F-2.4 (Publishing Engine) - executes the actual publish.
+- F-5.3 (Integrations - AI) - AI Assist functionality.
+- F-5.3 (Integrations - Canva/Stock) - media sourcing.
+- F-6.1 (Media Library) - media selection and storage.
 
 ### Acceptance Criteria
 - Composing a post with 3 platform targets (Instagram, LinkedIn, Facebook) and customizing the caption for LinkedIn displays all 3 previews correctly and stores the LinkedIn override separately.
 - Attaching 11 images to a post targeting Instagram shows a warning that Instagram carousels support max 20 images and displays a warning for other platforms with lower limits.
 - AI Assist generates 3 caption suggestions within 5 seconds when an API key is configured. Switching provider/model in the AI panel correctly routes the next generation to the selected provider.
 - Auto-save creates a draft every 30 seconds; closing and reopening the composer restores the draft.
-- A Contributor role user sees only "Save Draft" and "Submit for Approval" buttons — no "Schedule" or "Publish Now."
+- A Contributor role user sees only "Save Draft" and "Submit for Approval" buttons - no "Schedule" or "Publish Now."
 - Character counters update in real-time as the user types and correctly reflect each platform's limit.
 
 ---
 
-## F-2.2 — Approval Workflow
+## F-2.2 - Approval Workflow
 
 ### Purpose
 Configurable content review process that ensures posts are vetted by the right people before publishing. Supports both internal team review and external client approval.
@@ -824,14 +824,14 @@ At any stage:
 **Approval Actions:**
 
 *For internal reviewers (Manager, Owner):*
-- "Approve" — moves post to "approved" (or "pending_client" if client approval is required).
-- "Request Changes" — requires a comment explaining what to fix. Post moves to "changes_requested." Author is notified.
-- "Reject" — requires a comment. Post moves to "rejected." Author is notified.
+- "Approve" - moves post to "approved" (or "pending_client" if client approval is required).
+- "Request Changes" - requires a comment explaining what to fix. Post moves to "changes_requested." Author is notified.
+- "Reject" - requires a comment. Post moves to "rejected." Author is notified.
 
 *For clients (via Client Portal F-1.4):*
-- "Approve" — moves post to "approved" → "scheduled."
-- "Request Changes" — requires a comment. Post moves back to "changes_requested."
-- "Reject" — requires a comment. Post moves to "rejected."
+- "Approve" - moves post to "approved" → "scheduled."
+- "Request Changes" - requires a comment. Post moves back to "changes_requested."
+- "Reject" - requires a comment. Post moves to "rejected."
 
 **Comments:**
 - Two types of comments on each post:
@@ -869,14 +869,14 @@ At any stage:
 - Post status transitions are enforced at the application level with a state machine. Invalid transitions return an error.
 
 ### Dependencies
-- F-1.2 (Workspace) — workflow mode configuration.
-- F-1.3 (RBAC) — determines who can approve.
-- F-1.4 (Client Portal) — client approval interface.
-- F-2.1 (Composer) — post creation and editing.
-- F-7.1 (Notifications) — approval request notifications, reminders.
+- F-1.2 (Workspace) - workflow mode configuration.
+- F-1.3 (RBAC) - determines who can approve.
+- F-1.4 (Client Portal) - client approval interface.
+- F-2.1 (Composer) - post creation and editing.
+- F-7.1 (Notifications) - approval request notifications, reminders.
 
 ### Acceptance Criteria
-- In `required_internal` mode, an Editor cannot schedule a post — the "Schedule" button is not rendered. After a Manager approves, the post auto-schedules at the time the author originally selected.
+- In `required_internal` mode, an Editor cannot schedule a post - the "Schedule" button is not rendered. After a Manager approves, the post auto-schedules at the time the author originally selected.
 - In `required_internal_and_client` mode, a client requesting changes sends the post back to "changes_requested" and notifies the internal team. The post must go through internal review again before returning to the client.
 - Version diffs correctly show text additions, deletions, and media changes.
 - Auto-reminders fire at the configured interval and stop after 2 reminders.
@@ -884,7 +884,7 @@ At any stage:
 
 ---
 
-## F-2.3 — Content Calendar & Scheduling
+## F-2.3 - Content Calendar & Scheduling
 
 ### Purpose
 The visual calendar is the daily operational hub for agencies. It provides an overview of all content across platforms, supports drag-and-drop scheduling, queue-based auto-scheduling, and bulk import.
@@ -953,13 +953,13 @@ The visual calendar is the daily operational hub for agencies. It provides an ov
 **Queue-Based Scheduling:**
 - A "Queue" is defined by: a content category and a set of time slots.
 - When a post is "Added to Queue" (from the composer), the system assigns it to the next available time slot for that queue.
-- Multiple queues can exist per workspace (e.g., "Educational content — MWF 9am" and "Promotional — TTh 12pm").
+- Multiple queues can exist per workspace (e.g., "Educational content - MWF 9am" and "Promotional - TTh 12pm").
 - Queue management: view the queue as an ordered list. Posts can be reordered within the queue (drag-and-drop). Reordering changes which slot each post gets assigned to.
 - If a queue has no available slots in the next 30 days, the user is warned.
 
 **Bulk Scheduling (CSV Import):**
 - Upload a CSV or TSV file with one row per post.
-- Columns: date (YYYY-MM-DD), time (HH:MM, 24h format), timezone (optional — defaults to workspace timezone), platform(s) (comma-separated platform identifiers: instagram, facebook, linkedin, tiktok, youtube, pinterest, threads, bluesky, google_business, mastodon), caption (text), media_url (URL to an image/video — fetched and stored in media library on import), category (name — matched to existing categories or created), tags (comma-separated), first_comment (text).
+- Columns: date (YYYY-MM-DD), time (HH:MM, 24h format), timezone (optional - defaults to workspace timezone), platform(s) (comma-separated platform identifiers: instagram, facebook, linkedin, tiktok, youtube, pinterest, threads, bluesky, google_business, mastodon), caption (text), media_url (URL to an image/video - fetched and stored in media library on import), category (name - matched to existing categories or created), tags (comma-separated), first_comment (text).
 - Column mapping: after upload, the user sees a column mapping interface where they assign each CSV column to a post field. The system attempts auto-detection based on column headers.
 - Validation: before import, the system validates all rows and shows errors per row (e.g., "Row 12: date is in the past," "Row 34: platform 'twitter' is not supported"). The user can fix the CSV and re-upload or skip invalid rows.
 - Import limit: unlimited posts per upload (processed in batches of 100).
@@ -968,7 +968,7 @@ The visual calendar is the daily operational hub for agencies. It provides an ov
 
 **Recurring Posts:**
 - When scheduling a post, an "Make recurring" toggle is available.
-- Options: repeat every N days / weeks / months. End date (optional — if not set, repeats indefinitely).
+- Options: repeat every N days / weeks / months. End date (optional - if not set, repeats indefinitely).
 - The system creates individual Post records for each recurrence up to 90 days in advance. A background job generates new recurrences as time progresses.
 - Each recurrence is an independent post that can be individually edited or cancelled without affecting other recurrences.
 - A "Recurring" badge appears on recurring posts with a link to "View all recurrences."
@@ -977,14 +977,14 @@ The visual calendar is the daily operational hub for agencies. It provides an ov
 - An overlay on the calendar showing social media awareness days (e.g., "World Coffee Day," "International Women's Day") and public holidays.
 - Holiday data: bundled dataset of major international awareness days and US/UK/EU public holidays. Updated with each platform release.
 - Users can toggle the overlay on/off.
-- Users can add custom events to the calendar (workspace-scoped) — e.g., "Client product launch" or "Campaign start."
+- Users can add custom events to the calendar (workspace-scoped) - e.g., "Client product launch" or "Campaign start."
 - Custom events show as full-width bars on the calendar, similar to all-day events in Google Calendar.
 
 **Cross-Workspace Calendar (Organization Level):**
 - Accessible to Org Admins and Owners from the organization dashboard.
 - Shows all workspaces' scheduled/published posts in a single calendar view.
 - Posts are color-coded by workspace (workspace color from F-1.2 settings).
-- Read-only — clicking a post navigates into the specific workspace's calendar.
+- Read-only - clicking a post navigates into the specific workspace's calendar.
 - Filterable by workspace (multi-select).
 
 **Empty State:**
@@ -1004,11 +1004,11 @@ The visual calendar is the daily operational hub for agencies. It provides an ov
 - `RecurrenceRule`: id, post_id, frequency (enum: daily, weekly, monthly), interval (integer), end_date (nullable), last_generated_at (datetime).
 
 ### Dependencies
-- F-2.1 (Composer) — post creation and editing.
-- F-2.2 (Approval Workflow) — status filtering and post status.
-- F-2.4 (Publishing Engine) — publishes posts at scheduled times.
-- F-4.1 (Analytics) — optimal time calculations.
-- F-1.3 (RBAC) — drag-and-drop permissions.
+- F-2.1 (Composer) - post creation and editing.
+- F-2.2 (Approval Workflow) - status filtering and post status.
+- F-2.4 (Publishing Engine) - publishes posts at scheduled times.
+- F-4.1 (Analytics) - optimal time calculations.
+- F-1.3 (RBAC) - drag-and-drop permissions.
 
 ### Acceptance Criteria
 - Month view loads within 2 seconds for a workspace with 200 scheduled posts in the visible month.
@@ -1020,7 +1020,7 @@ The visual calendar is the daily operational hub for agencies. It provides an ov
 
 ---
 
-## F-2.4 — Publishing Engine
+## F-2.4 - Publishing Engine
 
 ### Purpose
 The backend system responsible for sending posts to social media platforms at the scheduled time. Handles API communication, rate limiting, retry logic, media processing, and status reporting.
@@ -1120,12 +1120,12 @@ The backend system responsible for sending posts to social media platforms at th
 - `RateLimitState`: id, social_account_id, platform, requests_remaining (integer), window_resets_at (datetime), last_updated.
 
 ### Dependencies
-- F-1.5 (Platform API Credentials) — API keys for platform access.
-- F-2.1 (Composer) — Post and PlatformPost entities.
-- F-2.3 (Calendar) — scheduling timestamps.
-- F-6.1 (Media Library) — media assets for upload.
-- F-7.1 (Notifications) — publish success/failure notifications.
-- F-4.1 (Analytics) — triggers first metric fetch after publish.
+- F-1.5 (Platform API Credentials) - API keys for platform access.
+- F-2.1 (Composer) - Post and PlatformPost entities.
+- F-2.3 (Calendar) - scheduling timestamps.
+- F-6.1 (Media Library) - media assets for upload.
+- F-7.1 (Notifications) - publish success/failure notifications.
+- F-4.1 (Analytics) - triggers first metric fetch after publish.
 
 ### Acceptance Criteria
 - A post scheduled for 2:00:00 PM is published within 30 seconds of that time (by 2:00:30 PM).
@@ -1138,7 +1138,7 @@ The backend system responsible for sending posts to social media platforms at th
 
 ---
 
-## F-2.5 — Social Account Connection
+## F-2.5 - Social Account Connection
 
 ### Purpose
 Connect social media accounts to a workspace so the platform can publish content and read engagement data on behalf of the user.
@@ -1173,7 +1173,7 @@ Connect social media accounts to a workspace so the platform can publish content
 
 **Reconnection:**
 - If an account is disconnected, a "Reconnect" button initiates the OAuth flow again for that specific account.
-- Reconnecting preserves all historical data (posts, analytics) — it only updates the OAuth tokens.
+- Reconnecting preserves all historical data (posts, analytics) - it only updates the OAuth tokens.
 
 **Disconnection:**
 - Workspace Owner/Manager can disconnect an account.
@@ -1201,12 +1201,12 @@ Connect social media accounts to a workspace so the platform can publish content
 | Mastodon | read, write, follow (standard scopes) |
 
 ### Data Model
-- `SocialAccount`: id, workspace_id, platform (enum), account_platform_id (string — the account's ID on the platform), account_name (string), account_handle (string, nullable), avatar_url (string), follower_count (integer), oauth_access_token (encrypted), oauth_refresh_token (encrypted), token_expires_at (datetime, nullable), instance_url (string, nullable — for Mastodon), connection_status (enum: connected, token_expiring, disconnected, error), last_health_check_at (datetime), last_error (text, nullable), connected_at (datetime).
+- `SocialAccount`: id, workspace_id, platform (enum), account_platform_id (string - the account's ID on the platform), account_name (string), account_handle (string, nullable), avatar_url (string), follower_count (integer), oauth_access_token (encrypted), oauth_refresh_token (encrypted), token_expires_at (datetime, nullable), instance_url (string, nullable - for Mastodon), connection_status (enum: connected, token_expiring, disconnected, error), last_health_check_at (datetime), last_error (text, nullable), connected_at (datetime).
 
 ### Dependencies
-- F-1.2 (Workspace) — accounts belong to workspaces.
-- F-1.5 (Platform API Credentials) — app credentials for OAuth flows.
-- F-2.4 (Publishing Engine) — uses tokens to publish.
+- F-1.2 (Workspace) - accounts belong to workspaces.
+- F-1.5 (Platform API Credentials) - app credentials for OAuth flows.
+- F-2.4 (Publishing Engine) - uses tokens to publish.
 
 ### Acceptance Criteria
 - Connecting an Instagram Business account completes in under 30 seconds (user time, excluding time spent on Instagram's authorization page).
@@ -1221,7 +1221,7 @@ Connect social media accounts to a workspace so the platform can publish content
 
 ---
 
-## F-3.1 — Unified Social Inbox
+## F-3.1 - Unified Social Inbox
 
 ### Purpose
 Aggregate all inbound engagement (comments, mentions, DMs where API permits, reviews) across all connected accounts in a workspace into a single, manageable feed. Allows team members to respond without leaving the platform.
@@ -1289,7 +1289,7 @@ Aggregate all inbound engagement (comments, mentions, DMs where API permits, rev
 **Sentiment Analysis:**
 - Each incoming message is auto-tagged with a sentiment: positive, neutral, or negative.
 - Sentiment is determined by a keyword-based rules engine (configurable positive/negative keyword lists per workspace) with optional AI-based sentiment analysis if an AI key is configured (F-5.3).
-- Sentiment tags are editable — a team member can manually override the auto-detected sentiment.
+- Sentiment tags are editable - a team member can manually override the auto-detected sentiment.
 - Sentiment is used for filtering and is included in analytics/reports.
 
 **Bulk Actions:**
@@ -1321,18 +1321,18 @@ Aggregate all inbound engagement (comments, mentions, DMs where API permits, rev
 - When filters are active but produce no results: "No messages match your filters." with a "Clear filters" button.
 
 ### Data Model
-- `InboxMessage`: id, workspace_id, social_account_id, platform_message_id (string, unique per platform), message_type (enum: comment, mention, dm, review), sender_name, sender_handle, sender_avatar_url, body (text), sentiment (enum: positive, neutral, negative), sentiment_source (enum: auto, manual), status (enum: unread, open, resolved, archived), assigned_to (user_id, nullable), parent_message_id (nullable, for threads), related_post_id (nullable — links to PlatformPost if message is a comment on our post), received_at (datetime), created_at.
-- `InboxReply`: id, inbox_message_id, author_id (team member who replied), body (text), platform_reply_id (string — from API), sent_at (datetime).
+- `InboxMessage`: id, workspace_id, social_account_id, platform_message_id (string, unique per platform), message_type (enum: comment, mention, dm, review), sender_name, sender_handle, sender_avatar_url, body (text), sentiment (enum: positive, neutral, negative), sentiment_source (enum: auto, manual), status (enum: unread, open, resolved, archived), assigned_to (user_id, nullable), parent_message_id (nullable, for threads), related_post_id (nullable - links to PlatformPost if message is a comment on our post), received_at (datetime), created_at.
+- `InboxReply`: id, inbox_message_id, author_id (team member who replied), body (text), platform_reply_id (string - from API), sent_at (datetime).
 - `InternalNote`: id, inbox_message_id, author_id, body (text), created_at.
 - `SavedReply`: id, workspace_id, title, body (text), created_by, created_at, updated_at.
 - `InboxSLAConfig`: id, workspace_id, target_response_minutes (integer), is_active (boolean).
 
 ### Dependencies
-- F-2.5 (Social Account Connection) — connected accounts for message sync.
-- F-1.3 (RBAC) — inbox access permissions.
-- F-5.3 (AI Integration) — optional AI-based sentiment analysis.
-- F-7.1 (Notifications) — new message and assignment notifications.
-- F-4.2 (Cross-Account Analytics) — SLA metrics.
+- F-2.5 (Social Account Connection) - connected accounts for message sync.
+- F-1.3 (RBAC) - inbox access permissions.
+- F-5.3 (AI Integration) - optional AI-based sentiment analysis.
+- F-7.1 (Notifications) - new message and assignment notifications.
+- F-4.2 (Cross-Account Analytics) - SLA metrics.
 
 ### Acceptance Criteria
 - New comments on a connected Instagram post appear in the inbox within 5 minutes (polling) or 30 seconds (webhook).
@@ -1348,7 +1348,7 @@ Aggregate all inbound engagement (comments, mentions, DMs where API permits, rev
 
 ---
 
-## F-4.1 — Per-Account Analytics
+## F-4.1 - Per-Account Analytics
 
 ### Purpose
 Provide engagement and growth metrics for each connected social account, sourced from the platform APIs. Data is collected automatically and displayed in dashboards within each workspace.
@@ -1438,8 +1438,8 @@ Provide engagement and growth metrics for each connected social account, sourced
 - `AudienceDemographics`: id, social_account_id, age_ranges (json), gender_split (json), top_countries (json), top_cities (json), snapshot_at (datetime).
 
 ### Dependencies
-- F-2.4 (Publishing Engine) — triggers first analytics fetch after publish.
-- F-2.5 (Social Account Connection) — connected accounts and tokens for API access.
+- F-2.4 (Publishing Engine) - triggers first analytics fetch after publish.
+- F-2.5 (Social Account Connection) - connected accounts and tokens for API access.
 
 ### Acceptance Criteria
 - Analytics dashboard for an account with 500 posts loads within 3 seconds.
@@ -1449,7 +1449,7 @@ Provide engagement and growth metrics for each connected social account, sourced
 
 ---
 
-## F-4.2 — Cross-Account & Cross-Workspace Analytics
+## F-4.2 - Cross-Account & Cross-Workspace Analytics
 
 ### Purpose
 Organization-level dashboards that let agency owners see the health of all clients at a glance, compare performance, and track team productivity.
@@ -1491,10 +1491,10 @@ Organization-level dashboards that let agency owners see the health of all clien
 - `OrgAlert`: id, organization_id, alert_type (enum), workspace_id (nullable), threshold_value, is_active (boolean).
 
 ### Dependencies
-- F-4.1 (Per-Account Analytics) — source data.
-- F-3.1 (Inbox) — response time data.
-- F-2.2 (Approval Workflow) — approval turnaround data.
-- F-7.1 (Notifications) — alert delivery.
+- F-4.1 (Per-Account Analytics) - source data.
+- F-3.1 (Inbox) - response time data.
+- F-2.2 (Approval Workflow) - approval turnaround data.
+- F-7.1 (Notifications) - alert delivery.
 
 ### Acceptance Criteria
 - Org dashboard loads within 5 seconds for an organization with 50 workspaces.
@@ -1503,7 +1503,7 @@ Organization-level dashboards that let agency owners see the health of all clien
 
 ---
 
-## F-4.3 — Report Builder
+## F-4.3 - Report Builder
 
 ### Purpose
 Generate branded PDF reports for client delivery. Reports combine analytics data, commentary, and visualizations into a professional document that agencies can share with clients.
@@ -1520,7 +1520,7 @@ Generate branded PDF reports for client delivery. Reports combine analytics data
 - "Create Report" button in the workspace analytics section.
 - Step 1: Choose a template or start from scratch.
 - Step 2: Configure report parameters: title, date range, social accounts to include, content categories to include.
-- Step 3: Report editor — a drag-and-drop editor for arranging report sections.
+- Step 3: Report editor - a drag-and-drop editor for arranging report sections.
 
 **Report Sections (building blocks):**
 
@@ -1545,7 +1545,7 @@ Generate branded PDF reports for client delivery. Reports combine analytics data
 **Templates:**
 - Pre-built templates: "Monthly Overview," "Campaign Report," "Quarterly Review."
 - Users can save a report configuration as a custom template for reuse.
-- Templates store: which sections are included, their order, and default metric selections. Data is not stored — it's fetched fresh on generation.
+- Templates store: which sections are included, their order, and default metric selections. Data is not stored - it's fetched fresh on generation.
 
 **White-Label Branding:**
 - If white-label is configured (F-5.2), reports use: agency logo (in header and cover page), agency colors (for chart accents and section headers), agency name and contact info (in footer).
@@ -1562,7 +1562,7 @@ Generate branded PDF reports for client delivery. Reports combine analytics data
 - Users can configure a report to auto-generate on a schedule: weekly (every Monday), biweekly, monthly (1st of each month).
 - On the scheduled date, the system generates the report with the latest data for the configured date range (e.g., "last 30 days" is always relative to the generation date).
 - The generated report is emailed to configured recipients (workspace members and/or client email addresses).
-- Email subject and body text are configurable. Default subject: "[Workspace Name] — [Report Title] — [Date Range]."
+- Email subject and body text are configurable. Default subject: "[Workspace Name] - [Report Title] - [Date Range]."
 
 **Shareable Link:**
 - Each generated report can be shared via a URL.
@@ -1571,15 +1571,15 @@ Generate branded PDF reports for client delivery. Reports combine analytics data
 - Shareable links are listed in the Client Portal (F-1.4).
 
 ### Data Model
-- `Report`: id, workspace_id, title, date_range_start, date_range_end, social_account_ids (json array), category_ids (json array), sections (json — ordered list of section configs), template_id (nullable), created_by, created_at, updated_at.
-- `ReportGeneration`: id, report_id, generated_at, pdf_url (string — stored file path/URL), html_url (string), share_token (string, unique), share_password_hash (nullable), share_expires_at (datetime, nullable).
+- `Report`: id, workspace_id, title, date_range_start, date_range_end, social_account_ids (json array), category_ids (json array), sections (json - ordered list of section configs), template_id (nullable), created_by, created_at, updated_at.
+- `ReportGeneration`: id, report_id, generated_at, pdf_url (string - stored file path/URL), html_url (string), share_token (string, unique), share_password_hash (nullable), share_expires_at (datetime, nullable).
 - `ReportSchedule`: id, report_id, frequency (enum: weekly, biweekly, monthly), recipients (json array of emails), email_subject, email_body, next_run_at (datetime), is_active (boolean).
 
 ### Dependencies
-- F-4.1 (Analytics) — data source for all report sections.
-- F-5.2 (White-Label) — branding for reports.
-- F-1.4 (Client Portal) — reports visible to clients.
-- F-7.1 (Notifications) — scheduled report delivery.
+- F-4.1 (Analytics) - data source for all report sections.
+- F-5.2 (White-Label) - branding for reports.
+- F-1.4 (Client Portal) - reports visible to clients.
+- F-7.1 (Notifications) - scheduled report delivery.
 
 ### Acceptance Criteria
 - Generating a report for a 30-day period with 5 sections completes in under 10 seconds.
@@ -1595,7 +1595,7 @@ Generate branded PDF reports for client delivery. Reports combine analytics data
 
 ---
 
-## F-5.1 — Authentication & User Accounts
+## F-5.1 - Authentication & User Accounts
 
 ### Purpose
 User registration, login, and session management. Supports email/password, social OAuth login, and magic links for clients.
@@ -1610,7 +1610,7 @@ User registration, login, and session management. Supports email/password, socia
 **Registration:**
 - Email + password: email must be unique across the platform. Password minimum: 8 characters, no other complexity requirements. Password is hashed with bcrypt (cost factor 12).
 - OAuth login: Google and GitHub. On first OAuth login, an account is created automatically. The user's name and avatar are populated from the OAuth profile.
-- After registration, an Organization is automatically created for the user (F-1.1) with sensible defaults — no setup steps or prompts. If the user was invited to an existing organization, no new organization is created — they join the existing one.
+- After registration, an Organization is automatically created for the user (F-1.1) with sensible defaults - no setup steps or prompts. If the user was invited to an existing organization, no new organization is created - they join the existing one.
 
 **Login:**
 - Email + password form.
@@ -1620,7 +1620,7 @@ User registration, login, and session management. Supports email/password, socia
 
 **Sessions:**
 - Session token stored as an HTTP-only, secure, SameSite=Lax cookie.
-- Session duration: 30 days (sliding — refreshed on each request).
+- Session duration: 30 days (sliding - refreshed on each request).
 - Users can view and revoke active sessions from their account settings ("Active Sessions" list showing device, IP, last active time).
 
 **Magic Links (for clients):**
@@ -1642,14 +1642,14 @@ User registration, login, and session management. Supports email/password, socia
 - Org Owners can enforce 2FA for all org members (configurable in org settings).
 
 ### Data Model
-- `User`: id, email (unique), name, avatar_url, password_hash (nullable — null for OAuth-only users), totp_secret (encrypted, nullable), totp_recovery_codes (encrypted json, nullable), totp_enabled (boolean), created_at, updated_at.
+- `User`: id, email (unique), name, avatar_url, password_hash (nullable - null for OAuth-only users), totp_secret (encrypted, nullable), totp_recovery_codes (encrypted json, nullable), totp_enabled (boolean), created_at, updated_at.
 - `OAuthConnection`: id, user_id, provider (enum: google, github), provider_user_id, provider_email, created_at.
 - `Session`: id, user_id, token_hash, device_info (string), ip_address, last_active_at, created_at, expires_at.
 
 ### Dependencies
-- F-1.1 (Organization) — org creation during signup.
-- F-1.3 (RBAC) — roles assigned post-authentication.
-- F-1.4 (Client Portal) — magic link auth.
+- F-1.1 (Organization) - org creation during signup.
+- F-1.3 (RBAC) - roles assigned post-authentication.
+- F-1.4 (Client Portal) - magic link auth.
 
 ### Acceptance Criteria
 - Registration with email/password completes in under 5 seconds.
@@ -1659,10 +1659,10 @@ User registration, login, and session management. Supports email/password, socia
 
 ---
 
-## F-5.2 — White-Label Configuration
+## F-5.2 - White-Label Configuration
 
 ### Purpose
-Allow agencies to completely rebrand the platform with their own identity. When configured, the agency's clients see the agency's brand — not the platform's.
+Allow agencies to completely rebrand the platform with their own identity. When configured, the agency's clients see the agency's brand - not the platform's.
 
 ### User Stories
 - As an Org Owner, I can upload my agency's logo and set brand colors.
@@ -1689,7 +1689,7 @@ Allow agencies to completely rebrand the platform with their own identity. When 
 - DNS verification: the system checks DNS every 5 minutes for 72 hours after domain entry. On successful verification, the custom domain is activated.
 - All platform URLs for that organization are served under the custom domain.
 - The default platform URL (app.platform.com/org/...) redirects to the custom domain if configured.
-- **Scaling note (cloud):** Custom domains use Caddy's on-demand TLS, which provisions certificates at request time. This works well for a single-VPS deployment. If the cloud version scales to multiple instances behind a load balancer, all HTTPS termination must route through a single Caddy instance (or a shared certificate store like Caddy's `storage` directive backed by a database/S3) so that on-demand TLS challenges succeed. This is a post-launch scaling concern, not a launch blocker — document the migration path when horizontal scaling becomes necessary.
+- **Scaling note (cloud):** Custom domains use Caddy's on-demand TLS, which provisions certificates at request time. This works well for a single-VPS deployment. If the cloud version scales to multiple instances behind a load balancer, all HTTPS termination must route through a single Caddy instance (or a shared certificate store like Caddy's `storage` directive backed by a database/S3) so that on-demand TLS challenges succeed. This is a post-launch scaling concern, not a launch blocker - document the migration path when horizontal scaling becomes necessary.
 
 **Email Branding:**
 - All outgoing emails (approval requests, magic links, report deliveries, notifications) use:
@@ -1707,10 +1707,10 @@ Allow agencies to completely rebrand the platform with their own identity. When 
 - `WhiteLabelConfig`: id, organization_id, agency_name, agency_logo_url, agency_icon_url, primary_color (hex string), secondary_color (hex string), agency_email, agency_phone, agency_website, favicon_url, login_background_url, login_welcome_text, custom_domain (string, nullable), custom_domain_verified (boolean), custom_email_domain (nullable), custom_email_verified (boolean), created_at, updated_at.
 
 ### Dependencies
-- F-1.1 (Organization) — white-label is org-scoped.
-- F-1.4 (Client Portal) — rendered with white-label.
-- F-4.3 (Reports) — reports use white-label branding.
-- F-7.1 (Notifications) — emails use white-label branding.
+- F-1.1 (Organization) - white-label is org-scoped.
+- F-1.4 (Client Portal) - rendered with white-label.
+- F-4.3 (Reports) - reports use white-label branding.
+- F-7.1 (Notifications) - emails use white-label branding.
 
 ### Acceptance Criteria
 - Uploading a logo and setting colors immediately reflects in the client portal (no cache delay > 5 seconds).
@@ -1721,7 +1721,7 @@ Allow agencies to completely rebrand the platform with their own identity. When 
 
 ---
 
-## F-5.3 — Integrations
+## F-5.3 - Integrations
 
 ### Purpose
 Connect the platform to external tools for design, media, communication, automation, and AI.
@@ -1771,14 +1771,14 @@ Connect the platform to external tools for design, media, communication, automat
 |----------|---------------------|
 | OpenAI | API key, default model (dropdown: gpt-4o, gpt-4o-mini, gpt-4.1, gpt-4.1-mini, gpt-4.1-nano, o3-mini, or custom model ID string) |
 | Anthropic | API key, default model (dropdown: claude-sonnet-4-20250514, claude-haiku-4-5-20251001, or custom model ID string) |
-| OpenRouter | API key, default model (text field — OpenRouter provides access to hundreds of models, so this is a free-text model identifier, e.g., "anthropic/claude-sonnet-4", "google/gemini-2.5-pro", "meta-llama/llama-4-maverick"). A "Browse models" link opens OpenRouter's model directory in a new tab for reference. |
+| OpenRouter | API key, default model (text field - OpenRouter provides access to hundreds of models, so this is a free-text model identifier, e.g., "anthropic/claude-sonnet-4", "google/gemini-2.5-pro", "meta-llama/llama-4-maverick"). A "Browse models" link opens OpenRouter's model directory in a new tab for reference. |
 
 - **Default provider setting:** A dropdown at the top of the AI settings page selects which provider is the default when AI features are invoked from the composer or inbox. Options: OpenAI, Anthropic, or OpenRouter (only providers with a configured API key appear in the dropdown).
 - **Test Connection:** Each provider has a "Test" button that sends a simple prompt ("Reply with OK") and validates that the API key and model are working. Displays success with the model name and response latency, or failure with the error message.
 - **Per-generation model override in the composer (see F-2.1):** When a user triggers any AI action in the composer, a small provider/model selector appears in the AI panel allowing them to override the default for that specific generation. This does not change the org-wide default.
 - AI features throughout the platform (composer AI assist, sentiment analysis in inbox) use the default provider unless overridden.
 - If no AI provider is configured, AI features show a greyed-out state with a tooltip: "Configure an AI provider in Organization Settings to enable this feature."
-- No AI usage limits or credits — usage is limited only by the user's own API key quota with each provider.
+- No AI usage limits or credits - usage is limited only by the user's own API key quota with each provider.
 - API keys are stored encrypted at rest (AES-256-GCM), same encryption approach as platform credentials.
 
 **Automation (REST API & Webhooks):**
@@ -1813,22 +1813,22 @@ Connect the platform to external tools for design, media, communication, automat
 
 *Dropbox:*
 - Same as Google Drive, using Dropbox Chooser API.
-- No OAuth needed — the Dropbox Chooser widget handles authentication.
+- No OAuth needed - the Dropbox Chooser widget handles authentication.
 
 ### Data Model
-- `IntegrationConfig`: id, organization_id, integration_type (enum: canva, unsplash, pexels, giphy, slack, smtp, google_drive, dropbox), config (encrypted json — API keys, OAuth tokens, SMTP settings), is_active (boolean), created_at, updated_at.
+- `IntegrationConfig`: id, organization_id, integration_type (enum: canva, unsplash, pexels, giphy, slack, smtp, google_drive, dropbox), config (encrypted json - API keys, OAuth tokens, SMTP settings), is_active (boolean), created_at, updated_at.
 - `AIProviderConfig`: id, organization_id, provider (enum: openai, anthropic, openrouter), api_key (encrypted), default_model (string), is_active (boolean), created_at, updated_at.
-- `AIDefaultProvider`: id, organization_id, ai_provider_config_id (FK — points to the provider/model used by default when AI features are invoked).
+- `AIDefaultProvider`: id, organization_id, ai_provider_config_id (FK - points to the provider/model used by default when AI features are invoked).
 - `SlackWorkspaceConfig`: id, workspace_id, slack_team_id, slack_channel_id, slack_channel_name, webhook_url, events (json array of enabled event types), oauth_token (encrypted).
 - `APIKey`: id, organization_id, name, token_hash, scopes (json), last_used_at, created_at, revoked_at (nullable).
 - `WebhookEndpoint`: id, workspace_id, url, secret (for HMAC), events (json array), is_active (boolean), created_at.
 - `WebhookDelivery`: id, webhook_endpoint_id, event_type, payload (json), response_status_code (integer, nullable), response_time_ms (integer, nullable), attempt_number (integer), delivered_at.
 
 ### Dependencies
-- F-2.1 (Composer) — Canva, stock media, AI in composer.
-- F-3.1 (Inbox) — AI sentiment analysis.
-- F-7.1 (Notifications) — Slack notifications.
-- F-6.1 (Media Library) — media from integrations saved to library.
+- F-2.1 (Composer) - Canva, stock media, AI in composer.
+- F-3.1 (Inbox) - AI sentiment analysis.
+- F-7.1 (Notifications) - Slack notifications.
+- F-6.1 (Media Library) - media from integrations saved to library.
 
 ### Acceptance Criteria
 - Canva button opens Canva and returns a design within the user's session (no page reload).
@@ -1845,7 +1845,7 @@ Connect the platform to external tools for design, media, communication, automat
 
 ---
 
-## F-6.1 — Media Library
+## F-6.1 - Media Library
 
 ### Purpose
 Per-workspace asset management system for organizing, storing, and reusing images, videos, and other media across posts.
@@ -1877,7 +1877,7 @@ Per-workspace asset management system for organizing, storing, and reusing image
 - Sort by: name, date uploaded, file size.
 
 **Media Detail View:**
-- Clicking an asset opens a detail panel showing: full preview (image renders at display size; video plays inline), metadata (dimensions, file size, format, duration, upload date, uploaded by), tags (editable), usage (list of posts that reference this asset — links to those posts).
+- Clicking an asset opens a detail panel showing: full preview (image renders at display size; video plays inline), metadata (dimensions, file size, format, duration, upload date, uploaded by), tags (editable), usage (list of posts that reference this asset - links to those posts).
 - Edit capabilities:
   - Image: crop, resize, rotate, flip. Edits create a new version; original is retained.
   - Video: trim (set start and end time). Trim creates a new version.
@@ -1897,7 +1897,7 @@ Per-workspace asset management system for organizing, storing, and reusing image
 
 **Platform Compatibility Warnings:**
 - When selecting media for a post, the library displays warnings if the asset doesn't meet the target platform's requirements (see F-2.1 media validation).
-- Warnings appear as badges on the asset thumbnail: yellow (warning — will work but not optimal), red (error — will fail or be rejected by the platform).
+- Warnings appear as badges on the asset thumbnail: yellow (warning - will work but not optimal), red (error - will fail or be rejected by the platform).
 
 **Empty State:**
 - When the media library has no assets:
@@ -1909,14 +1909,14 @@ Per-workspace asset management system for organizing, storing, and reusing image
 - When search/filter produces no results: "No media matches your search." with a "Clear search" button.
 
 ### Data Model
-- `MediaAsset`: id, workspace_id (nullable — null for shared org library), organization_id, filename, original_filename, file_url (storage path), thumbnail_url, file_type (enum: image, video, gif, document), mime_type, file_size_bytes (integer), width (integer, nullable), height (integer, nullable), duration_seconds (decimal, nullable), folder_id (nullable), tags (json array), is_starred (boolean), uploaded_by (user_id), current_version_id, created_at, updated_at.
+- `MediaAsset`: id, workspace_id (nullable - null for shared org library), organization_id, filename, original_filename, file_url (storage path), thumbnail_url, file_type (enum: image, video, gif, document), mime_type, file_size_bytes (integer), width (integer, nullable), height (integer, nullable), duration_seconds (decimal, nullable), folder_id (nullable), tags (json array), is_starred (boolean), uploaded_by (user_id), current_version_id, created_at, updated_at.
 - `MediaAssetVersion`: id, media_asset_id, version_number (integer), file_url, thumbnail_url, change_description (string), file_size_bytes, width, height, duration_seconds (nullable), created_by, created_at.
 - `MediaFolder`: id, workspace_id, parent_folder_id (nullable), name, created_at, updated_at.
 
 ### Dependencies
-- F-2.1 (Composer) — media picker in composer.
-- F-5.3 (Integrations) — Canva, stock media, Google Drive, Dropbox import.
-- F-2.4 (Publishing Engine) — media processing before publish.
+- F-2.1 (Composer) - media picker in composer.
+- F-5.3 (Integrations) - Canva, stock media, Google Drive, Dropbox import.
+- F-2.4 (Publishing Engine) - media processing before publish.
 
 ### Acceptance Criteria
 - Uploading 10 images completes within 15 seconds and all thumbnails are generated.
@@ -1932,7 +1932,7 @@ Per-workspace asset management system for organizing, storing, and reusing image
 
 ---
 
-## F-7.1 — Notification System
+## F-7.1 - Notification System
 
 ### Purpose
 Centralized notification engine that powers all alerts and messages across the platform. Every system (publishing, approval, inbox, analytics, scheduling) emits events that the notification system routes to the correct channels.
@@ -1992,14 +1992,14 @@ Centralized notification engine that powers all alerts and messages across the p
 - Failed deliveries are retried up to 3 times with exponential backoff. Permanently failed deliveries are logged but not retried further.
 
 ### Data Model
-- `Notification`: id, user_id (recipient), event_type (enum), title, body, data (json — contextual data like post_id, workspace_id), is_read (boolean), read_at (datetime, nullable), created_at.
+- `Notification`: id, user_id (recipient), event_type (enum), title, body, data (json - contextual data like post_id, workspace_id), is_read (boolean), read_at (datetime, nullable), created_at.
 - `NotificationPreference`: id, user_id, event_type, channel (enum: in_app, email, slack), is_enabled (boolean).
 - `NotificationDelivery`: id, notification_id, channel, status (enum: pending, delivered, failed), error_message (nullable), delivered_at (nullable), attempts (integer).
 
 ### Dependencies
 - All features emit events that this system consumes.
-- F-5.2 (White-Label) — email branding.
-- F-5.3 (Integrations — Slack) — Slack delivery.
+- F-5.2 (White-Label) - email branding.
+- F-5.3 (Integrations - Slack) - Slack delivery.
 
 ### Acceptance Criteria
 - In-app notifications appear within 5 seconds of the triggering event (via WebSocket or polling).
@@ -2015,7 +2015,7 @@ Centralized notification engine that powers all alerts and messages across the p
 
 ---
 
-## F-8.1 — Global Search
+## F-8.1 - Global Search
 
 ### Purpose
 Provide a fast, workspace-scoped search that lets users find posts, drafts, templates, media, and inbox messages without manually browsing through calendars, libraries, or feeds. As workspaces accumulate hundreds of posts over months, search becomes essential for daily operations.
@@ -2068,9 +2068,9 @@ Provide a fast, workspace-scoped search that lets users find posts, drafts, temp
   - `PostTemplate`: GIN index on `tsvector` of name, caption_text.
 
 ### Dependencies
-- F-2.1 (Composer) — posts and templates.
-- F-3.1 (Inbox) — inbox messages.
-- F-6.1 (Media Library) — media assets.
+- F-2.1 (Composer) - posts and templates.
+- F-3.1 (Inbox) - inbox messages.
+- F-6.1 (Media Library) - media assets.
 
 ### Acceptance Criteria
 - Search returns results within 500ms for a workspace with 5,000 posts.
@@ -2080,13 +2080,13 @@ Provide a fast, workspace-scoped search that lets users find posts, drafts, temp
 
 ---
 
-## F-8.2 — Post Detail View
+## F-8.2 - Post Detail View
 
 ### Purpose
 Provide a dedicated read-only view for a published or completed post that aggregates all relevant information in one place: the post content, its platform-specific versions, publish log, analytics, approval history, and comments. The calendar and list views link to this detail view for published posts instead of reopening the composer.
 
 ### User Stories
-- As a Manager, I can click a published post on the calendar and see its full details — content, analytics, publish history, and team comments — in one view.
+- As a Manager, I can click a published post on the calendar and see its full details - content, analytics, publish history, and team comments - in one view.
 - As a Client, I can view a published post's performance metrics alongside its content.
 - As an Editor, I can review the approval history and version timeline of a post.
 
@@ -2095,7 +2095,7 @@ Provide a dedicated read-only view for a published or completed post that aggreg
 **Navigation:**
 - Clicking a published post from the calendar (F-2.3), list view, or search results opens the post detail view.
 - Clicking a draft, pending, or scheduled post still opens the composer (F-2.1) for editing.
-- The post detail view has an "Edit" button (visible only for posts that can be edited — drafts/scheduled). For published posts, "Edit" is hidden; instead, a "Duplicate as Draft" button allows creating a copy for revision.
+- The post detail view has an "Edit" button (visible only for posts that can be edited - drafts/scheduled). For published posts, "Edit" is hidden; instead, a "Duplicate as Draft" button allows creating a copy for revision.
 
 **Layout:**
 - Full-page view with a left content area and a right sidebar.
@@ -2108,7 +2108,7 @@ Provide a dedicated read-only view for a published or completed post that aggreg
 *Right Sidebar:*
 - **Status badge:** Current post status (published, partially_published, failed, scheduled, etc.).
 - **Metadata:** Author, created date, scheduled date, published date.
-- **Analytics summary (for published posts):** Key metrics pulled from F-4.1 — impressions, reach, engagements, engagement rate. Per-platform breakdown. A "View full analytics" link navigates to the per-account analytics dashboard filtered to this post.
+- **Analytics summary (for published posts):** Key metrics pulled from F-4.1 - impressions, reach, engagements, engagement rate. Per-platform breakdown. A "View full analytics" link navigates to the per-account analytics dashboard filtered to this post.
 - **Approval history:** Timeline of approval actions (submitted, approved, changes requested, etc.) with who, when, and any comments.
 - **Internal comments:** Thread of team comments (from F-2.2 PostComment). Ability to add new comments from the detail view.
 
@@ -2120,11 +2120,11 @@ Provide a dedicated read-only view for a published or completed post that aggreg
 - No new tables. This view aggregates data from existing models: Post, PlatformPost, PublishLog, AnalyticsSnapshot, ApprovalAction, PostComment, PostVersion.
 
 ### Dependencies
-- F-2.1 (Composer) — post data, platform versions.
-- F-2.2 (Approval Workflow) — approval history.
-- F-2.3 (Calendar) — navigation from calendar to detail view.
-- F-2.4 (Publishing Engine) — publish logs.
-- F-4.1 (Analytics) — per-post metrics.
+- F-2.1 (Composer) - post data, platform versions.
+- F-2.2 (Approval Workflow) - approval history.
+- F-2.3 (Calendar) - navigation from calendar to detail view.
+- F-2.4 (Publishing Engine) - publish logs.
+- F-4.1 (Analytics) - per-post metrics.
 
 ### Acceptance Criteria
 - Post detail view loads within 2 seconds for a post published to 5 platforms with 30 days of analytics data.
@@ -2135,7 +2135,7 @@ Provide a dedicated read-only view for a published or completed post that aggreg
 
 ---
 
-## F-8.3 — Post Trash & Soft Delete
+## F-8.3 - Post Trash & Soft Delete
 
 ### Purpose
 Prevent accidental permanent deletion of posts by implementing a soft-delete mechanism with a recoverable trash. Deleted posts are moved to trash and can be restored within a retention period.
@@ -2160,9 +2160,9 @@ Prevent accidental permanent deletion of posts by implementing a soft-delete mec
 - Sort: by deletion date (newest first, default).
 
 **Retention:**
-- Default retention period: 30 days (configurable via F-1.6 workspace settings — add `trash_retention_days`, min 7, max 90).
+- Default retention period: 30 days (configurable via F-1.6 workspace settings - add `trash_retention_days`, min 7, max 90).
 - A daily background job permanently deletes posts where `trashed_at + retention_days < now()`.
-- Permanently deleted posts are removed from the database along with their associated PlatformPost records, PostVersions, PostMedia references (media assets themselves are NOT deleted — only the reference), ApprovalActions, and PostComments.
+- Permanently deleted posts are removed from the database along with their associated PlatformPost records, PostVersions, PostMedia references (media assets themselves are NOT deleted - only the reference), ApprovalActions, and PostComments.
 
 **Restore Behavior:**
 - Restoring a post returns it to its pre-deletion status. If the post was "scheduled" and the scheduled time is now in the past, the status is changed to "draft" instead.
@@ -2176,14 +2176,14 @@ Prevent accidental permanent deletion of posts by implementing a soft-delete mec
 - Permanent deletion: Manager+ only.
 
 ### Data Model
-- Extend `Post` table: add `trashed_at` (datetime, nullable), `trashed_by` (user_id, nullable), `pre_trash_status` (enum, nullable — stores the status the post had before it was trashed).
+- Extend `Post` table: add `trashed_at` (datetime, nullable), `trashed_by` (user_id, nullable), `pre_trash_status` (enum, nullable - stores the status the post had before it was trashed).
 - Add status value `trashed` to the Post status enum.
 
 ### Dependencies
-- F-2.1 (Composer) — delete action in composer.
-- F-2.3 (Calendar) — delete action on calendar, trash view in sidebar.
-- F-1.3 (RBAC) — permission checks for trash operations.
-- F-1.6 (Configurable Defaults) — `trash_retention_days` setting.
+- F-2.1 (Composer) - delete action in composer.
+- F-2.3 (Calendar) - delete action on calendar, trash view in sidebar.
+- F-1.3 (RBAC) - permission checks for trash operations.
+- F-1.6 (Configurable Defaults) - `trash_retention_days` setting.
 
 ### Acceptance Criteria
 - Deleting a post moves it to trash and removes it from the calendar immediately.
@@ -2194,7 +2194,7 @@ Prevent accidental permanent deletion of posts by implementing a soft-delete mec
 
 ---
 
-## F-8.4 — Data Export (GDPR Compliance)
+## F-8.4 - Data Export (GDPR Compliance)
 
 ### Purpose
 Allow organization owners to export all data associated with their organization or a specific workspace in a structured, portable format. Supports GDPR data portability requirements and provides a path for users to migrate off the platform.
@@ -2226,7 +2226,7 @@ Allow organization owners to export all data associated with their organization 
 | Generated report PDFs | PDF files in `reports/` directory | Workspace, Org |
 | Media library (all assets + folder structure) | Original files in `media/` directory + `media_index.json` | Workspace, Org |
 | Content categories and tags | JSON | Workspace, Org |
-| Team members and roles | JSON (email, name, role — no passwords) | Workspace, Org |
+| Team members and roles | JSON (email, name, role - no passwords) | Workspace, Org |
 | Approval history | JSON | Workspace, Org |
 | Organization settings | JSON | Org only |
 | White-label config | JSON + logo/favicon files | Org only |
@@ -2277,26 +2277,26 @@ export-[org-slug]-[date]/
 - Deletion is logged in a separate, immutable system log (not the org's own audit log, which is itself deleted).
 
 ### Data Model
-- `DataExport`: id, organization_id, workspace_id (nullable — null for org-wide), requested_by (user_id), status (enum: pending, processing, completed, failed), file_url (string, nullable), file_size_bytes (integer, nullable), expires_at (datetime, nullable), error_message (nullable), created_at, completed_at (nullable).
+- `DataExport`: id, organization_id, workspace_id (nullable - null for org-wide), requested_by (user_id), status (enum: pending, processing, completed, failed), file_url (string, nullable), file_size_bytes (integer, nullable), expires_at (datetime, nullable), error_message (nullable), created_at, completed_at (nullable).
 
 ### Dependencies
-- F-1.1 (Organization) — org-wide export and deletion.
-- F-1.2 (Workspace) — workspace-scoped export.
-- F-7.1 (Notifications) — email with download link.
+- F-1.1 (Organization) - org-wide export and deletion.
+- F-1.2 (Workspace) - workspace-scoped export.
+- F-7.1 (Notifications) - email with download link.
 
 ### Acceptance Criteria
 - Exporting a workspace with 1,000 posts and 500 media assets completes within 30 minutes.
 - The exported ZIP is well-structured and all JSON files are valid JSON.
 - Media files in the export match the originals (byte-for-byte).
 - The download link correctly expires after 7 days and returns a 410 Gone response.
-- Data deletion after the grace period removes all records — a query for the org ID returns zero rows across all tables.
+- Data deletion after the grace period removes all records - a query for the org ID returns zero rows across all tables.
 
 ---
 
-## F-8.5 — Timezone Handling
+## F-8.5 - Timezone Handling
 
 ### Purpose
-Define how dates and times are stored, displayed, and converted across the platform. Social media scheduling is inherently timezone-sensitive — an agency in New York scheduling a post for a client in Tokyo must be confident about when the post will publish.
+Define how dates and times are stored, displayed, and converted across the platform. Social media scheduling is inherently timezone-sensitive - an agency in New York scheduling a post for a client in Tokyo must be confident about when the post will publish.
 
 ### Functional Requirements
 
@@ -2308,7 +2308,7 @@ Define how dates and times are stored, displayed, and converted across the platf
 
 | Context | Timezone Used | Display Format |
 |---------|--------------|----------------|
-| Calendar (workspace) | Workspace timezone | "Mar 15, 2:30 PM EST" — always shows the timezone abbreviation |
+| Calendar (workspace) | Workspace timezone | "Mar 15, 2:30 PM EST" - always shows the timezone abbreviation |
 | Post composer: schedule picker | Workspace timezone (default), with a dropdown to switch to user's timezone | Shows both workspace time and equivalent in user's timezone if they differ |
 | Post detail view: publish timestamps | Workspace timezone | Same as calendar |
 | Inbox: message received timestamps | Workspace timezone | Relative ("2 hours ago") with full timestamp on hover |
@@ -2340,11 +2340,11 @@ Define how dates and times are stored, displayed, and converted across the platf
 - All existing `datetime` columns use `DateTimeField` (stores UTC). Display conversion happens at the view/template layer, never at the database layer.
 
 ### Dependencies
-- F-1.1 (Organization) — org timezone setting.
-- F-1.2 (Workspace) — workspace timezone setting.
-- F-2.1 (Composer) — dual-timezone display in scheduler.
-- F-2.3 (Calendar) — timezone-aware date display.
-- F-2.4 (Publishing Engine) — publishes at correct UTC time.
+- F-1.1 (Organization) - org timezone setting.
+- F-1.2 (Workspace) - workspace timezone setting.
+- F-2.1 (Composer) - dual-timezone display in scheduler.
+- F-2.3 (Calendar) - timezone-aware date display.
+- F-2.4 (Publishing Engine) - publishes at correct UTC time.
 
 ### Acceptance Criteria
 - A user in PST scheduling a post for 9:00 AM EST (workspace timezone) sees "9:00 AM EST (6:00 AM your time, PST)" in the composer.
@@ -2355,7 +2355,7 @@ Define how dates and times are stored, displayed, and converted across the platf
 
 ---
 
-## F-8.6 — Link Shortening & UTM Tracking
+## F-8.6 - Link Shortening & UTM Tracking
 
 ### Purpose
 Agencies need to track link performance to prove ROI to clients. This feature provides UTM parameter management (for campaign attribution in Google Analytics) and optional link shortening for cleaner social posts.
@@ -2401,19 +2401,19 @@ Agencies need to track link performance to prove ROI to clients. This feature pr
 - If the shortening API fails, the post publishes with the full (unshortened) URL and a warning is logged.
 
 **Link Tracking in Analytics:**
-- UTM-tagged links are tracked by the client's own Google Analytics (or equivalent). The platform does not provide its own click tracking — it relies on the UTM parameters being picked up by the destination's analytics.
+- UTM-tagged links are tracked by the client's own Google Analytics (or equivalent). The platform does not provide its own click tracking - it relies on the UTM parameters being picked up by the destination's analytics.
 - In the post detail view (F-8.2), the "Links" section shows: original URL, UTM parameters applied, shortened URL (if applicable).
 
 ### Data Model
 - `WorkspaceLinkSettings`: id, workspace_id, auto_append_utm (boolean), default_utm_source (string), default_utm_medium (string), default_utm_campaign (string), default_utm_content (string), default_utm_term (string), shortener_provider (enum: none, bitly, short_io, nullable), shortener_api_key (encrypted, nullable), created_at, updated_at.
-- Extend `Post`: add `link_utm_overrides` (json, nullable — per-post UTM overrides).
-- Extend `PlatformPost`: add `shortened_urls` (json, nullable — mapping of original URL → shortened URL for this platform's published version).
+- Extend `Post`: add `link_utm_overrides` (json, nullable - per-post UTM overrides).
+- Extend `PlatformPost`: add `shortened_urls` (json, nullable - mapping of original URL → shortened URL for this platform's published version).
 
 ### Dependencies
-- F-2.1 (Composer) — UTM panel in composer.
-- F-2.4 (Publishing Engine) — appends UTMs and shortens at publish time.
-- F-1.6 (Configurable Defaults) — workspace-level UTM defaults.
-- F-8.2 (Post Detail View) — link tracking display.
+- F-2.1 (Composer) - UTM panel in composer.
+- F-2.4 (Publishing Engine) - appends UTMs and shortens at publish time.
+- F-1.6 (Configurable Defaults) - workspace-level UTM defaults.
+- F-8.2 (Post Detail View) - link tracking display.
 
 ### Acceptance Criteria
 - A post with auto-UTM enabled and a link `https://example.com/sale` publishes with `https://example.com/sale?utm_source=instagram&utm_medium=social&utm_campaign=client-a&utm_content=123`.
@@ -2424,10 +2424,10 @@ Agencies need to track link performance to prove ROI to clients. This feature pr
 
 ---
 
-## F-8.7 — Content Category Management
+## F-8.7 - Content Category Management
 
 ### Purpose
-Content categories are referenced throughout the platform — in the composer, calendar, queues, analytics, and reports — but need a dedicated management interface for creating, editing, and organizing them.
+Content categories are referenced throughout the platform - in the composer, calendar, queues, analytics, and reports - but need a dedicated management interface for creating, editing, and organizing them.
 
 ### User Stories
 - As a Manager, I can create content categories for my workspace (e.g., "Educational," "Promotional," "Behind the Scenes").
@@ -2446,7 +2446,7 @@ Content categories are referenced throughout the platform — in the composer, c
 
 **Category Assignment:**
 - In the post composer (F-2.1), a "Category" dropdown shows all workspace categories, sorted by display order.
-- A post can have exactly one category (or none — "Uncategorized" is the implicit default when no category is selected).
+- A post can have exactly one category (or none - "Uncategorized" is the implicit default when no category is selected).
 - Categories are also assignable from the calendar (right-click a post → "Set Category" → dropdown).
 
 **Category Colors on Calendar:**
@@ -2462,10 +2462,10 @@ Content categories are referenced throughout the platform — in the composer, c
 - Post.category_id already exists as an FK to ContentCategory.
 
 ### Dependencies
-- F-2.1 (Composer) — category dropdown.
-- F-2.3 (Calendar) — category color display, legend, right-click assignment.
-- F-4.1 (Analytics) — per-category breakdown.
-- F-4.3 (Reports) — category performance report section.
+- F-2.1 (Composer) - category dropdown.
+- F-2.3 (Calendar) - category color display, legend, right-click assignment.
+- F-4.1 (Analytics) - per-category breakdown.
+- F-4.3 (Reports) - category performance report section.
 
 ### Acceptance Criteria
 - Creating a category with a name and color immediately makes it available in the composer and calendar.
@@ -2561,12 +2561,12 @@ InboxMessage
 
 ### Phase 1: Foundation & Core Publishing (Weeks 1–6)
 - F-1.1 Organization Management
-- F-1.2 Workspace Management (basic — no archiving or cross-workspace views yet)
+- F-1.2 Workspace Management (basic - no archiving or cross-workspace views yet)
 - F-1.3 Members & RBAC (org + workspace roles, invitations)
 - F-1.5 Platform API Credentials
 - F-1.6 Configurable Defaults & Platform Settings (org + workspace settings infrastructure)
 - F-2.5 Social Account Connection (start with: Instagram, Facebook, LinkedIn)
-- F-2.1 Post Composer (basic — full-page composer, multi-platform, media upload, character counts)
+- F-2.1 Post Composer (basic - full-page composer, multi-platform, media upload, character counts)
 - F-2.3 Content Calendar (month/week/day views, basic scheduling, drag-and-drop, empty states)
 - F-2.4 Publishing Engine (core publishing, retry logic, rate limits)
 - F-5.1 Authentication (email/password, Google OAuth)
@@ -2587,21 +2587,21 @@ InboxMessage
 
 ### Phase 3: Engagement (Weeks 11–14)
 - F-3.1 Unified Social Inbox (message sync, reply, assignment, saved replies, sentiment, empty states)
-- F-5.3 Integrations — Slack (notifications)
-- F-5.3 Integrations — Stock Media (Unsplash, Pexels, GIPHY in composer)
+- F-5.3 Integrations - Slack (notifications)
+- F-5.3 Integrations - Stock Media (Unsplash, Pexels, GIPHY in composer)
 
 ### Phase 4: Analytics & Reporting (Weeks 15–18)
 - F-4.1 Per-Account Analytics (data collection, dashboard, charts, empty states)
 - F-4.2 Cross-Account & Cross-Workspace Analytics (org dashboard, team metrics)
 - F-4.3 Report Builder (templates, editor, WeasyPrint PDF export, scheduled reports, shareable links)
-- F-2.3 Calendar enhancement — optimal time suggestions (requires analytics data)
+- F-2.3 Calendar enhancement - optimal time suggestions (requires analytics data)
 - F-8.6 Link Shortening & UTM Tracking (workspace UTM defaults, per-post overrides, Bitly/Short.io)
 
 ### Phase 5: Branding & Growth (Weeks 19–24)
 - F-5.2 White-Label Configuration (branding, custom domain, email branding)
-- F-5.3 Integrations — AI (BYO API key, caption generation, sentiment enhancement)
-- F-5.3 Integrations — Canva, Google Drive, Dropbox
-- F-5.3 Integrations — REST API & Webhooks
+- F-5.3 Integrations - AI (BYO API key, caption generation, sentiment enhancement)
+- F-5.3 Integrations - Canva, Google Drive, Dropbox
+- F-5.3 Integrations - REST API & Webhooks
 - F-5.1 Authentication enhancements (2FA)
 - F-2.5 Additional platforms (TikTok, YouTube, Pinterest, Threads, Bluesky, GBP, Mastodon)
 - F-1.2 Workspace enhancements (archiving, cross-workspace calendar)

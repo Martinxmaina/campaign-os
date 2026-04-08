@@ -194,7 +194,7 @@ def revoke_invite(request, invitation_id):
 
 
 def accept_invite(request, token):
-    """Accept an invitation (public — no login required for GET)."""
+    """Accept an invitation (public - no login required for GET)."""
     try:
         invitation = Invitation.objects.select_related("organization", "invited_by").get(token=token)
     except Invitation.DoesNotExist:
@@ -234,7 +234,7 @@ def accept_invite(request, token):
             return redirect("calendar:calendar", workspace_id=request.user.last_workspace_id)
         return redirect("/")
 
-    # GET — store token in session for signup flow
+    # GET - store token in session for signup flow
     request.session["pending_invite_token"] = token
 
     return render(
@@ -377,7 +377,7 @@ def manage_workspaces(request, membership_id):
             )
         return redirect("members:list")
 
-    # GET — render assignment form
+    # GET - render assignment form
     current_ws_memberships = WorkspaceMembership.objects.filter(
         user=membership.user,
         workspace_id__in=[ws.id for ws in org_workspaces],

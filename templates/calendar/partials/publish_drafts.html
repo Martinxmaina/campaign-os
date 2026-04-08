@@ -65,7 +65,7 @@ Shows all draft posts in a table. Loaded via HTMX into #tab-content.
                     </div>
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500">
-                    {{ post.author.display_name|default:"—" }}
+                    {{ post.author.display_name|default:"-" }}
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500 tabular-nums whitespace-nowrap">
                     {{ post.updated_at|timesince }} ago

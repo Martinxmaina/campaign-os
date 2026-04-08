@@ -66,7 +66,7 @@ def generate_magic_link(workspace, client_user, created_by):
         "app_url": app_url,
     }
 
-    subject = f"{workspace.name} — Posts ready for your review"
+    subject = f"{workspace.name} - Posts ready for your review"
     text_content = render_to_string("client_portal/email/magic_link.txt", context)
     html_content = render_to_string("client_portal/email/magic_link.html", context)
 
@@ -107,7 +107,7 @@ def verify_magic_link(token_string):
         token.last_used_at = timezone.now()
         token.save(update_fields=["is_consumed", "last_used_at"])
     else:
-        # Already consumed — update last_used_at
+        # Already consumed - update last_used_at
         token.last_used_at = timezone.now()
         token.save(update_fields=["last_used_at"])
 

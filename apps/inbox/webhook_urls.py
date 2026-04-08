@@ -1,4 +1,4 @@
-"""Webhook URL patterns — not auth-protected, CSRF-exempt."""
+"""Webhook URL patterns - not auth-protected, CSRF-exempt."""
 
 from django.urls import path
 

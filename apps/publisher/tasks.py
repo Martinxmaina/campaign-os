@@ -20,4 +20,4 @@ def run_publish_cycle():
     engine = PublishEngine()
     published = engine.poll_and_publish()
     if published:
-        logger.info("Publish cycle completed — %d post(s) published", published)
+        logger.info("Publish cycle completed - %d post(s) published", published)

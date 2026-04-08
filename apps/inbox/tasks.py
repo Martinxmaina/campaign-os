@@ -1,4 +1,4 @@
-"""Inbox sync engine — polls connected accounts for new messages."""
+"""Inbox sync engine - polls connected accounts for new messages."""
 
 import logging
 

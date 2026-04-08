@@ -1,4 +1,4 @@
-"""Publishing Engine models (F-2.4) — publish logs and rate limiting."""
+"""Publishing Engine models (F-2.4) - publish logs and rate limiting."""
 
 import uuid
 
@@ -80,7 +80,7 @@ class RateLimitState(models.Model):
     def can_publish(self):
         """Check if there's headroom for a publish attempt."""
         if self.requests_remaining == -1:
-            return True  # Unknown — try anyway
+            return True  # Unknown - try anyway
         if self.requests_remaining > 0:
             return True
         return not self.is_rate_limited

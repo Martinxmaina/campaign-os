@@ -98,7 +98,7 @@ class SocialProvider(ABC):
         raise NotImplementedError(f"{self.platform_name} does not implement refresh_token")
 
     # ------------------------------------------------------------------
-    # Profile (abstract — every provider must implement)
+    # Profile (abstract - every provider must implement)
     # ------------------------------------------------------------------
 
     @abstractmethod
@@ -106,7 +106,7 @@ class SocialProvider(ABC):
         """Fetch the authenticated account's profile information."""
 
     # ------------------------------------------------------------------
-    # Publishing (abstract — every provider must implement)
+    # Publishing (abstract - every provider must implement)
     # ------------------------------------------------------------------
 
     @abstractmethod
@@ -118,7 +118,7 @@ class SocialProvider(ABC):
         raise NotImplementedError(f"{self.platform_name} does not support comments")
 
     # ------------------------------------------------------------------
-    # Analytics (optional — override per provider)
+    # Analytics (optional - override per provider)
     # ------------------------------------------------------------------
 
     def get_post_metrics(self, access_token: str, post_id: str) -> PostMetrics:
@@ -134,7 +134,7 @@ class SocialProvider(ABC):
         raise NotImplementedError(f"{self.platform_name} does not support demographics")
 
     # ------------------------------------------------------------------
-    # Inbox (optional — override per provider)
+    # Inbox (optional - override per provider)
     # ------------------------------------------------------------------
 
     def get_messages(self, access_token: str, since: datetime | None = None) -> list[InboxMessage]:
@@ -154,7 +154,7 @@ class SocialProvider(ABC):
         return False
 
     def validate_token(self, access_token: str) -> bool:
-        """Quick health check — try get_profile and see if it works."""
+        """Quick health check - try get_profile and see if it works."""
         try:
             self.get_profile(access_token)
             return True

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Social Suite — White-Label Style Guide</title>
+<title>Social Suite - White-Label Style Guide</title>
 <style>
   /* ═══════════════════════════════════════════════════════════════
      WHITE-LABEL TOKEN ARCHITECTURE
@@ -19,7 +19,7 @@
   :root {
 
     /* ┌─────────────────────────────────────────────────────────┐
-       │  BRAND TOKENS — SWAP THESE TO WHITE-LABEL              │
+       │  BRAND TOKENS - SWAP THESE TO WHITE-LABEL              │
        │  Current: BrightBean Orange                            │
        └─────────────────────────────────────────────────────────┘ */
     --brand-50:  #FFF7ED;    /* tw: orange-50  */
@@ -27,7 +27,7 @@
     --brand-200: #FED7AA;    /* tw: orange-200 */
     --brand-300: #FDBA74;    /* tw: orange-300 */
     --brand-400: #FB923C;    /* tw: orange-400 */
-    --brand-500: #F97316;    /* tw: orange-500 — PRIMARY */
+    --brand-500: #F97316;    /* tw: orange-500 - PRIMARY */
     --brand-600: #EA580C;    /* tw: orange-600 */
     --brand-700: #C2410C;    /* tw: orange-700 */
     --brand-800: #9A3412;    /* tw: orange-800 */
@@ -38,7 +38,7 @@
     --brand-font-mono:    ui-monospace, SFMono-Regular, 'Cascadia Code', 'Consolas', monospace;
 
     /* ┌─────────────────────────────────────────────────────────┐
-       │  SEMANTIC TOKENS — DO NOT CHANGE FOR WHITE-LABEL       │
+       │  SEMANTIC TOKENS - DO NOT CHANGE FOR WHITE-LABEL       │
        └─────────────────────────────────────────────────────────┘ */
 
     /* Primary (maps to brand) */
@@ -48,7 +48,7 @@
     --primary-muted: var(--brand-100);
     --primary-ring:  var(--brand-200);
 
-    /* Neutrals — warm-tinted via a slight amber undertone */
+    /* Neutrals - warm-tinted via a slight amber undertone */
     --neutral-950: #171412;
     --neutral-900: #1C1917;  /* tw: stone-900 */
     --neutral-800: #292524;  /* tw: stone-800 */
@@ -90,7 +90,7 @@
     --accent-indigo:  #6366F1;  --accent-indigo-soft: #EEF2FF;
     --accent-emerald: #10B981;  --accent-emerald-soft:#ECFDF5;
 
-    /* Shadows — warm-black tinted */
+    /* Shadows - warm-black tinted */
     --shadow-xs:  0 1px 2px rgba(23,20,18,0.05);
     --shadow-sm:  0 1px 3px rgba(23,20,18,0.08), 0 1px 2px rgba(23,20,18,0.04);
     --shadow-md:  0 4px 6px rgba(23,20,18,0.06), 0 2px 4px rgba(23,20,18,0.04);
@@ -98,7 +98,7 @@
     --shadow-xl:  0 20px 25px rgba(23,20,18,0.08), 0 8px 10px rgba(23,20,18,0.04);
     --shadow-primary: 0 4px 14px rgba(249,115,22,0.28);
 
-    /* Radii — Tailwind scale */
+    /* Radii - Tailwind scale */
     --radius-sm:   0.25rem;   /* tw: rounded     */
     --radius-md:   0.375rem;  /* tw: rounded-md  */
     --radius-lg:   0.5rem;    /* tw: rounded-lg  */
@@ -697,7 +697,7 @@
   <div class="hero-inner">
     <div class="hero-badge"><span class="dot"></span> White-Label Design System v1.0</div>
     <h1>A style guide built to be <em>yours</em></h1>
-    <p>Every brand token is swappable. Change 10 CSS variables and the entire system rebrands — colors, fonts, shadows, everything downstream cascades automatically.</p>
+    <p>Every brand token is swappable. Change 10 CSS variables and the entire system rebrands - colors, fonts, shadows, everything downstream cascades automatically.</p>
     <dl class="hero-meta">
       <div><dt>Display Font</dt><dd>Georgia (system)</dd></div>
       <div><dt>Body Font</dt><dd>system-ui stack</dd></div>
@@ -708,7 +708,7 @@
     <div class="wl-callout">
       <span class="wl-icon">🏷️</span>
       <p>
-        <strong>White-label ready.</strong> Every brand-dependent value flows from the <code>--brand-*</code> CSS variable block. To rebrand, swap only those tokens — all semantic and component tokens inherit automatically. Fonts are also brand tokens.
+        <strong>White-label ready.</strong> Every brand-dependent value flows from the <code>--brand-*</code> CSS variable block. To rebrand, swap only those tokens - all semantic and component tokens inherit automatically. Fonts are also brand tokens.
       </p>
     </div>
   </div>
@@ -718,7 +718,7 @@
 
 <!-- ═══════════════ ARCHITECTURE ═══════════════ -->
 <section>
-  <div class="section-label">00 — Architecture</div>
+  <div class="section-label">00 - Architecture</div>
   <div class="section-title">Token Layering</div>
   <div class="section-desc">Three-layer token architecture. White-label clients only touch Layer 1. Everything else cascades.</div>
 
@@ -744,7 +744,7 @@
 <span class="key">--brand-50</span>:  <span class="val">#EFF6FF</span>;    <span class="comment">/* tw: blue-50  */</span>
 <span class="key">--brand-100</span>: <span class="val">#DBEAFE</span>;    <span class="comment">/* tw: blue-100 */</span>
 <span class="key">--brand-200</span>: <span class="val">#BFDBFE</span>;    <span class="comment">/* tw: blue-200 */</span>
-<span class="key">--brand-500</span>: <span class="val">#3B82F6</span>;    <span class="comment">/* tw: blue-500 — new PRIMARY */</span>
+<span class="key">--brand-500</span>: <span class="val">#3B82F6</span>;    <span class="comment">/* tw: blue-500 - new PRIMARY */</span>
 <span class="key">--brand-600</span>: <span class="val">#2563EB</span>;    <span class="comment">/* tw: blue-600 */</span>
 <span class="key">--brand-700</span>: <span class="val">#1D4ED8</span>;    <span class="comment">/* tw: blue-700 */</span>
 <span class="key">--brand-font-display</span>: <span class="val">'Palatino Linotype', Palatino, serif</span>;</div>
@@ -752,9 +752,9 @@
 
 <!-- ═══════════════ COLORS ═══════════════ -->
 <section>
-  <div class="section-label">01 — Color</div>
+  <div class="section-label">01 - Color</div>
   <div class="section-title">Palette</div>
-  <div class="section-desc">Warm stone neutrals paired with BrightBean orange. Accent colors are fixed across white-label instances — they serve status and data viz, not brand identity.</div>
+  <div class="section-desc">Warm stone neutrals paired with BrightBean orange. Accent colors are fixed across white-label instances - they serve status and data viz, not brand identity.</div>
 
   <div style="margin-bottom:28px">
     <div class="sub-label">Brand Scale (white-label swappable)</div>
@@ -773,7 +773,7 @@
   </div>
 
   <div style="margin-bottom:28px">
-    <div class="sub-label">Neutrals (stone — warm-tinted grays)</div>
+    <div class="sub-label">Neutrals (stone - warm-tinted grays)</div>
     <div class="color-grid">
       <div class="color-card"><div class="color-swatch" style="background:var(--neutral-950)" data-hex="#171412"></div><div class="color-info"><div class="color-name">950</div><div class="color-tw">stone-950</div></div></div>
       <div class="color-card"><div class="color-swatch" style="background:var(--neutral-900)" data-hex="#1C1917"></div><div class="color-info"><div class="color-name">900</div><div class="color-tw">stone-900</div></div></div>
@@ -802,7 +802,7 @@
 
 <!-- ═══════════════ TYPOGRAPHY ═══════════════ -->
 <section>
-  <div class="section-label">02 — Typography</div>
+  <div class="section-label">02 - Typography</div>
   <div class="section-title">Type System</div>
   <div class="section-desc">Zero external downloads. Georgia provides serif warmth for display text. The system-ui stack handles all UI and body text. ui-monospace covers data and code. All are white-label swappable via brand tokens.</div>
 
@@ -850,7 +850,7 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ FOUNDATIONS ═══════════════ -->
 <section>
-  <div class="section-label">03 — Foundations</div>
+  <div class="section-label">03 - Foundations</div>
   <div class="section-title">Spacing, Radius & Elevation</div>
   <div class="section-desc">4px base grid. Tailwind's native spacing scale. Pill radii for actions, softer rounding for containers. Shadows use warm-tinted blacks.</div>
 
@@ -893,7 +893,7 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ BUTTONS ═══════════════ -->
 <section>
-  <div class="section-label">04 — Components</div>
+  <div class="section-label">04 - Components</div>
   <div class="section-title">Buttons</div>
   <div class="section-desc">Pill-shaped with generous horizontal padding. Primary gets a brand-colored glow shadow. All transitions use the ease-out curve.</div>
 
@@ -931,9 +931,9 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ INPUTS ═══════════════ -->
 <section>
-  <div class="section-label">05 — Components</div>
+  <div class="section-label">05 - Components</div>
   <div class="section-title">Forms, Badges & Avatars</div>
-  <div class="section-desc">Inputs use the brand color for focus rings — this automatically rebrands. Error states always use the fixed red-500 regardless of brand.</div>
+  <div class="section-desc">Inputs use the brand color for focus rings - this automatically rebrands. Error states always use the fixed red-500 regardless of brand.</div>
 
   <div class="component-grid">
     <div class="input-showcase">
@@ -985,9 +985,9 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ CARDS & POST ═══════════════ -->
 <section>
-  <div class="section-label">06 — Patterns</div>
+  <div class="section-label">06 - Patterns</div>
   <div class="section-title">Cards & Post Preview</div>
-  <div class="section-desc">Cards lift on hover with a shadow bloom and transparent border — the same "reveal" interaction used by Sprout Social and Linear. Metric callouts use the display serif for editorial weight.</div>
+  <div class="section-desc">Cards lift on hover with a shadow bloom and transparent border - the same "reveal" interaction used by Sprout Social and Linear. Metric callouts use the display serif for editorial weight.</div>
 
   <div class="card-showcase" style="margin-bottom:36px;">
     <div class="card">
@@ -1033,7 +1033,7 @@ scheduled: 2026-03-25T14:00Z</div>
         <div class="platform-dot" style="background:#E4405F" title="Instagram">ig</div>
       </div>
     </div>
-    <div class="post-body">Just shipped our new AI-powered scheduling engine — it learns your audience's habits and finds the perfect window. 🚀<br><br>Early results: 23% more engagement on average.</div>
+    <div class="post-body">Just shipped our new AI-powered scheduling engine - it learns your audience's habits and finds the perfect window. 🚀<br><br>Early results: 23% more engagement on average.</div>
     <div class="post-image">📸 Image preview</div>
     <div class="post-actions">
       <span class="post-action">♡ 0</span>
@@ -1046,23 +1046,23 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ TOASTS ═══════════════ -->
 <section>
-  <div class="section-label">07 — Feedback</div>
+  <div class="section-label">07 - Feedback</div>
   <div class="section-title">Toasts</div>
-  <div class="section-desc">Status-colored tinted backgrounds with matching borders. These use the fixed semantic palette — they never change with white-label branding.</div>
+  <div class="section-desc">Status-colored tinted backgrounds with matching borders. These use the fixed semantic palette - they never change with white-label branding.</div>
 
   <div class="toast-showcase">
     <div class="toast success"><span class="toast-icon">✓</span> Post published to 3 platforms</div>
     <div class="toast warning"><span class="toast-icon">⚠</span> Image exceeds Twitter's recommended size</div>
-    <div class="toast error"><span class="toast-icon">✕</span> Failed to connect Instagram — re-auth required</div>
+    <div class="toast error"><span class="toast-icon">✕</span> Failed to connect Instagram - re-auth required</div>
     <div class="toast info"><span class="toast-icon">ℹ</span> Best posting time today: 2:00 PM</div>
   </div>
 </section>
 
 <!-- ═══════════════ NAVIGATION ═══════════════ -->
 <section>
-  <div class="section-label">08 — Navigation</div>
+  <div class="section-label">08 - Navigation</div>
   <div class="section-title">Sidebar Pattern</div>
-  <div class="section-desc">Vertical nav with icon + label. Active state uses the brand-soft background with brand-700 text — this auto-rebrands. Notification badges always use error red.</div>
+  <div class="section-desc">Vertical nav with icon + label. Active state uses the brand-soft background with brand-700 text - this auto-rebrands. Notification badges always use error red.</div>
 
   <div class="nav-sample">
     <div class="nav-logo">
@@ -1084,7 +1084,7 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ MOTION ═══════════════ -->
 <section>
-  <div class="section-label">09 — Motion</div>
+  <div class="section-label">09 - Motion</div>
   <div class="section-title">Transitions & Curves</div>
   <div class="section-desc">Two curves: ease-out for standard interactions, spring for playful moments. Hover these boxes.</div>
 
@@ -1096,9 +1096,9 @@ scheduled: 2026-03-25T14:00Z</div>
 
   <div class="timing-card">
     <div class="tc-title">Timing Tokens</div>
-    <div class="tc-row"><span>--dur-fast</span> : 150ms — focus rings, color swaps</div>
-    <div class="tc-row"><span>--dur-base</span> : 200ms — card hovers, buttons &nbsp; <em style="color:var(--text-ghost);font-size:0.75rem">tw: duration-200</em></div>
-    <div class="tc-row"><span>--dur-slow</span> : 350ms — page transitions, modals</div>
+    <div class="tc-row"><span>--dur-fast</span> : 150ms - focus rings, color swaps</div>
+    <div class="tc-row"><span>--dur-base</span> : 200ms - card hovers, buttons &nbsp; <em style="color:var(--text-ghost);font-size:0.75rem">tw: duration-200</em></div>
+    <div class="tc-row"><span>--dur-slow</span> : 350ms - page transitions, modals</div>
     <div class="tc-row"><span>--ease-out</span> : cubic-bezier(0.16, 1, 0.3, 1)</div>
     <div class="tc-row"><span>--ease-spring</span> : cubic-bezier(0.34, 1.56, 0.64, 1)</div>
   </div>
@@ -1106,7 +1106,7 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ TAILWIND MAPPING ═══════════════ -->
 <section>
-  <div class="section-label">10 — Reference</div>
+  <div class="section-label">10 - Reference</div>
   <div class="section-title">Tailwind Class Mapping</div>
   <div class="section-desc">How CSS variable tokens map to Tailwind utility classes. Extend your tailwind.config.js to expose the brand tokens as custom colors.</div>
 
@@ -1155,7 +1155,7 @@ scheduled: 2026-03-25T14:00Z</div>
 
 <!-- ═══════════════ GUIDELINES ═══════════════ -->
 <section>
-  <div class="section-label">11 — Principles</div>
+  <div class="section-label">11 - Principles</div>
   <div class="section-title">Design Guidelines</div>
   <div class="section-desc">Rules that keep the system coherent across white-label instances.</div>
 
@@ -1166,7 +1166,7 @@ scheduled: 2026-03-25T14:00Z</div>
     </div>
     <div class="guideline-card">
       <h4><span class="dont">✕</span> Don't brand status indicators</h4>
-      <p>Error states, success messages, and warnings must always use the fixed semantic palette. A red brand should never produce red success badges — confusion over interaction matters more than consistency.</p>
+      <p>Error states, success messages, and warnings must always use the fixed semantic palette. A red brand should never produce red success badges - confusion over interaction matters more than consistency.</p>
     </div>
     <div class="guideline-card">
       <h4><span class="do">✓</span> Test every rebrand at extremes</h4>
@@ -1178,7 +1178,7 @@ scheduled: 2026-03-25T14:00Z</div>
     </div>
     <div class="guideline-card">
       <h4><span class="do">✓</span> Keep serif in display only</h4>
-      <p>The display font (Georgia by default) is for heroes, page titles, and metric callouts only. Never use it in buttons, labels, nav, or form fields — those always use the body font.</p>
+      <p>The display font (Georgia by default) is for heroes, page titles, and metric callouts only. Never use it in buttons, labels, nav, or form fields - those always use the body font.</p>
     </div>
     <div class="guideline-card">
       <h4><span class="dont">✕</span> Don't assume font availability</h4>
@@ -1190,7 +1190,7 @@ scheduled: 2026-03-25T14:00Z</div>
 </div>
 
 <div class="footer">
-  White-label design system for <strong>Social Suite</strong> — powered by BrightBean Orange, system fonts, and Tailwind CSS.
+  White-label design system for <strong>Social Suite</strong> - powered by BrightBean Orange, system fonts, and Tailwind CSS.
 </div>
 
 </body>

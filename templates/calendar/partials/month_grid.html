@@ -1,5 +1,5 @@
 {% comment %}
-Month view grid — 7 columns, N rows of weeks.
+Month view grid - 7 columns, N rows of weeks.
 Context: calendar_weeks, month_name, prev_month, next_month, day_names, unscheduled_drafts, workspace.
 Enhanced with: holidays, custom events, category colors, recurring badges.
 {% endcomment %}
@@ -50,7 +50,7 @@ Enhanced with: holidays, custom events, category colors, recurring badges.
             {% for event in day.events %}
             <div class="text-[9px] font-semibold text-white px-1.5 py-0.5 rounded mb-0.5 truncate"
                  style="background: {{ event.color }};"
-                 title="{{ event.title }}{% if event.description %} — {{ event.description }}{% endif %}">
+                 title="{{ event.title }}{% if event.description %} - {{ event.description }}{% endif %}">
                 {{ event.title }}
             </div>
             {% endfor %}

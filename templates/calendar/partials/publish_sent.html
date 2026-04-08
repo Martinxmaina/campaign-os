@@ -64,7 +64,7 @@ Shows all published/partially_published posts. Loaded via HTMX into #tab-content
                     {{ post.scheduled_at|date:"M d, Y" }}<br>
                     <span class="text-stone-400">{{ post.scheduled_at|date:"H:i" }}</span>
                     {% else %}
-                    <span class="text-stone-300">—</span>
+                    <span class="text-stone-300">-</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-sm text-stone-600 max-w-xs truncate">
@@ -80,7 +80,7 @@ Shows all published/partially_published posts. Loaded via HTMX into #tab-content
                     </div>
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500">
-                    {{ post.author.display_name|default:"—" }}
+                    {{ post.author.display_name|default:"-" }}
                 </td>
             </tr>
             {% endfor %}

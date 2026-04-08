@@ -1,7 +1,7 @@
 """Client Portal models (F-1.4).
 
 Models:
-    MagicLinkToken — Time-limited token for passwordless client access.
+    MagicLinkToken - Time-limited token for passwordless client access.
 """
 
 import secrets

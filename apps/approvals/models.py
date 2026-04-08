@@ -1,9 +1,9 @@
 """Approval workflow models (F-2.2).
 
 Models:
-    ApprovalAction — Audit trail of approval decisions on a post.
-    PostComment — Threaded comments with internal/external visibility.
-    ApprovalReminder — Tracks reminder state per post per stage.
+    ApprovalAction - Audit trail of approval decisions on a post.
+    PostComment - Threaded comments with internal/external visibility.
+    ApprovalReminder - Tracks reminder state per post per stage.
 """
 
 import uuid

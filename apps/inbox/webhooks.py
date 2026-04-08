@@ -228,7 +228,7 @@ def youtube_webhook(request):
         challenge = request.GET.get("hub.challenge", "")
         return HttpResponse(challenge, content_type="text/plain")
 
-    # Verify HMAC — reject if secret is not configured
+    # Verify HMAC - reject if secret is not configured
     webhook_secret = settings.YOUTUBE_WEBHOOK_SECRET
     if not webhook_secret:
         logger.error("YOUTUBE_WEBHOOK_SECRET is not configured. Rejecting webhook POST.")

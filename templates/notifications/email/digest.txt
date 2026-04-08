@@ -1,4 +1,4 @@
-Daily Notification Digest — {{ date|date:"N j, Y" }}
+Daily Notification Digest - {{ date|date:"N j, Y" }}
 {{ notifications|length }} notification{{ notifications|length|pluralize }}
 
 {% for n in notifications %}

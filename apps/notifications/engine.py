@@ -1,4 +1,4 @@
-"""Notification engine — the single entry point all features call.
+"""Notification engine - the single entry point all features call.
 
 Usage:
     from apps.notifications.engine import notify
@@ -167,7 +167,7 @@ def _is_in_quiet_hours(user) -> bool:
 
     now_local = timezone.now().astimezone(user_tz).time()
 
-    # Coerce to time objects — fields may be raw strings if the in-memory
+    # Coerce to time objects - fields may be raw strings if the in-memory
     # QuietHours instance was populated from POST data and not yet refreshed.
     from datetime import time as dt_time
 
@@ -228,7 +228,7 @@ def _dispatch(delivery: NotificationDelivery) -> None:
 
 
 def _dispatch_in_app(delivery: NotificationDelivery) -> None:
-    """In-app delivery is just the DB record — already created."""
+    """In-app delivery is just the DB record - already created."""
     pass
 
 

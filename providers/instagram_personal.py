@@ -173,7 +173,7 @@ class InstagramPersonalProvider(SocialProvider):
     def refresh_token(self, refresh_token: str) -> OAuthTokens:
         """Refresh a long-lived Instagram token.
 
-        Instagram Login uses the access token itself for refresh — there is
+        Instagram Login uses the access token itself for refresh - there is
         no separate refresh token.
         """
         resp = self._request(

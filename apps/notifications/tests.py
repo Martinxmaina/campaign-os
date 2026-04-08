@@ -108,7 +108,7 @@ class TestNotifyEngine:
         )
         notify(user, EventType.POST_FAILED, "Post failed")
         channels = set(NotificationDelivery.objects.filter(notification__user=user).values_list("channel", flat=True))
-        # POST_FAILED is critical — email should not be suppressed
+        # POST_FAILED is critical - email should not be suppressed
         assert Channel.EMAIL in channels
 
 
