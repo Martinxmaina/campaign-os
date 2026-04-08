@@ -1149,7 +1149,7 @@ def upload_media(request, workspace_id, post_id=None):
         position = (max_pos or 0) + 1
         PostMedia.objects.create(post=post, media_asset=asset, position=position)
 
-        return render(
+        response = render(
             request,
             "composer/partials/media_list.html",
             {
@@ -1158,6 +1158,9 @@ def upload_media(request, workspace_id, post_id=None):
                 "workspace": workspace,
             },
         )
+        response["X-Uploaded-Asset-Id"] = str(asset.id)
+        response["X-Uploaded-Asset-Url"] = asset.file.url
+        return response
 
     # No post yet - store pending media IDs in session so they can be
     # attached when the post is eventually saved.
@@ -1176,7 +1179,7 @@ def upload_media(request, workspace_id, post_id=None):
         is_video = a.media_type == MediaAsset.MediaType.VIDEO
         thumbs.append({"media_asset": a, "url": url, "is_video": is_video})
 
-    return render(
+    response = render(
         request,
         "composer/partials/media_list_pending.html",
         {
@@ -1184,6 +1187,9 @@ def upload_media(request, workspace_id, post_id=None):
             "workspace": workspace,
         },
     )
+    response["X-Uploaded-Asset-Id"] = str(asset.id)
+    response["X-Uploaded-Asset-Url"] = asset.file.url
+    return response
 
 
 @login_required

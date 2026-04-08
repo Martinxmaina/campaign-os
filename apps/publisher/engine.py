@@ -269,6 +269,11 @@ class PublishEngine:
             .order_by("position")
         )
 
+        # For video-only platforms (YouTube, TikTok), skip non-video attachments
+        video_only = set(provider.supported_post_types) <= {PostType.VIDEO, PostType.SHORT}
+        if video_only:
+            attachments = [pm for pm in attachments if pm.media_asset.media_type == "video"]
+
         post_type = PostType.TEXT
         try:
             for pm in attachments:

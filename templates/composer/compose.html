@@ -423,8 +423,7 @@
                         <!-- Inline media dropzone -->
                         <input type="file" x-ref="fileInput" class="hidden" multiple
                                accept="image/*,video/*"
-                               @change="handleFileSelect($event)"
-                               name="file">
+                               @change="handleFileSelect($event)">
                         <div class="media-dropzone-inline"
                              @dragover.prevent="$el.classList.add('dragover')"
                              @dragleave="$el.classList.remove('dragover')"
@@ -475,7 +474,7 @@
                             </label>
                             <select :name="'pin_board_id_' + accId"
                                     class="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
-                                    required>
+                                    :required="charLimits[accId]?.platform === 'pinterest' && selectedAccounts.includes(accId)">
                                 <option value="">Select a board…</option>
                                 <template x-for="board in boards" :key="board.id">
                                     <option :value="board.id"
@@ -1339,7 +1338,7 @@
                                     headers: { 'X-CSRFToken': '{{ csrf_token }}' }
                                 }).then(resp => {
                                     if (resp.ok) {
-                                        window.location.href = '/workspace/{{ workspace.id }}/';
+                                        window.location.href = '{% url "calendar:calendar" workspace_id=workspace.id %}';
                                     } else {
                                         deleting = false;
                                     }
@@ -1474,6 +1473,8 @@ function composerApp() {
                         form.setAttribute('hx-post', editSaveUrl);
                         htmx.process(form);
                     }
+                    // Update upload URL to attach media to the post directly
+                    this.uploadUrl = `/workspace/{{ workspace.id }}/compose/${detail.postId}/upload-media/`;
                 }
             });
         },
@@ -1573,8 +1574,8 @@ function composerApp() {
             const xhr = event.detail.xhr;
             if (event.detail.successful) {
                 const action = document.getElementById('publish-action-btn')?.value;
-                if (action === 'schedule' || action === 'publish_now') {
-                    // Redirect to calendar after scheduling/publishing
+                if (action === 'schedule' || action === 'publish_now' || action === 'add_to_queue' || action === 'add_to_queue_priority') {
+                    // Redirect to calendar after scheduling/publishing/queuing
                     window.location.href = '{% url "calendar:calendar" workspace_id=workspace.id %}';
                     return;
                 }
@@ -1714,6 +1715,20 @@ function composerApp() {
                     inProgress.forEach(el => mediaList.appendChild(el));
                     if (self.autosavedPostId && !self.uploadUrl.includes(self.autosavedPostId)) {
                         self.uploadUrl = `/workspace/{{ workspace.id }}/compose/${self.autosavedPostId}/upload-media/`;
+                    }
+                    // Auto-set YouTube thumbnail to latest uploaded image
+                    if (file.type.startsWith('image/')) {
+                        const assetId = xhr.getResponseHeader('X-Uploaded-Asset-Id');
+                        const imgUrl = xhr.getResponseHeader('X-Uploaded-Asset-Url');
+                        if (assetId && imgUrl) {
+                            self.selectedAccounts.forEach(function(accId) {
+                                if (self.charLimits[accId]?.platform === 'youtube') {
+                                    if (!self.platformExtras[accId]) self.platformExtras[accId] = {};
+                                    self.platformExtras[accId].thumbnail_asset_id = assetId;
+                                    self.platformExtras[accId].thumbnail_url = imgUrl;
+                                }
+                            });
+                        }
                     }
                     document.body.dispatchEvent(new CustomEvent('previewUpdate'));
                 } else {
