@@ -1,7 +1,8 @@
 """Tests for the custom SocialAccountAdapter."""
 
 import pytest
-from allauth.socialaccount.models import SocialAccount as AllAuthSocialAccount, SocialLogin
+from allauth.socialaccount.models import SocialAccount as AllAuthSocialAccount
+from allauth.socialaccount.models import SocialLogin
 from django.test import RequestFactory
 
 from apps.accounts.adapters import SocialAccountAdapter

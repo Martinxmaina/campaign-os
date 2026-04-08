@@ -13,7 +13,6 @@ from apps.members.models import Invitation, OrgMembership, WorkspaceMembership
 from . import services as portal_services
 from .models import MagicLinkToken
 
-
 # ---------------------------------------------------------------------------
 # Client List
 # ---------------------------------------------------------------------------
@@ -99,7 +98,7 @@ def invite_client(request, workspace_id):
     ]
 
     try:
-        invitation = member_services.create_invitation(
+        member_services.create_invitation(
             org=request.org,
             email=email,
             org_role=OrgMembership.OrgRole.MEMBER,

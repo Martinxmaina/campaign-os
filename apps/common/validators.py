@@ -18,7 +18,7 @@ def is_safe_url(url: str) -> bool:
             return False
 
         addr_infos = socket.getaddrinfo(hostname, parsed.port or 443, proto=socket.IPPROTO_TCP)
-        for family, _, _, _, sockaddr in addr_infos:
+        for _family, _, _, _, sockaddr in addr_infos:
             ip = ipaddress.ip_address(sockaddr[0])
             if ip.is_private or ip.is_reserved or ip.is_loopback or ip.is_link_local:
                 return False

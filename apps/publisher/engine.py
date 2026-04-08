@@ -9,6 +9,7 @@ This module implements the core publish loop:
 6. Update statuses and log results.
 """
 
+import contextlib
 import logging
 import os
 import tempfile
@@ -325,7 +326,7 @@ class PublishEngine:
 
                 # Download to a temp file (works with any storage backend)
                 suffix = os.path.splitext(asset.filename)[1] or ".tmp"
-                tmp = tempfile.NamedTemporaryFile(
+                tmp = tempfile.NamedTemporaryFile(  # noqa: SIM115
                     suffix=suffix, delete=False
                 )
                 temp_files.append(tmp.name)
@@ -353,7 +354,7 @@ class PublishEngine:
                     thumb_asset = MediaAsset.objects.get(id=thumb_asset_id)
                     if thumb_asset.file:
                         suffix = os.path.splitext(thumb_asset.filename)[1] or ".jpg"
-                        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+                        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)  # noqa: SIM115
                         temp_files.append(tmp.name)
                         with thumb_asset.file.open("rb") as src:
                             for chunk in iter(lambda: src.read(8192), b""):
@@ -370,7 +371,7 @@ class PublishEngine:
                     cover_asset = MediaAsset.objects.get(id=cover_asset_id)
                     if cover_asset.file:
                         suffix = os.path.splitext(cover_asset.filename)[1] or ".jpg"
-                        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+                        tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)  # noqa: SIM115
                         temp_files.append(tmp.name)
                         with cover_asset.file.open("rb") as src:
                             for chunk in iter(lambda: src.read(8192), b""):
@@ -416,10 +417,8 @@ class PublishEngine:
         finally:
             # Clean up temp files regardless of success/failure
             for path in temp_files:
-                try:
+                with contextlib.suppress(OSError):
                     os.unlink(path)
-                except OSError:
-                    pass
 
     @staticmethod
     def _resolve_post_type(

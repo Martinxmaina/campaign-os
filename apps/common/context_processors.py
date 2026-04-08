@@ -1,7 +1,5 @@
 """Context processors for sidebar and global template data."""
 
-from django.conf import settings
-
 
 def sidebar_context(request):
     """Inject sidebar data into every template context.

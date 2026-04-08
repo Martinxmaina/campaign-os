@@ -239,10 +239,8 @@ def compose(request, workspace_id, post_id=None):
         qs_date = request.GET.get("scheduled_date")
         qs_time = request.GET.get("scheduled_time")
         if qs_date:
-            try:
+            with contextlib.suppress(ValueError):
                 initial["scheduled_date"] = datetime.strptime(qs_date, "%Y-%m-%d").date().isoformat()
-            except ValueError:
-                pass
         if qs_time:
             parsed_time = None
             for fmt in ("%H:%M", "%H:%M:%S"):
@@ -380,7 +378,7 @@ def compose(request, workspace_id, post_id=None):
             elif asset.file:
                 url = asset.file.url
             asset_url_map[str(asset.id)] = url
-    for acc_id, extra in platform_extras.items():
+    for _acc_id, extra in platform_extras.items():
         tid = extra.get("thumbnail_asset_id")
         if tid and tid in asset_url_map:
             extra["thumbnail_url"] = asset_url_map[tid]
@@ -516,10 +514,9 @@ def save_post(request, workspace_id, post_id=None):
         if floor_date:
             _reassign_queue_slots_from_floor(queues, post, floor_date, workspace)
         # Transition post.status to scheduled now that at least one platform is scheduled
-        if post.scheduled_at and post.status == "draft":
-            if post.can_transition_to("scheduled"):
-                post.transition_to("scheduled")
-                post.save(update_fields=["status", "updated_at"])
+        if post.scheduled_at and post.status == "draft" and post.can_transition_to("scheduled"):
+            post.transition_to("scheduled")
+            post.save(update_fields=["status", "updated_at"])
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(
@@ -542,10 +539,9 @@ def save_post(request, workspace_id, post_id=None):
         _sync_platform_posts(request, post, workspace)
         for q in queues:
             add_to_queue(post, q, priority=True)
-        if post.scheduled_at and post.status == "draft":
-            if post.can_transition_to("scheduled"):
-                post.transition_to("scheduled")
-                post.save(update_fields=["status", "updated_at"])
+        if post.scheduled_at and post.status == "draft" and post.can_transition_to("scheduled"):
+            post.transition_to("scheduled")
+            post.save(update_fields=["status", "updated_at"])
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(

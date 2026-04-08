@@ -1,6 +1,5 @@
 from django.db import migrations, models
 
-
 NEW_CHOICES = [
     ("facebook", "Facebook"),
     ("instagram", "Instagram"),
