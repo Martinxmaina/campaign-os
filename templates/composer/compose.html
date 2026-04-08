@@ -421,17 +421,17 @@
                         </div>
 
                         <!-- Inline media dropzone -->
+                        <input type="file" x-ref="fileInput" class="hidden" multiple
+                               accept="image/*,video/*"
+                               @change="handleFileSelect($event)"
+                               name="file">
                         <div class="media-dropzone-inline"
                              @dragover.prevent="$el.classList.add('dragover')"
                              @dragleave="$el.classList.remove('dragover')"
                              @drop.prevent="handleFileDrop($event); $el.classList.remove('dragover')"
                              @click="$refs.fileInput.click()">
-                            <input type="file" x-ref="fileInput" class="hidden" multiple
-                                   accept="image/*,video/*"
-                                   @change="handleFileSelect($event)"
-                                   name="file">
                             <svg class="w-5 h-5 text-stone-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                            <span class="text-xs text-stone-400">Drag & drop or <span class="text-orange-500 font-medium">select a file</span></span>
+                            <span class="text-xs text-stone-400">Drag & drop or <span class="text-orange-500 font-medium">select files</span></span>
                         </div>
 
                         <!-- Bottom bar: media library + char counter -->
@@ -1602,20 +1602,46 @@ function composerApp() {
         handleFileDrop(event) {
             const files = event.dataTransfer.files;
             if (files.length > 0) {
-                for (const file of files) {
-                    this.uploadFile(file);
-                }
+                this.processFiles(Array.from(files));
             }
         },
 
         handleFileSelect(event) {
             const files = event.target.files;
             if (files.length > 0) {
-                for (const file of files) {
-                    this.uploadFile(file);
-                }
+                this.processFiles(Array.from(files));
                 event.target.value = '';
             }
+        },
+
+        uploadQueue: [],
+        isUploading: false,
+
+        processFiles(files) {
+            const videos = files.filter(f => f.type.startsWith('video/'));
+            const images = files.filter(f => f.type.startsWith('image/'));
+
+            if (videos.length > 1) {
+                alert('Only one video file can be uploaded at a time.');
+                return;
+            }
+
+            if (videos.length === 1 && images.length > 0) {
+                alert('You cannot mix images and video. Please upload either images or a single video.');
+                return;
+            }
+
+            for (const file of files) {
+                this.uploadQueue.push(file);
+            }
+            this._processQueue();
+        },
+
+        _processQueue() {
+            if (this.isUploading || this.uploadQueue.length === 0) return;
+            this.isUploading = true;
+            const file = this.uploadQueue.shift();
+            this.uploadFile(file);
         },
 
         uploadFile(file) {
@@ -1678,9 +1704,14 @@ function composerApp() {
             });
 
             xhr.addEventListener('load', function() {
+                self.isUploading = false;
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    // Replace entire media list with server response
+                    // Remove this upload's placeholder
+                    thumb.remove();
+                    // Replace persisted media, keeping any queued upload thumbs
+                    const inProgress = Array.from(mediaList.querySelectorAll('[id^="upload-"]'));
                     mediaList.innerHTML = xhr.responseText;
+                    inProgress.forEach(el => mediaList.appendChild(el));
                     if (self.autosavedPostId && !self.uploadUrl.includes(self.autosavedPostId)) {
                         self.uploadUrl = `/workspace/{{ workspace.id }}/compose/${self.autosavedPostId}/upload-media/`;
                     }
@@ -1688,10 +1719,13 @@ function composerApp() {
                 } else {
                     self._showUploadError(thumb, file);
                 }
+                self._processQueue();
             });
 
             xhr.addEventListener('error', function() {
+                self.isUploading = false;
                 self._showUploadError(thumb, file);
+                self._processQueue();
             });
 
             xhr.open('POST', this.uploadUrl);
