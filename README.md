@@ -11,7 +11,30 @@ Open-source, self-hostable social media management platform built for agencies a
 
 | Heroku | Render | Railway |
 |:------:|:------:|:-------:|
-| [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/brightbeanxyz/brightbean-studio) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/brightbeanxyz/brightbean-studio) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/template?referralCode=brightbean&code=https://github.com/brightbeanxyz/brightbean-studio) |
+| [![Deploy to Heroku](https://www.herokucdn.com/deploy/button.svg)](https://heroku.com/deploy?template=https://github.com/brightbeanxyz/brightbean-studio) | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/brightbeanxyz/brightbean-studio) | [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/new/template?template=https://github.com/brightbeanxyz/brightbean-studio&referralCode=brightbean) |
+
+After deploying, set these environment variables in your platform's dashboard:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SECRET_KEY` | Auto-generated | Django secret key. Set automatically by the deploy button. |
+| `ENCRYPTION_KEY_SALT` | Auto-generated | Encryption salt. Set automatically by the deploy button. |
+| `DATABASE_URL` | Auto-provisioned | PostgreSQL connection string. Set automatically. |
+| `ALLOWED_HOSTS` | Yes | Your app's domain, e.g. `your-app.herokuapp.com` |
+| `APP_URL` | Yes | Full public URL, e.g. `https://your-app.herokuapp.com` |
+| `STORAGE_BACKEND` | No | Set to `s3` for S3/R2 storage. Default: `local`. Heroku, Render, and Railway have ephemeral filesystems — uploaded files are lost on redeploy without S3. |
+| `S3_ENDPOINT_URL` | If using S3 | S3-compatible endpoint URL |
+| `S3_ACCESS_KEY_ID` | If using S3 | S3 access key |
+| `S3_SECRET_ACCESS_KEY` | If using S3 | S3 secret key |
+| `S3_BUCKET_NAME` | If using S3 | S3 bucket name |
+| `EMAIL_HOST` | No | SMTP server for sending invitations and password resets |
+| `EMAIL_PORT` | No | SMTP port (default: `587`) |
+| `EMAIL_HOST_USER` | No | SMTP username |
+| `EMAIL_HOST_PASSWORD` | No | SMTP password |
+| `GOOGLE_AUTH_CLIENT_ID` | No | For Google OAuth login. Get from [Google Cloud Console](https://console.cloud.google.com/) → Credentials. |
+| `GOOGLE_AUTH_CLIENT_SECRET` | No | Google OAuth secret |
+
+For social media API keys, see [Platform Credentials](#platform-credentials). Full variable reference: `.env.example`.
 
 ## Quick Start (Docker)
 

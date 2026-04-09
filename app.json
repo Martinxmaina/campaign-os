@@ -22,6 +22,9 @@
     "SECRET_KEY": {
       "generator": "secret"
     },
+    "ENCRYPTION_KEY_SALT": {
+      "generator": "secret"
+    },
     "DJANGO_SETTINGS_MODULE": {
       "value": "config.settings.production"
     },
