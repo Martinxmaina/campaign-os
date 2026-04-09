@@ -226,7 +226,14 @@ def compose(request, workspace_id, post_id=None):
         if post.author != request.user and not perms.get("edit_others_posts", False):
             raise PermissionDenied("You do not have permission to edit this post.")
         form = PostForm(instance=post)
-        selected_account_ids = list(post.platform_posts.values_list("social_account_id", flat=True))
+        _acct_filter = request.GET.get("account")
+        if _acct_filter:
+            selected_account_ids = list(
+                post.platform_posts.filter(social_account_id=_acct_filter)
+                .values_list("social_account_id", flat=True)
+            )
+        else:
+            selected_account_ids = list(post.platform_posts.values_list("social_account_id", flat=True))
         media_attachments = post.media_attachments.select_related("media_asset").all()
         platform_extras = {
             str(pp.social_account_id): (pp.platform_extra or {})
@@ -273,6 +280,11 @@ def compose(request, workspace_id, post_id=None):
         )
         .order_by("platform", "account_name")
     )
+
+    # When opening from calendar with a specific account, show only that account
+    account_filter = request.GET.get("account")
+    if account_filter and post_id:
+        social_accounts = social_accounts.filter(id=account_filter)
 
     # Platform character limits for JS
     char_limits = {
@@ -482,17 +494,18 @@ def save_post(request, workspace_id, post_id=None):
         now_dt = timezone.now()
         post.scheduled_at = now_dt
         post._schedule_propagate_dt = now_dt  # handled after post.save()
-        # Transition to scheduled (with fallback through draft for states like
-        # changes_requested, rejected, failed that can't go directly).
-        if not post.can_transition_to("scheduled"):
-            if post.can_transition_to("draft"):
-                post.transition_to("draft")
-            else:
-                return JsonResponse(
-                    {"errors": {"status": f"Cannot publish a post in '{post.get_status_display()}' status."}},
-                    status=400,
-                )
-        post.transition_to("scheduled")  # Worker picks up scheduled posts where scheduled_at <= now()
+        # Transition to scheduled so the worker picks it up (scheduled_at <= now).
+        # Skip if already scheduled/publishing — the worker already handles these.
+        if post.status not in ("scheduled", "publishing"):
+            if not post.can_transition_to("scheduled"):
+                if post.can_transition_to("draft"):
+                    post.transition_to("draft")
+                else:
+                    return JsonResponse(
+                        {"errors": {"status": f"Cannot publish a post in '{post.get_status_display()}' status."}},
+                        status=400,
+                    )
+            post.transition_to("scheduled")
     elif action == "add_to_queue":
         from apps.calendar.services import add_to_queue
 
