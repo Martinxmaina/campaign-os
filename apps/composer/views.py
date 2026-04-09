@@ -1280,10 +1280,27 @@ def drafts_list(request, workspace_id):
 @login_required
 @require_POST
 def post_delete(request, workspace_id, post_id):
-    """Delete a post via HTMX."""
+    """Delete a post or a single platform post via HTMX.
+
+    When an ``account`` query parameter is provided, only the PlatformPost for
+    that social account is removed.  If it was the last PlatformPost the parent
+    Post is deleted as well.  Without the parameter the entire Post (and all
+    its PlatformPosts) is deleted.
+    """
     workspace = _get_workspace(request, workspace_id)
     post = get_object_or_404(Post, id=post_id, workspace=workspace)
-    post.delete()
+
+    account_id = request.GET.get("account") or request.POST.get("account")
+    if account_id:
+        pp = get_object_or_404(
+            PlatformPost, post=post, social_account_id=account_id
+        )
+        pp.delete()
+        # If no platform posts remain, clean up the parent post too.
+        if not post.platform_posts.exists():
+            post.delete()
+    else:
+        post.delete()
 
     return HttpResponse(
         status=204,

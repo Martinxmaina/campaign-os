@@ -1333,7 +1333,8 @@
                     <button :disabled="deleting"
                             @click="
                                 deleting = true;
-                                fetch('{% url 'composer:post_delete' workspace.id post.id %}', {
+                                const deleteUrl = '{% url 'composer:post_delete' workspace.id post.id %}' + window.location.search;
+                                fetch(deleteUrl, {
                                     method: 'POST',
                                     headers: { 'X-CSRFToken': '{{ csrf_token }}' }
                                 }).then(resp => {
