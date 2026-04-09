@@ -2,6 +2,7 @@ import uuid
 
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.composer.models import Idea, IdeaGroup, Post
@@ -14,7 +15,7 @@ from apps.workspaces.models import Workspace
 
 class IdeaMediaFlowsTests(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(email="owner@example.com", password="testpass123")
+        self.user = User.objects.create_user(email="owner@example.com", password="testpass123", tos_accepted_at=timezone.now())
         self.org = Organization.objects.create(name="Test Org")
         self.workspace = Workspace.objects.create(organization=self.org, name="Test Workspace")
         OrgMembership.objects.create(

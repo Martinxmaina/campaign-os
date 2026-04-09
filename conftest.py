@@ -1,4 +1,5 @@
 import pytest
+from django.utils import timezone
 
 from apps.accounts.models import User
 from apps.members.models import OrgMembership
@@ -7,7 +8,9 @@ from apps.organizations.models import Organization
 
 @pytest.fixture
 def user(db):
-    return User.objects.create_user(email="test@example.com", password="testpass123", name="Test User")
+    return User.objects.create_user(
+        email="test@example.com", password="testpass123", name="Test User", tos_accepted_at=timezone.now()
+    )
 
 
 @pytest.fixture

@@ -107,16 +107,20 @@ class TestSyncOAuthConnection:
 
     def test_pre_social_login_syncs_for_existing_user(self, adapter, user, google_sociallogin, request_factory):
         request = request_factory.get("/")
-        google_sociallogin.is_existing = True
+        # user is already saved to DB, so sociallogin.is_existing is True
+        assert google_sociallogin.is_existing
 
         adapter.pre_social_login(request, google_sociallogin)
 
         assert OAuthConnection.objects.filter(provider="google", provider_user_id="google-uid-123").exists()
 
-    def test_pre_social_login_skips_new_user(self, adapter, user, google_sociallogin, request_factory):
+    def test_pre_social_login_skips_new_user(self, adapter, request_factory):
         request = request_factory.get("/")
-        google_sociallogin.is_existing = False
+        # Unsaved user makes sociallogin.is_existing False
+        account = AllAuthSocialAccount(provider="google", uid="google-uid-new")
+        sociallogin = SocialLogin(user=User(), account=account)
+        assert not sociallogin.is_existing
 
-        adapter.pre_social_login(request, google_sociallogin)
+        adapter.pre_social_login(request, sociallogin)
 
         assert not OAuthConnection.objects.exists()
