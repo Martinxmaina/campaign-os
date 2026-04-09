@@ -14,7 +14,7 @@ Context: assets, workspace, post (optional).
          {% endif %}
          hx-vals='{"media_asset_id": "{{ asset.id }}"}'
          hx-target="#media-list"
-         hx-swap="innerHTML"
+         hx-swap="beforeend"
          @click="showMediaPicker = false">
         {% if asset.thumbnail %}
         <img src="{{ asset.thumbnail.url }}" class="w-full h-full object-cover" alt="{{ asset.filename }}">

@@ -1708,12 +1708,9 @@ function composerApp() {
             xhr.addEventListener('load', function() {
                 self.isUploading = false;
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    // Remove this upload's placeholder
+                    // Replace the upload placeholder with the server-rendered thumb
+                    thumb.insertAdjacentHTML('afterend', xhr.responseText);
                     thumb.remove();
-                    // Replace persisted media, keeping any queued upload thumbs
-                    const inProgress = Array.from(mediaList.querySelectorAll('[id^="upload-"]'));
-                    mediaList.innerHTML = xhr.responseText;
-                    inProgress.forEach(el => mediaList.appendChild(el));
                     if (self.autosavedPostId && !self.uploadUrl.includes(self.autosavedPostId)) {
                         self.uploadUrl = `/workspace/{{ workspace.id }}/compose/${self.autosavedPostId}/upload-media/`;
                     }

@@ -1068,21 +1068,23 @@ def attach_media(request, workspace_id, post_id):
     max_pos = post.media_attachments.aggregate(models.Max("position"))["position__max"]
     position = (max_pos or 0) + 1
 
-    PostMedia.objects.get_or_create(
+    attachment, _ = PostMedia.objects.get_or_create(
         post=post,
         media_asset=asset,
         defaults={"position": position},
     )
 
-    return render(
+    response = render(
         request,
         "composer/partials/media_list.html",
         {
-            "media_attachments": post.media_attachments.select_related("media_asset").all(),
+            "media_attachments": [attachment],
             "post": post,
             "workspace": workspace,
         },
     )
+    response["HX-Trigger"] = "previewUpdate"
+    return response
 
 
 @login_required
@@ -1106,15 +1108,16 @@ def attach_pending_media(request, workspace_id):
         pending.append(asset_id_str)
         request.session[session_key] = pending
 
-    pending_assets = MediaAsset.objects.filter(id__in=pending, workspace=workspace)
-    return render(
+    response = render(
         request,
         "composer/partials/media_list_pending.html",
         {
-            "pending_assets": pending_assets,
+            "pending_assets": [asset],
             "workspace": workspace,
         },
     )
+    response["HX-Trigger"] = "previewUpdate"
+    return response
 
 
 @login_required
@@ -1154,15 +1157,35 @@ def upload_media(request, workspace_id, post_id=None):
     # If a post ID is provided, attach immediately
     if post_id:
         post = get_object_or_404(Post, id=post_id, workspace=workspace)
+
+        # Migrate any session pending media to the post (can happen when the
+        # media picker still uses attach_pending_media after autosave created
+        # the post and updated the upload URL).
+        session_key = f"pending_media_{workspace.id}"
+        pending_ids = request.session.get(session_key, [])
+        if pending_ids:
+            existing_pos = post.media_attachments.aggregate(models.Max("position"))["position__max"] or 0
+            for idx, pid in enumerate(pending_ids):
+                try:
+                    pending_asset = MediaAsset.objects.get(id=pid, workspace=workspace)
+                    PostMedia.objects.get_or_create(
+                        post=post,
+                        media_asset=pending_asset,
+                        defaults={"position": existing_pos + idx + 1},
+                    )
+                except MediaAsset.DoesNotExist:
+                    continue
+            del request.session[session_key]
+
         max_pos = post.media_attachments.aggregate(models.Max("position"))["position__max"]
         position = (max_pos or 0) + 1
-        PostMedia.objects.create(post=post, media_asset=asset, position=position)
+        attachment = PostMedia.objects.create(post=post, media_asset=asset, position=position)
 
         response = render(
             request,
             "composer/partials/media_list.html",
             {
-                "media_attachments": post.media_attachments.select_related("media_asset").all(),
+                "media_attachments": [attachment],
                 "post": post,
                 "workspace": workspace,
             },
@@ -1178,21 +1201,11 @@ def upload_media(request, workspace_id, post_id=None):
     pending.append(str(asset.id))
     request.session[session_key] = pending
 
-    # Build a lightweight list of pending assets for the template
-    pending_assets = MediaAsset.objects.filter(id__in=pending, workspace=workspace)
-
-    # Return HTML thumbnail snippets (no remove button since there's no post yet)
-    thumbs = []
-    for a in pending_assets:
-        url = a.file.url if a.file else ""
-        is_video = a.media_type == MediaAsset.MediaType.VIDEO
-        thumbs.append({"media_asset": a, "url": url, "is_video": is_video})
-
     response = render(
         request,
         "composer/partials/media_list_pending.html",
         {
-            "pending_assets": pending_assets,
+            "pending_assets": [asset],
             "workspace": workspace,
         },
     )
@@ -1209,7 +1222,7 @@ def remove_media(request, workspace_id, post_id, media_id):
     post = get_object_or_404(Post, id=post_id, workspace=workspace)
     PostMedia.objects.filter(id=media_id, post=post).delete()
 
-    return render(
+    response = render(
         request,
         "composer/partials/media_list.html",
         {
@@ -1218,6 +1231,8 @@ def remove_media(request, workspace_id, post_id, media_id):
             "workspace": workspace,
         },
     )
+    response["HX-Trigger"] = "previewUpdate"
+    return response
 
 
 @login_required
