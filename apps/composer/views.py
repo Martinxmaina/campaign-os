@@ -659,47 +659,7 @@ def save_post(request, workspace_id, post_id=None):
         )
 
     # Sync platform posts
-    selected_ids_str = request.POST.get("selected_accounts", "")
-    selected_ids = [s.strip() for s in selected_ids_str.split(",") if s.strip()]
-
-    # Remove deselected platform posts
-    post.platform_posts.exclude(social_account_id__in=selected_ids).delete()
-
-    # Create/update platform posts
-    for acc_id in selected_ids:
-        try:
-            account = SocialAccount.objects.get(id=acc_id, workspace=workspace)
-        except SocialAccount.DoesNotExist:
-            continue
-        pp, _created = PlatformPost.objects.get_or_create(
-            post=post,
-            social_account=account,
-        )
-        # Check for platform-specific overrides
-        override_title = request.POST.get(f"override_title_{acc_id}", "").strip()
-        override_caption = request.POST.get(f"override_caption_{acc_id}", "").strip()
-        override_comment = request.POST.get(f"override_comment_{acc_id}", "").strip()
-        pp.platform_specific_title = override_title if override_title else None
-        pp.platform_specific_caption = override_caption if override_caption else None
-        pp.platform_specific_first_comment = override_comment if override_comment else None
-
-        # Per-platform extras
-        if account.platform == "youtube":
-            tags_raw = request.POST.get(f"yt_tags_{acc_id}", "")
-            tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()]
-            privacy_status = request.POST.get(f"yt_privacy_status_{acc_id}", "public")
-            if privacy_status not in ("public", "unlisted", "private"):
-                privacy_status = "public"
-            thumb_id = request.POST.get(f"yt_thumbnail_asset_id_{acc_id}", "").strip() or None
-            pp.platform_extra = {
-                "privacy_status": privacy_status,
-                "self_declared_made_for_kids":
-                    request.POST.get(f"yt_made_for_kids_{acc_id}") == "true",
-                "tags": tags_list,
-                "thumbnail_asset_id": thumb_id,
-            }
-
-        pp.save()
+    _sync_platform_posts(request, post, workspace)
 
     # Propagate manually-chosen schedule/publish_now datetimes to every
     # PlatformPost now that they exist.
