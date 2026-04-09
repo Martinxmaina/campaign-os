@@ -1,10 +1,10 @@
 {% comment %}
 Sent tab partial for the Publish page.
-Shows all published/partially_published posts. Loaded via HTMX into #tab-content.
+Shows all published/partially_published platform posts. Loaded via HTMX into #tab-content.
 {% endcomment %}
 
 <div style="animation: slideUp 200ms cubic-bezier(0.16,1,0.3,1) both">
-    {% if posts %}
+    {% if platform_posts %}
     <table class="w-full">
         <thead>
             <tr class="border-b border-stone-200 text-left">
@@ -12,16 +12,16 @@ Shows all published/partially_published posts. Loaded via HTMX into #tab-content
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Status</th>
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Published</th>
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Caption</th>
-                <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Platforms</th>
+                <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Platform</th>
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Author</th>
             </tr>
         </thead>
         <tbody>
-            {% for post in posts %}
+            {% for pp in platform_posts %}
             <tr class="border-b border-stone-100 hover:bg-stone-50 transition-colors duration-100 cursor-pointer"
-                onclick="window.location='{% url 'composer:compose_edit' workspace_id=workspace.id post_id=post.id %}'">
+                onclick="window.location='{% url 'composer:compose_edit' workspace_id=workspace.id post_id=pp.post_id %}?account={{ pp.social_account_id }}'">
                 <td class="px-4 py-3">
-                    {% with first_att=post.media_attachments.all.0 %}
+                    {% with first_att=pp.post.media_attachments.all.0 %}
                     {% if first_att %}
                     <div class="w-10 h-10 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 relative">
                         {% if first_att.media_asset.thumbnail %}
@@ -38,9 +38,9 @@ Shows all published/partially_published posts. Loaded via HTMX into #tab-content
                             </div>
                         </div>
                         {% endif %}
-                        {% if post.media_attachments.count > 1 %}
+                        {% if pp.post.media_attachments.count > 1 %}
                         <div class="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] font-bold px-1 rounded-tl">
-                            +{{ post.media_attachments.count|add:"-1" }}
+                            +{{ pp.post.media_attachments.count|add:"-1" }}
                         </div>
                         {% endif %}
                     </div>
@@ -52,33 +52,32 @@ Shows all published/partially_published posts. Loaded via HTMX into #tab-content
                     {% endwith %}
                 </td>
                 <td class="px-4 py-3">
-                    <span class="post-chip status-{{ post.status }} inline-flex">
+                    <span class="post-chip status-{{ pp.post.status }} inline-flex">
                         <span class="chip-dot"></span>
-                        {{ post.get_status_display }}
+                        {{ pp.post.get_status_display }}
                     </span>
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500 tabular-nums whitespace-nowrap">
-                    {% if post.scheduled_at %}
-                    {{ post.scheduled_at|date:"M d, Y" }}<br>
-                    <span class="text-stone-400">{{ post.scheduled_at|date:"H:i" }}</span>
+                    {% if pp.post.scheduled_at %}
+                    {{ pp.post.scheduled_at|date:"M d, Y" }}<br>
+                    <span class="text-stone-400">{{ pp.post.scheduled_at|date:"H:i" }}</span>
                     {% else %}
                     <span class="text-stone-300">-</span>
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-sm text-stone-600 max-w-xs truncate">
-                    {{ post.caption_snippet|default:"(no caption)" }}
+                    {{ pp.post.caption_snippet|default:"(no caption)" }}
                 </td>
                 <td class="px-4 py-3">
-                    <div class="flex gap-1">
-                        {% for pp in post.platform_posts.all %}
+                    <div class="flex items-center gap-1.5">
                         <span class="w-5 h-5 rounded-[5px] flex items-center justify-center">
                             {% include "partials/_platform_icon.html" with platform=pp.social_account.platform size="sm" %}
                         </span>
-                        {% endfor %}
+                        <span class="text-xs text-stone-500">{{ pp.social_account.account_name }}</span>
                     </div>
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500">
-                    {{ post.author.display_name|default:"-" }}
+                    {{ pp.post.author.display_name|default:"-" }}
                 </td>
             </tr>
             {% endfor %}

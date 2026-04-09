@@ -205,14 +205,16 @@ def _get_publish_context(workspace, request):
         "display_timezone": display_timezone,
         "timezone_choices": tz_list,
         "workspace_timezone": ws_tz,
-        "queue_count": Post.objects.for_workspace(workspace.id).filter(status="scheduled").count(),
-        "drafts_count": Post.objects.for_workspace(workspace.id).filter(status="draft").count(),
-        "approvals_count": Post.objects.for_workspace(workspace.id)
-        .filter(status__in=["pending_review", "pending_client"])
-        .count(),
-        "sent_count": Post.objects.for_workspace(workspace.id)
-        .filter(status__in=["published", "partially_published"])
-        .count(),
+        "queue_count": PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="scheduled").count(),
+        "drafts_count": PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="draft").count(),
+        "approvals_count": PlatformPost.objects.filter(
+            post__workspace_id=workspace.id,
+            post__status__in=["pending_review", "pending_client", "approved", "rejected", "changes_requested"],
+        ).count(),
+        "sent_count": PlatformPost.objects.filter(
+            post__workspace_id=workspace.id,
+            post__status__in=["published", "partially_published", "failed"],
+        ).count(),
     }
 
 
@@ -225,6 +227,19 @@ def _apply_publish_filters(qs, request):
     tag = request.GET.get("tag")
     if tag:
         qs = qs.filter(tags__contains=[tag])
+
+    return qs
+
+
+def _apply_pp_publish_filters(qs, request):
+    """Apply channel and tag filters to a PlatformPost queryset."""
+    channel = request.GET.get("channel")
+    if channel:
+        qs = qs.filter(social_account_id=channel)
+
+    tag = request.GET.get("tag")
+    if tag:
+        qs = qs.filter(post__tags__contains=[tag])
 
     return qs
 
@@ -572,18 +587,17 @@ def _list_view(request, workspace, target_date, context):
 
 @login_required
 def publish_tab_queue(request, workspace_id):
-    """HTMX partial: Queue tab content - shows all scheduled posts."""
+    """HTMX partial: Queue tab content - shows all scheduled platform posts."""
     workspace = _get_workspace(request, workspace_id)
     display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
 
-    posts = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(status="scheduled")
-        .select_related("author")
-        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
-        .order_by("scheduled_at", "-created_at")
+    platform_posts = (
+        PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="scheduled")
+        .select_related("post__author", "social_account")
+        .prefetch_related("post__media_attachments__media_asset")
+        .order_by("post__scheduled_at", "-post__created_at")
     )
-    posts = _apply_publish_filters(posts, request)
+    platform_posts = _apply_pp_publish_filters(platform_posts, request)
 
     has_connected_accounts = SocialAccount.objects.filter(
         workspace=workspace,
@@ -595,7 +609,7 @@ def publish_tab_queue(request, workspace_id):
         "calendar/partials/publish_queue.html",
         {
             "workspace": workspace,
-            "posts": posts[:200],
+            "platform_posts": platform_posts[:200],
             "display_timezone": display_tz,
             "has_connected_accounts": has_connected_accounts,
         },
@@ -608,14 +622,13 @@ def publish_tab_drafts(request, workspace_id):
     workspace = _get_workspace(request, workspace_id)
     display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
 
-    posts = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(status="draft")
-        .select_related("author")
-        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
-        .order_by("-updated_at")
+    platform_posts = (
+        PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="draft")
+        .select_related("post__author", "social_account")
+        .prefetch_related("post__media_attachments__media_asset")
+        .order_by("-post__updated_at")
     )
-    posts = _apply_publish_filters(posts, request)
+    platform_posts = _apply_pp_publish_filters(platform_posts, request)
 
     has_connected_accounts = SocialAccount.objects.filter(
         workspace=workspace,
@@ -627,7 +640,7 @@ def publish_tab_drafts(request, workspace_id):
         "calendar/partials/publish_drafts.html",
         {
             "workspace": workspace,
-            "posts": posts[:200],
+            "platform_posts": platform_posts[:200],
             "display_timezone": display_tz,
             "has_connected_accounts": has_connected_accounts,
         },
@@ -640,36 +653,46 @@ def publish_tab_approvals(request, workspace_id):
     workspace = _get_workspace(request, workspace_id)
     display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
 
+    approval_statuses = ["pending_review", "pending_client", "approved", "rejected", "changes_requested"]
     status_filter = request.GET.get("approval_status", "all")
-    posts = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(status__in=["pending_review", "pending_client"])
-        .select_related("author")
-        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
-        .order_by("scheduled_at", "-created_at")
+    platform_posts = (
+        PlatformPost.objects.filter(
+            post__workspace_id=workspace.id,
+            post__status__in=approval_statuses,
+        )
+        .select_related("post__author", "social_account")
+        .prefetch_related("post__media_attachments__media_asset")
+        .order_by("post__scheduled_at", "-post__created_at")
     )
-    posts = _apply_publish_filters(posts, request)
+    platform_posts = _apply_pp_publish_filters(platform_posts, request)
 
-    if status_filter == "pending_review":
-        posts = posts.filter(status="pending_review")
-    elif status_filter == "pending_client":
-        posts = posts.filter(status="pending_client")
+    if status_filter != "all" and status_filter in approval_statuses:
+        platform_posts = platform_posts.filter(post__status=status_filter)
 
     # Permission check for action buttons
     membership = getattr(request, "workspace_membership", None)
     perms = membership.effective_permissions if membership else {}
     can_approve = perms.get("approve_posts", False)
 
+    # Counts per sub-tab
+    def _count(status):
+        return PlatformPost.objects.filter(
+            post__workspace_id=workspace.id, post__status=status
+        ).count()
+
     return render(
         request,
         "calendar/partials/publish_approvals.html",
         {
             "workspace": workspace,
-            "posts": posts,
+            "platform_posts": platform_posts,
             "status_filter": status_filter,
             "can_approve": can_approve,
-            "pending_review_count": Post.objects.for_workspace(workspace.id).filter(status="pending_review").count(),
-            "pending_client_count": Post.objects.for_workspace(workspace.id).filter(status="pending_client").count(),
+            "pending_review_count": _count("pending_review"),
+            "pending_client_count": _count("pending_client"),
+            "approved_count": _count("approved"),
+            "rejected_count": _count("rejected"),
+            "changes_requested_count": _count("changes_requested"),
             "display_timezone": display_tz,
         },
     )
@@ -681,14 +704,16 @@ def publish_tab_sent(request, workspace_id):
     workspace = _get_workspace(request, workspace_id)
     display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
 
-    posts = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(status__in=["published", "partially_published"])
-        .select_related("author")
-        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
-        .order_by("-scheduled_at", "-created_at")
+    platform_posts = (
+        PlatformPost.objects.filter(
+            post__workspace_id=workspace.id,
+            post__status__in=["published", "partially_published", "failed"],
+        )
+        .select_related("post__author", "social_account")
+        .prefetch_related("post__media_attachments__media_asset")
+        .order_by("-post__scheduled_at", "-post__created_at")
     )
-    posts = _apply_publish_filters(posts, request)
+    platform_posts = _apply_pp_publish_filters(platform_posts, request)
 
     has_connected_accounts = SocialAccount.objects.filter(
         workspace=workspace,
@@ -700,7 +725,7 @@ def publish_tab_sent(request, workspace_id):
         "calendar/partials/publish_sent.html",
         {
             "workspace": workspace,
-            "posts": posts[:200],
+            "platform_posts": platform_posts[:200],
             "display_timezone": display_tz,
             "has_connected_accounts": has_connected_accounts,
         },

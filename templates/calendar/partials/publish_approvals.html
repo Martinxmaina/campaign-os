@@ -1,6 +1,6 @@
 {% comment %}
 Approvals tab partial for the Publish page.
-Shows pending approval posts with filter sub-tabs. Loaded via HTMX into #tab-content.
+Shows pending approval platform posts with filter sub-tabs. Loaded via HTMX into #tab-content.
 All members can view; action buttons shown conditionally based on can_approve permission.
 {% endcomment %}
 
@@ -9,12 +9,12 @@ All members can view; action buttons shown conditionally based on can_approve pe
      style="animation: slideUp 200ms cubic-bezier(0.16,1,0.3,1) both">
 
     <!-- Filter sub-tabs -->
-    <div class="flex gap-1.5 mb-5">
+    <div class="flex flex-wrap gap-1.5 mb-5">
         <button hx-get="{% url 'calendar:publish_tab_approvals' workspace_id=workspace.id %}?approval_status=all"
                 hx-target="#tab-content" hx-swap="innerHTML"
                 class="px-3.5 py-1.5 text-[0.8125rem] font-medium rounded-full transition-colors {% if status_filter == 'all' %}text-white{% else %}text-stone-600 hover:bg-stone-100{% endif %}"
                 {% if status_filter == 'all' %}style="background: var(--primary);"{% endif %}>
-            All <span class="ml-1 opacity-75">{{ pending_review_count|add:pending_client_count }}</span>
+            All <span class="ml-1 opacity-75">{{ pending_review_count|add:pending_client_count|add:approved_count|add:rejected_count|add:changes_requested_count }}</span>
         </button>
         <button hx-get="{% url 'calendar:publish_tab_approvals' workspace_id=workspace.id %}?approval_status=pending_review"
                 hx-target="#tab-content" hx-swap="innerHTML"
@@ -28,19 +28,37 @@ All members can view; action buttons shown conditionally based on can_approve pe
                 {% if status_filter == 'pending_client' %}style="background: var(--primary);"{% endif %}>
             Pending Client <span class="ml-1 opacity-75">{{ pending_client_count }}</span>
         </button>
+        <button hx-get="{% url 'calendar:publish_tab_approvals' workspace_id=workspace.id %}?approval_status=approved"
+                hx-target="#tab-content" hx-swap="innerHTML"
+                class="px-3.5 py-1.5 text-[0.8125rem] font-medium rounded-full transition-colors {% if status_filter == 'approved' %}text-white{% else %}text-stone-600 hover:bg-stone-100{% endif %}"
+                {% if status_filter == 'approved' %}style="background: var(--primary);"{% endif %}>
+            Approved <span class="ml-1 opacity-75">{{ approved_count }}</span>
+        </button>
+        <button hx-get="{% url 'calendar:publish_tab_approvals' workspace_id=workspace.id %}?approval_status=rejected"
+                hx-target="#tab-content" hx-swap="innerHTML"
+                class="px-3.5 py-1.5 text-[0.8125rem] font-medium rounded-full transition-colors {% if status_filter == 'rejected' %}text-white{% else %}text-stone-600 hover:bg-stone-100{% endif %}"
+                {% if status_filter == 'rejected' %}style="background: var(--primary);"{% endif %}>
+            Rejected <span class="ml-1 opacity-75">{{ rejected_count }}</span>
+        </button>
+        <button hx-get="{% url 'calendar:publish_tab_approvals' workspace_id=workspace.id %}?approval_status=changes_requested"
+                hx-target="#tab-content" hx-swap="innerHTML"
+                class="px-3.5 py-1.5 text-[0.8125rem] font-medium rounded-full transition-colors {% if status_filter == 'changes_requested' %}text-white{% else %}text-stone-600 hover:bg-stone-100{% endif %}"
+                {% if status_filter == 'changes_requested' %}style="background: var(--primary);"{% endif %}>
+            Changes Requested <span class="ml-1 opacity-75">{{ changes_requested_count }}</span>
+        </button>
     </div>
 
     <!-- Post list -->
     <div id="approval-list" class="space-y-3">
-        {% for post in posts %}
+        {% for pp in platform_posts %}
         <div class="bg-white rounded-xl border border-stone-200 p-4 hover:border-stone-300 transition-colors">
             <div class="flex items-center gap-3">
                 {% if can_approve %}
-                <input type="checkbox" :value="'{{ post.id }}'" x-model="selectedPosts"
+                <input type="checkbox" :value="'{{ pp.post_id }}'" x-model="selectedPosts"
                        class="w-4 h-4 rounded border-stone-300 text-orange-500 focus:ring-orange-300">
                 {% endif %}
                 <!-- Media thumbnail -->
-                {% with first_att=post.media_attachments.all.0 %}
+                {% with first_att=pp.post.media_attachments.all.0 %}
                 {% if first_att %}
                 <div class="w-12 h-12 rounded-lg overflow-hidden bg-stone-100 flex-shrink-0 relative">
                     {% if first_att.media_asset.thumbnail %}
@@ -59,9 +77,9 @@ All members can view; action buttons shown conditionally based on can_approve pe
                         </div>
                     </div>
                     {% endif %}
-                    {% if post.media_attachments.count > 1 %}
+                    {% if pp.post.media_attachments.count > 1 %}
                     <div class="absolute bottom-0 right-0 bg-black/60 text-white text-[9px] font-bold px-1 rounded-tl">
-                        +{{ post.media_attachments.count|add:"-1" }}
+                        +{{ pp.post.media_attachments.count|add:"-1" }}
                     </div>
                     {% endif %}
                 </div>
@@ -69,30 +87,27 @@ All members can view; action buttons shown conditionally based on can_approve pe
                 {% endwith %}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="post-chip status-{{ post.status }} inline-flex">
+                        <span class="post-chip status-{{ pp.post.status }} inline-flex">
                             <span class="chip-dot"></span>
-                            {{ post.get_status_display }}
+                            {{ pp.post.get_status_display }}
                         </span>
-                        <div class="flex gap-1">
-                            {% for pp in post.platform_posts.all %}
-                            <span class="w-5 h-5 rounded-[5px] flex items-center justify-center">
-                                {% include "partials/_platform_icon.html" with platform=pp.social_account.platform size="sm" %}
-                            </span>
-                            {% endfor %}
-                        </div>
-                        {% if post.scheduled_at %}
-                        <span class="text-xs text-stone-400 tabular-nums">{{ post.scheduled_at|date:"M d, Y H:i" }}</span>
+                        <span class="w-5 h-5 rounded-[5px] flex items-center justify-center">
+                            {% include "partials/_platform_icon.html" with platform=pp.social_account.platform size="sm" %}
+                        </span>
+                        <span class="text-xs text-stone-500">{{ pp.social_account.account_name }}</span>
+                        {% if pp.post.scheduled_at %}
+                        <span class="text-xs text-stone-400 tabular-nums">{{ pp.post.scheduled_at|date:"M d, Y H:i" }}</span>
                         {% endif %}
                     </div>
-                    <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=post.id %}"
+                    <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=pp.post_id %}?account={{ pp.social_account_id }}"
                        class="text-sm text-stone-700 hover:text-stone-900 line-clamp-1">
-                        {{ post.caption_snippet|default:"(no caption)" }}
+                        {{ pp.post.caption_snippet|default:"(no caption)" }}
                     </a>
-                    <p class="text-xs text-stone-400 mt-0.5">by {{ post.author.display_name|default:"Unknown" }}</p>
+                    <p class="text-xs text-stone-400 mt-0.5">by {{ pp.post.author.display_name|default:"Unknown" }}</p>
                 </div>
                 {% if can_approve %}
                 <div class="flex items-center gap-2 flex-shrink-0">
-                    <form hx-post="{% url 'approvals:approve' workspace_id=workspace.id post_id=post.id %}"
+                    <form hx-post="{% url 'approvals:approve' workspace_id=workspace.id post_id=pp.post_id %}"
                           hx-target="#tab-content" hx-swap="innerHTML">
                         {% csrf_token %}
                         <button type="submit"
@@ -100,7 +115,7 @@ All members can view; action buttons shown conditionally based on can_approve pe
                             Approve
                         </button>
                     </form>
-                    <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=post.id %}"
+                    <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=pp.post_id %}?account={{ pp.social_account_id }}"
                        class="px-3 py-1.5 text-xs font-semibold rounded-full border border-stone-200 text-stone-600 hover:border-stone-300 transition-colors">
                         Review
                     </a>
