@@ -226,6 +226,13 @@ def compose(request, workspace_id, post_id=None):
         if post.author != request.user and not perms.get("edit_others_posts", False):
             raise PermissionDenied("You do not have permission to edit this post.")
         form = PostForm(instance=post)
+        if post.scheduled_at:
+            import zoneinfo
+
+            tz = zoneinfo.ZoneInfo(workspace.effective_timezone or "UTC")
+            local_dt = post.scheduled_at.astimezone(tz)
+            form.initial["scheduled_date"] = local_dt.strftime("%Y-%m-%d")
+            form.initial["scheduled_time"] = local_dt.strftime("%H:%M")
         _acct_filter = request.GET.get("account")
         if _acct_filter:
             selected_account_ids = list(
