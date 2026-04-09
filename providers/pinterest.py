@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import base64
 import logging
+import os
 from urllib.parse import urlencode
 
 from .base import SocialProvider
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 AUTH_URL = "https://www.pinterest.com/oauth/"
 TOKEN_URL = "https://api.pinterest.com/v5/oauth/token"
-API_BASE = "https://api.pinterest.com/v5"
+API_BASE = os.environ.get("PINTEREST_API_BASE", "https://api.pinterest.com/v5")
 
 
 class PinterestProvider(SocialProvider):
