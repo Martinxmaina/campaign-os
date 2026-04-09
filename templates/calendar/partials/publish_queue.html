@@ -60,11 +60,9 @@ Shows all scheduled posts grouped by date. Loaded via HTMX into #tab-content.
                                 {% elif att.media_asset.media_type == 'image' or att.media_asset.media_type == 'gif' %}
                                     <img src="{{ att.media_asset.file.url }}" alt="" class="w-full h-full object-cover">
                                 {% else %}
-                                    <div class="w-full h-full flex items-center justify-center">
-                                        <svg class="w-4 h-4 text-stone-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/></svg>
-                                    </div>
+                                    <video src="{{ att.media_asset.file.url }}#t=0.5" class="w-full h-full object-cover" muted preload="metadata"></video>
                                 {% endif %}
-                                {% if att.media_asset.media_type == 'video' and att.media_asset.thumbnail %}
+                                {% if att.media_asset.media_type == 'video' %}
                                 <div class="absolute inset-0 flex items-center justify-center">
                                     <div class="w-5 h-5 rounded-full bg-black/50 flex items-center justify-center">
                                         <svg class="w-2.5 h-2.5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
