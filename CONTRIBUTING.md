@@ -6,7 +6,26 @@ Thanks for your interest in contributing! This guide will help you get started.
 
 1. Fork the repository and clone your fork
 2. Follow the setup instructions in [README.md](README.md) (Docker or local development)
-3. Create a branch for your work: `git checkout -b your-branch-name`
+3. Install the pre-commit hooks (see [Pre-commit hooks](#pre-commit-hooks) below)
+4. Create a branch for your work: `git checkout -b your-branch-name`
+
+### Pre-commit hooks
+
+We use [pre-commit](https://pre-commit.com) to run lint, format, type, and secret-scanning checks on every commit. Install it once after cloning:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit install --hook-type pre-push
+```
+
+From then on, the hooks run automatically. To run them against every file in the repo (useful after pulling in large changes):
+
+```bash
+pre-commit run --all-files
+```
+
+The hooks enforce the same rules as CI, so passing them locally means your PR will pass the automated checks.
 
 ## Development Workflow
 
@@ -51,7 +70,7 @@ ruff check --fix .
 ruff format .
 ```
 
-CI runs all of these checks automatically on every PR.
+CI runs all of these checks automatically on every PR, plus a [gitleaks](https://github.com/gitleaks/gitleaks) secret scan. Never commit real API keys, tokens, or passwords. Put them in your local `.env` (which is gitignored) and reference them by name in `.env.example`.
 
 ## Submitting Changes
 
@@ -66,7 +85,10 @@ CI runs all of these checks automatically on every PR.
 1. Push your branch to your fork
 2. Open a pull request against `main`
 3. Fill out the PR template
-4. Wait for review - we'll try to respond within a few days
+4. A maintainer listed in [`.github/CODEOWNERS`](.github/CODEOWNERS) is auto-requested for review
+5. Wait for review, we'll try to respond within a few days
+6. Address review feedback in new commits (don't force-push until after approval, so reviewers can see the diff)
+7. Once approved, a maintainer will squash-merge your PR into `main`
 
 ## Project Structure
 
