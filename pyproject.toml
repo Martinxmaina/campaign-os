@@ -4,7 +4,9 @@ line-length = 120
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
-ignore = ["E501"]
+ignore = [
+    "E501",  # line too long (handled by ruff format)
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["apps", "config"]
