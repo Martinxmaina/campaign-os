@@ -47,6 +47,27 @@ def provision_organization_and_workspace(user):
     user.save(update_fields=["last_workspace_id"])
 
 
+def _set_org_timezone_from_browser(request, user):
+    """Update the user's organization timezone from the browser_timezone cookie."""
+    from urllib.parse import unquote
+    from zoneinfo import available_timezones
+
+    from apps.members.models import OrgMembership
+
+    browser_tz = request.COOKIES.get("browser_timezone", "")
+    # Defensive length cap: IANA timezone names are all under 40 chars.
+    # Reject anything suspiciously long before decoding/validating.
+    if not browser_tz or len(browser_tz) > 64:
+        return
+    browser_tz = unquote(browser_tz)
+    if len(browser_tz) > 64 or browser_tz not in available_timezones():
+        return
+    membership = OrgMembership.objects.filter(user=user).select_related("organization").first()
+    if membership and membership.organization.default_timezone == "UTC":
+        membership.organization.default_timezone = browser_tz
+        membership.organization.save(update_fields=["default_timezone"])
+
+
 @receiver(user_signed_up)
 def create_organization_on_signup(sender, request, user, **kwargs):
     """Handle allauth signup - create org + workspace.
@@ -99,6 +120,9 @@ def create_organization_on_signup(sender, request, user, **kwargs):
     # No invite or invite failed - ensure default provisioning happened.
     # post_save already handled this, so this is a no-op (idempotent guard).
     provision_organization_and_workspace(user)
+
+    # Try to set the organization timezone from the browser cookie set during signup.
+    _set_org_timezone_from_browser(request, user)
 
     # Email signups see ToS text on the signup form, so auto-accept.
     # Social signups (Google OAuth) will be redirected to a dedicated ToS page.
