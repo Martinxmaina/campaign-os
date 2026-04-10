@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from django.db import models
 
@@ -102,7 +103,7 @@ class SocialAccount(models.Model):
         return self.PLATFORM_CHAR_LIMITS.get(self.platform, 2200)
 
     # Platform-specific field configuration (which platforms need extra fields)
-    PLATFORM_FIELD_CONFIG = {
+    PLATFORM_FIELD_CONFIG: dict[str, dict[str, Any]] = {
         "youtube": {
             "needs_title": True,
             "title_max_length": 100,
