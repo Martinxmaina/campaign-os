@@ -101,7 +101,7 @@ All members can view; action buttons shown conditionally based on can_approve pe
                     </div>
                     <a href="{% url 'composer:compose_edit' workspace_id=workspace.id post_id=pp.post_id %}?account={{ pp.social_account_id }}"
                        class="text-sm text-stone-700 hover:text-stone-900 line-clamp-1">
-                        {{ pp.post.caption_snippet|default:"(no caption)" }}
+                        {{ pp.post.title|default:pp.post.caption_snippet|default:"(no caption)" }}
                     </a>
                     <p class="text-xs text-stone-400 mt-0.5">by {{ pp.post.author.display_name|default:"Unknown" }}</p>
                 </div>

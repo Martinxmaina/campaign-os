@@ -66,7 +66,7 @@ Shows all published/partially_published platform posts. Loaded via HTMX into #ta
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-sm text-stone-600 max-w-xs truncate">
-                    {{ pp.post.caption_snippet|default:"(no caption)" }}
+                    {{ pp.post.title|default:pp.post.caption_snippet|default:"(no caption)" }}
                 </td>
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-1.5">
