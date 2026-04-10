@@ -1,9 +1,21 @@
-# Brightbean
+<p align="center">
+  <a href="https://github.com/brightbeanxyz/brightbean-studio">
+    <img src=".github/assets/brightbean-studio-logo.webp" alt="BrightBean Studio" width="280">
+  </a>
+</p>
 
-[![CI](https://github.com/brightbeanxyz/brightbean-studio/actions/workflows/ci.yml/badge.svg)](https://github.com/brightbeanxyz/brightbean-studio/actions/workflows/ci.yml)
-[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
-[![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
-[![Django 5.x](https://img.shields.io/badge/Django-5.x-green.svg)](https://www.djangoproject.com/)
+<p align="center">
+  <strong>Open-source social media management for creators, agencies, and SMBs.</strong>
+</p>
+
+<p align="center">
+  <a href="https://github.com/brightbeanxyz/brightbean-studio/actions/workflows/ci.yml"><img src="https://github.com/brightbeanxyz/brightbean-studio/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-AGPL--3.0-blue.svg" alt="License: AGPL-3.0"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-3.12%2B-blue.svg" alt="Python 3.12+"></a>
+  <a href="https://www.djangoproject.com/"><img src="https://img.shields.io/badge/Django-5.x-green.svg" alt="Django 5.x"></a>
+</p>
+
+---
 
 ## About BrightBean Studio
 
