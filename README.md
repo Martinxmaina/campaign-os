@@ -5,7 +5,46 @@
 [![Python 3.12+](https://img.shields.io/badge/Python-3.12%2B-blue.svg)](https://www.python.org/)
 [![Django 5.x](https://img.shields.io/badge/Django-5.x-green.svg)](https://www.djangoproject.com/)
 
-Open-source, self-hostable social media management platform built for agencies and SMBs. Supports Facebook, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Threads, Bluesky, Google Business Profile, and Mastodon.
+## About BrightBean Studio
+
+BrightBean Studio is an open-source, self-hostable social media management platform built for creators, agencies and SMBs. It does what Sendible, SocialPilot, or ContentStudio do, but free and without per-seat, per-channel, or per-workspace limits. Plan, compose, schedule, approve, publish, and monitor content across Facebook, Instagram, LinkedIn, TikTok, YouTube, Pinterest, Threads, Bluesky, Google Business Profile, and Mastodon from a single multi-workspace dashboard.
+
+It's for people managing many client accounts under one roof who'd rather own their social stack than pay $100–300/month to a SaaS vendor. Every feature is available to every user. No paid tier, no feature gate, no upsell.
+
+You can deploy it with a one-click button on Heroku, Render, or Railway, run it on your own VPS via Docker, or run it locally. All platform integrations talk directly to the official first-party APIs using your own developer credentials, so there's no aggregator middleman, no vendor lock-in, and no third party sitting between you and your data.
+
+## Features
+
+| | |
+|---|---|
+| **Multi-workspace & teams** | Unlimited orgs → workspaces → members. Granular RBAC with custom roles, invitations, and a separate Client role for external collaborators. |
+| **Content composer** | Rich editor with per-platform caption/media overrides, version history, reusable templates, content categories & tags, a Kanban idea board. |
+| **Calendar & scheduling** | Visual calendar with recurring weekly posting slots per account and named queues that auto-assign posts to the next available slot. |
+| **Publishing engine** | Direct first-party API integrations (no aggregator), automatic retries, per-account rate-limit tracking, and a 90-day publish audit log. |
+| **Approval workflows** | Configurable stages (none / optional / internal / internal + client), threaded internal & external comments, reminders, and a full audit trail. |
+| **Unified social inbox** | Comments, mentions, DMs, and reviews from every connected platform in one place, with sentiment analysis, assignments, threaded replies, and historical backfill. |
+| **Media library** | Org- and workspace-scoped libraries with nested folders, auto-generated platform-optimized variants, and alt text. |
+| **Client portal** | Passwordless 30-day magic-link access so clients can approve or reject posts without creating an account. |
+| **Notifications** | In-app, email, and webhook delivery with per-user preferences for every event type. |
+| **Security & ops** | Encrypted token & credential storage, optional 2FA (TOTP), Google/GitHub SSO, Sentry support, and a 7-day reversible org-deletion grace period. |
+| **White-label friendly** | Per-workspace branding (logo, colors) and workspace defaults for hashtags, first comments, and posting templates. |
+
+## Supported Platforms
+
+| Platform | Publish | Comments | DMs | Insights |
+|---|:---:|:---:|:---:|:---:|
+| Facebook | ✓ | ✓ | ✓ | ✓ |
+| Instagram | ✓ | ✓ | ✓ | ✓ |
+| Instagram (Personal) | ✓ | ✓ | ✓ | ✓ |
+| LinkedIn (Personal) | ✓ | ✓ | — | ✓ |
+| LinkedIn (Company) | ✓ | ✓ | — | ✓ |
+| TikTok | ✓ | ✓ | — | ✓ |
+| YouTube | ✓ | ✓ | — | ✓ |
+| Pinterest | ✓ | — | — | ✓ |
+| Threads | ✓ | ✓ | — | ✓ |
+| Bluesky | ✓ | ✓ | — | — |
+| Google Business Profile | ✓ | — | — | ✓ |
+| Mastodon | ✓ | ✓ | — | — |
 
 ### One-Click Deploy
 
@@ -22,7 +61,7 @@ After deploying, set these environment variables in your platform's dashboard:
 | `DATABASE_URL` | Auto-provisioned | PostgreSQL connection string. Set automatically. |
 | `ALLOWED_HOSTS` | Yes | Your app's domain, e.g. `your-app.herokuapp.com` |
 | `APP_URL` | Yes | Full public URL, e.g. `https://your-app.herokuapp.com` |
-| `STORAGE_BACKEND` | No | Set to `s3` for S3/R2 storage. Default: `local`. Heroku, Render, and Railway have ephemeral filesystems — uploaded files are lost on redeploy without S3. |
+| `STORAGE_BACKEND` | No | Set to `s3` for S3/R2 storage. Default: `local`. Heroku, Render, and Railway have ephemeral filesystems, so uploaded files are lost on redeploy without S3. |
 | `S3_ENDPOINT_URL` | If using S3 | S3-compatible endpoint URL |
 | `S3_ACCESS_KEY_ID` | If using S3 | S3 access key |
 | `S3_SECRET_ACCESS_KEY` | If using S3 | S3 secret key |
@@ -148,7 +187,7 @@ python manage.py runserver               # start web server
 python manage.py process_tasks           # start worker
 ```
 
-> **Note:** SQLite is perfect for local development and small deployments. For production or heavy concurrent usage, switch to PostgreSQL.
+> **Note:** SQLite is fine for local development and small deployments. For production or heavy concurrent usage, switch to PostgreSQL.
 
 ## Running Tests
 
@@ -432,20 +471,9 @@ No developer app registration needed. Users connect by entering their Bluesky ha
 
 No developer app registration needed. Brightbean automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
 
-## Inbox Support
+## Inbox: Backfill Historical Messages
 
-| Platform | Fetch Comments | Reply to Comments | DMs |
-|----------|---------------|-------------------|-----|
-| Facebook | Yes | Yes | Yes |
-| Instagram | Yes | Yes | Yes |
-| YouTube | Yes | Yes | No |
-| LinkedIn | Yes | Yes | No |
-| TikTok | Yes | Yes* | No |
-| Mastodon | Yes | Yes | No |
-
-\*TikTok replies require the `comment.list.manage` scope, which must be approved by TikTok.
-
-### Backfill Historical Messages
+See the [Supported Platforms](#supported-platforms) matrix above for per-platform inbox capabilities.
 
 To import historical messages (e.g., from the last 7 days):
 
