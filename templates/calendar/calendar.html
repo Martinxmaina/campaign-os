@@ -259,6 +259,26 @@ function calendarApp() {
     return {
         activeView: '{{ view_type }}',
         draggedPlatformPostId: null,
+        calendarFilters: {
+            status: '{{ active_filters.statuses.0|default:"" }}',
+            channel: '',
+            tag: '{{ active_filters.tags.0|default:"" }}',
+            tz: '{{ display_timezone|default:"UTC" }}',
+        },
+
+        reloadCalendar() {
+            const params = new URLSearchParams();
+            params.set('mode', 'calendar');
+            params.set('view', this.activeView);
+            params.set('date', '{{ target_date|date:"Y-m-d" }}');
+            if (this.calendarFilters.status) params.set('status', this.calendarFilters.status);
+            if (this.calendarFilters.channel) params.set('channel', this.calendarFilters.channel);
+            if (this.calendarFilters.tag) params.set('tag', this.calendarFilters.tag);
+            if (this.calendarFilters.tz) params.set('tz', this.calendarFilters.tz);
+            {% if show_holidays %}params.set('holidays', '1');{% endif %}
+            const url = '{% url "calendar:calendar" workspace_id=workspace.id %}?' + params.toString();
+            htmx.ajax('GET', url, {target: '#calendar-content', swap: 'innerHTML'});
+        },
 
         startDrag(event, platformPostId) {
             this.draggedPlatformPostId = platformPostId;
@@ -278,17 +298,55 @@ function calendarApp() {
 
         dropOnSlot(event, dateStr, hour) {
             event.preventDefault();
-            if (!this.draggedPlatformPostId) return;
+            const platformPostId = this.draggedPlatformPostId;
+            if (!platformPostId) return;
+
+            const chip = document.querySelector(
+                `[data-platform-post-id="${platformPostId}"]`
+            );
+            const targetCell = event.currentTarget;
+            if (!chip || !targetCell) return;
+
+            const originalParent = chip.parentNode;
+            const originalNextSibling = chip.nextSibling;
+
+            // Optimistically move the chip into the target slot so the user
+            // sees the reschedule immediately, with no full grid reload.
+            if (originalParent !== targetCell || originalNextSibling !== null) {
+                targetCell.appendChild(chip);
+            }
+            this.draggedPlatformPostId = null;
 
             const newDatetime = dateStr + 'T' + String(hour).padStart(2, '0') + ':00:00';
 
-            htmx.ajax('POST', '{% url "calendar:reschedule" workspace_id=workspace.id %}', {
-                values: {
-                    platform_post_id: this.draggedPlatformPostId,
-                    new_datetime: newDatetime,
+            const csrfToken =
+                (document.querySelector('[name=csrfmiddlewaretoken]') || {}).value ||
+                (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] ||
+                '';
+
+            const rollback = () => {
+                originalParent.insertBefore(chip, originalNextSibling);
+            };
+
+            fetch('{% url "calendar:reschedule" workspace_id=workspace.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                target: '#calendar-content',
-                swap: 'innerHTML',
+                body: new URLSearchParams({
+                    platform_post_id: platformPostId,
+                    new_datetime: newDatetime,
+                }),
+            }).then((res) => {
+                if (!res.ok) {
+                    rollback();
+                    console.error('Reschedule failed', res.status);
+                }
+            }).catch((err) => {
+                rollback();
+                console.error('Reschedule failed', err);
             });
         }
     };
