@@ -154,3 +154,47 @@ def workspace_settings(request, workspace_id):
             "can_delete": can_delete,
         },
     )
+
+
+@login_required
+@require_http_methods(["GET", "POST"])
+def approvals_settings(request, workspace_id):
+    try:
+        workspace = Workspace.objects.get(id=workspace_id)
+    except Workspace.DoesNotExist:
+        raise Http404 from None
+
+    membership = WorkspaceMembership.objects.filter(user=request.user, workspace=workspace).first()
+    if not membership:
+        raise Http404
+
+    is_owner_or_manager = membership.workspace_role in (
+        WorkspaceMembership.WorkspaceRole.OWNER,
+        WorkspaceMembership.WorkspaceRole.MANAGER,
+    )
+
+    if request.method == "POST":
+        if not is_owner_or_manager:
+            raise Http404
+
+        mode = request.POST.get("approval_workflow_mode", "")
+        valid_modes = Workspace.ApprovalWorkflowMode.values
+        if mode not in valid_modes:
+            messages.error(request, "Invalid approval workflow mode.")
+            return redirect("workspaces:approvals_settings", workspace_id=workspace.id)
+
+        workspace.approval_workflow_mode = mode
+        workspace.save(update_fields=["approval_workflow_mode", "updated_at"])
+        messages.success(request, "Approval workflow updated.")
+        return redirect("workspaces:approvals_settings", workspace_id=workspace.id)
+
+    return render(
+        request,
+        "workspaces/approvals_settings.html",
+        {
+            "workspace": workspace,
+            "settings_active": "approvals",
+            "is_owner_or_manager": is_owner_or_manager,
+            "approval_modes": Workspace.ApprovalWorkflowMode,
+        },
+    )
