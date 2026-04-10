@@ -343,7 +343,7 @@ def compose(request, workspace_id, post_id=None):
 
     # Approval workflow context
     workflow_mode = workspace.approval_workflow_mode
-    show_submit_button = workflow_mode != "none" and not can_publish
+    show_submit_button = workflow_mode != "none"
     show_resubmit_button = post is not None and post.platform_posts.filter(
         status__in=("changes_requested", "rejected")
     ).exists()
