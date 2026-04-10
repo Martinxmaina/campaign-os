@@ -2,7 +2,7 @@
 
 import json
 
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -46,9 +46,19 @@ def portal_dashboard(request):
     """Portal landing page with summary counts and quick links."""
     workspace = request.portal_workspace
 
-    pending_count = Post.objects.for_workspace(workspace.id).filter(status="pending_client").count()
+    pending_count = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(platform_posts__status="pending_client")
+        .distinct()
+        .count()
+    )
 
-    recent_published = Post.objects.for_workspace(workspace.id).filter(status="published").order_by("-published_at")[:5]
+    recent_published = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(platform_posts__status="published")
+        .distinct()
+        .order_by("-published_at")[:5]
+    )
 
     my_actions = ApprovalAction.objects.filter(
         user=request.user,
@@ -80,7 +90,8 @@ def portal_approval_queue(request):
 
     posts = (
         Post.objects.for_workspace(workspace.id)
-        .filter(status="pending_client")
+        .filter(platform_posts__status="pending_client")
+        .distinct()
         .select_related("author")
         .prefetch_related(
             "platform_posts__social_account",
@@ -109,7 +120,9 @@ def portal_approval_queue(request):
 def portal_approve(request, post_id):
     """Approve a post from the client portal."""
     workspace = request.portal_workspace
-    post = get_object_or_404(Post, id=post_id, workspace=workspace, status="pending_client")
+    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+    if not post.platform_posts.filter(status="pending_client").exists():
+        raise Http404
     comment_text = request.POST.get("comment", "")
 
     try:
@@ -130,7 +143,9 @@ def portal_approve(request, post_id):
 def portal_request_changes(request, post_id):
     """Request changes on a post from the client portal."""
     workspace = request.portal_workspace
-    post = get_object_or_404(Post, id=post_id, workspace=workspace, status="pending_client")
+    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+    if not post.platform_posts.filter(status="pending_client").exists():
+        raise Http404
     comment_text = request.POST.get("comment", "")
 
     try:
@@ -153,7 +168,9 @@ def portal_request_changes(request, post_id):
 def portal_reject(request, post_id):
     """Reject a post from the client portal."""
     workspace = request.portal_workspace
-    post = get_object_or_404(Post, id=post_id, workspace=workspace, status="pending_client")
+    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+    if not post.platform_posts.filter(status="pending_client").exists():
+        raise Http404
     comment_text = request.POST.get("comment", "")
 
     try:
@@ -182,7 +199,8 @@ def portal_published(request):
 
     posts = (
         Post.objects.for_workspace(workspace.id)
-        .filter(status="published")
+        .filter(platform_posts__status="published")
+        .distinct()
         .select_related("author")
         .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
         .order_by("-published_at")

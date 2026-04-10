@@ -25,6 +25,12 @@ urlpatterns = [
     # Save actions
     path("compose/save/", views.save_post, name="save_post"),
     path("compose/<uuid:post_id>/save/", views.save_post, name="save_post_edit"),
+    # Per-platform status transition (one PlatformPost at a time)
+    path(
+        "compose/<uuid:post_id>/platform-posts/<uuid:platform_post_id>/transition/",
+        views.transition_platform_post,
+        name="transition_platform_post",
+    ),
     # Auto-save
     path("compose/autosave/", views.autosave, name="autosave"),
     path("compose/<uuid:post_id>/autosave/", views.autosave, name="autosave_edit"),

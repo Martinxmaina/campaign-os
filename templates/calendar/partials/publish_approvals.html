@@ -87,7 +87,7 @@ All members can view; action buttons shown conditionally based on can_approve pe
                 {% endwith %}
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center gap-2 mb-1">
-                        <span class="post-chip status-{{ pp.post.status }} inline-flex">
+                        <span class="post-chip status-{{ pp.status }} inline-flex">
                             <span class="chip-dot"></span>
                             {{ pp.post.get_status_display }}
                         </span>

@@ -1,12 +1,16 @@
 """Publishing Engine - background worker logic (F-2.4).
 
 This module implements the core publish loop:
-1. Poll for posts where scheduled_at <= now() and status = 'scheduled'.
-2. Transition to 'publishing'.
+1. Poll for PlatformPosts where scheduled_at <= now() and status = 'scheduled'.
+2. Transition each due PlatformPost to 'publishing'.
 3. Dispatch platform posts in parallel.
 4. Handle retries with exponential backoff.
 5. Post first comment after 2-minute delay.
-6. Update statuses and log results.
+6. Update per-platform status and log results.
+
+Status is owned entirely by ``PlatformPost`` — the parent ``Post`` exposes an
+aggregate ``status`` property derived from its children (see
+``apps.composer.status``).
 """
 
 import contextlib
@@ -23,7 +27,7 @@ from django.db import transaction
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from apps.composer.models import PlatformPost, Post
+from apps.composer.models import PlatformPost
 from apps.credentials.models import PlatformCredential
 from providers import get_provider
 from providers.types import AuthType, PostType, PublishContent
@@ -79,8 +83,7 @@ class PublishEngine:
         now = timezone.now()
         return list(
             PlatformPost.objects.filter(
-                post__status__in=[Post.Status.SCHEDULED, Post.Status.PUBLISHING],
-                publish_status=PlatformPost.PublishStatus.PENDING,
+                status=PlatformPost.Status.SCHEDULED,
             )
             .annotate(effective_at=Coalesce("scheduled_at", "post__scheduled_at"))
             .filter(effective_at__lte=now)
@@ -89,31 +92,29 @@ class PublishEngine:
         )
 
     def _publish_post_group(self, post, due_pps):
-        """Publish a group of due PlatformPosts belonging to the same Post."""
-        # Transition post and platform posts atomically to prevent duplicate publishing
-        with transaction.atomic():
-            post = Post.objects.select_for_update().get(id=post.id)
-            if post.status not in (Post.Status.SCHEDULED, Post.Status.PUBLISHING):
-                return  # Already terminal
-            if post.status == Post.Status.SCHEDULED:
-                post.transition_to(Post.Status.PUBLISHING)
-                post.save()
+        """Publish a group of due PlatformPosts belonging to the same Post.
 
-            # Re-filter due PPs under lock to avoid double-publishing
+        Grouping is purely an operational optimization (shared media download,
+        shared credential resolution). Status lives on the children — the
+        parent Post is not touched.
+        """
+        # Lock and transition each due child from SCHEDULED → PUBLISHING.
+        with transaction.atomic():
             platform_posts = list(
-                post.platform_posts.select_for_update()
+                PlatformPost.objects.select_for_update()
                 .filter(
+                    post_id=post.id,
                     id__in=[pp.id for pp in due_pps],
-                    publish_status=PlatformPost.PublishStatus.PENDING,
+                    status=PlatformPost.Status.SCHEDULED,
                 )
-                .select_related("social_account")
+                .select_related("social_account", "post__workspace")
             )
 
             if not platform_posts:
                 return
 
             PlatformPost.objects.filter(id__in=[pp.id for pp in platform_posts]).update(
-                publish_status=PlatformPost.PublishStatus.PUBLISHING
+                status=PlatformPost.Status.PUBLISHING
             )
 
         # Publish in parallel
@@ -127,13 +128,14 @@ class PublishEngine:
                 except Exception as e:
                     results[pp.id] = {"success": False, "error": str(e)}
 
-        # Aggregate parent status based on *all* children (not just the group).
-        self._update_parent_post_status(post)
+        # Reflect the aggregate onto Post.published_at so dashboards that
+        # display "last published" don't need to query every child.
+        self._sync_parent_published_at(post)
 
         # Schedule first comments for successful publishes (non-blocking)
         for pp in platform_posts:
             pp.refresh_from_db()
-            if pp.publish_status == PlatformPost.PublishStatus.PUBLISHED:
+            if pp.status == PlatformPost.Status.PUBLISHED:
                 comment_text = pp.effective_first_comment
                 if comment_text:
                     _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
@@ -165,7 +167,7 @@ class PublishEngine:
 
             if result["success"]:
                 platform_post.platform_post_id = result.get("platform_post_id", "")
-                platform_post.publish_status = PlatformPost.PublishStatus.PUBLISHED
+                platform_post.status = PlatformPost.Status.PUBLISHED
                 platform_post.published_at = timezone.now()
                 platform_post.save()
 
@@ -460,7 +462,7 @@ class PublishEngine:
     def _schedule_retry(self, platform_post, error_msg):
         """Schedule a retry with exponential backoff."""
         if platform_post.retry_count >= MAX_RETRIES:
-            platform_post.publish_status = PlatformPost.PublishStatus.FAILED
+            platform_post.status = PlatformPost.Status.FAILED
             platform_post.publish_error = error_msg
             platform_post.save()
             logger.warning(
@@ -474,7 +476,9 @@ class PublishEngine:
         backoff_seconds = RETRY_BACKOFF[min(platform_post.retry_count, len(RETRY_BACKOFF) - 1)]
         platform_post.retry_count += 1
         platform_post.next_retry_at = timezone.now() + timedelta(seconds=backoff_seconds)
-        platform_post.publish_status = PlatformPost.PublishStatus.PENDING
+        # Drop back to SCHEDULED so the next _process_retries tick picks it up
+        # once next_retry_at passes.
+        platform_post.status = PlatformPost.Status.SCHEDULED
         platform_post.publish_error = error_msg
         platform_post.save()
 
@@ -489,7 +493,7 @@ class PublishEngine:
         """Process platform posts that are due for retry."""
         now = timezone.now()
         retry_posts = PlatformPost.objects.filter(
-            publish_status=PlatformPost.PublishStatus.PENDING,
+            status=PlatformPost.Status.SCHEDULED,
             retry_count__gt=0,
             retry_count__lte=MAX_RETRIES,
             next_retry_at__lte=now,
@@ -497,10 +501,11 @@ class PublishEngine:
 
         for pp in retry_posts:
             try:
+                pp.status = PlatformPost.Status.PUBLISHING
+                pp.save(update_fields=["status", "updated_at"])
                 result = self._publish_platform_post(pp)
                 if result.get("success"):
-                    # Check if all platform posts for the parent are now done
-                    self._update_parent_post_status(pp.post)
+                    self._sync_parent_published_at(pp.post)
             except Exception:
                 logger.exception("Error retrying PlatformPost %s", pp.id)
 
@@ -519,33 +524,21 @@ class PublishEngine:
                 },
             )
 
-    def _update_parent_post_status(self, post):
-        """Update parent Post status based on all PlatformPost statuses.
+    def _sync_parent_published_at(self, post):
+        """Reflect the latest child published_at onto the parent Post.
 
-        Waits for pending/publishing siblings - the post only transitions to a
-        terminal state once every child has resolved to published or failed.
+        Status itself lives entirely on PlatformPost now (Post.status is a
+        derived property), but we still maintain ``Post.published_at`` so
+        dashboards/lists that show "last published" don't have to aggregate
+        children at read time.
         """
-        platform_posts = post.platform_posts.all()
-        statuses = set(platform_posts.values_list("publish_status", flat=True))
-
-        # Any child still pending or publishing - stay in PUBLISHING, wait.
-        if "pending" in statuses or "publishing" in statuses:
-            if post.status != Post.Status.PUBLISHING:
-                post.status = Post.Status.PUBLISHING
-                post.save()
-            return
-
-        if statuses == {"published"}:
-            post.status = Post.Status.PUBLISHED
-            post.published_at = timezone.now()
-        elif statuses == {"failed"}:
-            post.status = Post.Status.FAILED
-        elif "published" in statuses and "failed" in statuses:
-            post.status = Post.Status.PARTIALLY_PUBLISHED
-            if not post.published_at:
-                post.published_at = timezone.now()
-
-        post.save()
+        latest = max(
+            (pp.published_at for pp in post.platform_posts.all() if pp.published_at),
+            default=None,
+        )
+        if latest and post.published_at != latest:
+            post.published_at = latest
+            post.save(update_fields=["published_at", "updated_at"])
 
 
 @background(schedule=0)

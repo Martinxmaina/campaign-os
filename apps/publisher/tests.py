@@ -74,9 +74,9 @@ class PublishEngineTest(TestCase):
 
         engine._get_due_platform_posts()
 
-        # First filter: status + publish_status
+        # First filter: editorial status (now lives on PlatformPost itself)
         first_call = mock_objects.filter.call_args_list[0]
-        self.assertIn("publish_status", first_call.kwargs)
+        self.assertIn("status", first_call.kwargs)
         # Second filter (on annotated qs): effective_at__lte
         second_call = mock_qs.filter.call_args_list[0]
         self.assertIn("effective_at__lte", second_call.kwargs)

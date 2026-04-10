@@ -42,29 +42,30 @@ def approval_queue(request, workspace_id):
     workspace = _get_workspace(request, workspace_id)
 
     status_filter = request.GET.get("status", "all")
+    base_filter = {"platform_posts__status__in": ["pending_review", "pending_client"]}
     posts = (
         Post.objects.for_workspace(workspace.id)
-        .filter(status__in=["pending_review", "pending_client"])
+        .filter(**base_filter)
+        .distinct()
         .select_related("author")
         .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
         .order_by("scheduled_at", "-created_at")
     )
 
     if status_filter == "pending_review":
-        posts = posts.filter(status="pending_review")
+        posts = posts.filter(platform_posts__status="pending_review").distinct()
     elif status_filter == "pending_client":
-        posts = posts.filter(status="pending_client")
+        posts = posts.filter(platform_posts__status="pending_client").distinct()
 
-    from django.db.models import Count, Q
+    from apps.composer.models import PlatformPost
 
-    counts = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(status__in=["pending_review", "pending_client"])
-        .aggregate(
-            pending_review_count=Count("id", filter=Q(status="pending_review")),
-            pending_client_count=Count("id", filter=Q(status="pending_client")),
-        )
-    )
+    pp_qs = PlatformPost.objects.filter(post__workspace=workspace)
+    pending_review_count = pp_qs.filter(status="pending_review").values("post_id").distinct().count()
+    pending_client_count = pp_qs.filter(status="pending_client").values("post_id").distinct().count()
+    counts = {
+        "pending_review_count": pending_review_count,
+        "pending_client_count": pending_client_count,
+    }
 
     context = {
         "workspace": workspace,
@@ -103,7 +104,8 @@ def org_approval_queue(request):
     for ws in workspaces:
         pending = (
             Post.objects.for_workspace(ws.id)
-            .filter(status__in=["pending_review", "pending_client"])
+            .filter(platform_posts__status__in=["pending_review", "pending_client"])
+            .distinct()
             .select_related("author")
             .prefetch_related("platform_posts__social_account")
             .order_by("scheduled_at", "-created_at")

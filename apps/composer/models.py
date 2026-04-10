@@ -215,53 +215,14 @@ class Post(models.Model):
     """A piece of content created in the composer.
 
     A Post holds the shared/base content. PlatformPost children hold
-    per-platform overrides. Status flows through a state machine:
-        draft → scheduled → publishing → published / partially_published / failed
-    (With optional approval steps: pending_review, pending_client, approved,
-     changes_requested, rejected.)
+    per-platform overrides **and their own editorial status** — each social
+    account flows through the workflow independently so one platform can be
+    a draft while another is scheduled or already published.
+
+    ``Post.status`` is a derived aggregate over ``platform_posts`` (see
+    ``apps.composer.status.derive_post_status``), kept for list/dashboard
+    rendering and backwards compatibility with existing templates.
     """
-
-    class Status(models.TextChoices):
-        DRAFT = "draft", "Draft"
-        PENDING_REVIEW = "pending_review", "Pending Review"
-        PENDING_CLIENT = "pending_client", "Pending Client"
-        APPROVED = "approved", "Approved"
-        CHANGES_REQUESTED = "changes_requested", "Changes Requested"
-        REJECTED = "rejected", "Rejected"
-        SCHEDULED = "scheduled", "Scheduled"
-        PUBLISHING = "publishing", "Publishing"
-        PUBLISHED = "published", "Published"
-        PARTIALLY_PUBLISHED = "partially_published", "Partially Published"
-        FAILED = "failed", "Failed"
-
-    # Valid state transitions (from → set of allowed targets)
-    VALID_TRANSITIONS = {
-        "draft": {"pending_review", "scheduled", "publishing"},
-        "pending_review": {"approved", "changes_requested", "rejected"},
-        "approved": {"pending_client", "scheduled", "publishing"},
-        "pending_client": {"approved", "changes_requested", "rejected"},
-        "changes_requested": {"pending_review", "draft"},
-        "rejected": {"draft", "pending_review"},
-        "scheduled": {"publishing", "draft"},
-        "publishing": {"published", "partially_published", "failed"},
-        "partially_published": {"publishing"},  # manual retry
-        "failed": {"publishing", "draft"},  # retry or revert to draft
-    }
-
-    # Status badge colors for calendar display
-    STATUS_COLORS = {
-        "draft": "gray",
-        "pending_review": "orange",
-        "pending_client": "amber",
-        "approved": "teal",
-        "changes_requested": "orange",
-        "rejected": "red",
-        "scheduled": "blue",
-        "publishing": "indigo",
-        "published": "green",
-        "partially_published": "yellow",
-        "failed": "red",
-    }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey(
@@ -291,15 +252,7 @@ class Post(models.Model):
         related_name="posts",
     )
 
-    # Status
-    status = models.CharField(
-        max_length=30,
-        choices=Status.choices,
-        default=Status.DRAFT,
-        db_index=True,
-    )
-
-    # Scheduling
+    # Scheduling (default when a PlatformPost doesn't set its own scheduled_at)
     scheduled_at = models.DateTimeField(blank=True, null=True, db_index=True)
     published_at = models.DateTimeField(blank=True, null=True)
 
@@ -312,34 +265,31 @@ class Post(models.Model):
     class Meta:
         db_table = "composer_post"
         ordering = ["-created_at"]
-        indexes = [
-            models.Index(fields=["status", "scheduled_at"], name="idx_post_status_sched"),
-            models.Index(fields=["workspace", "status"], name="idx_post_ws_status"),
-        ]
 
     def __str__(self):
         snippet = (self.caption[:50] + "...") if len(self.caption) > 50 else self.caption
         return f"Post({self.status}): {snippet or '(no caption)'}"
 
-    def can_transition_to(self, new_status):
-        """Check if a status transition is valid."""
-        allowed = self.VALID_TRANSITIONS.get(self.status, set())
-        return new_status in allowed
+    # ------------------------------------------------------------------
+    # Derived status (aggregated across PlatformPost children)
+    # ------------------------------------------------------------------
 
-    def transition_to(self, new_status):
-        """Transition to a new status, raising ValueError if invalid."""
-        if not self.can_transition_to(new_status):
-            raise ValueError(
-                f"Invalid status transition: {self.status} → {new_status}. "
-                f"Allowed: {self.VALID_TRANSITIONS.get(self.status, set())}"
-            )
-        self.status = new_status
-        if new_status == "published":
-            self.published_at = timezone.now()
+    @property
+    def status(self):
+        from .status import derive_post_status
+
+        # Use prefetch-friendly iteration so list/grid views don't trigger an
+        # extra query per post when ``platform_posts`` is already prefetched.
+        statuses = [pp.status for pp in self.platform_posts.all()]
+        return derive_post_status(statuses)
+
+    def get_status_display(self):
+        """Human label mirroring the old Django-generated method."""
+        return dict(PlatformPost.Status.choices).get(self.status, self.status)
 
     @property
     def status_color(self):
-        return self.STATUS_COLORS.get(self.status, "gray")
+        return PlatformPost.STATUS_COLORS.get(self.status, "gray")
 
     @property
     def is_editable(self):
@@ -373,15 +323,53 @@ class Post(models.Model):
 class PlatformPost(models.Model):
     """A per-platform variant of a Post.
 
-    Created for each selected social account when composing. Holds
-    optional caption/media overrides and tracks per-platform publish state.
+    Created for each selected social account when composing. Holds optional
+    caption/media overrides and — crucially — owns its own editorial status,
+    so each social account flows through the workflow independently.
     """
 
-    class PublishStatus(models.TextChoices):
-        PENDING = "pending", "Pending"
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Draft"
+        PENDING_REVIEW = "pending_review", "Pending Review"
+        PENDING_CLIENT = "pending_client", "Pending Client"
+        APPROVED = "approved", "Approved"
+        CHANGES_REQUESTED = "changes_requested", "Changes Requested"
+        REJECTED = "rejected", "Rejected"
+        SCHEDULED = "scheduled", "Scheduled"
         PUBLISHING = "publishing", "Publishing"
         PUBLISHED = "published", "Published"
         FAILED = "failed", "Failed"
+
+    # Valid state transitions (from → set of allowed targets). Mirrors the old
+    # Post-level state machine minus ``partially_published`` — that concept
+    # only applies at the aggregate/Post level and is produced by
+    # ``derive_post_status``.
+    VALID_TRANSITIONS = {
+        "draft": {"pending_review", "scheduled", "publishing"},
+        "pending_review": {"approved", "changes_requested", "rejected"},
+        "approved": {"pending_client", "scheduled", "publishing", "draft"},
+        "pending_client": {"approved", "changes_requested", "rejected"},
+        "changes_requested": {"pending_review", "draft"},
+        "rejected": {"draft", "pending_review"},
+        "scheduled": {"publishing", "draft"},
+        "publishing": {"published", "failed", "scheduled"},  # scheduled = retry
+        "failed": {"publishing", "draft", "scheduled"},
+        "published": set(),  # terminal
+    }
+
+    STATUS_COLORS = {
+        "draft": "gray",
+        "pending_review": "orange",
+        "pending_client": "amber",
+        "approved": "teal",
+        "changes_requested": "orange",
+        "rejected": "red",
+        "scheduled": "blue",
+        "publishing": "indigo",
+        "published": "green",
+        "partially_published": "yellow",  # only used by Post-level aggregate
+        "failed": "red",
+    }
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     post = models.ForeignKey(
@@ -410,17 +398,18 @@ class PlatformPost(models.Model):
         help_text="Per-platform metadata (privacy, tags, thumbnail_asset_id, etc.)",
     )
 
-    # Publishing state
+    # Editorial + publishing state
+    status = models.CharField(
+        max_length=30,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        db_index=True,
+    )
     platform_post_id = models.CharField(
         max_length=255,
         blank=True,
         default="",
         help_text="The post ID on the platform after publishing.",
-    )
-    publish_status = models.CharField(
-        max_length=20,
-        choices=PublishStatus.choices,
-        default=PublishStatus.PENDING,
     )
     publish_error = models.TextField(blank=True, default="")
     published_at = models.DateTimeField(blank=True, null=True)
@@ -441,13 +430,51 @@ class PlatformPost(models.Model):
         unique_together = [("post", "social_account")]
         indexes = [
             models.Index(
-                fields=["publish_status", "scheduled_at"],
+                fields=["status", "scheduled_at"],
                 name="idx_pp_status_sched",
             ),
         ]
 
     def __str__(self):
-        return f"PlatformPost({self.social_account.platform}): {self.publish_status}"
+        return f"PlatformPost({self.social_account.platform}): {self.status}"
+
+    # ------------------------------------------------------------------
+    # State machine
+    # ------------------------------------------------------------------
+
+    def can_transition_to(self, new_status):
+        """Check if a status transition is valid."""
+        allowed = self.VALID_TRANSITIONS.get(self.status, set())
+        return new_status in allowed
+
+    def transition_to(self, new_status):
+        """Transition to a new status, raising ValueError if invalid."""
+        if not self.can_transition_to(new_status):
+            raise ValueError(
+                f"Invalid status transition: {self.status} → {new_status}. "
+                f"Allowed: {self.VALID_TRANSITIONS.get(self.status, set())}"
+            )
+        self.status = new_status
+        if new_status == "published":
+            self.published_at = timezone.now()
+
+    @property
+    def status_color(self):
+        return self.STATUS_COLORS.get(self.status, "gray")
+
+    @property
+    def is_editable(self):
+        return self.status in (
+            "draft",
+            "changes_requested",
+            "rejected",
+            "approved",
+            "scheduled",
+        )
+
+    @property
+    def is_schedulable(self):
+        return self.status in ("draft", "approved")
 
     @property
     def effective_title(self):
@@ -485,6 +512,12 @@ class PlatformPost(models.Model):
     @property
     def is_over_limit(self):
         return self.caption_length > self.char_limit
+
+
+# Backwards-compat alias: lots of existing code imports ``Post.Status.DRAFT`` /
+# iterates ``Post.Status.choices`` to build filter UIs. The enum lives on
+# PlatformPost now; re-expose it on Post so callers don't need updating.
+Post.Status = PlatformPost.Status
 
 
 class PostMedia(models.Model):

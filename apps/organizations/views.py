@@ -225,10 +225,10 @@ def cross_workspace_calendar(request):
     if tag:
         base_pps = base_pps.filter(post__tags__contains=[tag])
 
-    # Status filter
+    # Status filter — editorial status now lives on the PlatformPost itself.
     status = request.GET.get("status")
     if status:
-        base_pps = base_pps.filter(post__status=status)
+        base_pps = base_pps.filter(status=status)
 
     # Workspace colors for legend
     workspace_colors = {}

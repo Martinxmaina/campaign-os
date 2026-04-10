@@ -74,7 +74,6 @@ def generate_recurring_posts():
                 internal_notes=source.internal_notes,
                 tags=source.tags,
                 category=source.category,
-                status="scheduled",
                 scheduled_at=scheduled_dt,
             )
 
@@ -98,6 +97,7 @@ def generate_recurring_posts():
                             platform_specific_first_comment=pp.platform_specific_first_comment,
                             platform_specific_media=pp.platform_specific_media,
                             scheduled_at=pp_scheduled,
+                            status="scheduled",
                         )
                     )
                 PlatformPost.objects.bulk_create(new_pps)

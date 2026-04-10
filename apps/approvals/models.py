@@ -28,6 +28,15 @@ class ApprovalAction(models.Model):
         on_delete=models.CASCADE,
         related_name="approval_actions",
     )
+    # Optional pointer to the specific PlatformPost the action targeted. Null
+    # means the action was bundled at the Post level (all platforms at once).
+    platform_post = models.ForeignKey(
+        "composer.PlatformPost",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="approval_actions",
+    )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

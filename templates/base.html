@@ -624,7 +624,7 @@
                     </a>
                 </div>
                 {% for channel in sidebar_channels %}
-                <a href="{% url 'social_accounts:list' workspace_id=request.workspace.id %}" class="sidebar-nav-item">
+                <a href="{% url 'social_accounts:list' workspace_id=request.workspace.id %}" class="sidebar-nav-item" title="{{ channel.queued_post_count|default:0 }} upcoming post{{ channel.queued_post_count|default:0|pluralize }} in the queue for {{ channel.account_name }}">
                     <div class="relative flex-shrink-0">
                         {% if channel.avatar_url %}
                         <img src="{{ channel.avatar_url }}" alt="" class="w-7 h-7 rounded-full object-cover">
@@ -636,7 +636,7 @@
                         </div>
                     </div>
                     <span class="sidebar-nav-label truncate">{{ channel.account_name }}</span>
-                    <span class="sidebar-badge">0</span>
+                    <span class="sidebar-badge">{{ channel.queued_post_count|default:0 }}</span>
                 </a>
                 {% endfor %}
                 {% endif %}
@@ -800,7 +800,7 @@
                     {% endfor %}
                 </div>
                 {% endif %}
-                <div class="flex-1 min-h-0 flex flex-col overflow-y-auto">
+                <div class="flex-1 min-h-0 flex flex-col overflow-y-auto overflow-x-hidden">
                 {% block content %}{% endblock %}
                 </div>
             </main>

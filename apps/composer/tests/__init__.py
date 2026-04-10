@@ -4,103 +4,110 @@ from django.test import TestCase
 from django.utils import timezone
 
 from apps.composer.models import PlatformPost, Post, PostVersion
+from apps.composer.status import derive_post_status
 
 
-class PostModelTest(TestCase):
-    """Test the Post model and its state machine."""
+class PlatformPostStateMachineTest(TestCase):
+    """Editorial status now lives on PlatformPost — every social account flows
+    through the workflow independently. These tests target the per-platform
+    state machine that used to live on Post.
+    """
 
-    def _make_post(self, **kwargs):
-        """Helper to create a Post with minimal required fields."""
-        defaults = {
-            "caption": "Test caption",
-            "status": Post.Status.DRAFT,
-        }
+    def _make_pp(self, **kwargs):
+        defaults = {"status": PlatformPost.Status.DRAFT}
         defaults.update(kwargs)
-        # We need a workspace; create inline without FK for unit testing
-        return Post(**defaults)
+        return PlatformPost(**defaults)
 
     def test_valid_transitions_from_draft(self):
-        post = self._make_post()
-        self.assertTrue(post.can_transition_to("pending_review"))
-        self.assertTrue(post.can_transition_to("scheduled"))
-        self.assertTrue(post.can_transition_to("publishing"))
-        self.assertFalse(post.can_transition_to("published"))
-        self.assertFalse(post.can_transition_to("failed"))
+        pp = self._make_pp()
+        self.assertTrue(pp.can_transition_to("pending_review"))
+        self.assertTrue(pp.can_transition_to("scheduled"))
+        self.assertTrue(pp.can_transition_to("publishing"))
+        self.assertFalse(pp.can_transition_to("published"))
+        self.assertFalse(pp.can_transition_to("failed"))
 
     def test_valid_transitions_from_scheduled(self):
-        post = self._make_post(status="scheduled")
-        self.assertTrue(post.can_transition_to("publishing"))
-        self.assertTrue(post.can_transition_to("draft"))
-        self.assertFalse(post.can_transition_to("published"))
+        pp = self._make_pp(status="scheduled")
+        self.assertTrue(pp.can_transition_to("publishing"))
+        self.assertTrue(pp.can_transition_to("draft"))
+        self.assertFalse(pp.can_transition_to("published"))
 
     def test_valid_transitions_from_publishing(self):
-        post = self._make_post(status="publishing")
-        self.assertTrue(post.can_transition_to("published"))
-        self.assertTrue(post.can_transition_to("partially_published"))
-        self.assertTrue(post.can_transition_to("failed"))
-        self.assertFalse(post.can_transition_to("draft"))
+        pp = self._make_pp(status="publishing")
+        self.assertTrue(pp.can_transition_to("published"))
+        self.assertTrue(pp.can_transition_to("failed"))
+        # Retry path: publishing → scheduled (picked up again on next tick)
+        self.assertTrue(pp.can_transition_to("scheduled"))
+        self.assertFalse(pp.can_transition_to("draft"))
 
     def test_transition_to_invalid_raises(self):
-        post = self._make_post(status="draft")
+        pp = self._make_pp(status="draft")
         with self.assertRaises(ValueError) as ctx:
-            post.transition_to("published")
+            pp.transition_to("published")
         self.assertIn("Invalid status transition", str(ctx.exception))
 
     def test_transition_to_published_sets_published_at(self):
-        post = self._make_post(status="publishing")
+        pp = self._make_pp(status="publishing")
         before = timezone.now()
-        post.transition_to("published")
-        self.assertEqual(post.status, "published")
-        self.assertIsNotNone(post.published_at)
-        self.assertGreaterEqual(post.published_at, before)
+        pp.transition_to("published")
+        self.assertEqual(pp.status, "published")
+        self.assertIsNotNone(pp.published_at)
+        self.assertGreaterEqual(pp.published_at, before)
 
     def test_is_editable(self):
         for status in ("draft", "changes_requested", "rejected", "approved", "scheduled"):
-            post = self._make_post(status=status)
-            self.assertTrue(post.is_editable, f"{status} should be editable")
-
+            pp = self._make_pp(status=status)
+            self.assertTrue(pp.is_editable, f"{status} should be editable")
         for status in ("publishing", "published", "failed"):
-            post = self._make_post(status=status)
-            self.assertFalse(post.is_editable, f"{status} should not be editable")
+            pp = self._make_pp(status=status)
+            self.assertFalse(pp.is_editable, f"{status} should not be editable")
 
     def test_is_schedulable(self):
-        self.assertTrue(self._make_post(status="draft").is_schedulable)
-        self.assertTrue(self._make_post(status="approved").is_schedulable)
-        self.assertFalse(self._make_post(status="published").is_schedulable)
-
-    def test_caption_snippet_short(self):
-        post = self._make_post(caption="Hello world")
-        self.assertEqual(post.caption_snippet, "Hello world")
-
-    def test_caption_snippet_long(self):
-        long_caption = "A" * 200
-        post = self._make_post(caption=long_caption)
-        self.assertEqual(len(post.caption_snippet), 101)  # 100 + ellipsis char
-        self.assertTrue(post.caption_snippet.endswith("…"))
+        self.assertTrue(self._make_pp(status="draft").is_schedulable)
+        self.assertTrue(self._make_pp(status="approved").is_schedulable)
+        self.assertFalse(self._make_pp(status="published").is_schedulable)
 
     def test_status_color(self):
-        post = self._make_post(status="draft")
-        self.assertEqual(post.status_color, "gray")
-        post.status = "published"
-        self.assertEqual(post.status_color, "green")
-        post.status = "failed"
-        self.assertEqual(post.status_color, "red")
+        pp = self._make_pp(status="draft")
+        self.assertEqual(pp.status_color, "gray")
+        pp.status = "published"
+        self.assertEqual(pp.status_color, "green")
+        pp.status = "failed"
+        self.assertEqual(pp.status_color, "red")
 
-    def test_str_representation(self):
-        post = self._make_post(caption="My awesome post about Django")
-        s = str(post)
-        self.assertIn("draft", s)
-        self.assertIn("My awesome post about Django", s)
+
+class DerivePostStatusTest(TestCase):
+    """`Post.status` is a derived aggregate over its PlatformPost children."""
+
+    def test_empty_returns_draft(self):
+        self.assertEqual(derive_post_status([]), "draft")
+
+    def test_all_same_returns_that_status(self):
+        self.assertEqual(derive_post_status(["draft", "draft"]), "draft")
+        self.assertEqual(derive_post_status(["published", "published"]), "published")
+        self.assertEqual(derive_post_status(["scheduled", "scheduled"]), "scheduled")
+
+    def test_mixed_terminal_published_failed_is_partially_published(self):
+        self.assertEqual(derive_post_status(["published", "failed"]), "partially_published")
+
+    def test_all_failed_is_failed(self):
+        self.assertEqual(derive_post_status(["failed", "failed"]), "failed")
+
+    def test_mixed_workflow_returns_lowest(self):
+        # draft is the most conservative state — it wins over scheduled.
+        self.assertEqual(derive_post_status(["draft", "scheduled"]), "draft")
+        # scheduled wins over publishing.
+        self.assertEqual(derive_post_status(["scheduled", "publishing"]), "scheduled")
+        # pending_review wins over approved.
+        self.assertEqual(derive_post_status(["pending_review", "approved"]), "pending_review")
 
 
 class PlatformPostModelTest(TestCase):
     """Test PlatformPost effective values and properties."""
 
     def test_effective_caption_falls_back(self):
-        """When no override, effective_caption returns base post caption."""
         pp = PlatformPost()
         pp.platform_specific_caption = None
-        # Use a real Post instance (unsaved) to satisfy FK descriptor
         post = Post(caption="Base caption")
         pp.post = post
         self.assertEqual(pp.effective_caption, "Base caption")

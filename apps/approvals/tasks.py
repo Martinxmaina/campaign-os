@@ -48,10 +48,14 @@ def _process_stage(stage, status, threshold_hours, now):
     """Process reminders for a specific approval stage."""
     threshold = now - timedelta(hours=threshold_hours)
 
-    stalled_posts = Post.objects.filter(
-        status=status,
-        updated_at__lte=threshold,
-    ).select_related("workspace", "author")
+    stalled_posts = (
+        Post.objects.filter(
+            platform_posts__status=status,
+            updated_at__lte=threshold,
+        )
+        .distinct()
+        .select_related("workspace", "author")
+    )
 
     for post in stalled_posts:
         reminder, created = ApprovalReminder.objects.get_or_create(

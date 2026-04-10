@@ -355,7 +355,9 @@ class IdeaMediaFlowsTests(TestCase):
         post = Post.objects.get(id=payload["post_id"])
         idea.refresh_from_db()
 
-        self.assertEqual(post.status, Post.Status.DRAFT)
+        # Newly-created idea posts have no platform posts yet, so the derived
+        # status defaults to "draft".
+        self.assertEqual(post.status, "draft")
         self.assertEqual(post.title, idea.title)
         self.assertEqual(post.caption, idea.description)
         self.assertEqual(post.tags, idea.tags)

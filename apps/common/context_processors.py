@@ -1,5 +1,7 @@
 """Context processors for sidebar and global template data."""
 
+from django.db.models import Count, Q
+
 
 def sidebar_context(request):
     """Inject sidebar data into every template context.
@@ -33,9 +35,17 @@ def sidebar_context(request):
     workspace = getattr(request, "workspace", None)
 
     if workspace:
+        from apps.composer.models import PlatformPost
+
         sidebar_channels = list(
             SocialAccount.objects.for_workspace(workspace.id)
             .filter(connection_status=SocialAccount.ConnectionStatus.CONNECTED)
+            .annotate(
+                queued_post_count=Count(
+                    "platform_posts",
+                    filter=Q(platform_posts__status=PlatformPost.Status.SCHEDULED),
+                )
+            )
             .order_by("platform", "account_name")
         )
 
@@ -60,10 +70,16 @@ def sidebar_context(request):
     # Pending approval count for badge
     sidebar_pending_approvals = 0
     if workspace:
-        from apps.composer.models import Post
+        from apps.composer.models import PlatformPost
 
         sidebar_pending_approvals = (
-            Post.objects.for_workspace(workspace.id).filter(status__in=["pending_review", "pending_client"]).count()
+            PlatformPost.objects.filter(
+                post__workspace_id=workspace.id,
+                status__in=["pending_review", "pending_client"],
+            )
+            .values("post_id")
+            .distinct()
+            .count()
         )
 
     # Idea columns and tags for the quick-create modal in the sidebar

@@ -55,8 +55,14 @@ def _get_workspace(request, workspace_id):
     return workspace
 
 
-def _sync_platform_posts(request, post, workspace):
-    """Sync platform post selections from form data."""
+def _sync_platform_posts(request, post, workspace, initial_status=None):
+    """Sync platform post selections from form data.
+
+    When ``initial_status`` is given, newly-created PlatformPost rows are
+    initialised to that status (e.g. ``"draft"``, ``"scheduled"``,
+    ``"pending_review"``). Existing rows are not touched here — call
+    ``_transition_post_children`` separately if you want to move them.
+    """
     selected_ids_str = request.POST.get("selected_accounts", "")
     selected_ids = [s.strip() for s in selected_ids_str.split(",") if s.strip()]
     post.platform_posts.exclude(social_account_id__in=selected_ids).delete()
@@ -65,9 +71,13 @@ def _sync_platform_posts(request, post, workspace):
             account = SocialAccount.objects.get(id=acc_id, workspace=workspace)
         except SocialAccount.DoesNotExist:
             continue
+        defaults = {}
+        if initial_status:
+            defaults["status"] = initial_status
         pp, _created = PlatformPost.objects.get_or_create(
             post=post,
             social_account=account,
+            defaults=defaults,
         )
         override_title = request.POST.get(f"override_title_{acc_id}", "").strip()
         override_caption = request.POST.get(f"override_caption_{acc_id}", "").strip()
@@ -334,7 +344,9 @@ def compose(request, workspace_id, post_id=None):
     # Approval workflow context
     workflow_mode = workspace.approval_workflow_mode
     show_submit_button = workflow_mode != "none" and not can_publish
-    show_resubmit_button = post is not None and post.status in ("changes_requested", "rejected")
+    show_resubmit_button = post is not None and post.platform_posts.filter(
+        status__in=("changes_requested", "rejected")
+    ).exists()
 
     # Approval history and comments for existing posts
     approval_history = []
@@ -427,6 +439,51 @@ def compose(request, workspace_id, post_id=None):
     return render(request, "composer/compose.html", context)
 
 
+def _transition_post_children(post, target, *, allow_via_draft=True, only=None):
+    """Transition every (or selected) PlatformPost child of *post* to *target*.
+
+    Returns ``(moved, skipped)`` lists of PlatformPost instances. Children
+    already in the target state are left alone (counted as moved). For states
+    that don't allow a direct transition, an intermediate hop through
+    ``draft`` is attempted when ``allow_via_draft`` is True.
+
+    ``only`` may be an iterable of PlatformPost IDs to restrict the operation
+    to a subset of children.
+    """
+    children = post.platform_posts.all()
+    if only is not None:
+        only_ids = {str(x) for x in only}
+        children = [pp for pp in children if str(pp.id) in only_ids]
+    moved, skipped = [], []
+    for pp in children:
+        if pp.status == target:
+            moved.append(pp)
+            continue
+        try:
+            if pp.can_transition_to(target):
+                pp.transition_to(target)
+            elif allow_via_draft and pp.can_transition_to("draft") and "draft" != target:
+                pp.transition_to("draft")
+                if pp.can_transition_to(target):
+                    pp.transition_to(target)
+                else:
+                    skipped.append(pp)
+                    continue
+            else:
+                skipped.append(pp)
+                continue
+            pp.save(update_fields=["status", "published_at", "updated_at"])
+            moved.append(pp)
+        except ValueError:
+            skipped.append(pp)
+    return moved, skipped
+
+
+def _platform_status_map(post):
+    """Return ``{platform_post_id: status}`` for HTMX response headers."""
+    return {str(pp.id): pp.status for pp in post.platform_posts.all()}
+
+
 @login_required
 @require_permission("create_posts")
 @require_POST
@@ -454,7 +511,12 @@ def save_post(request, workspace_id, post_id=None):
     if not post_id:
         post.author = request.user
 
-    # Handle action
+    # Handle action — note that Post itself no longer carries an editorial
+    # status: every transition below operates on the PlatformPost children,
+    # which is why we sync those before/after running it.
+    pending_target = None  # what to transition existing children to after sync
+    initial_status = "draft"  # default status for newly created PlatformPosts
+
     if action == "schedule":
         sched_date = form.cleaned_data.get("scheduled_date")
         sched_time = form.cleaned_data.get("scheduled_time")
@@ -474,18 +536,8 @@ def save_post(request, workspace_id, post_id=None):
             # Propagate the manually chosen time to every PlatformPost so all
             # selected platforms publish at the same moment.
             post._schedule_propagate_dt = aware_dt  # handled after post.save()
-            # Transition to scheduled (with fallback through draft for states like
-            # changes_requested, rejected, failed that can't go directly).
-            if post.status != "scheduled":
-                if not post.can_transition_to("scheduled"):
-                    if post.can_transition_to("draft"):
-                        post.transition_to("draft")
-                    else:
-                        return JsonResponse(
-                            {"errors": {"status": f"Cannot schedule a post in '{post.get_status_display()}' status."}},
-                            status=400,
-                        )
-                post.transition_to("scheduled")
+            pending_target = "scheduled"
+            initial_status = "scheduled"
         else:
             return JsonResponse({"errors": {"schedule": "Date and time required."}}, status=400)
     elif action == "publish_now":
@@ -497,18 +549,8 @@ def save_post(request, workspace_id, post_id=None):
         now_dt = timezone.now()
         post.scheduled_at = now_dt
         post._schedule_propagate_dt = now_dt  # handled after post.save()
-        # Transition to scheduled so the worker picks it up (scheduled_at <= now).
-        # Skip if already scheduled/publishing — the worker already handles these.
-        if post.status not in ("scheduled", "publishing"):
-            if not post.can_transition_to("scheduled"):
-                if post.can_transition_to("draft"):
-                    post.transition_to("draft")
-                else:
-                    return JsonResponse(
-                        {"errors": {"status": f"Cannot publish a post in '{post.get_status_display()}' status."}},
-                        status=400,
-                    )
-            post.transition_to("scheduled")
+        pending_target = "scheduled"
+        initial_status = "scheduled"
     elif action == "add_to_queue":
         from apps.calendar.services import add_to_queue
 
@@ -516,12 +558,10 @@ def save_post(request, workspace_id, post_id=None):
         queues = _resolve_queues_for_post(queue_id, workspace, request.POST)
         if not queues:
             return JsonResponse({"errors": {"queue": "No active queue found for the selected channel."}}, status=400)
-        if not post.status or post.status in ("", "draft"):
-            post.status = "draft"
         post.save()
         # Ensure PlatformPost rows exist for every selected account before the
         # queue service writes per-platform scheduled_at values.
-        _sync_platform_posts(request, post, workspace)
+        _sync_platform_posts(request, post, workspace, initial_status="draft")
         for q in queues:
             add_to_queue(post, q)
         # If opened from a specific calendar day (month/week/day "+" CTA), each
@@ -529,16 +569,15 @@ def save_post(request, workspace_id, post_id=None):
         floor_date = form.cleaned_data.get("scheduled_date")
         if floor_date:
             _reassign_queue_slots_from_floor(queues, post, floor_date, workspace)
-        # Transition post.status to scheduled now that at least one platform is scheduled
-        if post.scheduled_at and post.status == "draft" and post.can_transition_to("scheduled"):
-            post.transition_to("scheduled")
-            post.save(update_fields=["status", "updated_at"])
+        # Transition every child whose scheduled_at was filled in to "scheduled".
+        _transition_post_children(post, "scheduled")
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(
                 status=204,
                 headers={
                     "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
+                    "X-Platform-Statuses": json.dumps(_platform_status_map(post)),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
@@ -549,31 +588,26 @@ def save_post(request, workspace_id, post_id=None):
         queues = _resolve_queues_for_post(queue_id, workspace, request.POST)
         if not queues:
             return JsonResponse({"errors": {"queue": "No active queue found for the selected channel."}}, status=400)
-        if not post.status or post.status in ("", "draft"):
-            post.status = "draft"
         post.save()
-        _sync_platform_posts(request, post, workspace)
+        _sync_platform_posts(request, post, workspace, initial_status="draft")
         for q in queues:
             add_to_queue(post, q, priority=True)
-        if post.scheduled_at and post.status == "draft" and post.can_transition_to("scheduled"):
-            post.transition_to("scheduled")
-            post.save(update_fields=["status", "updated_at"])
+        _transition_post_children(post, "scheduled")
         _save_version(post, request.user)
         if request.htmx:
             return HttpResponse(
                 status=204,
                 headers={
                     "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
+                    "X-Platform-Statuses": json.dumps(_platform_status_map(post)),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     elif action == "submit_for_approval":
         # Save post first so it has a PK, then delegate to approval service
-        if not post.status or post.status in ("", "draft"):
-            post.status = "draft"
         post.save()
         # Sync platform posts before submitting
-        _sync_platform_posts(request, post, workspace)
+        _sync_platform_posts(request, post, workspace, initial_status="draft")
         _save_version(post, request.user)
         from apps.approvals.services import submit_for_review
 
@@ -583,13 +617,14 @@ def save_post(request, workspace_id, post_id=None):
                 status=204,
                 headers={
                     "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
+                    "X-Platform-Statuses": json.dumps(_platform_status_map(post)),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
     elif action == "resubmit_for_approval":
         # Resubmit after changes requested or rejection
         post.save()
-        _sync_platform_posts(request, post, workspace)
+        _sync_platform_posts(request, post, workspace, initial_status="draft")
         _save_version(post, request.user)
         from apps.approvals.services import resubmit_post
 
@@ -599,13 +634,12 @@ def save_post(request, workspace_id, post_id=None):
                 status=204,
                 headers={
                     "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
+                    "X-Platform-Statuses": json.dumps(_platform_status_map(post)),
                 },
             )
         return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
-    else:
-        # save_draft - keep as draft
-        if not post.status or post.status in ("", "draft"):
-            post.status = "draft"
+    # else: save_draft — leave children as-is for existing posts; new children
+    # default to draft via initial_status above.
 
     post.save()
 
@@ -661,14 +695,21 @@ def save_post(request, workspace_id, post_id=None):
             },
         )
 
-    # Sync platform posts
-    _sync_platform_posts(request, post, workspace)
+    # Sync platform posts (newly-created rows inherit ``initial_status`` for
+    # this action — e.g. "scheduled" for schedule/publish_now, "draft" for
+    # save_draft).
+    _sync_platform_posts(request, post, workspace, initial_status=initial_status)
 
     # Propagate manually-chosen schedule/publish_now datetimes to every
     # PlatformPost now that they exist.
     propagate_dt = getattr(post, "_schedule_propagate_dt", None)
     if propagate_dt is not None:
         post.platform_posts.update(scheduled_at=propagate_dt)
+
+    # Move existing children to the requested target state (no-op for
+    # save_draft — children that are already mid-workflow stay put).
+    if pending_target:
+        _transition_post_children(post, pending_target)
 
     # Save version
     _save_version(post, request.user)
@@ -686,10 +727,51 @@ def save_post(request, workspace_id, post_id=None):
                         }
                     }
                 ),
+                "X-Platform-Statuses": json.dumps(_platform_status_map(post)),
             },
         )
 
     return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+
+
+@login_required
+@require_POST
+def transition_platform_post(request, workspace_id, post_id, platform_post_id):
+    """Transition a single PlatformPost to a target editorial status.
+
+    Used by the composer's per-account chip menu so the user can take a single
+    social account in/out of draft, schedule, etc. without affecting siblings.
+    Permission rules mirror save_post: ``approve_posts`` is required for any
+    approval-stage target; ``publish_directly`` is required for scheduled.
+    """
+    workspace = _get_workspace(request, workspace_id)
+    pp = get_object_or_404(
+        PlatformPost.objects.select_related("post", "social_account"),
+        id=platform_post_id,
+        post_id=post_id,
+        post__workspace=workspace,
+    )
+    target = (request.POST.get("target_status") or "").strip()
+    if not target:
+        return JsonResponse({"error": "target_status required"}, status=400)
+
+    membership = request.workspace_membership
+    perms = membership.effective_permissions if membership else {}
+    approval_states = {"approved", "pending_review", "pending_client", "changes_requested", "rejected"}
+    if target in ("scheduled", "publishing") and not perms.get("publish_directly", False):
+        raise PermissionDenied("You do not have permission to schedule this post.")
+    if target in approval_states and not perms.get("approve_posts", False) and target != "pending_review":
+        raise PermissionDenied("You do not have permission to make approval decisions.")
+
+    if pp.status == target:
+        return JsonResponse({"ok": True, "status": pp.status, "noop": True})
+
+    try:
+        pp.transition_to(target)
+    except ValueError as exc:
+        return JsonResponse({"error": str(exc)}, status=400)
+    pp.save(update_fields=["status", "published_at", "updated_at"])
+    return JsonResponse({"ok": True, "status": pp.status, "platform_post_id": str(pp.id)})
 
 
 @login_required
@@ -720,10 +802,10 @@ def autosave(request, workspace_id, post_id=None):
             try:
                 post = Post.objects.get(id=client_post_id, workspace=workspace)
             except Post.DoesNotExist:
-                post = Post(workspace=workspace, author=request.user, status="draft")
+                post = Post(workspace=workspace, author=request.user)
                 is_new = True
         else:
-            post = Post(workspace=workspace, author=request.user, status="draft")
+            post = Post(workspace=workspace, author=request.user)
             is_new = True
 
     post.title = request.POST.get("title", "")
@@ -1236,9 +1318,17 @@ def remove_pending_media(request, workspace_id, asset_id):
 def drafts_list(request, workspace_id):
     """List all drafts for this workspace."""
     workspace = _get_workspace(request, workspace_id)
+    # A post is a "draft" when at least one of its PlatformPost children is in
+    # the draft state and none have moved into a more advanced workflow stage.
+    # Easiest correct query: any post whose only child statuses are "draft".
     drafts = (
         Post.objects.for_workspace(workspace.id)
-        .filter(status="draft")
+        .filter(platform_posts__status="draft")
+        .exclude(platform_posts__status__in=[
+            "pending_review", "pending_client", "approved",
+            "scheduled", "publishing", "published",
+        ])
+        .distinct()
         .select_related("author")
         .prefetch_related("platform_posts__social_account")
         .order_by("-updated_at")
@@ -1785,7 +1875,6 @@ def idea_create_post(request, workspace_id, idea_id):
         post = Post.objects.create(
             workspace=workspace,
             author=request.user,
-            status=Post.Status.DRAFT,
             title=idea.title or "",
             caption=idea.description or "",
             tags=tags,
@@ -2357,8 +2446,8 @@ def csv_confirm_import(request, workspace_id):
                 workspace=workspace,
                 author=request.user,
                 caption=caption,
-                status="draft",
             )
+            initial_pp_status = "draft"
 
             # Date + time
             if "date" in mapping and mapping["date"] < len(row):
@@ -2378,7 +2467,7 @@ def csv_confirm_import(request, workspace_id):
                     t = datetime.strptime(time_str, "%H:%M").time() if time_str else time_cls(9, 0)
                     naive_dt = datetime.combine(d, t)
                     post.scheduled_at = naive_dt.replace(tzinfo=tz)
-                    post.status = "scheduled"
+                    initial_pp_status = "scheduled"
 
             # First comment
             if "first_comment" in mapping and mapping["first_comment"] < len(row):
@@ -2418,6 +2507,10 @@ def csv_confirm_import(request, workspace_id):
                             PlatformPost.objects.get_or_create(
                                 post=post,
                                 social_account=acc,
+                                defaults={
+                                    "status": initial_pp_status,
+                                    "scheduled_at": post.scheduled_at,
+                                },
                             )
 
             created_count += 1

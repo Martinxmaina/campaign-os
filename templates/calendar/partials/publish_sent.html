@@ -52,7 +52,7 @@ Shows all published/partially_published platform posts. Loaded via HTMX into #ta
                     {% endwith %}
                 </td>
                 <td class="px-4 py-3">
-                    <span class="post-chip status-{{ pp.post.status }} inline-flex">
+                    <span class="post-chip status-{{ pp.status }} inline-flex">
                         <span class="chip-dot"></span>
                         {{ pp.post.get_status_display }}
                     </span>

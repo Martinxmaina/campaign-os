@@ -1,14 +1,20 @@
 """Approval workflow business logic.
 
-All approval actions go through these functions to enforce the state machine,
-create audit trail records, and dispatch notifications.
+Editorial status now lives on ``PlatformPost`` so every social account flows
+through the workflow independently. The functions in this module accept either
+a ``Post`` (apply the action to *all* eligible children — the historical
+"bundled" behaviour) or a single ``PlatformPost`` (per-account decision).
+
+For the bundled case the resulting :class:`ApprovalAction` row stores
+``platform_post=None``; for per-account decisions ``platform_post`` is set so
+the audit trail remembers exactly which target was acted on.
 """
 
 import logging
 
 from django.db import transaction
 
-from apps.composer.models import Post
+from apps.composer.models import PlatformPost, Post
 from apps.members.models import WorkspaceMembership
 from apps.notifications.engine import notify
 from apps.notifications.models import EventType
@@ -18,23 +24,79 @@ from .models import ApprovalAction, ApprovalReminder
 logger = logging.getLogger(__name__)
 
 
-def submit_for_review(post, user, workspace):
-    """Submit a post for internal review.
+# ---------------------------------------------------------------------------
+# Internal helpers
+# ---------------------------------------------------------------------------
 
-    Transitions draft/changes_requested → pending_review.
-    Notifies all workspace members with approve_posts permission.
+
+def _resolve_targets(target, *, eligible_from_states=None):
+    """Normalise *target* into ``(post, [platform_posts], is_bundled)``.
+
+    ``target`` may be a :class:`Post` (returns every child whose current state
+    is in ``eligible_from_states``, or all children if not specified) or a
+    :class:`PlatformPost` (returns just that one). Eligibility filtering keeps
+    bundled actions from blowing up on already-published or already-approved
+    siblings.
     """
+    if isinstance(target, PlatformPost):
+        return target.post, [target], False
+
+    if not isinstance(target, Post):
+        raise TypeError(f"Expected Post or PlatformPost, got {type(target).__name__}")
+
+    children = list(target.platform_posts.select_related("social_account"))
+    if eligible_from_states is not None:
+        children = [pp for pp in children if pp.status in eligible_from_states]
+    return target, children, True
+
+
+def _transition_or_skip(pp, target_status):
+    """Transition *pp* to *target_status*, returning True on success."""
+    if pp.status == target_status:
+        return True
+    if not pp.can_transition_to(target_status):
+        return False
+    pp.transition_to(target_status)
+    pp.save(update_fields=["status", "published_at", "updated_at"])
+    return True
+
+
+def _record_action(post, platform_post, user, action, comment=""):
+    """Create an ApprovalAction row for either a bundled or per-PP action."""
+    return ApprovalAction.objects.create(
+        post=post,
+        platform_post=platform_post,
+        user=user,
+        action=action,
+        comment=comment,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public service functions
+# ---------------------------------------------------------------------------
+
+
+def submit_for_review(target, user, workspace):
+    """Submit a post (or single platform post) for internal review."""
+    post, targets, is_bundled = _resolve_targets(
+        target, eligible_from_states={"draft", "changes_requested", "rejected"}
+    )
+
+    moved = []
     with transaction.atomic():
-        post.transition_to("pending_review")
-        post.save(update_fields=["status", "updated_at"])
+        for pp in targets:
+            if _transition_or_skip(pp, "pending_review"):
+                moved.append(pp)
+        if not moved:
+            return post
 
-        ApprovalAction.objects.create(
-            post=post,
-            user=user,
-            action=ApprovalAction.ActionType.SUBMITTED,
-        )
+        if is_bundled:
+            _record_action(post, None, user, ApprovalAction.ActionType.SUBMITTED)
+        else:
+            for pp in moved:
+                _record_action(post, pp, user, ApprovalAction.ActionType.SUBMITTED)
 
-        # Reset reminder tracking for this stage
         ApprovalReminder.objects.update_or_create(
             post=post,
             stage="pending_review",
@@ -42,10 +104,7 @@ def submit_for_review(post, user, workspace):
         )
 
     # Notify all reviewers (members with approve_posts permission)
-    reviewers = WorkspaceMembership.objects.filter(
-        workspace=workspace,
-    ).select_related("user", "custom_role")
-
+    reviewers = WorkspaceMembership.objects.filter(workspace=workspace).select_related("user", "custom_role")
     for membership in reviewers:
         perms = membership.effective_permissions
         if perms.get("approve_posts", False) and membership.user != user:
@@ -63,51 +122,47 @@ def submit_for_review(post, user, workspace):
     return post
 
 
-def approve_post(post, user, workspace, comment=""):
-    """Approve a post.
+def approve_post(target, user, workspace, comment=""):
+    """Approve a post or single platform post.
 
-    If workspace mode is required_internal_and_client and post is pending_review,
-    transitions to pending_client (not directly to approved).
-    Otherwise transitions to approved.
+    If the workspace runs the two-stage internal+client flow and we're moving
+    out of ``pending_review``, the target hops to ``approved`` and then to
+    ``pending_client`` (the same behaviour as before, just per-target).
     """
+    post, targets, is_bundled = _resolve_targets(
+        target, eligible_from_states={"pending_review", "pending_client", "draft", "rejected", "changes_requested"}
+    )
+
+    two_stage = workspace.approval_workflow_mode == "required_internal_and_client"
+    moved = []
+    advanced_to_client = False
     with transaction.atomic():
-        if post.status == "pending_review" and workspace.approval_workflow_mode == "required_internal_and_client":
-            # Internal approval done - now needs client approval
-            post.transition_to("approved")
-            post.save(update_fields=["status", "updated_at"])
-            # Then immediately transition to pending_client
-            post.transition_to("pending_client")
-            post.save(update_fields=["status", "updated_at"])
+        for pp in targets:
+            from_pending_review = pp.status == "pending_review"
+            if not _transition_or_skip(pp, "approved"):
+                continue
+            moved.append(pp)
+            if two_stage and from_pending_review:
+                if _transition_or_skip(pp, "pending_client"):
+                    advanced_to_client = True
 
-            ApprovalAction.objects.create(
-                post=post,
-                user=user,
-                action=ApprovalAction.ActionType.APPROVED,
-                comment=comment,
-            )
+        if not moved:
+            return post
 
-            # Reset reminder tracking for client stage
+        if is_bundled:
+            _record_action(post, None, user, ApprovalAction.ActionType.APPROVED, comment)
+        else:
+            for pp in moved:
+                _record_action(post, pp, user, ApprovalAction.ActionType.APPROVED, comment)
+
+        if advanced_to_client:
             ApprovalReminder.objects.update_or_create(
                 post=post,
                 stage="pending_client",
                 defaults={"reminder_count": 0, "last_reminder_at": None, "escalated": False},
             )
-
-            # Notify client members
             _notify_clients(post, workspace)
-        else:
-            # Direct approval (pending_review or pending_client)
-            post.transition_to("approved")
-            post.save(update_fields=["status", "updated_at"])
 
-            ApprovalAction.objects.create(
-                post=post,
-                user=user,
-                action=ApprovalAction.ActionType.APPROVED,
-                comment=comment,
-            )
-
-    # Notify post author
     if post.author and post.author != user:
         notify(
             user=post.author,
@@ -123,23 +178,29 @@ def approve_post(post, user, workspace, comment=""):
     return post
 
 
-def request_changes(post, user, workspace, comment):
-    """Request changes on a post. Comment is required."""
+def request_changes(target, user, workspace, comment):
+    """Request changes on a post or single platform post. Comment is required."""
     if not comment.strip():
         raise ValueError("A comment is required when requesting changes.")
 
+    post, targets, is_bundled = _resolve_targets(
+        target, eligible_from_states={"pending_review", "pending_client"}
+    )
+
+    moved = []
     with transaction.atomic():
-        post.transition_to("changes_requested")
-        post.save(update_fields=["status", "updated_at"])
+        for pp in targets:
+            if _transition_or_skip(pp, "changes_requested"):
+                moved.append(pp)
+        if not moved:
+            return post
 
-        ApprovalAction.objects.create(
-            post=post,
-            user=user,
-            action=ApprovalAction.ActionType.CHANGES_REQUESTED,
-            comment=comment,
-        )
+        if is_bundled:
+            _record_action(post, None, user, ApprovalAction.ActionType.CHANGES_REQUESTED, comment)
+        else:
+            for pp in moved:
+                _record_action(post, pp, user, ApprovalAction.ActionType.CHANGES_REQUESTED, comment)
 
-    # Notify post author
     if post.author and post.author != user:
         notify(
             user=post.author,
@@ -155,23 +216,29 @@ def request_changes(post, user, workspace, comment):
     return post
 
 
-def reject_post(post, user, workspace, comment):
-    """Reject a post. Comment is required."""
+def reject_post(target, user, workspace, comment):
+    """Reject a post or single platform post. Comment is required."""
     if not comment.strip():
         raise ValueError("A comment is required when rejecting a post.")
 
+    post, targets, is_bundled = _resolve_targets(
+        target, eligible_from_states={"pending_review", "pending_client"}
+    )
+
+    moved = []
     with transaction.atomic():
-        post.transition_to("rejected")
-        post.save(update_fields=["status", "updated_at"])
+        for pp in targets:
+            if _transition_or_skip(pp, "rejected"):
+                moved.append(pp)
+        if not moved:
+            return post
 
-        ApprovalAction.objects.create(
-            post=post,
-            user=user,
-            action=ApprovalAction.ActionType.REJECTED,
-            comment=comment,
-        )
+        if is_bundled:
+            _record_action(post, None, user, ApprovalAction.ActionType.REJECTED, comment)
+        else:
+            for pp in moved:
+                _record_action(post, pp, user, ApprovalAction.ActionType.REJECTED, comment)
 
-    # Notify post author
     if post.author and post.author != user:
         notify(
             user=post.author,
@@ -187,30 +254,33 @@ def reject_post(post, user, workspace, comment):
     return post
 
 
-def resubmit_post(post, user, workspace):
-    """Resubmit a post after changes were requested or it was rejected."""
+def resubmit_post(target, user, workspace):
+    """Resubmit a post or single platform post after changes/rejection."""
+    post, targets, is_bundled = _resolve_targets(
+        target, eligible_from_states={"changes_requested", "rejected"}
+    )
+
+    moved = []
     with transaction.atomic():
-        post.transition_to("pending_review")
-        post.save(update_fields=["status", "updated_at"])
+        for pp in targets:
+            if _transition_or_skip(pp, "pending_review"):
+                moved.append(pp)
+        if not moved:
+            return post
 
-        ApprovalAction.objects.create(
-            post=post,
-            user=user,
-            action=ApprovalAction.ActionType.RESUBMITTED,
-        )
+        if is_bundled:
+            _record_action(post, None, user, ApprovalAction.ActionType.RESUBMITTED)
+        else:
+            for pp in moved:
+                _record_action(post, pp, user, ApprovalAction.ActionType.RESUBMITTED)
 
-        # Reset reminder tracking
         ApprovalReminder.objects.update_or_create(
             post=post,
             stage="pending_review",
             defaults={"reminder_count": 0, "last_reminder_at": None, "escalated": False},
         )
 
-    # Notify reviewers
-    reviewers = WorkspaceMembership.objects.filter(
-        workspace=workspace,
-    ).select_related("user", "custom_role")
-
+    reviewers = WorkspaceMembership.objects.filter(workspace=workspace).select_related("user", "custom_role")
     for membership in reviewers:
         perms = membership.effective_permissions
         if perms.get("approve_posts", False) and membership.user != user:
@@ -229,13 +299,13 @@ def resubmit_post(post, user, workspace):
 
 
 def bulk_approve(post_ids, user, workspace):
-    """Approve multiple posts at once. Returns list of (post_id, success, error)."""
+    """Approve all eligible PlatformPosts under each post (bundled per post)."""
     results = []
     posts = Post.objects.filter(
         id__in=post_ids,
         workspace=workspace,
-        status__in=["pending_review", "pending_client"],
-    )
+        platform_posts__status__in=["pending_review", "pending_client"],
+    ).distinct()
 
     for post in posts:
         try:
@@ -248,7 +318,7 @@ def bulk_approve(post_ids, user, workspace):
 
 
 def bulk_reject(post_ids, user, workspace, comment):
-    """Reject multiple posts with a shared comment. Returns list of (post_id, success, error)."""
+    """Reject all eligible PlatformPosts under each post (bundled per post)."""
     if not comment.strip():
         raise ValueError("A comment is required for bulk rejection.")
 
@@ -256,8 +326,8 @@ def bulk_reject(post_ids, user, workspace, comment):
     posts = Post.objects.filter(
         id__in=post_ids,
         workspace=workspace,
-        status__in=["pending_review", "pending_client"],
-    )
+        platform_posts__status__in=["pending_review", "pending_client"],
+    ).distinct()
 
     for post in posts:
         try:

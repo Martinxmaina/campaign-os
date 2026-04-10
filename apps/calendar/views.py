@@ -85,10 +85,11 @@ def _get_filtered_posts(workspace, request):
         .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
     )
 
-    # Status filter
+    # Status filter — editorial status now lives on PlatformPost, so match
+    # posts that have at least one child carrying the target state.
     statuses = request.GET.getlist("status")
     if statuses:
-        qs = qs.filter(status__in=statuses)
+        qs = qs.filter(platform_posts__status__in=statuses).distinct()
 
     # Platform filter
     platforms = request.GET.getlist("platform")
@@ -140,10 +141,11 @@ def _get_filtered_platform_posts(workspace, request):
         .annotate(effective_at=Coalesce("scheduled_at", "post__scheduled_at"))
     )
 
-    # Status filter
+    # Status filter — editorial status now lives on the PlatformPost itself,
+    # so each chip can stand on its own per-account state.
     statuses = request.GET.getlist("status")
     if statuses:
-        qs = qs.filter(post__status__in=statuses)
+        qs = qs.filter(status__in=statuses)
 
     # Platform filter
     platforms = request.GET.getlist("platform")
@@ -205,15 +207,15 @@ def _get_publish_context(workspace, request):
         "display_timezone": display_timezone,
         "timezone_choices": tz_list,
         "workspace_timezone": ws_tz,
-        "queue_count": PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="scheduled").count(),
-        "drafts_count": PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="draft").count(),
+        "queue_count": PlatformPost.objects.filter(post__workspace_id=workspace.id, status="scheduled").count(),
+        "drafts_count": PlatformPost.objects.filter(post__workspace_id=workspace.id, status="draft").count(),
         "approvals_count": PlatformPost.objects.filter(
             post__workspace_id=workspace.id,
-            post__status__in=["pending_review", "pending_client", "approved", "rejected", "changes_requested"],
+            status__in=["pending_review", "pending_client", "approved", "rejected", "changes_requested"],
         ).count(),
         "sent_count": PlatformPost.objects.filter(
             post__workspace_id=workspace.id,
-            post__status__in=["published", "partially_published", "failed"],
+            status__in=["published", "failed"],
         ).count(),
     }
 
@@ -387,9 +389,10 @@ def _month_view_data(request, workspace, target_date, context):
     drafts = (
         _get_filtered_posts(workspace, request)
         .filter(
-            status="draft",
+            platform_posts__status="draft",
             scheduled_at__isnull=True,
         )
+        .distinct()
         .order_by("-updated_at")[:10]
     )
 
@@ -617,7 +620,7 @@ def publish_tab_queue(request, workspace_id):
     from django.db.models.functions import Coalesce
 
     platform_posts = (
-        PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="scheduled")
+        PlatformPost.objects.filter(post__workspace_id=workspace.id, status="scheduled")
         .select_related("post__author", "social_account")
         .prefetch_related("post__media_attachments__media_asset")
         .annotate(effective_at=Coalesce("scheduled_at", "post__scheduled_at"))
@@ -649,7 +652,7 @@ def publish_tab_drafts(request, workspace_id):
     display_tz = request.GET.get("tz", workspace.effective_timezone or "UTC")
 
     platform_posts = (
-        PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status="draft")
+        PlatformPost.objects.filter(post__workspace_id=workspace.id, status="draft")
         .select_related("post__author", "social_account")
         .prefetch_related("post__media_attachments__media_asset")
         .order_by("-post__updated_at")
@@ -684,7 +687,7 @@ def publish_tab_approvals(request, workspace_id):
     platform_posts = (
         PlatformPost.objects.filter(
             post__workspace_id=workspace.id,
-            post__status__in=approval_statuses,
+            status__in=approval_statuses,
         )
         .select_related("post__author", "social_account")
         .prefetch_related("post__media_attachments__media_asset")
@@ -693,7 +696,7 @@ def publish_tab_approvals(request, workspace_id):
     platform_posts = _apply_pp_publish_filters(platform_posts, request)
 
     if status_filter != "all" and status_filter in approval_statuses:
-        platform_posts = platform_posts.filter(post__status=status_filter)
+        platform_posts = platform_posts.filter(status=status_filter)
 
     # Permission check for action buttons
     membership = getattr(request, "workspace_membership", None)
@@ -702,7 +705,7 @@ def publish_tab_approvals(request, workspace_id):
 
     # Counts per sub-tab
     def _count(status):
-        return PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status=status).count()
+        return PlatformPost.objects.filter(post__workspace_id=workspace.id, status=status).count()
 
     return render(
         request,
@@ -731,7 +734,7 @@ def publish_tab_sent(request, workspace_id):
     platform_posts = (
         PlatformPost.objects.filter(
             post__workspace_id=workspace.id,
-            post__status__in=["published", "partially_published", "failed"],
+            status__in=["published", "failed"],
         )
         .select_related("post__author", "social_account")
         .prefetch_related("post__media_attachments__media_asset")
@@ -777,7 +780,7 @@ def reschedule_post(request, workspace_id):
     post = pp.post
 
     # Check permissions - only editable statuses can be rescheduled
-    if post.status not in ("draft", "approved", "scheduled"):
+    if pp.status not in ("draft", "approved", "scheduled"):
         return JsonResponse({"error": "Post cannot be rescheduled in its current status."}, status=400)
 
     # Check RBAC
@@ -797,10 +800,11 @@ def reschedule_post(request, workspace_id):
         if new_dt.tzinfo is None:
             new_dt = new_dt.replace(tzinfo=tz)
         pp.scheduled_at = new_dt
-        pp.save(update_fields=["scheduled_at", "updated_at"])
-        if post.status == "draft":
-            post.status = "scheduled"
-            post.save(update_fields=["status", "updated_at"])
+        # Drop into "scheduled" so the publisher picks it up. Drag-drop on a
+        # draft chip is treated as an implicit schedule action.
+        if pp.status == "draft" and pp.can_transition_to("scheduled"):
+            pp.transition_to("scheduled")
+        pp.save(update_fields=["status", "scheduled_at", "updated_at"])
         sync_post_scheduled_at(post)
     except (ValueError, TypeError) as e:
         return JsonResponse({"error": f"Invalid datetime: {e}"}, status=400)
