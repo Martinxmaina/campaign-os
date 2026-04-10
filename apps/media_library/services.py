@@ -160,10 +160,7 @@ def _check_post_references(asset):
         media_asset=asset,
         post__status__in=("scheduled", "publishing"),
     ).select_related("post")
-    return [
-        {"id": str(ref.post_id), "caption": (ref.post.caption or "")[:80]}
-        for ref in scheduled_refs
-    ]
+    return [{"id": str(ref.post_id), "caption": (ref.post.caption or "")[:80]} for ref in scheduled_refs]
 
 
 def extract_image_metadata(file_path_or_file):

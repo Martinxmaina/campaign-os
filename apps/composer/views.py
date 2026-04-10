@@ -86,8 +86,7 @@ def _sync_platform_posts(request, post, workspace):
             thumb_id = request.POST.get(f"yt_thumbnail_asset_id_{acc_id}", "").strip() or None
             pp.platform_extra = {
                 "privacy_status": privacy_status,
-                "self_declared_made_for_kids":
-                    request.POST.get(f"yt_made_for_kids_{acc_id}") == "true",
+                "self_declared_made_for_kids": request.POST.get(f"yt_made_for_kids_{acc_id}") == "true",
                 "tags": tags_list,
                 "thumbnail_asset_id": thumb_id,
             }
@@ -164,9 +163,9 @@ def _resolve_queues_for_post(queue_id, workspace, post_data):
         return []
 
     queues = list(
-        Queue.objects.filter(
-            workspace=workspace, is_active=True, social_account_id__in=account_ids
-        ).order_by("created_at")
+        Queue.objects.filter(workspace=workspace, is_active=True, social_account_id__in=account_ids).order_by(
+            "created_at"
+        )
     )
     # De-duplicate by social_account (one queue per account)
     seen = set()
@@ -236,16 +235,12 @@ def compose(request, workspace_id, post_id=None):
         _acct_filter = request.GET.get("account")
         if _acct_filter:
             selected_account_ids = list(
-                post.platform_posts.filter(social_account_id=_acct_filter)
-                .values_list("social_account_id", flat=True)
+                post.platform_posts.filter(social_account_id=_acct_filter).values_list("social_account_id", flat=True)
             )
         else:
             selected_account_ids = list(post.platform_posts.values_list("social_account_id", flat=True))
         media_attachments = post.media_attachments.select_related("media_asset").all()
-        platform_extras = {
-            str(pp.social_account_id): (pp.platform_extra or {})
-            for pp in post.platform_posts.all()
-        }
+        platform_extras = {str(pp.social_account_id): (pp.platform_extra or {}) for pp in post.platform_posts.all()}
     else:
         post = None
         # Pre-fill scheduled date/time from query params (e.g. when coming from calendar "+" CTA)
@@ -378,14 +373,10 @@ def compose(request, workspace_id, post_id=None):
 
     # Resolve thumbnail/cover image URLs for per-account assets already saved
     thumb_ids = [
-        extra.get("thumbnail_asset_id")
-        for extra in platform_extras.values()
-        if extra.get("thumbnail_asset_id")
+        extra.get("thumbnail_asset_id") for extra in platform_extras.values() if extra.get("thumbnail_asset_id")
     ]
     cover_ids = [
-        extra.get("cover_image_asset_id")
-        for extra in platform_extras.values()
-        if extra.get("cover_image_asset_id")
+        extra.get("cover_image_asset_id") for extra in platform_extras.values() if extra.get("cover_image_asset_id")
     ]
     all_asset_ids = [aid for aid in thumb_ids + cover_ids if aid]
     asset_url_map = {}
@@ -969,20 +960,19 @@ def thumbnail_upload(request, workspace_id):
 def pinterest_boards(request, workspace_id, account_id):
     """Fetch Pinterest boards for board selection in the composer."""
     workspace = _get_workspace(request, workspace_id)
-    account = get_object_or_404(
-        SocialAccount, id=account_id, workspace=workspace, platform="pinterest"
-    )
+    account = get_object_or_404(SocialAccount, id=account_id, workspace=workspace, platform="pinterest")
 
     from apps.credentials.models import PlatformCredential
     from providers import get_provider
 
     try:
-        cred = PlatformCredential.objects.for_org(
-            workspace.organization_id
-        ).get(platform="pinterest", is_configured=True)
+        cred = PlatformCredential.objects.for_org(workspace.organization_id).get(
+            platform="pinterest", is_configured=True
+        )
         credentials = cred.credentials
     except PlatformCredential.DoesNotExist:
         from django.conf import settings as django_settings
+
         env_creds = getattr(django_settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
         credentials = env_creds.get("pinterest", {})
 
@@ -998,14 +988,16 @@ def pinterest_boards(request, workspace_id, account_id):
                 account.oauth_refresh_token = new_tokens.refresh_token
             if new_tokens.expires_in:
                 from datetime import timedelta
-                account.token_expires_at = timezone.now() + timedelta(
-                    seconds=new_tokens.expires_in
-                )
+
+                account.token_expires_at = timezone.now() + timedelta(seconds=new_tokens.expires_in)
             account.connection_status = account.ConnectionStatus.CONNECTED
             account.save(
                 update_fields=[
-                    "oauth_access_token", "oauth_refresh_token",
-                    "token_expires_at", "connection_status", "updated_at",
+                    "oauth_access_token",
+                    "oauth_refresh_token",
+                    "token_expires_at",
+                    "connection_status",
+                    "updated_at",
                 ]
             )
             access_token = new_tokens.access_token
@@ -1017,9 +1009,7 @@ def pinterest_boards(request, workspace_id, account_id):
     except Exception:
         return JsonResponse({"error": "Failed to fetch boards"}, status=502)
 
-    return JsonResponse({
-        "boards": [{"id": b.get("id"), "name": b.get("name")} for b in boards]
-    })
+    return JsonResponse({"boards": [{"id": b.get("id"), "name": b.get("name")} for b in boards]})
 
 
 @login_required
@@ -1279,9 +1269,7 @@ def post_delete(request, workspace_id, post_id):
 
     account_id = request.GET.get("account") or request.POST.get("account")
     if account_id:
-        pp = get_object_or_404(
-            PlatformPost, post=post, social_account_id=account_id
-        )
+        pp = get_object_or_404(PlatformPost, post=post, social_account_id=account_id)
         pp.delete()
         # If no platform posts remain, clean up the parent post too.
         if not post.platform_posts.exists():

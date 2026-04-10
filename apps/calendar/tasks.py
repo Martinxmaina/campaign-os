@@ -110,16 +110,18 @@ def generate_recurring_posts():
             # Clone media attachments in bulk
             source_media = list(source.media_attachments.all())
             if source_media:
-                PostMedia.objects.bulk_create([
-                    PostMedia(
-                        post=new_post,
-                        media_asset=pm.media_asset,
-                        position=pm.position,
-                        alt_text=pm.alt_text,
-                        platform_overrides=pm.platform_overrides,
-                    )
-                    for pm in source_media
-                ])
+                PostMedia.objects.bulk_create(
+                    [
+                        PostMedia(
+                            post=new_post,
+                            media_asset=pm.media_asset,
+                            position=pm.position,
+                            alt_text=pm.alt_text,
+                            platform_overrides=pm.platform_overrides,
+                        )
+                        for pm in source_media
+                    ]
+                )
 
             generated_total += 1
 

@@ -138,9 +138,7 @@ def workspace_settings(request, workspace_id):
         messages.success(request, "Workspace settings updated.")
         return redirect("workspaces:settings", workspace_id=workspace.id)
 
-    active_count = Workspace.objects.filter(
-        organization=workspace.organization, is_archived=False
-    ).count()
+    active_count = Workspace.objects.filter(organization=workspace.organization, is_archived=False).count()
     is_last_active = active_count <= 1 and not workspace.is_archived
     can_archive = is_owner_or_manager and not workspace.is_archived and not is_last_active
     can_delete = is_owner_or_manager and not is_last_active

@@ -59,8 +59,7 @@ class PublishEngine:
         published_count = 0
         with ThreadPoolExecutor(max_workers=min(len(groups), MAX_CONCURRENT_POSTS) or 1) as executor:
             futures = {
-                executor.submit(self._publish_post_group, pps[0].post, pps): post_id
-                for post_id, pps in groups.items()
+                executor.submit(self._publish_post_group, pps[0].post, pps): post_id for post_id, pps in groups.items()
             }
             for future in as_completed(futures):
                 post_id = futures[future]
@@ -113,9 +112,9 @@ class PublishEngine:
             if not platform_posts:
                 return
 
-            PlatformPost.objects.filter(
-                id__in=[pp.id for pp in platform_posts]
-            ).update(publish_status=PlatformPost.PublishStatus.PUBLISHING)
+            PlatformPost.objects.filter(id__in=[pp.id for pp in platform_posts]).update(
+                publish_status=PlatformPost.PublishStatus.PUBLISHING
+            )
 
         # Publish in parallel
         results = {}
@@ -225,9 +224,9 @@ class PublishEngine:
 
         # Resolve app credentials (org-specific first, then env fallback)
         try:
-            cred = PlatformCredential.objects.for_org(
-                account.workspace.organization_id
-            ).get(platform=platform, is_configured=True)
+            cred = PlatformCredential.objects.for_org(account.workspace.organization_id).get(
+                platform=platform, is_configured=True
+            )
             credentials = dict(cred.credentials)
         except PlatformCredential.DoesNotExist:
             env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
@@ -236,15 +235,15 @@ class PublishEngine:
         # Inject per-account instance URL for federated providers
         if platform == "mastodon" and account.instance_url:
             from apps.common.validators import is_safe_url
+
             if is_safe_url(account.instance_url):
                 credentials["instance_url"] = account.instance_url
                 # Look up per-instance OAuth app registration if no org creds
                 if not credentials.get("client_id"):
                     from apps.social_accounts.models import MastodonAppRegistration
+
                     try:
-                        reg = MastodonAppRegistration.objects.get(
-                            instance_url=account.instance_url
-                        )
+                        reg = MastodonAppRegistration.objects.get(instance_url=account.instance_url)
                         credentials["client_id"] = reg.client_id
                         credentials["client_secret"] = reg.client_secret
                     except MastodonAppRegistration.DoesNotExist:
@@ -261,20 +260,14 @@ class PublishEngine:
 
         # Refresh token if expired or expiring soon (OAuth2 providers only)
         access_token = account.oauth_access_token
-        if (
-            account.token_expires_at
-            and account.is_token_expiring_soon
-            and provider.auth_type == AuthType.OAUTH2
-        ):
+        if account.token_expires_at and account.is_token_expiring_soon and provider.auth_type == AuthType.OAUTH2:
             try:
                 new_tokens = provider.refresh_token(account.oauth_refresh_token)
                 account.oauth_access_token = new_tokens.access_token
                 if new_tokens.refresh_token:
                     account.oauth_refresh_token = new_tokens.refresh_token
                 if new_tokens.expires_in:
-                    account.token_expires_at = timezone.now() + timedelta(
-                        seconds=new_tokens.expires_in
-                    )
+                    account.token_expires_at = timezone.now() + timedelta(seconds=new_tokens.expires_in)
                 account.connection_status = account.ConnectionStatus.CONNECTED
                 account.save(
                     update_fields=[
@@ -296,10 +289,7 @@ class PublishEngine:
         media_files = []
         media_urls = []
         temp_files = []
-        attachments = list(
-            platform_post.post.media_attachments.select_related("media_asset")
-            .order_by("position")
-        )
+        attachments = list(platform_post.post.media_attachments.select_related("media_asset").order_by("position"))
 
         # For video-only platforms (YouTube, TikTok), skip non-video attachments
         video_only = set(provider.supported_post_types) <= {PostType.VIDEO, PostType.SHORT}
@@ -354,6 +344,7 @@ class PublishEngine:
             thumb_asset_id = extra.pop("thumbnail_asset_id", None)
             if thumb_asset_id:
                 from apps.media_library.models import MediaAsset
+
                 try:
                     thumb_asset = MediaAsset.objects.get(id=thumb_asset_id)
                     if thumb_asset.file:
@@ -453,7 +444,9 @@ class PublishEngine:
 
         # 3. Multi-media → CAROUSEL for Instagram/Threads
         if media_count > 1 and platform in (
-            "instagram", "instagram_personal", "threads",
+            "instagram",
+            "instagram_personal",
+            "threads",
         ):
             return PostType.CAROUSEL
 
@@ -559,9 +552,9 @@ class PublishEngine:
 def _post_first_comment_task(platform_post_id):
     """Post the first comment as a background task (avoids blocking the publisher thread)."""
     try:
-        platform_post = PlatformPost.objects.select_related(
-            "social_account__workspace__organization"
-        ).get(pk=platform_post_id)
+        platform_post = PlatformPost.objects.select_related("social_account__workspace__organization").get(
+            pk=platform_post_id
+        )
     except PlatformPost.DoesNotExist:
         logger.warning("PlatformPost %s not found for first comment.", platform_post_id)
         return
@@ -573,9 +566,9 @@ def _post_first_comment_task(platform_post_id):
     account = platform_post.social_account
     try:
         try:
-            cred = PlatformCredential.objects.for_org(
-                account.workspace.organization_id
-            ).get(platform=account.platform, is_configured=True)
+            cred = PlatformCredential.objects.for_org(account.workspace.organization_id).get(
+                platform=account.platform, is_configured=True
+            )
             credentials = cred.credentials
         except PlatformCredential.DoesNotExist:
             env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})

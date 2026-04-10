@@ -78,9 +78,7 @@ def settings_view(request):
 def workspaces_view(request):
     org = request.org
     workspaces = (
-        Workspace.objects.filter(organization=org)
-        .prefetch_related("memberships__user")
-        .order_by("is_archived", "name")
+        Workspace.objects.filter(organization=org).prefetch_related("memberships__user").order_by("is_archived", "name")
     )
 
     # Build workspace data with members and current user's role
@@ -88,9 +86,7 @@ def workspaces_view(request):
     archived_data = []
     for ws in workspaces:
         members = list(ws.memberships.all())
-        user_membership = next(
-            (m for m in members if m.user_id == request.user.id), None
-        )
+        user_membership = next((m for m in members if m.user_id == request.user.id), None)
         can_manage = user_membership and user_membership.workspace_role in (
             WorkspaceMembership.WorkspaceRole.OWNER,
             WorkspaceMembership.WorkspaceRole.MANAGER,

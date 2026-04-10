@@ -273,8 +273,7 @@ class LinkedInProvider(SocialProvider):
             )
 
         # Step 2: upload image binary (prefer local file to avoid extra network hop)
-        image_source = (content.media_files[0] if content.media_files
-                        else content.media_urls[0])
+        image_source = content.media_files[0] if content.media_files else content.media_urls[0]
         self._upload_binary(access_token, upload_url, image_source)
 
         # Step 3: create post with image
@@ -325,8 +324,7 @@ class LinkedInProvider(SocialProvider):
             )
 
         # Step 2: upload video binary (prefer local file to avoid extra network hop)
-        video_source = (content.media_files[0] if content.media_files
-                        else content.media_urls[0])
+        video_source = content.media_files[0] if content.media_files else content.media_urls[0]
         self._upload_binary(access_token, upload_url, video_source)
 
         # Step 3: create post with video

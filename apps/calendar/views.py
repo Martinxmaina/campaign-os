@@ -699,9 +699,7 @@ def publish_tab_approvals(request, workspace_id):
 
     # Counts per sub-tab
     def _count(status):
-        return PlatformPost.objects.filter(
-            post__workspace_id=workspace.id, post__status=status
-        ).count()
+        return PlatformPost.objects.filter(post__workspace_id=workspace.id, post__status=status).count()
 
     return render(
         request,
@@ -806,11 +804,7 @@ def reschedule_post(request, workspace_id):
 
     return HttpResponse(
         status=204,
-        headers={
-            "HX-Trigger": json.dumps(
-                {"postRescheduled": {"platformPostId": str(pp.id), "postId": str(post.id)}}
-            )
-        },
+        headers={"HX-Trigger": json.dumps({"postRescheduled": {"platformPostId": str(pp.id), "postId": str(post.id)}})},
     )
 
 

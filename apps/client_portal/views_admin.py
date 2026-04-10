@@ -51,11 +51,13 @@ def client_list(request, workspace_id):
     clients_data = []
     for membership in client_memberships:
         token = token_map.get(membership.user_id)
-        clients_data.append({
-            "membership": membership,
-            "user": membership.user,
-            "token": token,
-        })
+        clients_data.append(
+            {
+                "membership": membership,
+                "user": membership.user,
+                "token": token,
+            }
+        )
 
     # Pending invitations with CLIENT role for this workspace
     pending_invites = _get_pending_client_invites(request.org, workspace)

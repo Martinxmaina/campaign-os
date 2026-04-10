@@ -126,9 +126,9 @@ def _resolve_channels(user, event_type: str, pref_cache: dict | None = None) -> 
     if pref_cache is not None and event_type in pref_cache:
         pref_map = pref_cache[event_type]
     else:
-        prefs = NotificationPreference.objects.filter(
-            user=user, event_type=event_type
-        ).values_list("channel", "is_enabled")
+        prefs = NotificationPreference.objects.filter(user=user, event_type=event_type).values_list(
+            "channel", "is_enabled"
+        )
         pref_map = dict(prefs)
         if pref_cache is not None:
             pref_cache[event_type] = pref_map

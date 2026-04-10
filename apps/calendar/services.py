@@ -102,9 +102,7 @@ def assign_queue_slots(queue):
         entry.save(update_fields=["assigned_slot_datetime"])
 
         # Write the per-platform scheduled_at on the matching PlatformPost.
-        pp = entry.post.platform_posts.filter(
-            social_account=queue.social_account
-        ).first()
+        pp = entry.post.platform_posts.filter(social_account=queue.social_account).first()
         if pp is not None:
             pp.scheduled_at = slot_dt
             pp.save(update_fields=["scheduled_at", "updated_at"])

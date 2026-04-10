@@ -4,20 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('composer', '0012_add_ideamedia_model'),
-        ('social_accounts', '0001_initial'),
+        ("composer", "0012_add_ideamedia_model"),
+        ("social_accounts", "0001_initial"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='platformpost',
-            name='scheduled_at',
-            field=models.DateTimeField(blank=True, db_index=True, help_text='Per-platform scheduled publish time. NULL falls back to Post.scheduled_at.', null=True),
+            model_name="platformpost",
+            name="scheduled_at",
+            field=models.DateTimeField(
+                blank=True,
+                db_index=True,
+                help_text="Per-platform scheduled publish time. NULL falls back to Post.scheduled_at.",
+                null=True,
+            ),
         ),
         migrations.AddIndex(
-            model_name='platformpost',
-            index=models.Index(fields=['publish_status', 'scheduled_at'], name='idx_pp_status_sched'),
+            model_name="platformpost",
+            index=models.Index(fields=["publish_status", "scheduled_at"], name="idx_pp_status_sched"),
         ),
     ]

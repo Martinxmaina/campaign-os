@@ -11,15 +11,14 @@ def backfill_tos_accepted_at(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('accounts', '0002_replace_avatar_url_with_avatar'),
+        ("accounts", "0002_replace_avatar_url_with_avatar"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='tos_accepted_at',
+            model_name="user",
+            name="tos_accepted_at",
             field=models.DateTimeField(blank=True, null=True),
         ),
         migrations.RunPython(backfill_tos_accepted_at, migrations.RunPython.noop),

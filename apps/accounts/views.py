@@ -132,7 +132,6 @@ def _handle_name_update(request, user):
     messages.success(request, "Name updated.")
 
 
-
 def _handle_password_update(request, user):
     """Handle password change."""
     current_password = request.POST.get("current_password", "")

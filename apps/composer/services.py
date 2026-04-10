@@ -10,10 +10,7 @@ def sync_post_scheduled_at(post):
     per-platform scheduled time so listings, grouping and Coalesce fallbacks
     remain consistent. No-op when no PlatformPost has a scheduled_at set.
     """
-    times = list(
-        post.platform_posts.exclude(scheduled_at__isnull=True)
-        .values_list("scheduled_at", flat=True)
-    )
+    times = list(post.platform_posts.exclude(scheduled_at__isnull=True).values_list("scheduled_at", flat=True))
     if not times:
         return
     earliest = min(times)

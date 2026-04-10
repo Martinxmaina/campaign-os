@@ -57,11 +57,13 @@ def approval_queue(request, workspace_id):
 
     from django.db.models import Count, Q
 
-    counts = Post.objects.for_workspace(workspace.id).filter(
-        status__in=["pending_review", "pending_client"]
-    ).aggregate(
-        pending_review_count=Count("id", filter=Q(status="pending_review")),
-        pending_client_count=Count("id", filter=Q(status="pending_client")),
+    counts = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(status__in=["pending_review", "pending_client"])
+        .aggregate(
+            pending_review_count=Count("id", filter=Q(status="pending_review")),
+            pending_client_count=Count("id", filter=Q(status="pending_client")),
+        )
     )
 
     context = {

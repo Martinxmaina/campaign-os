@@ -86,8 +86,7 @@ class Command(BaseCommand):
     def _run_cleanup(self, dry_run, min_age_days, batch_size):
         cutoff = timezone.now() - timedelta(days=min_age_days)
         self.stdout.write(
-            f"[cleanup] Scanning assets older than {min_age_days} days "
-            f"(cutoff: {cutoff.strftime('%Y-%m-%d %H:%M')})"
+            f"[cleanup] Scanning assets older than {min_age_days} days (cutoff: {cutoff.strftime('%Y-%m-%d %H:%M')})"
         )
 
         # Phase 1: Collect FK-referenced asset IDs
@@ -113,9 +112,7 @@ class Command(BaseCommand):
         total_bytes = orphaned_qs.aggregate(total=__import__("django").db.models.Sum("file_size"))["total"] or 0
         total_mb = total_bytes / (1024 * 1024)
 
-        self.stdout.write(
-            f"[cleanup] Orphaned candidates: {total_count} (~{total_mb:.1f} MB)"
-        )
+        self.stdout.write(f"[cleanup] Orphaned candidates: {total_count} (~{total_mb:.1f} MB)")
 
         if dry_run:
             # Show details for up to 50 assets
@@ -131,8 +128,7 @@ class Command(BaseCommand):
                 self.stdout.write(f"[cleanup]   ... and {total_count - 50} more")
             self.stdout.write(
                 self.style.WARNING(
-                    f"[cleanup] DRY RUN complete: {total_count} assets "
-                    f"(~{total_mb:.1f} MB) would be deleted"
+                    f"[cleanup] DRY RUN complete: {total_count} assets (~{total_mb:.1f} MB) would be deleted"
                 )
             )
             return
@@ -160,14 +156,10 @@ class Command(BaseCommand):
                     self.stdout.write(f"[cleanup] Deleted: {asset_info}")
                 except ProtectedAssetError:
                     skipped += 1
-                    self.stdout.write(
-                        self.style.WARNING(f"[cleanup] Skipped (protected): {asset.id}")
-                    )
+                    self.stdout.write(self.style.WARNING(f"[cleanup] Skipped (protected): {asset.id}"))
                 except Exception as e:
                     errors += 1
-                    self.stdout.write(
-                        self.style.ERROR(f"[cleanup] Error deleting {asset.id}: {e}")
-                    )
+                    self.stdout.write(self.style.ERROR(f"[cleanup] Error deleting {asset.id}: {e}"))
 
         self.stdout.write(
             self.style.SUCCESS(
@@ -183,11 +175,7 @@ class Command(BaseCommand):
         referenced = set()
         referenced.update(PostMedia.objects.values_list("media_asset_id", flat=True))
         referenced.update(IdeaMedia.objects.values_list("media_asset_id", flat=True))
-        referenced.update(
-            Idea.objects.filter(media_asset__isnull=False).values_list(
-                "media_asset_id", flat=True
-            )
-        )
+        referenced.update(Idea.objects.filter(media_asset__isnull=False).values_list("media_asset_id", flat=True))
         return referenced
 
     def _get_json_referenced_ids(self):
@@ -260,9 +248,7 @@ class Command(BaseCommand):
             if extra.get("cover_image_asset_id"):
                 referenced.add(self._to_uuid(extra["cover_image_asset_id"]))
 
-        for pp in PlatformPost.objects.exclude(platform_specific_media=None).only(
-            "platform_specific_media"
-        ):
+        for pp in PlatformPost.objects.exclude(platform_specific_media=None).only("platform_specific_media"):
             if isinstance(pp.platform_specific_media, list):
                 for val in pp.platform_specific_media:
                     referenced.add(self._to_uuid(val))

@@ -270,9 +270,7 @@ class YouTubeProvider(SocialProvider):
                         timeout=60.0,
                     )
                 except Exception:
-                    logger.exception(
-                        "Custom thumbnail upload failed for video %s", video_id
-                    )
+                    logger.exception("Custom thumbnail upload failed for video %s", video_id)
 
             return PublishResult(
                 platform_post_id=video_id,

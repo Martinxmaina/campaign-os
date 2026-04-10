@@ -26,7 +26,6 @@ def rename_company_to_linkedin(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
         ("social_accounts", "0001_initial"),
     ]
