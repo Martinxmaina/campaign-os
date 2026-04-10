@@ -58,6 +58,8 @@ You can deploy it with a one-click button on Heroku, Render, or Railway, run it 
 | Google Business Profile | ✓ | — | — | ✓ |
 | Mastodon | ✓ | ✓ | — | — |
 
+---
+
 ### One-Click Deploy
 
 | Heroku | Render | Railway |
@@ -498,6 +500,8 @@ Options:
 - `--platform NAME` - Only backfill a specific platform (e.g., `youtube`, `linkedin`, `tiktok`)
 - `--account-id UUID` - Only backfill a specific account
 
+---
+
 ## Tech Stack
 
 | Layer | Technology |
@@ -510,6 +514,8 @@ Options:
 | Auth | django-allauth (email + Google OAuth) |
 | Media | Pillow (images), FFmpeg (video) |
 | Deployment | Docker, Gunicorn, Caddy |
+
+---
 
 ## Troubleshooting
 
