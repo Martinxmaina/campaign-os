@@ -182,9 +182,7 @@ def request_changes(target, user, workspace, comment):
     if not comment.strip():
         raise ValueError("A comment is required when requesting changes.")
 
-    post, targets, is_bundled = _resolve_targets(
-        target, eligible_from_states={"pending_review", "pending_client"}
-    )
+    post, targets, is_bundled = _resolve_targets(target, eligible_from_states={"pending_review", "pending_client"})
 
     moved = []
     with transaction.atomic():
@@ -220,9 +218,7 @@ def reject_post(target, user, workspace, comment):
     if not comment.strip():
         raise ValueError("A comment is required when rejecting a post.")
 
-    post, targets, is_bundled = _resolve_targets(
-        target, eligible_from_states={"pending_review", "pending_client"}
-    )
+    post, targets, is_bundled = _resolve_targets(target, eligible_from_states={"pending_review", "pending_client"})
 
     moved = []
     with transaction.atomic():
@@ -255,9 +251,7 @@ def reject_post(target, user, workspace, comment):
 
 def resubmit_post(target, user, workspace):
     """Resubmit a post or single platform post after changes/rejection."""
-    post, targets, is_bundled = _resolve_targets(
-        target, eligible_from_states={"changes_requested", "rejected"}
-    )
+    post, targets, is_bundled = _resolve_targets(target, eligible_from_states={"changes_requested", "rejected"})
 
     moved = []
     with transaction.atomic():

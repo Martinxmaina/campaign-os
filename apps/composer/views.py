@@ -344,9 +344,9 @@ def compose(request, workspace_id, post_id=None):
     # Approval workflow context
     workflow_mode = workspace.approval_workflow_mode
     show_submit_button = workflow_mode != "none"
-    show_resubmit_button = post is not None and post.platform_posts.filter(
-        status__in=("changes_requested", "rejected")
-    ).exists()
+    show_resubmit_button = (
+        post is not None and post.platform_posts.filter(status__in=("changes_requested", "rejected")).exists()
+    )
 
     # Approval history and comments for existing posts
     approval_history = []
@@ -1324,10 +1324,16 @@ def drafts_list(request, workspace_id):
     drafts = (
         Post.objects.for_workspace(workspace.id)
         .filter(platform_posts__status="draft")
-        .exclude(platform_posts__status__in=[
-            "pending_review", "pending_client", "approved",
-            "scheduled", "publishing", "published",
-        ])
+        .exclude(
+            platform_posts__status__in=[
+                "pending_review",
+                "pending_client",
+                "approved",
+                "scheduled",
+                "publishing",
+                "published",
+            ]
+        )
         .distinct()
         .select_related("author")
         .prefetch_related("platform_posts__social_account")

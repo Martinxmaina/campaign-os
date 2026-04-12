@@ -517,7 +517,7 @@ class PlatformPost(models.Model):
 # Backwards-compat alias: lots of existing code imports ``Post.Status.DRAFT`` /
 # iterates ``Post.Status.choices`` to build filter UIs. The enum lives on
 # PlatformPost now; re-expose it on Post so callers don't need updating.
-Post.Status = PlatformPost.Status
+Post.Status = PlatformPost.Status  # type: ignore[attr-defined]
 
 
 class PostMedia(models.Model):

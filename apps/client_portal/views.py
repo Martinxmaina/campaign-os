@@ -47,10 +47,7 @@ def portal_dashboard(request):
     workspace = request.portal_workspace
 
     pending_count = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(platform_posts__status="pending_client")
-        .distinct()
-        .count()
+        Post.objects.for_workspace(workspace.id).filter(platform_posts__status="pending_client").distinct().count()
     )
 
     recent_published = (

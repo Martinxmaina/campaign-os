@@ -158,10 +158,14 @@ def _check_post_references(asset):
 
     # Status now lives on PlatformPost — a Post is "in flight" if any of its
     # children are scheduled or publishing.
-    scheduled_refs = PostMedia.objects.filter(
-        media_asset=asset,
-        post__platform_posts__status__in=("scheduled", "publishing"),
-    ).select_related("post").distinct()
+    scheduled_refs = (
+        PostMedia.objects.filter(
+            media_asset=asset,
+            post__platform_posts__status__in=("scheduled", "publishing"),
+        )
+        .select_related("post")
+        .distinct()
+    )
     return [{"id": str(ref.post_id), "caption": (ref.post.caption or "")[:80]} for ref in scheduled_refs]
 
 
