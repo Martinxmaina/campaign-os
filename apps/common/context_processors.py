@@ -30,6 +30,7 @@ def sidebar_context(request):
 
     # Connected channels for the current workspace
     sidebar_channels = []
+    sidebar_unhealthy_channels = []
     sidebar_connectable_platforms = []
 
     workspace = getattr(request, "workspace", None)
@@ -45,6 +46,18 @@ def sidebar_context(request):
                     "platform_posts",
                     filter=Q(platform_posts__status=PlatformPost.Status.SCHEDULED),
                 )
+            )
+            .order_by("platform", "account_name")
+        )
+
+        sidebar_unhealthy_channels = list(
+            SocialAccount.objects.for_workspace(workspace.id)
+            .filter(
+                connection_status__in=[
+                    SocialAccount.ConnectionStatus.DISCONNECTED,
+                    SocialAccount.ConnectionStatus.ERROR,
+                    SocialAccount.ConnectionStatus.TOKEN_EXPIRING,
+                ]
             )
             .order_by("platform", "account_name")
         )
@@ -102,6 +115,7 @@ def sidebar_context(request):
         "sidebar_workspaces": sidebar_workspaces,
         "can_create_workspace": can_create_workspace,
         "sidebar_channels": sidebar_channels,
+        "sidebar_unhealthy_channels": sidebar_unhealthy_channels,
         "sidebar_connectable_platforms": sidebar_connectable_platforms,
         "sidebar_unread_inbox_count": sidebar_unread_inbox_count,
         "sidebar_pending_approvals": sidebar_pending_approvals,
