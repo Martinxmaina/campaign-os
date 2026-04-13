@@ -2,6 +2,15 @@ from .base import *  # noqa: F401, F403
 
 DEBUG = False
 
+# Hashed + compressed static files served by whitenoise. Templates that
+# hardcode paths like /static/css/dist/styles.css cannot be served by
+# ManifestStaticFilesStorage in dev, so the override only applies here.
+STORAGES = {
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
 # Security
 SECURE_SSL_REDIRECT = True
 SECURE_HSTS_SECONDS = 31536000

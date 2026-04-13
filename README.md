@@ -124,6 +124,14 @@ docker compose exec app python manage.py migrate
 docker compose exec app python manage.py createsuperuser
 ```
 
+Because `docker-compose.yml` bind-mounts the project into `/app`, the Tailwind
+output baked into the image gets shadowed by the host directory on first start.
+Build it once inside the running container so it lands in the bind-mount:
+
+```bash
+docker compose exec app sh -c "cd theme/static_src && npm ci && npm run build"
+```
+
 Open http://localhost:8000 - you're running.
 
 
