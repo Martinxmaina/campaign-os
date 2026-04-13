@@ -4,7 +4,7 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 # Plain storage in dev — no manifest needed, runserver uses finders directly.
-STORAGES["staticfiles"] = {
+STORAGES["staticfiles"] = {  # noqa: F405
     "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
 }
 
