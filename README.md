@@ -336,20 +336,6 @@ brightbean-studio/
 └── render.yaml                # Render blueprint
 ```
 
-## Environment Variables
-
-All configuration is via environment variables. See `.env.example` for the full list.
-
-Key variables for local development:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SECRET_KEY` | (required) | Django secret key. Any random string for dev. |
-| `DEBUG` | `false` | Set to `true` for local development. |
-| `DATABASE_URL` | - | PostgreSQL connection string. |
-| `STORAGE_BACKEND` | `local` | `local` for filesystem, `s3` for S3-compatible storage. |
-| `EMAIL_BACKEND_TYPE` | `smtp` | Set to `smtp` for SMTP or leave default (console in dev). |
-
 ## Platform Credentials
 
 To connect social media accounts, you need API credentials from each platform's developer portal. You can set these via environment variables in `.env` (see `.env.example`) or through the admin UI at **Settings → Platform Credentials**.
