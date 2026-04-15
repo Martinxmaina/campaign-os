@@ -44,5 +44,10 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
+        "gunicorn.error": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": False,
+        },
     },
 }
