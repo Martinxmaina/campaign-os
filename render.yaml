@@ -50,4 +50,4 @@ services:
 
 databases:
   - name: brightbean-db
-    plan: starter
+    plan: free
