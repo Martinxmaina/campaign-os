@@ -83,6 +83,7 @@ After deploying, set these environment variables in your platform's dashboard:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
+| `DJANGO_SETTINGS_MODULE` | Auto-set | `config.settings.production`. Set if deployment config has not placed it. |
 | `SECRET_KEY` | Auto-generated | Django secret key. Set automatically by the deploy button. |
 | `ENCRYPTION_KEY_SALT` | Auto-generated | Encryption salt. Set automatically by the deploy button. |
 | `DATABASE_URL` | Auto-provisioned | PostgreSQL connection string. Set automatically. |
@@ -335,6 +336,8 @@ brightbean-studio/
 ├── railway.toml               # Railway config
 └── render.yaml                # Render blueprint
 ```
+
+> **Settings selection:** The `DJANGO_SETTINGS_MODULE` environment variable controls which settings file Django uses. The defaults are already wired for each context: `manage.py` uses `development`, `wsgi.py`/`asgi.py` use `production`, and `pytest` uses `test` (via `pyproject.toml`). Docker Compose files and platform deploy configs (Heroku, Render) also set it explicitly. You only need to override it manually if you want a non-default module for a specific command, e.g. `DJANGO_SETTINGS_MODULE=config.settings.production python manage.py check --deploy`.
 
 ## Platform Credentials
 
