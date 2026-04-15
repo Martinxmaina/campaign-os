@@ -42,7 +42,7 @@ THIRD_PARTY_APPS = [
     "django_htmx",
     "tailwind",
     "csp",
-    "background_task",
+    "apps.background_task_config.BackgroundTaskConfig",
 ]
 
 LOCAL_APPS = [
