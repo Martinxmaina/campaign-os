@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Heroku Python buildpack hook — runs after pip install and the
+# buildpack's automatic collectstatic.  We (re-)build Tailwind CSS
+# and then regenerate the staticfiles manifest so every asset is
+# included, regardless of buildpack ordering.
+
+set -eo pipefail
+
+echo "-----> Building Tailwind CSS"
+cd theme/static_src
+npm ci
+npm run build
+cd ../..
+
+echo "-----> Re-collecting static files"
+python manage.py collectstatic --noinput
