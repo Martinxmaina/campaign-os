@@ -38,7 +38,7 @@
     },
     "STORAGE_BACKEND": {
       "description": "Storage backend: 'local' or 's3'",
-      "value": "s3"
+      "value": "local"
     },
     "S3_ENDPOINT_URL": {
       "description": "S3-compatible endpoint URL",
