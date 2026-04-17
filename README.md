@@ -38,7 +38,7 @@ You can deploy it with a one-click button on Heroku, Render, or Railway, run it 
 | **Media library** | Org- and workspace-scoped libraries with nested folders, auto-generated platform-optimized variants, and alt text. |
 | **Client portal** | Passwordless 30-day magic-link access so clients can approve or reject posts without creating an account. |
 | **Notifications** | In-app, email, and webhook delivery with per-user preferences for every event type. |
-| **Security & ops** | Encrypted token & credential storage, optional 2FA (TOTP), Google/GitHub SSO, Sentry support, and a 7-day reversible org-deletion grace period. |
+| **Security & ops** | Encrypted token & credential storage, Google SSO, Sentry support, and a 14-day reversible org-deletion grace period. 2FA (TOTP) is on the roadmap. |
 | **White-label friendly** | Per-workspace branding (logo, colors) and workspace defaults for hashtags, first comments, and posting templates. |
 
 ### A quick look
