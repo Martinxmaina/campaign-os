@@ -11,7 +11,7 @@ import httpx
 from dateutil import parser as date_parser
 from django.contrib.auth.decorators import login_required
 from django.core.cache import cache
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import models, transaction
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
@@ -219,6 +219,39 @@ def _reassign_queue_slots_from_floor(queues, post, floor_date, workspace):
     sync_post_scheduled_at(post)
 
 
+def _resolve_template_data(template_id, workspace):
+    """Resolve a ?template= value into a template_data dict.
+
+    Accepts either a numeric ID for a built-in template (defined in
+    apps.composer.builtin_templates.TEMPLATES) or a UUID for a saved
+    PostTemplate row. Returns ``None`` if the value is missing, malformed,
+    or does not match any template.
+    """
+    if not template_id:
+        return None
+    # Built-in templates use numeric IDs.
+    try:
+        numeric_id = int(template_id)
+    except (TypeError, ValueError):
+        numeric_id = None
+    if numeric_id is not None:
+        from apps.composer.builtin_templates import TEMPLATES as BUILTIN_TEMPLATES
+
+        for tpl in BUILTIN_TEMPLATES:
+            if tpl.get("id") == numeric_id:
+                return {
+                    "caption": tpl.get("body", ""),
+                    "tags": list(tpl.get("tags", [])),
+                }
+        return None
+    # Fall back to PostTemplate UUID lookup.
+    try:
+        tpl = PostTemplate.objects.get(id=template_id, workspace=workspace)
+    except (PostTemplate.DoesNotExist, ValidationError):
+        return None
+    return tpl.template_data
+
+
 @login_required
 @require_permission("create_posts")
 def compose(request, workspace_id, post_id=None):
@@ -251,6 +284,7 @@ def compose(request, workspace_id, post_id=None):
             selected_account_ids = list(post.platform_posts.values_list("social_account_id", flat=True))
         media_attachments = post.media_attachments.select_related("media_asset").all()
         platform_extras = {str(pp.social_account_id): (pp.platform_extra or {}) for pp in post.platform_posts.all()}
+        template_data = None
     else:
         post = None
         # Pre-fill scheduled date/time from query params (e.g. when coming from calendar "+" CTA)
@@ -270,6 +304,11 @@ def compose(request, workspace_id, post_id=None):
                     continue
             if parsed_time is not None:
                 initial["scheduled_time"] = parsed_time.strftime("%H:%M")
+        # Resolve ?template=<id> into template_data (supports both built-in int IDs
+        # and PostTemplate UUIDs). Seed caption so it pre-fills the form.
+        template_data = _resolve_template_data(request.GET.get("template"), workspace)
+        if template_data and template_data.get("caption"):
+            initial["caption"] = template_data["caption"]
         form = PostForm(initial=initial)
         selected_account_ids = []
         media_attachments = []
@@ -330,16 +369,6 @@ def compose(request, workspace_id, post_id=None):
     can_approve = perms.get("approve_posts", False)
     ws_role = membership.workspace_role if membership else None
     can_view_internal_notes = ws_role not in ("client", "viewer") if ws_role else True
-
-    # Template data pre-fill (if using a template)
-    template_id = request.GET.get("template")
-    template_data = None
-    if template_id and not post:
-        try:
-            tpl = PostTemplate.objects.get(id=template_id, workspace=workspace)
-            template_data = tpl.template_data
-        except PostTemplate.DoesNotExist:
-            pass
 
     # Approval workflow context
     workflow_mode = workspace.approval_workflow_mode
