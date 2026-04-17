@@ -8,6 +8,7 @@ import logging
 import secrets
 from datetime import timedelta
 
+from csp.decorators import csp_update
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -19,7 +20,6 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
-from csp.decorators import csp_update
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.credentials.models import PlatformCredential
