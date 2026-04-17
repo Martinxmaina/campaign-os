@@ -19,6 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.utils import timezone
+from csp.decorators import csp_update
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.credentials.models import PlatformCredential
@@ -265,6 +266,7 @@ def connection_page(request, token):
     )
 
 
+@csp_update(FORM_ACTION="'self' https://accounts.google.com https://www.facebook.com https://api.instagram.com https://threads.net https://www.linkedin.com https://www.pinterest.com https://www.tiktok.com")
 @require_POST
 def connection_oauth_start(request, token):
     """Initiate OAuth flow from the connection link page."""
@@ -534,6 +536,7 @@ def connection_bluesky_connect(request, token):
     return redirect("onboarding:connection_page", token=token)
 
 
+@csp_update(FORM_ACTION="'self' https:")
 @require_POST
 def connection_mastodon_start(request, token):
     """Initiate Mastodon OAuth from the connection link page."""
