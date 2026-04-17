@@ -160,7 +160,7 @@ STORAGES = {
 
 # Media files
 STORAGE_BACKEND = env("STORAGE_BACKEND")
-if STORAGE_BACKEND == "s3":
+if STORAGE_BACKEND.lower() == "s3":
     STORAGES["default"] = {
         "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
     }
