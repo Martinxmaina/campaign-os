@@ -263,8 +263,8 @@ if STORAGE_BACKEND.lower() == "s3":
     if _storage_origin:
         if not _storage_origin.startswith("https://"):
             _storage_origin = f"https://{_storage_origin}"
-        CSP_MEDIA_SRC += (_storage_origin,)
-        CSP_IMG_SRC += (_storage_origin,)
+        CSP_MEDIA_SRC = (*CSP_MEDIA_SRC, _storage_origin)  # type: ignore[assignment]
+        CSP_IMG_SRC = (*CSP_IMG_SRC, _storage_origin)  # type: ignore[assignment]
 
 # Media Library
 MEDIA_LIBRARY_MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20MB
