@@ -50,6 +50,9 @@ def _get_provider_for_platform(platform: str, org_id, **extra_credentials):
 
 def _get_configured_platforms(org_id):
     """Return set of platform names that have credentials configured."""
+    from providers import PROVIDER_REGISTRY
+    from providers.types import AuthType
+
     configured = set(
         PlatformCredential.objects.for_org(org_id).filter(is_configured=True).values_list("platform", flat=True)
     )
@@ -57,6 +60,13 @@ def _get_configured_platforms(org_id):
     for platform, creds in env_creds.items():
         if any(v for v in creds.values()):
             configured.add(platform)
+
+    # Session-auth platforms (e.g. Bluesky) don't need app-level credentials —
+    # the user supplies their own handle + app password at connect time.
+    for platform, provider_cls in PROVIDER_REGISTRY.items():
+        if provider_cls().auth_type == AuthType.SESSION:
+            configured.add(platform)
+
     return configured
 
 
@@ -403,7 +413,7 @@ def connect_bluesky(request, workspace_id):
             {"workspace_id": workspace_id},
         )
 
-    handle = request.POST.get("handle", "").strip()
+    handle = request.POST.get("handle", "").strip().lstrip("@")
     app_password = request.POST.get("app_password", "").strip()
 
     if not handle or not app_password:

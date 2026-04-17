@@ -176,10 +176,11 @@ class BlueskyProvider(SocialProvider):
             access_token=access_token,
         )
         data = resp.json()
+        handle = data.get("handle") or ""
         return AccountProfile(
             platform_id=data.get("did", did),
-            name=data.get("displayName", data.get("handle", "")),
-            handle=data.get("handle"),
+            name=data.get("displayName") or handle,
+            handle=handle,
             avatar_url=data.get("avatar"),
             follower_count=data.get("followersCount", 0),
         )
