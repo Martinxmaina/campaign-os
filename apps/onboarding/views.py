@@ -266,7 +266,9 @@ def connection_page(request, token):
     )
 
 
-@csp_update(FORM_ACTION="'self' https://accounts.google.com https://www.facebook.com https://api.instagram.com https://threads.net https://www.linkedin.com https://www.pinterest.com https://www.tiktok.com")
+@csp_update(
+    FORM_ACTION="'self' https://accounts.google.com https://www.facebook.com https://api.instagram.com https://threads.net https://www.linkedin.com https://www.pinterest.com https://www.tiktok.com"
+)
 @require_POST
 def connection_oauth_start(request, token):
     """Initiate OAuth flow from the connection link page."""
