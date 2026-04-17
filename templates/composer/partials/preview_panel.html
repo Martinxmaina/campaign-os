@@ -292,7 +292,8 @@ Context: previews (list of dicts with account, title, caption, first_comment, ch
 
         {% elif p.account.platform == "tiktok" %}
         {# ─── TikTok ─── vertical phone-style preview #}
-        <div class="bg-black text-white relative overflow-hidden" style="aspect-ratio: 9/16; max-height: 480px;">
+        <div class="bg-black">
+        <div class="bg-black text-white relative overflow-hidden mx-auto" style="aspect-ratio: 9/16; max-height: 480px;">
             {% if media_items %}
             {% with m=media_items.0 %}
             {% if m.is_video %}
@@ -357,6 +358,7 @@ Context: previews (list of dicts with account, title, caption, first_comment, ch
                     <span class="text-[11px] truncate drop-shadow-sm">Original sound - {{ p.account.account_name }}</span>
                 </div>
             </div>
+        </div>
         </div>
 
         {% elif p.account.platform == "threads" %}
