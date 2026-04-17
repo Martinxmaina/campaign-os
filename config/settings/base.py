@@ -1,4 +1,5 @@
 from pathlib import Path
+from urllib.parse import urlparse
 
 import environ
 
@@ -263,6 +264,8 @@ if STORAGE_BACKEND.lower() == "s3":
     if _storage_origin:
         if not _storage_origin.startswith("https://"):
             _storage_origin = f"https://{_storage_origin}"
+        _parsed = urlparse(_storage_origin)
+        _storage_origin = f"{_parsed.scheme}://{_parsed.hostname}"
         CSP_MEDIA_SRC = (*CSP_MEDIA_SRC, _storage_origin)  # type: ignore[assignment]
         CSP_IMG_SRC = (*CSP_IMG_SRC, _storage_origin)  # type: ignore[assignment]
 
