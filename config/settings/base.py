@@ -254,7 +254,7 @@ CSP_STYLE_SRC = ("'self'", "'unsafe-inline'", "https://cdn.jsdelivr.net")
 CSP_IMG_SRC = ("'self'", "data:", "https:")
 CSP_FONT_SRC = ("'self'",)
 CSP_CONNECT_SRC = ("'self'",)
-CSP_MEDIA_SRC = ("'self'",)
+CSP_MEDIA_SRC = ("'self'", "blob:")
 CSP_FORM_ACTION = ("'self'", "https://accounts.google.com")
 CSP_INCLUDE_NONCE_IN = ["script-src"]
 
