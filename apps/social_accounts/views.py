@@ -15,6 +15,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+from csp.decorators import csp_update
 from django_ratelimit.decorators import ratelimit
 
 from apps.common.validators import is_safe_url as _is_safe_url
@@ -122,6 +123,7 @@ def account_list(request, workspace_id):
 # ------------------------------------------------------------------
 
 
+@csp_update(FORM_ACTION="'self' https:")
 @login_required
 @require_permission("manage_social_accounts")
 @ratelimit(key="user", rate="20/m", method="POST", block=True)
@@ -547,6 +549,7 @@ def connect_mastodon(request, workspace_id):
 # ------------------------------------------------------------------
 
 
+@csp_update(FORM_ACTION="'self' https:")
 @login_required
 @require_permission("manage_social_accounts")
 @require_POST
