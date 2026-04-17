@@ -633,7 +633,7 @@ def disconnect(request, workspace_id, account_id):
     if orphan_post_ids:
         Post.objects.filter(id__in=orphan_post_ids).delete()
 
-    account_name = account.account_name
+    account_name = account.account_name or account.account_handle
     account.delete()
 
     messages.success(request, f"Disconnected {account_name}.")

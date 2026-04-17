@@ -35,7 +35,7 @@ Tab switching is HTMX partial swaps only - no full page reload.
                 <select class="publish-filter-select has-icon" x-model="activeChannel" @change="reloadTab()">
                     <option value="">All Channels</option>
                     {% for channel in channels_with_posts %}
-                    <option value="{{ channel.id }}">{{ channel.account_name }} ({{ channel.get_platform_display }})</option>
+                    <option value="{{ channel.id }}">{{ channel.account_name|default:channel.account_handle }} ({{ channel.get_platform_display }})</option>
                     {% endfor %}
                 </select>
             </div>

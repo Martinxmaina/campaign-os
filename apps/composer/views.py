@@ -303,7 +303,7 @@ def compose(request, workspace_id, post_id=None):
         str(acc.id): {
             "platform": acc.platform,
             "limit": acc.char_limit,
-            "name": acc.account_name,
+            "name": acc.account_name or acc.account_handle,
             **acc.field_config,
         }
         for acc in social_accounts
