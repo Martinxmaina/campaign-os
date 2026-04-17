@@ -151,7 +151,7 @@ class TikTokProvider(SocialProvider):
             f"{API_BASE}/user/info/",
             access_token=access_token,
             params={
-                "fields": "open_id,union_id,avatar_url,display_name,follower_count",
+                "fields": "open_id,union_id,avatar_url,display_name",
             },
         )
         body = resp.json()
@@ -160,7 +160,7 @@ class TikTokProvider(SocialProvider):
             platform_id=user.get("open_id", ""),
             name=user.get("display_name", ""),
             avatar_url=user.get("avatar_url"),
-            follower_count=user.get("follower_count", 0),
+            follower_count=0,
             extra={"union_id": user.get("union_id")},
         )
 
