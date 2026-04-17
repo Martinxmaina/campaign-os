@@ -63,7 +63,7 @@ You can deploy it with a one-click button on Heroku, Render, or Railway, run it 
 | <img src="https://cdn.simpleicons.org/instagram" width="16" height="16"> Instagram (Personal) | ✓ | ✓ | ✓ | ✓ |
 | <img src="https://api.iconify.design/logos/linkedin-icon.svg" width="16" height="16"> LinkedIn (Personal) | ✓ | ✓ | — | ✓ |
 | <img src="https://api.iconify.design/logos/linkedin-icon.svg" width="16" height="16"> LinkedIn (Company) | ✓ | ✓ | — | ✓ |
-| <img src="https://cdn.simpleicons.org/tiktok" width="16" height="16"> TikTok | ✓ | ✓ | — | ✓ |
+| <img src="https://cdn.simpleicons.org/tiktok" width="16" height="16"> TikTok | ✓ | — | — | ✓ |
 | <img src="https://cdn.simpleicons.org/youtube" width="16" height="16"> YouTube | ✓ | ✓ | — | ✓ |
 | <img src="https://cdn.simpleicons.org/pinterest" width="16" height="16"> Pinterest | ✓ | — | — | ✓ |
 | <img src="https://cdn.simpleicons.org/threads" width="16" height="16"> Threads | ✓ | ✓ | — | ✓ |
@@ -429,12 +429,12 @@ Brightbean uses a **single LinkedIn app** (with Community Management API) for bo
 ### TikTok
 
 1. Go to the [TikTok Developer Portal](https://developers.tiktok.com/) and create a new app
-2. Add the products **Login Kit**, **Content Posting API**, and **Comment API**
+2. Add the products **Login Kit** and **Content Posting API**
 3. Configure the redirect URI under your app's settings:
    ```
    {APP_URL}/social-accounts/callback/tiktok/
    ```
-4. Required scopes: `user.info.basic`, `video.publish`, `video.upload`, `comment.list`, `comment.list.manage`
+4. Required scopes: `user.info.basic`, `video.publish`, `video.upload`
 5. Note: TikTok uses **Client Key** (not Client ID). Copy the **Client Key** and **Client Secret** from your app dashboard
 6. Set the environment variables:
    ```

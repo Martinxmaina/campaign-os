@@ -119,6 +119,9 @@ class SocialAccount(models.Model):
             "supports_first_comment": False,
             "advanced_fields": ["allow_comments", "show_similar_products", "alt_text", "cover_image"],
         },
+        "tiktok": {
+            "supports_first_comment": False,
+        },
         "bluesky": {
             "supports_first_comment": False,
         },
