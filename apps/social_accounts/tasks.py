@@ -86,6 +86,16 @@ def check_social_account_health(account_id: str):
     try:
         profile = provider.get_profile(account.oauth_access_token)
         account.follower_count = profile.follower_count
+        # Provider CDNs (TikTok, Meta) return signed avatar URLs that
+        # expire; display names and handles can also change on-platform.
+        # Guard each write so a transient empty response doesn't wipe
+        # previously-good values.
+        if profile.avatar_url:
+            account.avatar_url = profile.avatar_url
+        if profile.name:
+            account.account_name = profile.name
+        if profile.handle:
+            account.account_handle = profile.handle
         if account.connection_status != SocialAccount.ConnectionStatus.TOKEN_EXPIRING:
             account.connection_status = SocialAccount.ConnectionStatus.CONNECTED
         account.last_error = ""
@@ -101,6 +111,9 @@ def check_social_account_health(account_id: str):
             "oauth_refresh_token",
             "token_expires_at",
             "follower_count",
+            "avatar_url",
+            "account_name",
+            "account_handle",
             "connection_status",
             "last_error",
             "last_health_check_at",
