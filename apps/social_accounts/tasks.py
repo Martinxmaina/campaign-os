@@ -62,8 +62,11 @@ def check_social_account_health(account_id: str):
         logger.error("Health check: no provider for platform %s", account.platform)
         return
 
-    # Attempt token refresh if expiring soon
-    if account.is_token_expiring_soon and account.oauth_refresh_token:
+    # Bluesky accounts connected before we recorded token_expires_at need a
+    # one-shot refresh to populate it; without this, is_token_expiring_soon
+    # stays False forever and the short-lived accessJwt is never rotated.
+    needs_bluesky_bootstrap = account.platform == "bluesky" and account.token_expires_at is None
+    if (account.is_token_expiring_soon or needs_bluesky_bootstrap) and account.oauth_refresh_token:
         try:
             new_tokens = provider.refresh_token(account.oauth_refresh_token)
             account.oauth_access_token = new_tokens.access_token
