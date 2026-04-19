@@ -332,12 +332,10 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
     },
     # Bluesky - session-based auth (app passwords), no app-level credentials needed
     "bluesky": {},
-    # Mastodon - instance-specific OAuth; env vars only work for single-instance deployments
-    "mastodon": {
-        "instance_url": env("PLATFORM_MASTODON_INSTANCE_URL", default=""),
-        "client_id": env("PLATFORM_MASTODON_CLIENT_ID", default=""),
-        "client_secret": env("PLATFORM_MASTODON_CLIENT_SECRET", default=""),
-    },
+    # Mastodon - instance-specific OAuth; credentials are registered per-instance
+    # on first connect and persisted in MastodonAppRegistration. No repo-wide
+    # credentials apply.
+    "mastodon": {},
 }
 
 # Webhook verification
