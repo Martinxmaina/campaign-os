@@ -7,6 +7,7 @@ from datetime import date, datetime, time, timedelta
 
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import QuerySet
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -276,6 +277,7 @@ def _get_tab_context(request, workspace, tab: str) -> dict:
         "has_connected_accounts": has_connected_accounts,
     }
 
+    platform_posts: QuerySet[PlatformPost]
     if tab == "queue":
         platform_posts = (
             PlatformPost.objects.filter(post__workspace_id=workspace.id, status="scheduled")
@@ -418,9 +420,7 @@ def calendar_view(request, workspace_id):
     # the resulting content shift).
     if mode == "list":
         context.update(_get_tab_context(request, workspace, active_tab))
-        context["initial_tab_template"] = _TAB_TEMPLATES.get(
-            active_tab, _TAB_TEMPLATES["queue"]
-        )
+        context["initial_tab_template"] = _TAB_TEMPLATES.get(active_tab, _TAB_TEMPLATES["queue"])
         context["is_htmx"] = False
 
     # HTMX partial: switching between list and calendar mode
