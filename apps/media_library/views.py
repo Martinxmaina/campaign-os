@@ -1136,11 +1136,7 @@ def shared_tag_autocomplete(request):
     if not query or len(query) < 1:
         return JsonResponse([], safe=False)
 
-    assets = (
-        MediaAsset.objects.shared_only(org.id)
-        .exclude(tags=[])
-        .values_list("tags", flat=True)
-    )
+    assets = MediaAsset.objects.shared_only(org.id).exclude(tags=[]).values_list("tags", flat=True)
     all_tags = set()
     for tag_list in assets[:500]:
         for tag in tag_list:

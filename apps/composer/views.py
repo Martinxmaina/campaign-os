@@ -985,11 +985,9 @@ def media_picker(request, workspace_id, post_id=None):
     if post_id:
         post = get_object_or_404(Post, id=post_id, workspace=workspace)
 
-    assets = (
-        MediaAsset.objects
-        .for_workspace_with_shared(workspace.id, workspace.organization_id)
-        .order_by("-created_at")[:50]
-    )
+    assets = MediaAsset.objects.for_workspace_with_shared(workspace.id, workspace.organization_id).order_by(
+        "-created_at"
+    )[:50]
     return render(
         request,
         "composer/partials/media_picker.html",
