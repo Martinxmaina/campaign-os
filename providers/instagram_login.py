@@ -1,8 +1,12 @@
 """Instagram API with Instagram Login provider.
 
-Supports personal, creator, and business Instagram accounts via the
-Instagram Login OAuth flow (separate from the Facebook Login path used
-by the existing ``InstagramProvider``).
+Supports Professional Instagram accounts (Business or Creator) via the
+Instagram Login OAuth flow — distinct from the Facebook-Login path used by
+``InstagramProvider``. No linked Facebook Page is required.
+
+Personal (non-Professional) Instagram accounts have no API access since
+the Basic Display API was retired on 2024-12-04. Users must convert their
+account to Professional before connecting.
 
 Docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-instagram-login
 """
@@ -43,13 +47,11 @@ CONTAINER_POLL_INTERVAL = 2  # seconds
 CONTAINER_POLL_MAX_ATTEMPTS = 60  # ~2 minutes max
 
 
-class InstagramPersonalProvider(SocialProvider):
+class InstagramLoginProvider(SocialProvider):
     """Instagram API provider using Instagram Login (OAuth 2.0).
 
-    Unlike the standard ``InstagramProvider`` (which authenticates via
-    Facebook Login and requires a linked Facebook Page), this provider
-    uses Instagram's own OAuth flow and works with personal, creator,
-    and business accounts.
+    Authenticates Professional (Business or Creator) Instagram accounts
+    directly through Instagram, without requiring a linked Facebook Page.
     """
 
     def __init__(self, credentials: dict | None = None):
@@ -67,7 +69,7 @@ class InstagramPersonalProvider(SocialProvider):
 
     @property
     def platform_name(self) -> str:
-        return "Instagram (Personal)"
+        return "Instagram (Direct)"
 
     @property
     def auth_type(self) -> AuthType:
