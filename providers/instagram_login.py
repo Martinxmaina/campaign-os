@@ -40,7 +40,8 @@ logger = logging.getLogger(__name__)
 
 AUTH_URL = "https://www.instagram.com/oauth/authorize"
 TOKEN_URL = "https://api.instagram.com/oauth/access_token"
-API_BASE = "https://graph.instagram.com/v21.0"
+GRAPH_HOST = "https://graph.instagram.com"
+API_BASE = f"{GRAPH_HOST}/v21.0"
 
 # Container polling
 CONTAINER_POLL_INTERVAL = 2  # seconds
@@ -148,7 +149,7 @@ class InstagramLoginProvider(SocialProvider):
     def _exchange_for_long_lived_token(self, short_lived_token: str) -> OAuthTokens:
         resp = self._request(
             "GET",
-            f"{API_BASE}/access_token",
+            f"{GRAPH_HOST}/access_token",
             params={
                 "grant_type": "ig_exchange_token",
                 "client_secret": self.credentials["client_secret"],
@@ -180,7 +181,7 @@ class InstagramLoginProvider(SocialProvider):
         """
         resp = self._request(
             "GET",
-            f"{API_BASE}/refresh_access_token",
+            f"{GRAPH_HOST}/refresh_access_token",
             params={
                 "grant_type": "ig_refresh_token",
                 "access_token": refresh_token,
