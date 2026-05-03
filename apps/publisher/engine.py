@@ -460,7 +460,7 @@ class PublishEngine:
         # 3. Multi-media → CAROUSEL for Instagram/Threads
         if media_count > 1 and platform in (
             "instagram",
-            "instagram_personal",
+            "instagram_login",
             "threads",
         ):
             return PostType.CAROUSEL

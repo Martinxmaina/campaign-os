@@ -301,7 +301,7 @@ _GOOGLE_CREDENTIALS = {
     "client_id": env("PLATFORM_GOOGLE_CLIENT_ID", default=""),
     "client_secret": env("PLATFORM_GOOGLE_CLIENT_SECRET", default=""),
 }
-_INSTAGRAM_PERSONAL_CREDENTIALS = {
+_INSTAGRAM_LOGIN_CREDENTIALS = {
     "app_id": env("PLATFORM_INSTAGRAM_APP_ID", default=""),
     "app_secret": env("PLATFORM_INSTAGRAM_APP_SECRET", default=""),
 }
@@ -315,8 +315,10 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
     "facebook": _META_CREDENTIALS,
     "instagram": _META_CREDENTIALS,
     "threads": _META_CREDENTIALS,
-    # Instagram (Personal) - uses Instagram Login with separate Instagram App credentials
-    "instagram_personal": _INSTAGRAM_PERSONAL_CREDENTIALS,
+    # Instagram (Direct) - uses Instagram Login with separate Instagram App credentials.
+    # Despite the platform key, this targets Professional (Business/Creator) IG accounts
+    # without requiring a linked Facebook Page. See providers/instagram_login.py.
+    "instagram_login": _INSTAGRAM_LOGIN_CREDENTIALS,
     # LinkedIn - personal and company page variants share one Community Management API app
     "linkedin_personal": _LINKEDIN_CREDENTIALS,
     "linkedin_company": _LINKEDIN_CREDENTIALS,
@@ -341,6 +343,7 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
 
 # Webhook verification
 FACEBOOK_WEBHOOK_VERIFY_TOKEN = env("FACEBOOK_WEBHOOK_VERIFY_TOKEN", default="")
+INSTAGRAM_LOGIN_WEBHOOK_VERIFY_TOKEN = env("INSTAGRAM_LOGIN_WEBHOOK_VERIFY_TOKEN", default="")
 YOUTUBE_WEBHOOK_SECRET = env("YOUTUBE_WEBHOOK_SECRET", default="")
 
 # Rate limiting

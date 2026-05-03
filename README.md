@@ -60,7 +60,7 @@ You can deploy it with a one-click button on Heroku, Render, or Railway, run it 
 |---|:---:|:---:|:---:|:---:|
 | <img src="https://cdn.simpleicons.org/facebook" width="16" height="16"> Facebook | ✓ | ✓ | ✓ | ✓ |
 | <img src="https://cdn.simpleicons.org/instagram" width="16" height="16"> Instagram | ✓ | ✓ | ✓ | ✓ |
-| <img src="https://cdn.simpleicons.org/instagram" width="16" height="16"> Instagram (Personal) | ✓ | ✓ | ✓ | ✓ |
+| <img src="https://cdn.simpleicons.org/instagram" width="16" height="16"> Instagram (Direct) | ✓ | ✓ | ✓ | ✓ |
 | <img src="https://api.iconify.design/logos/linkedin-icon.svg" width="16" height="16"> LinkedIn (Personal) | ✓ | ✓ | — | ✓ |
 | <img src="https://api.iconify.design/logos/linkedin-icon.svg" width="16" height="16"> LinkedIn (Company) | ✓ | ✓ | — | ✓ |
 | <img src="https://cdn.simpleicons.org/tiktok" width="16" height="16"> TikTok | ✓ | — | — | ✓ |
@@ -384,22 +384,28 @@ Facebook, Instagram, and Threads all use the same Meta app credentials.
    PLATFORM_FACEBOOK_APP_SECRET=your-app-secret
    ```
 
-### Instagram (Personal Account)
+### Instagram (Direct, via Instagram Login)
 
-The Instagram (Personal) connector uses the **Instagram API with Instagram Login** - a separate OAuth flow from the Facebook Login-based Instagram connector above. This supports personal, creator, and business Instagram accounts without requiring a linked Facebook Page.
+The Instagram (Direct) connector uses the **Instagram API with Instagram Login** - a separate OAuth flow from the Facebook Login-based Instagram connector above. It works with **Professional** Instagram accounts (Business or Creator) **without** requiring a linked Facebook Page.
+
+> **Account-type requirement:** Personal Instagram accounts have no API access since the Instagram Basic Display API was retired on 2024-12-04. Users must convert their account to Professional first (free, in IG Settings → *Account type and tools* → *Switch to professional account*).
 
 1. In the same Meta app, go to **Use cases** and add the **"Instagram API"** use case
 2. Under **API setup with Instagram Login**, note your **Instagram App ID** and **Instagram App Secret** (these are different from your Facebook App ID/Secret)
 3. Go to **Permissions and features** and add the required permissions:
    - `instagram_business_basic`, `instagram_business_content_publish`, `instagram_business_manage_comments`, `instagram_business_manage_messages`
-4. Under **API setup with Instagram Login → Step 4: Set up Instagram business login**, click **Set up** and add the redirect URI:
+4. Under **API setup with Instagram Login → Step 4: Set up Instagram business login**, click **Set up** and add the redirect URI (must match exactly, including the trailing slash):
    ```
-   {APP_URL}/social-accounts/callback/instagram_personal/
+   {APP_URL}/social-accounts/callback/instagram_login/
    ```
-5. Set the environment variables:
+5. Under **API setup with Instagram Login → Step 3: Configure webhooks**, set:
+   - **Callback URL:** `{APP_URL}/webhooks/instagram_login/`
+   - **Verify token:** the value of `INSTAGRAM_LOGIN_WEBHOOK_VERIFY_TOKEN` from your `.env` (any random string; generate one and set the env var before clicking Verify and save). After verification, subscribe to the `messages`, `comments`, and `mentions` fields.
+6. Set the environment variables:
    ```
    PLATFORM_INSTAGRAM_APP_ID=your-instagram-app-id
    PLATFORM_INSTAGRAM_APP_SECRET=your-instagram-app-secret
+   INSTAGRAM_LOGIN_WEBHOOK_VERIFY_TOKEN=your-random-verify-token
    ```
 
 ### LinkedIn
