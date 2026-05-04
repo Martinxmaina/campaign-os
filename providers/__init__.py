@@ -47,6 +47,8 @@ def get_provider(platform: str, credentials: dict | None = None) -> SocialProvid
         platform: A PlatformCredential.Platform value (e.g. "facebook").
         credentials: Platform app credentials (client_id, client_secret, etc.)
                      from PlatformCredential or settings.PLATFORM_CREDENTIALS_FROM_ENV.
+                     If None, falls back to env credentials from
+                     ``settings.PLATFORM_CREDENTIALS_FROM_ENV``.
 
     Raises:
         ValueError: If no provider is registered for the given platform.
@@ -54,4 +56,9 @@ def get_provider(platform: str, credentials: dict | None = None) -> SocialProvid
     provider_cls = PROVIDER_REGISTRY.get(platform)
     if provider_cls is None:
         raise ValueError(f"No provider registered for platform: {platform}")
-    return provider_cls(credentials=credentials or {})
+    if credentials is None:
+        from django.conf import settings
+
+        env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
+        credentials = env_creds.get(platform, {})
+    return provider_cls(credentials=credentials)

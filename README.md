@@ -410,10 +410,31 @@ The Instagram (Direct) connector uses the **Instagram API with Instagram Login**
 
 ### LinkedIn
 
-Brightbean uses a **single LinkedIn app** (with Community Management API) for both personal profile and Company Page connections - each flow simply requests different OAuth scopes. The connect page shows two cards: *LinkedIn (Personal Profile)* and *LinkedIn (Company Page)*.
+Brightbean Studio supports two LinkedIn paths. Pick whichever your LinkedIn dev app can obtain - or both, on separate apps.
 
-1. Go to the [LinkedIn Developer Portal](https://developer.linkedin.com/) and create a new app
-2. Verify your app's association with a LinkedIn Company Page
+**Path A - Personal-only (any individual developer can do this):**
+
+1. Go to the [LinkedIn Developer Portal](https://developer.linkedin.com/) and create a new app (no Company Page verification required).
+2. Under **Products**, request access to (both auto-approved):
+   - **Sign In with LinkedIn using OpenID Connect**
+   - **Share on LinkedIn**
+3. Under **Auth**, add the redirect URI:
+   ```
+   {APP_URL}/social-accounts/callback/linkedin_personal/
+   ```
+4. Scopes: `openid`, `profile`, `email`, `w_member_social`.
+5. Set the environment variables:
+   ```
+   PLATFORM_LINKEDIN_PERSONAL_CLIENT_ID=your-client-id
+   PLATFORM_LINKEDIN_PERSONAL_CLIENT_SECRET=your-client-secret
+   ```
+
+> **Limitations of Path A:** access tokens last ~60 days and LinkedIn does not issue refresh tokens for these scopes - users must manually reconnect every ~60 days. Inbox / comment-reading is not available for personal accounts on this path.
+
+**Path B - Company Pages (also enables full Personal features):**
+
+1. Go to the [LinkedIn Developer Portal](https://developer.linkedin.com/) and create a new app.
+2. Verify the app's association with a LinkedIn Company Page.
 3. Under **Products**, request access to:
    - **Community Management API** *(restricted - requires LinkedIn review)*
 4. Under **Auth**, add **both** redirect URIs:
@@ -421,16 +442,20 @@ Brightbean uses a **single LinkedIn app** (with Community Management API) for bo
    {APP_URL}/social-accounts/callback/linkedin_personal/
    {APP_URL}/social-accounts/callback/linkedin_company/
    ```
-5. Scopes are requested per connection type:
-   - **Personal profile:** `r_basicprofile`, `w_member_social`, `r_member_social`
-   - **Company page:** `r_basicprofile`, `w_member_social`, `w_organization_social`, `r_organization_social`, `rw_organization_admin`
+5. Scopes:
+   - **Personal:** `r_basicprofile`, `w_member_social`, `r_member_social`
+   - **Company:** `r_basicprofile`, `w_member_social`, `w_organization_social`, `r_organization_social`, `rw_organization_admin`
 6. Set the environment variables:
    ```
-   PLATFORM_LINKEDIN_CLIENT_ID=your-client-id
-   PLATFORM_LINKEDIN_CLIENT_SECRET=your-client-secret
+   PLATFORM_LINKEDIN_COMPANY_CLIENT_ID=your-client-id
+   PLATFORM_LINKEDIN_COMPANY_CLIENT_SECRET=your-client-secret
    ```
 
-> **Refresh tokens:** Community Management API provides refresh tokens natively (365-day lifetime, access tokens last 60 days). No Advertising API product is needed. Note: the **Share on LinkedIn** and **Community Management API** products are mutually exclusive on the same app - use Community Management API as it covers both personal and organization scopes.
+If you set only the Path B (Company) credentials, Brightbean Studio automatically reuses them for personal connections too - refresh tokens (365-day) and inbox both work. You only need Path A vars if you have a separate Personal-only app.
+
+> **Note:** "Sign In with LinkedIn using OpenID Connect" / "Share on LinkedIn" and "Community Management API" are **mutually exclusive** on a single LinkedIn app. You need separate apps for Path A and Path B.
+
+> **Backwards compatibility:** the legacy `PLATFORM_LINKEDIN_CLIENT_ID` / `PLATFORM_LINKEDIN_CLIENT_SECRET` env vars are still honored as a fallback for both `linkedin_personal` and `linkedin_company` - existing self-hosters keep working without changes. The legacy credentials are assumed to be CM-approved; if your legacy app is OIDC-only, migrate it to `PLATFORM_LINKEDIN_PERSONAL_*`.
 
 ### TikTok
 
@@ -493,11 +518,11 @@ No developer app registration needed. Users connect by entering their Bluesky ha
 
 1. Log in to [Bluesky](https://bsky.app/)
 2. Go to **Settings → Privacy and Security → App Passwords**
-3. Create a new app password and use it when connecting your account in Brightbean
+3. Create a new app password and use it when connecting your account in Brightbean Studio
 
 ### Mastodon
 
-No developer app registration needed. Brightbean automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
+No developer app registration needed. Brightbean Studio automatically registers an OAuth application on each Mastodon instance when a user connects their account. Users just need to enter their instance URL (e.g., `mastodon.social`).
 
 ## Inbox: Backfill Historical Messages
 
