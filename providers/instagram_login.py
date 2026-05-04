@@ -123,8 +123,6 @@ class InstagramLoginProvider(SocialProvider):
 
     def exchange_code(self, code: str, redirect_uri: str) -> OAuthTokens:
         # Instagram Login requires multipart/form-data, not urlencoded.
-        # Meta's docs show `curl -F` and the urlencoded variant returns a
-        # token that fails at the next step with a misleading error.
         fields = {
             "client_id": self.credentials["client_id"],
             "client_secret": self.credentials["client_secret"],
@@ -139,6 +137,14 @@ class InstagramLoginProvider(SocialProvider):
         )
         body = resp.json()
         short_lived_token = body.get("access_token")
+        logger.info(
+            "IG-Login step 1: status=%s keys=%s user_id=%s token=%s len=%d",
+            resp.status_code,
+            sorted(body.keys()),
+            body.get("user_id"),
+            (short_lived_token[:6] + "...") if short_lived_token else None,
+            len(short_lived_token) if short_lived_token else 0,
+        )
         if not short_lived_token:
             raise OAuthError(
                 f"Instagram token exchange failed: {body}",
@@ -150,9 +156,16 @@ class InstagramLoginProvider(SocialProvider):
         return self._exchange_for_long_lived_token(short_lived_token)
 
     def _exchange_for_long_lived_token(self, short_lived_token: str) -> OAuthTokens:
+        url = f"{GRAPH_HOST}/access_token"
+        logger.info(
+            "IG-Login step 2: GET %s client_id=%s token=%s",
+            url,
+            self.credentials.get("client_id"),
+            short_lived_token[:6] + "...",
+        )
         resp = self._request(
             "GET",
-            f"{GRAPH_HOST}/access_token",
+            url,
             params={
                 "grant_type": "ig_exchange_token",
                 "client_id": self.credentials["client_id"],
