@@ -122,17 +122,20 @@ class InstagramLoginProvider(SocialProvider):
         return f"{AUTH_URL}?{urlencode(params)}"
 
     def exchange_code(self, code: str, redirect_uri: str) -> OAuthTokens:
-        # Instagram Login requires form-encoded POST body
+        # Instagram Login requires multipart/form-data, not urlencoded.
+        # Meta's docs show `curl -F` and the urlencoded variant returns a
+        # token that fails at the next step with a misleading error.
+        fields = {
+            "client_id": self.credentials["client_id"],
+            "client_secret": self.credentials["client_secret"],
+            "code": code,
+            "grant_type": "authorization_code",
+            "redirect_uri": redirect_uri,
+        }
         resp = self._request(
             "POST",
             TOKEN_URL,
-            data={
-                "client_id": self.credentials["client_id"],
-                "client_secret": self.credentials["client_secret"],
-                "code": code,
-                "grant_type": "authorization_code",
-                "redirect_uri": redirect_uri,
-            },
+            files={k: (None, v) for k, v in fields.items()},
         )
         body = resp.json()
         short_lived_token = body.get("access_token")
@@ -152,6 +155,7 @@ class InstagramLoginProvider(SocialProvider):
             f"{GRAPH_HOST}/access_token",
             params={
                 "grant_type": "ig_exchange_token",
+                "client_id": self.credentials["client_id"],
                 "client_secret": self.credentials["client_secret"],
                 "access_token": short_lived_token,
             },
