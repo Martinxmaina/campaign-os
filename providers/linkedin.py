@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from urllib.parse import urlencode
+from urllib.parse import quote, urlencode
 
 import httpx
 
@@ -40,6 +40,16 @@ LINKEDIN_HEADERS = {
     "LinkedIn-Version": "202604",
     "X-Restli-Protocol-Version": "2.0.0",
 }
+
+
+def _encode_urn(urn: str) -> str:
+    """Percent-encode a LinkedIn URN for use as a URL path segment.
+
+    LinkedIn rejects path-variable URNs unless their colons (and parens/commas
+    in composite comment URNs) are percent-encoded. Per the Posts API docs:
+    "urn:li:ugcPost:12345 becomes urn%3Ali%3AugcPost%3A12345."
+    """
+    return quote(urn, safe="")
 
 
 class LinkedInProvider(SocialProvider):
@@ -424,7 +434,7 @@ class LinkedInProvider(SocialProvider):
 
         resp = self._request(
             "POST",
-            f"{API_BASE}/rest/socialActions/{post_id}/comments",
+            f"{API_BASE}/rest/socialActions/{_encode_urn(post_id)}/comments",
             access_token=access_token,
             headers=LINKEDIN_HEADERS,
             json={
@@ -468,7 +478,7 @@ class LinkedInProvider(SocialProvider):
             while True:
                 c_resp = self._request(
                     "GET",
-                    f"{API_BASE}/rest/socialActions/{post_urn}/comments",
+                    f"{API_BASE}/rest/socialActions/{_encode_urn(post_urn)}/comments",
                     access_token=access_token,
                     headers=LINKEDIN_HEADERS,
                     params={"start": start, "count": 100},
@@ -530,7 +540,7 @@ class LinkedInProvider(SocialProvider):
 
         resp = self._request(
             "POST",
-            f"{API_BASE}/rest/socialActions/{post_urn}/comments",
+            f"{API_BASE}/rest/socialActions/{_encode_urn(post_urn)}/comments",
             access_token=access_token,
             headers=LINKEDIN_HEADERS,
             json={
