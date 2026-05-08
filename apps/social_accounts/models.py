@@ -144,6 +144,24 @@ class SocialAccount(models.Model):
         """Return field configuration for this platform."""
         return {**self.PLATFORM_FIELD_DEFAULTS, **self.PLATFORM_FIELD_CONFIG.get(self.platform, {})}
 
+    def supports_first_comment(self) -> bool:
+        """Whether this account can have a first comment posted by the worker.
+
+        Most platforms answer purely from PLATFORM_FIELD_CONFIG. LinkedIn Personal
+        is the exception: in OIDC mode the socialActions.CREATE endpoint returns
+        403 ACCESS_DENIED because that endpoint is gated on Community Management
+        API approval. Resolve credentials and check ``_oauth_mode`` for it.
+        """
+        if not self.field_config.get("supports_first_comment", True):
+            return False
+        if self.platform == "linkedin_personal":
+            from apps.publisher.engine import _resolve_publish_credentials
+
+            creds = _resolve_publish_credentials(self)
+            if creds.get("_oauth_mode", "oidc") == "oidc":
+                return False
+        return True
+
     @property
     def platform_icon(self) -> str:
         """Short icon label for platform badges."""

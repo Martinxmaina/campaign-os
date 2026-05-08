@@ -181,10 +181,13 @@ class PublishEngine:
         # Schedule first comments for successful publishes (non-blocking)
         for pp in platform_posts:
             pp.refresh_from_db()
-            if pp.status == PlatformPost.Status.PUBLISHED:
-                comment_text = pp.effective_first_comment
-                if comment_text:
-                    _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
+            if pp.status != PlatformPost.Status.PUBLISHED:
+                continue
+            if not pp.social_account.supports_first_comment():
+                continue
+            comment_text = pp.effective_first_comment
+            if comment_text:
+                _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
 
     def _publish_platform_post(self, platform_post):
         """Publish a single PlatformPost to its target platform.

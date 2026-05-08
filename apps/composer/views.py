@@ -338,15 +338,16 @@ def compose(request, workspace_id, post_id=None):
         social_accounts = social_accounts.filter(id=account_filter)
 
     # Platform character limits for JS
-    char_limits = {
-        str(acc.id): {
+    char_limits = {}
+    for acc in social_accounts:
+        cfg = dict(acc.field_config)
+        cfg["supports_first_comment"] = acc.supports_first_comment()
+        char_limits[str(acc.id)] = {
             "platform": acc.platform,
             "limit": acc.char_limit,
             "name": acc.account_name or acc.account_handle,
-            **acc.field_config,
+            **cfg,
         }
-        for acc in social_accounts
-    }
 
     # Workspace defaults
     default_first_comment = workspace.default_first_comment
