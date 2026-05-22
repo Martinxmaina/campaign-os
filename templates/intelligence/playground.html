@@ -41,22 +41,58 @@
   Single Intelligence UI surface. The playground layout below is ALWAYS
   rendered; overlay states cover it visually when the org isn't on an
   active subscription. Forms inside ``.intel-tools`` are visually
-  disabled (pointer-events:none + opacity-50) when ``subscription`` is
+  disabled (pointer-events:none + opacity-40) when ``subscription`` is
   not status='active', so they only become interactive once the
   overlay lifts.
 {% endcomment %}
 
-<div class="relative max-w-6xl">
-    {# Tool grid — visually disabled when not active. #}
+<div class="relative">
     <div class="intel-tools {% if not subscription or subscription.status != 'active' %}pointer-events-none opacity-40{% endif %}">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {% include "intelligence/_tool_card_score_packaging.html" %}
-            {% include "intelligence/_tool_card_score_video_hook.html" %}
-            {% include "intelligence/_tool_card_benchmark_channel.html" %}
-            {% include "intelligence/_tool_card_benchmark_video.html" %}
-            {% include "intelligence/_tool_card_research_content_gaps.html" %}
-            {% include "intelligence/_tool_card_list_niches.html" %}
+
+        {# Tab bar #}
+        <div class="overflow-x-auto border-b border-stone-200">
+            <div class="flex gap-1" role="tablist">
+                <button type="button" data-tab="packaging" id="intel-tab-packaging"
+                        class="intel-tab intel-tab-active -mb-px inline-flex flex-shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-semibold border-b-2 cursor-pointer transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z"/></svg>
+                    Score packaging
+                </button>
+                <button type="button" data-tab="video-hook" id="intel-tab-video-hook"
+                        class="intel-tab -mb-px inline-flex flex-shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"/></svg>
+                    Score video hook
+                </button>
+                <button type="button" data-tab="benchmark-channel" id="intel-tab-benchmark-channel"
+                        class="intel-tab -mb-px inline-flex flex-shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z"/></svg>
+                    Benchmark channel
+                </button>
+                <button type="button" data-tab="benchmark-video" id="intel-tab-benchmark-video"
+                        class="intel-tab -mb-px inline-flex flex-shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M7 19v-4m5 4v-9m5 9v-14M3.5 22.5h17A2 2 0 0 0 22.5 20.5V3.5A2 2 0 0 0 20.5 1.5H3.5A2 2 0 0 0 1.5 3.5v17A2 2 0 0 0 3.5 22.5Z"/></svg>
+                    Benchmark video
+                </button>
+                <button type="button" data-tab="content-gaps" id="intel-tab-content-gaps"
+                        class="intel-tab -mb-px inline-flex flex-shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+                    Research content gaps
+                </button>
+                <button type="button" data-tab="niches" id="intel-tab-niches"
+                        class="intel-tab -mb-px inline-flex flex-shrink-0 items-center gap-2 px-3 py-2.5 text-sm font-medium border-b-2 cursor-pointer transition">
+                    <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+                    List niches
+                </button>
+            </div>
         </div>
+
+        {# Panels #}
+        {% include "intelligence/_panel_score_packaging.html" %}
+        {% include "intelligence/_panel_score_video_hook.html" %}
+        {% include "intelligence/_panel_benchmark_channel.html" %}
+        {% include "intelligence/_panel_benchmark_video.html" %}
+        {% include "intelligence/_panel_research_content_gaps.html" %}
+        {% include "intelligence/_panel_list_niches.html" %}
+
     </div>
 
     {# Overlay variants. Only one shows at a time. #}
@@ -78,4 +114,147 @@
         {% include "intelligence/_overlay_provisioning_failed.html" with can_manage_billing=can_manage_billing %}
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Tab styling using Studio's brand color tokens. */
+    .intel-tab {
+        color: var(--text-secondary, #57534e);
+        border-color: transparent;
+    }
+    .intel-tab:hover {
+        color: var(--text-primary, #1c1917);
+    }
+    .intel-tab.intel-tab-active {
+        color: var(--primary);
+        border-color: var(--primary);
+    }
+    /* Panel display: hidden by default; active via .intel-panel-active. */
+    .intel-panel { display: none; }
+    .intel-panel.intel-panel-active { display: grid; }
+
+    /* Form inputs inside the playground — match the polished spec from
+       /apps/playground (Intel) so the UX feels consistent across both
+       sides of the integration. */
+    .intel-input {
+        display: block;
+        width: 100%;
+        padding: 0.625rem 0.875rem;
+        font-size: 0.875rem;
+        color: var(--text-primary, #1c1917);
+        background: white;
+        border: 1px solid var(--border, #e7e5e4);
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 2px 0 rgba(0,0,0,0.04);
+        transition: all 150ms ease;
+        outline: none;
+    }
+    .intel-input::placeholder { color: var(--text-ghost, #a8a29e); }
+    .intel-input:hover { border-color: var(--border-hover, #d6d3d1); }
+    .intel-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15);
+    }
+    .intel-label {
+        display: block;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-primary, #1c1917);
+        margin-bottom: 0.5rem;
+    }
+    .intel-label-hint {
+        font-weight: 400;
+        color: var(--text-ghost, #a8a29e);
+    }
+    .intel-helper {
+        margin-top: 0.375rem;
+        font-size: 0.75rem;
+        color: var(--text-ghost, #a8a29e);
+    }
+    .intel-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.625rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: white;
+        background: var(--primary);
+        border: none;
+        border-radius: 0.5rem;
+        box-shadow: 0 1px 2px 0 rgba(0,0,0,0.06);
+        cursor: pointer;
+        transition: background 150ms ease, transform 150ms ease;
+    }
+    .intel-submit:hover {
+        background: var(--primary-hover);
+        transform: translateY(-1px);
+    }
+    .intel-submit:disabled {
+        background: var(--primary-muted, #fed7aa);
+        cursor: not-allowed;
+        transform: none;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    (function () {
+        const PANELS = ['packaging', 'video-hook', 'benchmark-channel', 'benchmark-video', 'content-gaps', 'niches'];
+
+        function switchPanel(name) {
+            PANELS.forEach((p) => {
+                const tab = document.getElementById('intel-tab-' + p);
+                const panel = document.getElementById('intel-panel-' + p);
+                if (!tab || !panel) return;
+                if (p === name) {
+                    tab.classList.add('intel-tab-active');
+                    tab.classList.remove('font-medium');
+                    tab.classList.add('font-semibold');
+                    panel.classList.add('intel-panel-active');
+                } else {
+                    tab.classList.remove('intel-tab-active');
+                    tab.classList.remove('font-semibold');
+                    tab.classList.add('font-medium');
+                    panel.classList.remove('intel-panel-active');
+                }
+            });
+            try { history.replaceState(null, '', '#' + name); } catch (e) {}
+        }
+
+        document.querySelectorAll('.intel-tab').forEach((btn) => {
+            btn.addEventListener('click', () => switchPanel(btn.dataset.tab));
+        });
+
+        // Honour URL hash on load so back/forward navigation feels right.
+        const hash = (location.hash || '').replace(/^#/, '');
+        if (PANELS.includes(hash)) switchPanel(hash);
+
+        // Loading-state plumbing for every panel form. Adds spinner + disables
+        // the submit button while htmx is in-flight.
+        function setLoading(form, loading) {
+            const btn = form.querySelector('.intel-submit');
+            if (!btn) return;
+            btn.disabled = loading;
+            const icon = btn.querySelector('.intel-submit-icon');
+            const spinner = btn.querySelector('.intel-submit-spinner');
+            const label = btn.querySelector('.intel-submit-label');
+            const loadingLabel = btn.querySelector('.intel-submit-loading');
+            if (icon) icon.classList.toggle('hidden', loading);
+            if (spinner) spinner.classList.toggle('hidden', !loading);
+            if (label) label.classList.toggle('hidden', loading);
+            if (loadingLabel) loadingLabel.classList.toggle('hidden', !loading);
+        }
+        document.addEventListener('htmx:beforeRequest', (e) => {
+            const form = e.target.closest && e.target.closest('form.intel-form');
+            if (form) setLoading(form, true);
+        });
+        document.addEventListener('htmx:afterRequest', (e) => {
+            const form = e.target.closest && e.target.closest('form.intel-form');
+            if (form) setLoading(form, false);
+        });
+    })();
+</script>
 {% endblock %}

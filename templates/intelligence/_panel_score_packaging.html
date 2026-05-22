@@ -1,0 +1,50 @@
+<div id="intel-panel-packaging" class="intel-panel intel-panel-active mt-6 grid-cols-1 gap-6 lg:grid-cols-2">
+    {# Request card #}
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="flex items-center justify-between border-b border-stone-100 px-5 py-3.5">
+            <h2 class="text-sm font-semibold text-stone-900">Score packaging</h2>
+            <span class="inline-flex items-center rounded-md bg-stone-100 px-2 py-0.5 text-[11px] font-mono text-stone-600">1 credit</span>
+        </div>
+        <div class="p-5">
+            <p class="text-xs text-stone-500 mb-5 leading-relaxed">
+                Predict click-through rate from a title and (optionally) a thumbnail URL. Provide one or both — combined is most accurate.
+            </p>
+
+            <form class="intel-form space-y-5"
+                  hx-post="{% url 'intelligence:score-packaging' org_id=organization.id %}"
+                  hx-target="#packaging-result"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+                <div>
+                    <label for="pkg-title" class="intel-label">Video title <span class="intel-label-hint">(optional)</span></label>
+                    <input type="text" name="title" id="pkg-title" maxlength="250"
+                           placeholder="How I Built a $1M SaaS in 6 Months"
+                           class="intel-input">
+                </div>
+                <div>
+                    <label for="pkg-thumb" class="intel-label">Thumbnail URL <span class="intel-label-hint">(optional)</span></label>
+                    <input type="url" name="thumbnail_url" id="pkg-thumb"
+                           placeholder="https://i.ytimg.com/vi/.../maxresdefault.jpg"
+                           class="intel-input">
+                    <p class="intel-helper">Direct image URL — usually a YouTube thumbnail (<code class="font-mono text-[11px]">i.ytimg.com</code>) or any publicly-accessible JPEG/PNG.</p>
+                </div>
+                <button type="submit" class="intel-submit">
+                    <svg class="intel-submit-icon h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>
+                    <svg class="intel-submit-spinner hidden h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"/></svg>
+                    <span class="intel-submit-label">Score</span>
+                    <span class="intel-submit-loading hidden">Scoring…</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    {# Response card #}
+    <div class="rounded-xl border border-stone-200 bg-white shadow-sm">
+        <div class="border-b border-stone-100 px-5 py-3.5">
+            <h2 class="text-sm font-semibold text-stone-900">Result</h2>
+        </div>
+        <div id="packaging-result" class="p-5 min-h-[220px]">
+            {% include "intelligence/_panel_empty_state.html" with hint="Submit the form to see the predicted CTR + percentile." %}
+        </div>
+    </div>
+</div>
