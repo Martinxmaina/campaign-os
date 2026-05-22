@@ -588,6 +588,12 @@ def recover(request, org_id):
         return redirect("intelligence:playground", org_id=org_id)
 
     session_id = pending["stripe_session_id"]
+    # Intelligence resolves plan_slug server-side (from the price_id on
+    # the pending row) so closed-tab recovery doesn't have to. Falls
+    # back to "" if Intel returned an older response shape — preflight
+    # accepts blank and re-resolves from the same price_id, so the
+    # activation still completes either way.
+    plan_slug = (pending.get("plan_slug") or "").strip()
     # Fabricate a local attempt row so the two-phase logic finds it.
     # NOTE: ``update_or_create(organization=...)`` would raise
     # MultipleObjectsReturned for any org with checkout history —
@@ -602,7 +608,7 @@ def recover(request, org_id):
     ).first()
     open_defaults = {
         "user": request.user,
-        "plan_slug": "",
+        "plan_slug": plan_slug,
         "billing_email": request.org.billing_email or request.user.email,
         "status": StudioCheckoutAttempt.Status.OPEN,
         "checkout_url": "",
