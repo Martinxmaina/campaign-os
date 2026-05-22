@@ -768,10 +768,50 @@ def portal(request, org_id):
 @require_org_permission("manage_intelligence_billing")
 def billing_settings(request, org_id):
     sub = getattr(request.org, "intelligence_subscription", None)
+    # Fresh "scheduled cancel" lookup. Stripe keeps status='active' until
+    # the period actually ends, so the local IntelligenceSubscription.status
+    # cannot answer "is this sub going to cancel?" — that lives in
+    # Stripe's ``cancel_at`` / ``cancel_at_period_end`` fields. Intel
+    # proxies them through /internal/v1/accounts/<user_id> by retrieving
+    # the live Stripe object server-side. Failure to reach Intel here is
+    # non-fatal — we just skip the "Will cancel on …" banner and let the
+    # status pill speak for itself.
+    account = None
+    if sub and sub.intelligence_account_id:
+        try:
+            account = _client().get_account(user_id=sub.intelligence_account_id)
+        except (ServiceUnavailable, IntelligenceClientError):
+            logger.warning(
+                "Failed to load /accounts/%s for billing page; "
+                "rendering without cancel info", sub.intelligence_account_id,
+            )
+
+    cancel_at = None
+    if account and account.get("cancel_at"):
+        try:
+            cancel_at = timezone.datetime.fromisoformat(
+                account["cancel_at"].replace("Z", "+00:00"),
+            )
+        except (ValueError, AttributeError):
+            cancel_at = None
+    canceled_at = None
+    if account and account.get("canceled_at"):
+        try:
+            canceled_at = timezone.datetime.fromisoformat(
+                account["canceled_at"].replace("Z", "+00:00"),
+            )
+        except (ValueError, AttributeError):
+            canceled_at = None
+
     return render(request, "intelligence/billing_settings.html", {
         "organization": request.org,
         "subscription": sub,
         "billing_email": request.org.billing_email or request.user.email,
+        # Stripe-level scheduled-cancel state, may be None if Intel was
+        # unreachable or the sub has no scheduled cancel.
+        "cancel_at": cancel_at,
+        "canceled_at": canceled_at,
+        "cancel_at_period_end": bool(account and account.get("cancel_at_period_end")),
     })
 
 

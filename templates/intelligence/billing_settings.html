@@ -38,7 +38,18 @@
         </div>
         <div>
             <div class="text-xs font-semibold uppercase tracking-wide mb-1.5" style="color: var(--text-tertiary);">Status</div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
+                {% if cancel_at and subscription.status == 'active' %}
+                {# Stripe keeps status='active' until the period actually
+                   ends. When ``cancel_at`` is set, the user has clicked
+                   "Cancel" in the portal and is in the grace period —
+                   show an amber pill so it's visually distinct from a
+                   healthy "Active". #}
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full bg-amber-50 text-amber-700">
+                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                    Active · canceling
+                </span>
+                {% else %}
                 <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-medium rounded-full
                              {% if subscription.status == 'active' %}bg-green-50 text-green-700
                              {% elif subscription.status == 'past_due' %}bg-amber-50 text-amber-700
@@ -51,9 +62,18 @@
                                  {% else %}bg-blue-500{% endif %}"></span>
                     {{ subscription.get_status_display }}
                 </span>
+                {% endif %}
             </div>
         </div>
-        {% if subscription.current_period_end %}
+        {% if cancel_at %}
+        <div class="mt-4">
+            <div class="text-xs font-semibold uppercase tracking-wide mb-1.5" style="color: var(--text-tertiary);">Access ends</div>
+            <div class="text-sm" style="color: var(--text-primary);">{{ cancel_at|date:"F j, Y" }}</div>
+            <div class="text-xs mt-1" style="color: var(--text-secondary);">
+                You'll keep full Intelligence access until then, after which the subscription will be canceled and tool calls will stop.
+            </div>
+        </div>
+        {% elif subscription.current_period_end %}
         <div class="mt-4">
             <div class="text-xs font-semibold uppercase tracking-wide mb-1.5" style="color: var(--text-tertiary);">Current period ends</div>
             <div class="text-sm" style="color: var(--text-primary);">{{ subscription.current_period_end|date:"F j, Y" }}</div>
