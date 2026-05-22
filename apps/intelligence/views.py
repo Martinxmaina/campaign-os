@@ -782,10 +782,14 @@ def update_billing_contact(request, org_id):
     if not billing_email:
         return HttpResponseBadRequest("billing_email required")
 
-    with transaction.atomic():
-        request.org.billing_email = billing_email
-        request.org.save(update_fields=["billing_email", "updated_at"])
-
+    # When an active subscription exists we MUST keep Studio and the
+    # billing service in sync — the previous order (save locally, then
+    # call Intelligence) silently diverged whenever the Intel call
+    # failed: there's no Studio-side retry queue, so the "It'll retry
+    # automatically" message was a lie and Stripe/Studio could drift
+    # permanently. Call Intel first; only persist locally once Intel
+    # acknowledges. If Intel is down, surface the failure and ask the
+    # user to retry rather than half-committing.
     sub = getattr(request.org, "intelligence_subscription", None)
     if sub is not None and sub.status == IntelligenceSubscription.Status.ACTIVE:
         try:
@@ -794,13 +798,24 @@ def update_billing_contact(request, org_id):
                 billing_email=billing_email,
                 org_name=request.org.name,
             )
-        except IntelligenceClientError:
+        except (ServiceUnavailable, IntelligenceClientError):
             logger.exception("update_billing_contact sync failed")
-            messages.warning(
+            messages.error(
                 request,
-                "Saved locally, but the billing service didn't acknowledge. "
-                "It'll retry automatically.",
+                "We couldn't reach the billing service. Your change has "
+                "NOT been saved — please try again in a moment.",
             )
+            if request.headers.get("HX-Request"):
+                return render(
+                    request, "intelligence/_billing_contact_saved.html",
+                    {"billing_email": request.org.billing_email,
+                     "error": True},
+                )
+            return redirect("intelligence:billing-settings", org_id=org_id)
+
+    with transaction.atomic():
+        request.org.billing_email = billing_email
+        request.org.save(update_fields=["billing_email", "updated_at"])
 
     if request.headers.get("HX-Request"):
         return render(
