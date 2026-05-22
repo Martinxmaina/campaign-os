@@ -1,77 +1,81 @@
 {% extends "base.html" %}
-{% block page_title %}Intelligence{% endblock %}
-{% block content %}
-<div class="max-w-5xl mx-auto py-8 px-4">
-  {% comment %}
-    Single Intelligence UI surface. The playground layout below is ALWAYS
-    rendered; overlay states cover it visually when the org isn't on an
-    active subscription. Forms inside ``.intel-tools`` are visually
-    disabled (pointer-events:none + opacity-50) when ``subscription`` is
-    not status='active', so they only become interactive once the
-    overlay lifts.
-  {% endcomment %}
 
-  <div class="flex items-center justify-between mb-6">
+{% block title %}Intelligence - {{ organization.name }} - Brightbean{% endblock %}
+
+{% block page_header %}
+<div class="flex flex-wrap items-center justify-between gap-3 mb-4 lg:mb-[25px]">
     <div>
-      <h1 class="text-2xl font-semibold text-stone-900">Intelligence</h1>
-      <p class="text-sm text-stone-500 mt-1">
-        YouTube packaging, channel benchmarks, content-gap research.
-      </p>
+        <h1 class="text-xl sm:text-2xl font-semibold text-stone-900" style="letter-spacing: -0.01em;">Intelligence</h1>
+        <p class="text-sm text-stone-500 mt-1">
+            YouTube packaging scoring, channel benchmarks, content-gap research.
+        </p>
     </div>
+
     {% if subscription and subscription.status == "active" %}
-      <div class="text-right">
-        <div class="text-xs text-stone-500">Plan</div>
-        <div class="text-sm font-semibold text-stone-900">
-          {{ subscription.plan_slug|default:"—" }}
+    <div class="flex items-center gap-4 px-4 py-2 bg-stone-50 rounded-full border border-stone-200">
+        <div class="text-xs">
+            <div class="text-stone-500">Plan</div>
+            <div class="font-semibold text-stone-900 capitalize">{{ subscription.plan_slug|default:"—" }}</div>
         </div>
         {% if me %}
-          <div class="text-xs text-stone-500 mt-1">
-            Credits: <span class="font-medium text-stone-900">{{ me.credits_remaining }}</span>
-          </div>
+        <div class="h-7 w-px bg-stone-200"></div>
+        <div class="text-xs">
+            <div class="text-stone-500">Credits</div>
+            <div class="font-semibold text-stone-900">{{ me.credits_remaining|default:"—" }}</div>
+        </div>
         {% endif %}
         {% if can_manage_billing %}
-          <div class="mt-2">
-            <a href="{% url 'intelligence:billing-settings' org_id=organization.id %}"
-               class="text-xs text-orange-600 hover:text-orange-700">
-              Billing settings →
-            </a>
-          </div>
+        <div class="h-7 w-px bg-stone-200"></div>
+        <a href="{% url 'intelligence:billing-settings' org_id=organization.id %}"
+           class="text-xs font-medium hover:underline" style="color: var(--primary);">
+            Billing →
+        </a>
         {% endif %}
-      </div>
+    </div>
     {% endif %}
-  </div>
+</div>
+{% endblock %}
 
-  <div class="relative">
+{% block content %}
+{% comment %}
+  Single Intelligence UI surface. The playground layout below is ALWAYS
+  rendered; overlay states cover it visually when the org isn't on an
+  active subscription. Forms inside ``.intel-tools`` are visually
+  disabled (pointer-events:none + opacity-50) when ``subscription`` is
+  not status='active', so they only become interactive once the
+  overlay lifts.
+{% endcomment %}
+
+<div class="relative max-w-6xl">
     {# Tool grid — visually disabled when not active. #}
-    <div class="intel-tools {% if not subscription or subscription.status != 'active' %}pointer-events-none opacity-50{% endif %}">
-      <div class="grid md:grid-cols-2 gap-4">
-        {% include "intelligence/_tool_card_score_packaging.html" %}
-        {% include "intelligence/_tool_card_score_video_hook.html" %}
-        {% include "intelligence/_tool_card_benchmark_channel.html" %}
-        {% include "intelligence/_tool_card_benchmark_video.html" %}
-        {% include "intelligence/_tool_card_research_content_gaps.html" %}
-        {% include "intelligence/_tool_card_list_niches.html" %}
-      </div>
+    <div class="intel-tools {% if not subscription or subscription.status != 'active' %}pointer-events-none opacity-40{% endif %}">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% include "intelligence/_tool_card_score_packaging.html" %}
+            {% include "intelligence/_tool_card_score_video_hook.html" %}
+            {% include "intelligence/_tool_card_benchmark_channel.html" %}
+            {% include "intelligence/_tool_card_benchmark_video.html" %}
+            {% include "intelligence/_tool_card_research_content_gaps.html" %}
+            {% include "intelligence/_tool_card_list_niches.html" %}
+        </div>
     </div>
 
     {# Overlay variants. Only one shows at a time. #}
     {% if not subscription %}
-      {% if pending_activation and can_manage_billing %}
-        {% include "intelligence/_overlay_pending_activation.html" with pending=pending_activation %}
-      {% elif can_manage_billing %}
-        {% include "intelligence/_overlay_not_subscribed_admin.html" %}
-      {% else %}
-        {% include "intelligence/_overlay_not_subscribed_member.html" %}
-      {% endif %}
+        {% if pending_activation and can_manage_billing %}
+            {% include "intelligence/_overlay_pending_activation.html" with pending=pending_activation %}
+        {% elif can_manage_billing %}
+            {% include "intelligence/_overlay_not_subscribed_admin.html" %}
+        {% else %}
+            {% include "intelligence/_overlay_not_subscribed_member.html" %}
+        {% endif %}
     {% elif subscription.status == "finalizing" %}
-      {% include "intelligence/_overlay_finalizing.html" %}
+        {% include "intelligence/_overlay_finalizing.html" %}
     {% elif subscription.status == "past_due" %}
-      {% include "intelligence/_overlay_past_due.html" with can_manage_billing=can_manage_billing %}
+        {% include "intelligence/_overlay_past_due.html" with can_manage_billing=can_manage_billing %}
     {% elif subscription.status == "canceled" %}
-      {% include "intelligence/_overlay_canceled.html" with can_manage_billing=can_manage_billing %}
+        {% include "intelligence/_overlay_canceled.html" with can_manage_billing=can_manage_billing %}
     {% elif subscription.status == "provisioning_failed" %}
-      {% include "intelligence/_overlay_provisioning_failed.html" with can_manage_billing=can_manage_billing %}
+        {% include "intelligence/_overlay_provisioning_failed.html" with can_manage_billing=can_manage_billing %}
     {% endif %}
-  </div>
 </div>
 {% endblock %}

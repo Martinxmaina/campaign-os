@@ -608,9 +608,14 @@
                     <span class="sidebar-nav-label">Notifications</span>
                 </a>
 
-                {# Intelligence — opt-in via env. INTELLIGENCE_ENABLED is False
-                   for self-hosters who haven't configured the integration, so
-                   they see no Stripe / billing surface at all. #}
+                {% comment %}
+                  Intelligence — opt-in via env. INTELLIGENCE_ENABLED is False
+                  for self-hosters who haven't configured the integration, so
+                  they see no Stripe / billing surface at all. (Django's {# #}
+                  comment syntax is single-line only; this used to be a {# #}
+                  block spanning three lines, which rendered as literal text
+                  in the sidebar.)
+                {% endcomment %}
                 {% if INTELLIGENCE_ENABLED and request.org %}
                 <a href="{% url 'intelligence:playground' org_id=request.org.id %}"
                    class="mb-1 sidebar-nav-item {% if request.resolver_match.app_name == 'intelligence' %}active{% endif %}">
