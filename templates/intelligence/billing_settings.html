@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block page_title %}Intelligence Billing{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto py-8 px-4">
+  <div class="mb-6">
+    <a href="{% url 'intelligence:playground' org_id=organization.id %}"
+       class="text-sm text-stone-600 hover:text-stone-900">← Back to Intelligence</a>
+  </div>
+
+  <h1 class="text-2xl font-semibold text-stone-900 mb-1">Billing settings</h1>
+  <p class="text-sm text-stone-500 mb-6">Intelligence subscription for {{ organization.name }}.</p>
+
+  {% if subscription %}
+    <div class="grid grid-cols-2 gap-6 mb-8 p-4 rounded-lg border border-stone-200 bg-stone-50">
+      <div>
+        <div class="text-xs text-stone-500 uppercase tracking-wide">Plan</div>
+        <div class="text-base font-semibold text-stone-900">{{ subscription.plan_slug|default:"—" }}</div>
+      </div>
+      <div>
+        <div class="text-xs text-stone-500 uppercase tracking-wide">Status</div>
+        <div class="text-base font-semibold text-stone-900">{{ subscription.get_status_display }}</div>
+      </div>
+    </div>
+
+    <form method="post"
+          action="{% url 'intelligence:portal' org_id=organization.id %}"
+          class="mb-8">
+      {% csrf_token %}
+      <button type="submit"
+              class="px-4 py-2 text-sm font-semibold text-stone-700 bg-white border border-stone-300 rounded-full hover:bg-stone-50">
+        Manage payment + invoices in Stripe →
+      </button>
+    </form>
+  {% endif %}
+
+  <form method="post"
+        action="{% url 'intelligence:update-billing-contact' org_id=organization.id %}"
+        hx-post="{% url 'intelligence:update-billing-contact' org_id=organization.id %}"
+        hx-target="#billing-contact-saved"
+        hx-swap="outerHTML"
+        class="space-y-4">
+    {% csrf_token %}
+    <div>
+      <label for="billing_email"
+             class="block text-sm font-medium text-stone-700 mb-1">
+        Billing contact email
+      </label>
+      <input type="email" name="billing_email" id="billing_email"
+             value="{{ billing_email }}"
+             class="w-full max-w-md px-3 py-2 border border-stone-300 rounded-lg text-sm">
+      <p class="text-xs text-stone-500 mt-1">
+        Stripe invoices and failed-payment notices route here. Changing this
+        also updates the Stripe Customer's email.
+      </p>
+    </div>
+
+    <div id="billing-contact-saved"></div>
+
+    <button type="submit"
+            class="px-4 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700">
+      Save
+    </button>
+  </form>
+</div>
+{% endblock %}

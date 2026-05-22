@@ -1,0 +1,13 @@
+<div id="list-niches-result" class="mt-3 p-3 rounded border border-stone-200 bg-stone-50 max-h-96 overflow-y-auto">
+  <ul class="space-y-1 text-xs">
+    {% for niche in result.niches %}
+      <li class="flex items-center justify-between">
+        <span><span class="font-medium text-stone-900">{{ niche.name }}</span>
+          <span class="text-stone-400 ml-1">{{ niche.slug }}</span></span>
+        <span class="text-stone-500">{{ niche.gap_count }} gaps</span>
+      </li>
+    {% empty %}
+      <li class="text-stone-500">No niches available.</li>
+    {% endfor %}
+  </ul>
+</div>

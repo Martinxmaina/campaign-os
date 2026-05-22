@@ -1,0 +1,14 @@
+{% comment %}Role: admin/owner — shows the activation CTA.{% endcomment %}
+<div class="absolute inset-0 flex items-center justify-center bg-white/85 backdrop-blur-sm rounded-lg">
+  <div class="text-center max-w-md px-6">
+    <h2 class="text-lg font-semibold text-stone-900 mb-2">Activate Intelligence</h2>
+    <p class="text-sm text-stone-600 mb-5">
+      YouTube packaging scoring, channel benchmarks, and content-gap
+      research for your org. Per-org subscription billed monthly.
+    </p>
+    <a href="{% url 'intelligence:subscribe' org_id=organization.id %}"
+       class="inline-flex items-center px-6 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700">
+      Activate →
+    </a>
+  </div>
+</div>

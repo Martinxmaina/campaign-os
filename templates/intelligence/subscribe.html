@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block page_title %}Activate Intelligence{% endblock %}
+{% block content %}
+<div class="max-w-4xl mx-auto py-8 px-4">
+  <h1 class="text-2xl font-semibold text-stone-900 mb-2">Activate Intelligence</h1>
+  <p class="text-sm text-stone-500 mb-6">
+    YouTube packaging scoring, channel benchmarks, and content-gap research
+    for {{ organization.name }}.
+  </p>
+
+  {% if resumable_attempt %}
+    <div class="mb-6 p-4 rounded-lg border border-orange-200 bg-orange-50">
+      <h2 class="text-sm font-semibold text-orange-900">Resume your checkout</h2>
+      <p class="text-sm text-orange-800 mt-1">
+        Someone in your org already started a checkout for this organization.
+      </p>
+      <a href="{{ resumable_attempt.checkout_url }}"
+         class="mt-3 inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700">
+        Continue to Stripe →
+      </a>
+    </div>
+  {% elif in_flight_attempt %}
+    <div class="mb-6 p-4 rounded-lg border border-stone-200 bg-stone-50">
+      <h2 class="text-sm font-semibold text-stone-900">Setting up your checkout…</h2>
+      <p class="text-sm text-stone-700 mt-1">
+        We're talking to the billing service. This usually finishes in a few
+        seconds.
+      </p>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'intelligence:checkout' org_id=organization.id %}"
+        class="space-y-6">
+    {% csrf_token %}
+
+    {# Billing contact field — defaults to org.billing_email or activator. #}
+    <div>
+      <label for="billing_email"
+             class="block text-sm font-medium text-stone-700 mb-1">
+        Billing contact email
+      </label>
+      <input type="email" name="billing_email" id="billing_email"
+             value="{{ billing_email }}"
+             class="w-full max-w-md px-3 py-2 border border-stone-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+      <p class="text-xs text-stone-500 mt-1">
+        Invoices and payment notices go here. Belongs to the organization,
+        not to whoever clicks "Continue" below.
+      </p>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-stone-700 mb-2">
+        Plan
+      </label>
+      {% if not plans %}
+        <p class="text-sm text-stone-600">
+          No plans available for this deployment.
+        </p>
+      {% else %}
+        <div class="grid md:grid-cols-3 gap-4">
+          {% for plan in plans %}
+            <label class="block border border-stone-200 rounded-lg p-4 cursor-pointer hover:border-orange-300 has-checked:border-orange-500 has-checked:bg-orange-50">
+              <input type="radio" name="plan" value="{{ plan.slug }}"
+                     class="sr-only" required>
+              <div class="text-base font-semibold text-stone-900">{{ plan.name }}</div>
+              <div class="text-2xl font-bold text-stone-900 mt-2">
+                ${{ plan.price_cents|floatformat:0|stringformat:"d" }}<span class="text-sm font-normal text-stone-500">/mo</span>
+              </div>
+              <ul class="text-xs text-stone-600 mt-3 space-y-1">
+                <li>{{ plan.monthly_credits }} credits / month</li>
+                <li>{{ plan.rate_limit_per_minute }}/min rate limit</li>
+              </ul>
+            </label>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <button type="submit"
+              class="px-6 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700 disabled:opacity-50"
+              {% if not plans %}disabled{% endif %}>
+        Continue to Stripe →
+      </button>
+      <a href="{% url 'intelligence:playground' org_id=organization.id %}"
+         class="ml-3 text-sm text-stone-600 hover:text-stone-900">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

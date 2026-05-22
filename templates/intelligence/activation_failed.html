@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block page_title %}Activation failed{% endblock %}
+{% block content %}
+<div class="max-w-xl mx-auto py-16 px-4 text-center">
+  <h1 class="text-xl font-semibold text-stone-900 mb-2">We couldn't activate Intelligence</h1>
+  <p class="text-sm text-stone-600 mb-6">{{ message }}</p>
+  {% if code %}
+    <p class="text-xs text-stone-400 font-mono mb-6">code: {{ code }}</p>
+  {% endif %}
+  <p class="text-sm text-stone-600">
+    If Stripe charged you and you don't see your subscription, please
+    contact <a href="mailto:support@brightbean.xyz"
+               class="text-orange-600 hover:text-orange-700">support@brightbean.xyz</a>.
+  </p>
+</div>
+{% endblock %}
