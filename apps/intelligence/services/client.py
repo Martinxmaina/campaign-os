@@ -229,10 +229,20 @@ class InternalClient:
         # ``base_url``. We must sign over the same string — using just
         # ``path`` (the relative endpoint like ``/healthz``) produces a
         # signature that always fails as ``bad_signature``.
-        from urllib.parse import urlsplit
+        #
+        # Use urlencode to build the query string so the canonical
+        # matches what httpx puts on the wire: any value containing
+        # reserved characters (``&``, ``=``, ``?``, space, ``%``)
+        # would otherwise be percent-encoded by httpx but NOT in our
+        # canonical, producing bad_signature. Today's call sites
+        # only pass UUIDs/ints so this is forward-defense — but it
+        # also closes a class of bug where a future caller could
+        # smuggle attacker-controlled bytes past the HMAC integrity
+        # check by exploiting the encoding discrepancy.
+        from urllib.parse import urlencode, urlsplit
         full_path = urlsplit(f"{self.base_url}{path}").path
         if query:
-            qs = "&".join(f"{k}={v}" for k, v in query.items())
+            qs = urlencode(query, doseq=True)
             path_with_query = f"{full_path}?{qs}"
         else:
             path_with_query = full_path
