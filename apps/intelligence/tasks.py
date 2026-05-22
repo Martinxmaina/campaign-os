@@ -62,22 +62,33 @@ def provision_intelligence_account_via_session(pending_id):
     )
     from .views import _finalize_local_subscription
 
-    try:
-        pending = PendingActivation.objects.select_for_update().get(id=pending_id)
-    except PendingActivation.DoesNotExist:
-        logger.warning("PendingActivation %s vanished before worker ran", pending_id)
-        return
+    # Claim the row atomically. On Postgres (Studio's prod backend),
+    # ``select_for_update`` requires an open transaction or it raises
+    # ``TransactionManagementError`` — this used to break every worker
+    # run before any work began. The lock is released when the ``with``
+    # block exits so the subsequent network calls do not hold a row
+    # lock during Stripe/Intelligence I/O.
+    with transaction.atomic():
+        try:
+            pending = PendingActivation.objects.select_for_update().get(id=pending_id)
+        except PendingActivation.DoesNotExist:
+            logger.warning(
+                "PendingActivation %s vanished before worker ran", pending_id,
+            )
+            return
 
-    if pending.status not in (
-        PendingActivation.Status.PENDING, PendingActivation.Status.IN_PROGRESS,
-    ):
-        logger.info("PendingActivation %s already in terminal state %s",
-                    pending_id, pending.status)
-        return
+        if pending.status not in (
+            PendingActivation.Status.PENDING, PendingActivation.Status.IN_PROGRESS,
+        ):
+            logger.info(
+                "PendingActivation %s already in terminal state %s",
+                pending_id, pending.status,
+            )
+            return
 
-    pending.status = PendingActivation.Status.IN_PROGRESS
-    pending.attempts = (pending.attempts or 0) + 1
-    pending.save(update_fields=["status", "attempts", "updated_at"])
+        pending.status = PendingActivation.Status.IN_PROGRESS
+        pending.attempts = (pending.attempts or 0) + 1
+        pending.save(update_fields=["status", "attempts", "updated_at"])
 
     client = InternalClient()
 
