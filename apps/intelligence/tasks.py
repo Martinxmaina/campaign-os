@@ -115,7 +115,7 @@ def provision_intelligence_account_via_session(pending_id):
             billing_email=attempt.organization.billing_email or "",
             org_name=attempt.organization.name,
             contact_email=pending.user.email,
-            contact_full_name=pending.user.get_full_name() or "",
+            contact_full_name=pending.user.name or "",
             idempotency_key=f"preflight-{pending.session_id}",
         )
     except ActivationRejected as exc:
@@ -157,7 +157,7 @@ def provision_intelligence_account_via_session(pending_id):
         commit_resp = client.activate_commit(
             validation_token=preflight["validation_token"],
             contact_email=pending.user.email,
-            contact_full_name=pending.user.get_full_name() or "",
+            contact_full_name=pending.user.name or "",
             billing_email=attempt.organization.billing_email or "",
             org_name=attempt.organization.name,
             idempotency_key=f"commit-{pending.session_id}",

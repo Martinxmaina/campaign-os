@@ -305,7 +305,7 @@ def checkout(request, org_id):
             billing_email=billing_email,
             plan_slug=plan_slug,
             contact_email=user.email,
-            contact_full_name=user.get_full_name() or "",
+            contact_full_name=user.name or "",
             return_base_url=_studio_base_url(),
             idempotency_key=idempotency_key,
         )
@@ -447,7 +447,7 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
             billing_email=expected_org.billing_email or "",
             org_name=expected_org.name,
             contact_email=user.email,
-            contact_full_name=user.get_full_name() or "",
+            contact_full_name=user.name or "",
             idempotency_key=preflight_key,
         )
     except ActivationRejected as exc:
@@ -484,7 +484,7 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
         commit_resp = _client().activate_commit(
             validation_token=preflight["validation_token"],
             contact_email=user.email,
-            contact_full_name=user.get_full_name() or "",
+            contact_full_name=user.name or "",
             billing_email=expected_org.billing_email or "",
             org_name=expected_org.name,
             idempotency_key=commit_key,
