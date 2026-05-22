@@ -154,7 +154,17 @@ def playground(request, org_id):
         "me": me,
         "can_manage_billing": can_manage_billing,
     }
-    return render(request, "intelligence/playground.html", context)
+    response = render(request, "intelligence/playground.html", context)
+    # Throttled background refresh — keeps the local mirror fresh without
+    # one task per page render.
+    if sub and sub.status == IntelligenceSubscription.Status.ACTIVE:
+        try:
+            from .tasks import refresh_subscription_on_visit
+
+            refresh_subscription_on_visit(org_id)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to schedule refresh_subscription_on_visit")
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -444,12 +454,13 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
 
 def _queue_pending_activation(user, session_id: str):
     """Persist PendingActivation + enqueue worker."""
-    PendingActivation.objects.update_or_create(
+    from .tasks import provision_intelligence_account_via_session
+
+    pending, _ = PendingActivation.objects.update_or_create(
         user=user, session_id=session_id,
         defaults={"status": PendingActivation.Status.PENDING},
     )
-    # Worker call lives in milestone 17 (tasks.py). Stub: the row is
-    # persisted; the recurring worker (once registered) will pick it up.
+    provision_intelligence_account_via_session(pending.id, schedule=0)
 
 
 def _finalize_local_subscription(request, *, attempt, expected_org,
