@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.db import models
 
 
@@ -8,6 +9,14 @@ class Organization(models.Model):
     name = models.CharField(max_length=100)
     logo_url = models.URLField(blank=True, default="")
     default_timezone = models.CharField(max_length=63, default="UTC")
+
+    # Intelligence billing contact (the optional hosted SaaS integration).
+    # Stripe Customer email defaults to this; falls back to the activating
+    # user's email if blank. Stored on the Org (not the User) so a change
+    # in activator doesn't affect where billing notices land — and so
+    # invoices can be routed to a finance address rather than whoever
+    # happened to click Subscribe.
+    billing_email = models.EmailField(blank=True, default="")
 
     # Deletion workflow
     deletion_requested_at = models.DateTimeField(blank=True, null=True)
@@ -26,6 +35,27 @@ class Organization(models.Model):
     @property
     def is_deletion_pending(self):
         return self.deletion_requested_at is not None and self.deleted_at is None
+
+    @property
+    def has_intelligence(self):
+        """True when the org has an active Intelligence subscription AND
+        the integration is enabled in this deployment.
+
+        Returns False when ``settings.INTELLIGENCE_ENABLED`` is off even
+        if a subscription row exists — so a self-hoster who removes the
+        env vars doesn't accidentally keep the feature visible. Returns
+        False when the related ``IntelligenceSubscription`` doesn't
+        exist yet (apps.intelligence may not even be migrated on a
+        deployment that hasn't opted in).
+
+        The decorator ``@intelligence_subscription_required`` in
+        apps.intelligence layers a stricter check (must be exactly
+        ``status='active'``) for tool-call endpoints.
+        """
+        if not getattr(settings, "INTELLIGENCE_ENABLED", False):
+            return False
+        sub = getattr(self, "intelligence_subscription", None)
+        return bool(sub and sub.status == "active")
 
     def hard_delete(self, requesting_user=None):
         """Hard-delete this org and settle every member's account.
