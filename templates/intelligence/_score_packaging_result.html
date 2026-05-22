@@ -1,18 +1,72 @@
 <div>
+    {# Lead metric: percentile (the headline number) + a hover tooltip
+       that explains what the rank actually means against the niche
+       distribution. Score becomes a secondary readout on the right. #}
     <div class="flex items-end justify-between gap-6">
         <div>
-            <div class="text-xs uppercase tracking-wide text-stone-500">Predicted CTR score</div>
-            <div class="mt-1 text-4xl font-bold text-stone-900 tabular-nums">{{ result.score|floatformat:2 }}</div>
+            <div class="flex items-center gap-1.5">
+                <div class="text-xs uppercase tracking-wide text-stone-500">Percentile</div>
+                <div class="relative group inline-flex items-center">
+                    <span class="inline-flex w-4 h-4 items-center justify-center rounded-full bg-stone-200 text-stone-500 text-[10px] font-bold cursor-help"
+                          aria-describedby="pkg-percentile-tooltip"
+                          tabindex="0">?</span>
+                    <div id="pkg-percentile-tooltip" role="tooltip"
+                         class="invisible group-hover:visible group-focus-within:visible
+                                absolute bottom-full left-0 mb-2 w-72 p-3 text-xs
+                                text-white bg-stone-900 rounded-lg shadow-lg z-20
+                                leading-relaxed pointer-events-none">
+                        Where your packaging ranks against other recent videos in
+                        the same niche. <span class="font-semibold">80</span> means
+                        your title + thumbnail combo is predicted to outperform
+                        80% of niche peers; <span class="font-semibold">50</span>
+                        is average; below 30 is a sign to iterate.
+                        <span class="absolute top-full left-3 -mt-px border-4 border-transparent border-t-stone-900"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-1 text-5xl font-bold tabular-nums" style="color: var(--primary);">{{ result.percentile }}</div>
         </div>
         <div class="text-right">
-            <div class="text-xs uppercase tracking-wide text-stone-500">Percentile</div>
-            <div class="mt-1 text-2xl font-semibold tabular-nums" style="color: var(--primary);">{{ result.percentile }}</div>
+            <div class="text-xs uppercase tracking-wide text-stone-500">CTR score</div>
+            <div class="mt-1 text-2xl font-semibold text-stone-900 tabular-nums">{{ result.score|floatformat:2 }}</div>
         </div>
     </div>
 
+    {# Niche match: label + slug + confidence. Confidence is a 0–1
+       float — render as a percentage and color-grade so a low-confidence
+       niche classification (which makes the percentile less meaningful)
+       is visually flagged. #}
     <div class="mt-5 pt-4 border-t border-stone-100">
-        <div class="text-xs text-stone-500">Niche match</div>
-        <div class="mt-1 flex items-center gap-2">
+        <div class="flex items-center justify-between gap-3">
+            <div class="text-xs uppercase tracking-wide text-stone-500">Niche match</div>
+            {% with conf=result.niche_confidence %}
+            {% if conf is not None %}
+            <div class="relative group inline-flex items-center gap-1.5">
+                <span class="text-[11px] font-mono tabular-nums px-1.5 py-0.5 rounded
+                             {% if conf >= 0.75 %}bg-green-50 text-green-700
+                             {% elif conf >= 0.5 %}bg-amber-50 text-amber-700
+                             {% else %}bg-stone-100 text-stone-600{% endif %}">
+                    {% widthratio conf 1 100 %}% confidence
+                </span>
+                <span class="inline-flex w-4 h-4 items-center justify-center rounded-full bg-stone-200 text-stone-500 text-[10px] font-bold cursor-help"
+                      aria-describedby="pkg-confidence-tooltip"
+                      tabindex="0">?</span>
+                <div id="pkg-confidence-tooltip" role="tooltip"
+                     class="invisible group-hover:visible group-focus-within:visible
+                            absolute bottom-full right-0 mb-2 w-72 p-3 text-xs
+                            text-white bg-stone-900 rounded-lg shadow-lg z-20
+                            leading-relaxed pointer-events-none">
+                    How confident the classifier is that your packaging belongs to
+                    this niche. Below ~50% the percentile above is less reliable —
+                    you may be in a niche the model doesn't have strong distribution
+                    data for yet.
+                    <span class="absolute top-full right-3 -mt-px border-4 border-transparent border-t-stone-900"></span>
+                </div>
+            </div>
+            {% endif %}
+            {% endwith %}
+        </div>
+        <div class="mt-2 flex items-center gap-2 flex-wrap">
             <span class="text-sm font-medium text-stone-900">{{ result.niche_label }}</span>
             <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{{ result.niche_slug }}</span>
         </div>
