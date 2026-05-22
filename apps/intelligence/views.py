@@ -934,10 +934,15 @@ def research_content_gaps(request, org_id):
     niche = (request.POST.get("niche") or "").strip()
     if not niche:
         return HttpResponseBadRequest("niche required")
+    try:
+        limit = int(request.POST.get("limit") or 20)
+        min_score = int(request.POST.get("min_score") or 0)
+    except (TypeError, ValueError):
+        return HttpResponseBadRequest("limit and min_score must be integers")
     body = {
         "niche": niche,
-        "limit": int(request.POST.get("limit") or 20),
-        "min_score": int(request.POST.get("min_score") or 0),
+        "limit": limit,
+        "min_score": min_score,
     }
     gap_type = request.POST.getlist("gap_type") if hasattr(request.POST, "getlist") else None
     if gap_type:
