@@ -92,6 +92,51 @@ def _me_for(request, org_id, sub: IntelligenceSubscription | None) -> dict | Non
         return None
 
 
+# Cache the niche catalog at the Django-cache layer (not the per-request
+# cache used by ``_me_for``) because:
+#   1. Niches are globally consistent — every org sees the same list, so
+#      a single global cache key is correct.
+#   2. ``/v1/research/niches`` charges 1 credit per call. Caching for an
+#      hour means the playground renders charge the org once per hour
+#      instead of once per render.
+#   3. The niche taxonomy turns over on Intelligence's training-pipeline
+#      cadence (weekly-ish), so a 1-hour TTL is plenty fresh.
+_NICHE_CACHE_KEY = "intelligence:niches"
+_NICHE_CACHE_TTL_SECONDS = 60 * 60  # 1 hour
+
+
+def _niches_for(sub: IntelligenceSubscription | None) -> list[dict] | None:
+    """Return the niche catalog for the playground's content-gaps panel.
+
+    Pulls from Django's cache when possible; on miss, makes one billed
+    call to /v1/research/niches and stores the result. Returns ``None``
+    on transient API failure so the template can degrade gracefully to
+    a plain text input.
+    """
+    from django.core.cache import cache
+
+    cached = cache.get(_NICHE_CACHE_KEY)
+    if cached is not None:
+        return cached
+
+    if not sub or sub.status != "active":
+        return None
+    api = _api_client_for(sub)
+    if api is None:
+        return None
+    try:
+        resp = api.list_niches()
+    except IntelligenceClientError:
+        logger.exception("/v1/research/niches failed; suppressing")
+        return None
+
+    niches = resp.get("niches") if isinstance(resp, dict) else None
+    if not isinstance(niches, list):
+        return None
+    cache.set(_NICHE_CACHE_KEY, niches, _NICHE_CACHE_TTL_SECONDS)
+    return niches
+
+
 def _record_usage(*, organization, user, endpoint, status_code,
                   credits_charged=0, latency_ms=None):
     IntelligenceUsageEvent.objects.create(
@@ -147,12 +192,18 @@ def playground(request, org_id):
             logger.exception("/pending-activation lookup failed; suppressing")
             pending = None
 
+    # Niche catalog for the content-gaps panel's combobox. Best-effort —
+    # if Intelligence is unreachable or the call fails, the template
+    # falls back to a free-form text input.
+    content_gap_niches = _niches_for(sub) if sub else None
+
     context = {
         "organization": request.org,
         "subscription": sub,
         "pending_activation": pending,
         "me": me,
         "can_manage_billing": can_manage_billing,
+        "content_gap_niches": content_gap_niches,
     }
     response = render(request, "intelligence/playground.html", context)
     # Throttled background refresh — keeps the local mirror fresh without
