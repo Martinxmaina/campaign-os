@@ -2,10 +2,34 @@
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from django import template
 
 
 register = template.Library()
+
+
+@register.filter
+def parse_iso_datetime(value):
+    """Convert an ISO 8601 string from the Intelligence API into a
+    ``datetime`` so Django's built-in ``|date`` filter can format it.
+
+    Returns ``None`` for empty / unparseable input — callers should
+    chain ``|default:""`` or wrap in ``{% if %}`` to handle absent
+    dates.
+    """
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        # ``fromisoformat`` accepts ``+00:00`` offsets in Python 3.11+ and
+        # accepts ``Z`` suffix in 3.11+. Normalize the trailing ``Z`` for
+        # broader compatibility.
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return None
 
 
 @register.filter
