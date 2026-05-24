@@ -220,6 +220,36 @@
         background: var(--primary-muted, #fed7aa);
         cursor: not-allowed;
         transform: none;
+        box-shadow: none;
+    }
+    .intel-submit:disabled:hover {
+        background: var(--primary-muted, #fed7aa);
+        transform: none;
+    }
+    /* Helper note rendered under the disabled CTA when the org is in
+       preview mode. Slim, muted, with a coloured link for the admin
+       path to /subscribe. Hand-written so it survives without the
+       Tailwind bundle being rebuilt. */
+    .intel-activate-note {
+        /* The note + its CTA are wrapped in a shared <div> in each
+           panel so the form's space-y-5 (1.25rem) applies *between*
+           that wrapper and the previous form row, not between the
+           button and the note. Margin-top here governs only the
+           hugged gap inside the wrapper. */
+        margin-top: 0.5rem;
+        font-size: 0.75rem;
+        color: var(--text-ghost, #a8a29e);
+        line-height: 1.5;
+    }
+    .intel-activate-note a {
+        color: var(--primary);
+        font-weight: 600;
+        text-decoration: none;
+        border-bottom: 1px solid var(--primary-muted, #fed7aa);
+        transition: border-color 150ms ease;
+    }
+    .intel-activate-note a:hover {
+        border-bottom-color: var(--primary);
     }
 
     /* Tooltip primitives, defined here rather than via Tailwind utilities
