@@ -15,13 +15,13 @@
     <div class="flex items-center gap-4 px-4 py-2 bg-stone-50 rounded-full border border-stone-200">
         <div class="text-xs">
             <div class="text-stone-500">Plan</div>
-            <div class="font-semibold text-stone-900 capitalize">{{ subscription.plan_slug|default:"—" }}</div>
+            <div class="font-semibold text-stone-900 capitalize">{{ subscription.plan_slug|default:"," }}</div>
         </div>
         {% if me %}
         <div class="h-7 w-px bg-stone-200"></div>
         <div class="text-xs">
             <div class="text-stone-500">Credits</div>
-            <div class="font-semibold text-stone-900">{{ me.credits_remaining|default:"—" }}</div>
+            <div class="font-semibold text-stone-900">{{ me.credits_remaining|default:"," }}</div>
         </div>
         {% endif %}
         {% if can_manage_billing %}
@@ -41,7 +41,7 @@
   Single Intelligence UI surface. The playground layout below is ALWAYS
   rendered, fully interactive. When the org isn't yet subscribed we
   show an inline preview banner above the tabs (no opacity dim, no
-  blocking overlay) — users can switch tabs, browse the inputs, see
+  blocking overlay), users can switch tabs, browse the inputs, see
   the empty-state result panels, and only meet the paywall when they
   actually click a tool's submit button (the server returns the
   ``_subscribe_required.html`` fragment from
@@ -114,7 +114,7 @@
     </div>
 
     {% comment %}
-      Transient / error overlays — these still dim the playground
+      Transient / error overlays, these still dim the playground
       because the user paid and there's a real issue to address
       (finalizing wait, past-due payment, canceled sub, etc).
       The "not subscribed" cases moved above the tabs as an inline
@@ -152,7 +152,7 @@
     .intel-panel { display: none; }
     .intel-panel.intel-panel-active { display: grid; }
 
-    /* Form inputs inside the playground — match the polished spec from
+    /* Form inputs inside the playground, match the polished spec from
        /apps/playground (Intel) so the UX feels consistent across both
        sides of the integration. */
     .intel-input {
@@ -222,7 +222,7 @@
         transform: none;
     }
 
-    /* Tooltip primitives — defined here rather than via Tailwind utilities
+    /* Tooltip primitives, defined here rather than via Tailwind utilities
        because the Tailwind bundle (theme/static/css/dist/styles.css) is
        pre-built; new utilities like ``invisible``, ``group-hover:visible``
        added in templates after the last build are absent from the bundle

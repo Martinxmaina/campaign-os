@@ -28,7 +28,7 @@ class IntelligenceConfig(AppConfig):
     def _register_recurring_tasks(sender, **kwargs):
         """Schedule recurring reconcile after migrations apply.
 
-        Idempotent — only schedules if no row with our verbose_name
+        Idempotent, only schedules if no row with our verbose_name
         already exists. ``django-background-tasks`` matches verbose_name
         for the dedup check.
         """

@@ -33,7 +33,7 @@
         <div>
             <div class="text-xs font-semibold uppercase tracking-wide mb-1.5" style="color: var(--text-tertiary);">Plan</div>
             <div class="flex items-center gap-2">
-                <span class="text-sm font-medium capitalize" style="color: var(--text-primary);">{{ subscription.plan_slug|default:"—" }}</span>
+                <span class="text-sm font-medium capitalize" style="color: var(--text-primary);">{{ subscription.plan_slug|default:"," }}</span>
             </div>
         </div>
         <div>
@@ -42,7 +42,7 @@
                 {% comment %}
                   Stripe keeps status='active' until the period actually
                   ends. When ``cancel_at`` is set, the user has clicked
-                  "Cancel" in the portal and is in the grace period —
+                  "Cancel" in the portal and is in the grace period,
                   show an amber pill so it's visually distinct from a
                   healthy "Active". (Must use {% comment %} not {# #}
                   because the latter is single-line in Django.)

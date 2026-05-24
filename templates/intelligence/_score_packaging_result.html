@@ -1,12 +1,12 @@
 {% comment %}
   Lead metric: percentile (the headline number) + a hover tooltip
   that explains what the rank actually means against the niche
-  distribution. The raw CTR score was removed — most users only care
+  distribution. The raw CTR score was removed, most users only care
   about the niche rank, and showing both numbers side-by-side caused
   confusion about which one to optimise.
 
   Tooltip visibility uses the .intel-tooltip-trigger / .intel-tooltip
-  classes defined in playground.html's extra_head — those are
+  classes defined in playground.html's extra_head, those are
   hand-written CSS, not Tailwind utilities, so they work even when
   the Tailwind bundle (theme/static/css/dist/styles.css) hasn't been
   rebuilt since this partial was added.
@@ -31,7 +31,7 @@
 
     {% comment %}
       Niche match: label + slug + confidence. Confidence comes back from
-      the API as a 0–1 float — render via {% widthratio %} to convert
+      the API as a 0–1 float, render via {% widthratio %} to convert
       to an integer percentage, and color-grade the pill so a
       low-confidence classification (which makes the percentile less
       meaningful) is visually flagged. Each pill carries a "?" trigger
@@ -54,7 +54,7 @@
                     <span id="pkg-confidence-tooltip" role="tooltip" class="intel-tooltip" data-align="right">
                         How confident the classifier is that your packaging
                         belongs to this niche. Below ~50% the percentile above
-                        is less reliable — you may be in a niche the model
+                        is less reliable, you may be in a niche the model
                         doesn't have strong distribution data for yet.
                     </span>
                 </span>
@@ -62,7 +62,7 @@
             {% endif %}
             {% endwith %}
         </div>
-        <div class="mt-2 flex items-center gap-2 flex-wrap">
+        <div class="mt-2 flex items-center justify-between gap-2 flex-wrap">
             <span class="text-sm font-medium text-stone-900">{{ result.niche_label }}</span>
             <span class="text-[11px] font-mono px-1.5 py-0.5 rounded bg-stone-100 text-stone-500">{{ result.niche_slug }}</span>
         </div>

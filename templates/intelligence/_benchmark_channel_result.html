@@ -1,7 +1,7 @@
 {% load intelligence_extras %}
 {% with channel=result.channel niche=result.niche %}
 <div>
-    {% comment %} Hero — channel identity only. The niche match strength
+    {% comment %} Hero, channel identity only. The niche match strength
        moved next to the niche name + percentage below so it's visually
        attached to the thing it qualifies. {% endcomment %}
     <div class="mb-4">
@@ -43,7 +43,7 @@
                   Single pill combining the match-strength label and the
                   raw match-score percentage. Co-locating the two makes
                   it clear that "Strong" is a discrete label for the
-                  same underlying confidence number ("76%") — they were
+                  same underlying confidence number ("76%"), they were
                   visually disconnected when the strength pill lived in
                   the channel-identity row at the top of the card.
                 {% endcomment %}
@@ -64,7 +64,7 @@
     </div>
 
     {% comment %}
-      Engagement breakdown — 3 rows showing channel value, percentile
+      Engagement breakdown, 3 rows showing channel value, percentile
       rank (as a horizontal progress bar with brand fill), and niche
       median for context. Each row reuses the same grid template so
       labels and bars line up vertically.
@@ -83,7 +83,7 @@
                     per-video ratios.
                     <br><br>
                     <strong>Niche p50</strong> is the median niche channel on
-                    that ratio — half of the niche scores below it, half
+                    that ratio, half of the niche scores below it, half
                     above. The <strong>pNN</strong> readout on the right is
                     your channel's percentile rank: <strong>p50</strong> means
                     you sit exactly at the niche median, <strong>p80</strong>
@@ -185,7 +185,7 @@
     {% endif %}
 
     {% comment %}
-      Common niche phrases. Tag-cloud-ish layout — each pill carries
+      Common niche phrases. Tag-cloud-ish layout, each pill carries
       the phrase + its frequency. Phrases the channel ALSO uses get
       an orange tint so they pop out ("you're already on these
       trends"). Capped to the top ~12 server-side ordering.
@@ -214,7 +214,7 @@
     </div>
     {% endif %}
 
-    {% comment %} Exemplar channels — peers in the niche {% endcomment %}
+    {% comment %} Exemplar channels, peers in the niche {% endcomment %}
     {% if niche.exemplar_channels %}
     <div class="mt-6 pt-5 border-t border-stone-100">
         <div class="text-xs uppercase tracking-wide text-stone-500 mb-3">Exemplar channels in this niche</div>

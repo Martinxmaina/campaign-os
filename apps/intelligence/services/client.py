@@ -43,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# InternalClient — HMAC + nonce + idempotency
+# InternalClient, HMAC + nonce + idempotency
 # ---------------------------------------------------------------------------
 
 
@@ -73,7 +73,7 @@ _ACTIVATION_REJECTED_CODES = frozenset({
 class InternalClient:
     """HMAC-signed client for Intelligence's /internal/v1/.
 
-    Construct without arguments — pulls config from Django settings.
+    Construct without arguments, pulls config from Django settings.
     Methods raise typed exceptions on HTTP errors so the view layer can
     pattern-match without inspecting status codes.
     """
@@ -214,7 +214,7 @@ class InternalClient:
                  query: dict | None = None,
                  idempotency_key: str | None = None) -> dict:
         url = f"{self.base_url}{path}"
-        # Serialize body deterministically — the server hashes the exact
+        # Serialize body deterministically, the server hashes the exact
         # bytes it received, so our hash must match. ``json.dumps`` with
         # the default options is deterministic enough since Python 3.7
         # preserves dict insertion order, but sort_keys gives us extra
@@ -226,7 +226,7 @@ class InternalClient:
         # Path-with-query for the canonical signing string. The server
         # signs over ``request.path`` (Django), which is the FULL URL
         # path including the ``/internal/v1`` prefix carried in
-        # ``base_url``. We must sign over the same string — using just
+        # ``base_url``. We must sign over the same string, using just
         # ``path`` (the relative endpoint like ``/healthz``) produces a
         # signature that always fails as ``bad_signature``.
         #
@@ -235,7 +235,7 @@ class InternalClient:
         # reserved characters (``&``, ``=``, ``?``, space, ``%``)
         # would otherwise be percent-encoded by httpx but NOT in our
         # canonical, producing bad_signature. Today's call sites
-        # only pass UUIDs/ints so this is forward-defense — but it
+        # only pass UUIDs/ints so this is forward-defense, but it
         # also closes a class of bug where a future caller could
         # smuggle attacker-controlled bytes past the HMAC integrity
         # check by exploiting the encoding discrepancy.
@@ -363,7 +363,7 @@ class InternalClient:
 
 
 # ---------------------------------------------------------------------------
-# IntelligenceAPIClient — per-org bearer key against /v1/
+# IntelligenceAPIClient, per-org bearer key against /v1/
 # ---------------------------------------------------------------------------
 
 

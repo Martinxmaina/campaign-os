@@ -94,7 +94,7 @@ def _me_for(request, org_id, sub: IntelligenceSubscription | None) -> dict | Non
 
 # Cache the niche catalog at the Django-cache layer (not the per-request
 # cache used by ``_me_for``) because:
-#   1. Niches are globally consistent — every org sees the same list, so
+#   1. Niches are globally consistent, every org sees the same list, so
 #      a single global cache key is correct.
 #   2. ``/v1/research/niches`` charges 1 credit per call. Caching for an
 #      hour means the playground renders charge the org once per hour
@@ -205,7 +205,7 @@ def playground(request, org_id):
         from . import preview_data
         preview_inputs = preview_data.PREVIEW_INPUTS
         preview_results = preview_data.PREVIEW_RESULTS
-        # Skip the billed /v1/research/niches call in preview mode —
+        # Skip the billed /v1/research/niches call in preview mode,
         # render the combobox against a fixed sample so the UX is the
         # same shape as the live one.
         content_gap_niches = preview_results["list_niches"]["niches"]
@@ -213,7 +213,7 @@ def playground(request, org_id):
         preview_inputs = None
         preview_results = None
         # Niche catalog for the content-gaps panel's combobox.
-        # Best-effort — if Intelligence is unreachable the template
+        # Best-effort, if Intelligence is unreachable the template
         # falls back to a free-form text input.
         content_gap_niches = _niches_for(sub)
 
@@ -229,7 +229,7 @@ def playground(request, org_id):
         "preview_results": preview_results,
     }
     response = render(request, "intelligence/playground.html", context)
-    # Throttled background refresh — keeps the local mirror fresh without
+    # Throttled background refresh, keeps the local mirror fresh without
     # one task per page render.
     if sub and sub.status == IntelligenceSubscription.Status.ACTIVE:
         try:
@@ -281,7 +281,7 @@ def subscribe(request, org_id):
         if not remote.get("eligible", True):
             details = (remote.get("details") or {})
             if remote.get("reason") == "open_checkout" and details.get("checkout_url"):
-                # Surface as a resumable attempt for the template — same
+                # Surface as a resumable attempt for the template, same
                 # data shape so the existing UI handles it without
                 # branching.
                 resumable = StudioCheckoutAttempt(
@@ -294,7 +294,7 @@ def subscribe(request, org_id):
                 # Edge case: Intelligence sees an active/pending sub
                 # that Studio's local mirror doesn't (race or drift).
                 # Send the user to the playground rather than letting
-                # them pay again — the next playground render will
+                # them pay again, the next playground render will
                 # pick up the live state via /v1/me.
                 return redirect("intelligence:playground", org_id=org_id)
 
@@ -326,7 +326,7 @@ def checkout(request, org_id):
 
     TX1: reserve local StudioCheckoutAttempt (creating) under the
     partial-unique constraint. Concurrent admins racing both get this
-    far — the second hits IntegrityError and gets routed to "Resume".
+    far, the second hits IntegrityError and gets routed to "Resume".
 
     Outside TX: call Intelligence /studio-checkout-session.
 
@@ -385,7 +385,7 @@ def checkout(request, org_id):
         )
     except Conflict as exc:
         # Mark our reserve as expired so the partial-unique slot is
-        # released. (``last_error_code`` doesn't exist on the model —
+        # released. (``last_error_code`` doesn't exist on the model,
         # the previous assignment was a no-op kept only by the
         # ``update_fields`` skipping it; dropped now to avoid an
         # AttributeError if a future refactor saves the row unfiltered.)
@@ -444,7 +444,7 @@ def checkout(request, org_id):
 
 
 # ---------------------------------------------------------------------------
-# Activate — Stripe success URL handler
+# Activate, Stripe success URL handler
 # ---------------------------------------------------------------------------
 
 
@@ -454,9 +454,9 @@ def activate(request):
     """Two-phase activation handler.
 
     1. Look up the local StudioCheckoutAttempt by session_id; if absent,
-       this user did not initiate this session — reject.
+       this user did not initiate this session, reject.
     2. Re-check current OrgMembership of OWNER/ADMIN on the attempt's
-       organization. Initiator identity is NOT trusted — only current
+       organization. Initiator identity is NOT trusted, only current
        role. (Defeats T18 demoted-admin bypass.)
     3. Call Intelligence /activate-preflight → returns validation_token.
     4. Re-check OrgMembership against ``resolved_external_org_id`` from
@@ -500,7 +500,7 @@ def activate(request):
             expected_org=org, user=request.user,
         )
     except _DeferredToWorker:
-        # Fallback path — PendingActivation already persisted in
+        # Fallback path, PendingActivation already persisted in
         # ``_activate_two_phase``. Send the user to the finalizing page.
         return redirect("intelligence:finalizing")
 
@@ -575,7 +575,7 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
     # Final local commit. Wrap in the same transient handler as the
     # phase calls above so a rotate-key failure during lost-key recovery
     # also defers to the worker rather than escaping as 500 (and rather
-    # than marking the sub ACTIVE without an api_key — see the lost-key
+    # than marking the sub ACTIVE without an api_key, see the lost-key
     # branch in ``_finalize_local_subscription``).
     try:
         return _finalize_local_subscription(
@@ -622,7 +622,7 @@ def _finalize_local_subscription(request, *, attempt, expected_org,
             # Lost-key recovery: server cached the response but we don't
             # have the plaintext. Rotate.
             #
-            # If rotation fails, we MUST NOT mark the sub ACTIVE — an
+            # If rotation fails, we MUST NOT mark the sub ACTIVE, an
             # active sub with no api_key produces an unusable state
             # (every tool call hits ``IntelligenceAPIClient(api_key="")``
             # and raises ValueError, which escapes the typed
@@ -685,13 +685,13 @@ def recover(request, org_id):
     session_id = pending["stripe_session_id"]
     # Intelligence resolves plan_slug server-side (from the price_id on
     # the pending row) so closed-tab recovery doesn't have to. Falls
-    # back to "" if Intel returned an older response shape — preflight
+    # back to "" if Intel returned an older response shape, preflight
     # accepts blank and re-resolves from the same price_id, so the
     # activation still completes either way.
     plan_slug = (pending.get("plan_slug") or "").strip()
     # Fabricate a local attempt row so the two-phase logic finds it.
     # NOTE: ``update_or_create(organization=...)`` would raise
-    # MultipleObjectsReturned for any org with checkout history —
+    # MultipleObjectsReturned for any org with checkout history,
     # StudioCheckoutAttempt's partial-unique index only covers
     # creating|open|pending, so terminal rows accumulate. Look up by
     # (organization, stripe_session_id) instead (Stripe session ids are
@@ -844,11 +844,11 @@ def billing_settings(request, org_id):
     sub = getattr(request.org, "intelligence_subscription", None)
     # Fresh "scheduled cancel" lookup. Stripe keeps status='active' until
     # the period actually ends, so the local IntelligenceSubscription.status
-    # cannot answer "is this sub going to cancel?" — that lives in
+    # cannot answer "is this sub going to cancel?", that lives in
     # Stripe's ``cancel_at`` / ``cancel_at_period_end`` fields. Intel
     # proxies them through /internal/v1/accounts/<user_id> by retrieving
     # the live Stripe object server-side. Failure to reach Intel here is
-    # non-fatal — we just skip the "Will cancel on …" banner and let the
+    # non-fatal, we just skip the "Will cancel on …" banner and let the
     # status pill speak for itself.
     account = None
     if sub and sub.intelligence_account_id:
@@ -897,7 +897,7 @@ def update_billing_contact(request, org_id):
         return HttpResponseBadRequest("billing_email required")
 
     # When an active subscription exists we MUST keep Studio and the
-    # billing service in sync — the previous order (save locally, then
+    # billing service in sync, the previous order (save locally, then
     # call Intelligence) silently diverged whenever the Intel call
     # failed: there's no Studio-side retry queue, so the "It'll retry
     # automatically" message was a lie and Stripe/Studio could drift
@@ -917,7 +917,7 @@ def update_billing_contact(request, org_id):
             messages.error(
                 request,
                 "We couldn't reach the billing service. Your change has "
-                "NOT been saved — please try again in a moment.",
+                "NOT been saved, please try again in a moment.",
             )
             if request.headers.get("HX-Request"):
                 return render(
@@ -941,7 +941,7 @@ def update_billing_contact(request, org_id):
 
 
 # ---------------------------------------------------------------------------
-# Tool endpoints — six HTMX POSTs
+# Tool endpoints, six HTMX POSTs
 # ---------------------------------------------------------------------------
 
 
@@ -975,7 +975,7 @@ def _call_tool(request, method_name: str, *, body: dict,
 
 
 def _credits_for(endpoint_path: str) -> int:
-    """Mirror of Intelligence's per-endpoint credit cost (display-only —
+    """Mirror of Intelligence's per-endpoint credit cost (display-only,
     Intelligence is authoritative)."""
     return {
         "/v1/score/packaging": 1,
@@ -1019,7 +1019,7 @@ def _validate_thumbnail_upload(uploaded):
         return None, "Thumbnail must be 5 MB or smaller."
 
     # Browser-reported content-type is the first cheap filter. It's
-    # NOT trusted on its own — a malicious client can send any string —
+    # NOT trusted on its own, a malicious client can send any string,
     # but it filters out the obvious noise before we spend Pillow cycles.
     content_type = (uploaded.content_type or "").lower()
     if content_type not in SCORE_PACKAGING_ALLOWED_THUMBNAIL_TYPES:
@@ -1054,7 +1054,7 @@ def _validate_thumbnail_upload(uploaded):
 def score_packaging(request, org_id):
     title = (request.POST.get("title") or "").strip() or None
 
-    # Thumbnail: accept ONLY a multipart file upload — we deliberately
+    # Thumbnail: accept ONLY a multipart file upload, we deliberately
     # do NOT accept ``thumbnail_url`` or a client-supplied
     # ``thumbnail_base64`` POST field. Removing URL support eliminates
     # an SSRF surface (server-side URL fetches against attacker-chosen
@@ -1178,8 +1178,8 @@ def _studio_base_url() -> str:
     """The publicly-reachable base URL for THIS Studio deployment.
 
     Intelligence validates ``return_base_url`` against the registered
-    ``StudioDeployment.base_url`` and refuses if they differ — open-
-    redirect defense — so we send whatever is configured in env.
+    ``StudioDeployment.base_url`` and refuses if they differ, open-
+    redirect defense, so we send whatever is configured in env.
     """
     from django.conf import settings
     return getattr(settings, "STUDIO_BASE_URL", "").rstrip("/")

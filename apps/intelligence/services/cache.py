@@ -3,7 +3,7 @@
 These are read on every Intelligence-related page render (header
 credit counter, etc.); without memoization a single page can fire
 multiple identical Intelligence calls. The cache lives on the
-``request`` object so it's automatically discarded at request end —
+``request`` object so it's automatically discarded at request end,
 no Redis dependency, no stale-cache problems.
 """
 

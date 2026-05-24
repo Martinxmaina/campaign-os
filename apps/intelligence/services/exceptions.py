@@ -8,7 +8,7 @@ from __future__ import annotations
 
 
 class IntelligenceClientError(Exception):
-    """Base class — anything client-call-related."""
+    """Base class, anything client-call-related."""
 
     status_code: int | None = None
     code: str | None = None
@@ -22,15 +22,15 @@ class IntelligenceClientError(Exception):
 
 
 class InvalidApiKey(IntelligenceClientError):
-    """401 — the per-org bearer key was rejected."""
+    """401, the per-org bearer key was rejected."""
 
 
 class InsufficientCredits(IntelligenceClientError):
-    """402 — Intelligence returned credits=0; show upgrade CTA."""
+    """402, Intelligence returned credits=0; show upgrade CTA."""
 
 
 class RateLimited(IntelligenceClientError):
-    """429 — caller is over plan rate limit."""
+    """429, caller is over plan rate limit."""
 
     def __init__(self, *args, retry_after: int | None = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -38,7 +38,7 @@ class RateLimited(IntelligenceClientError):
 
 
 class ServiceUnavailable(IntelligenceClientError):
-    """5xx / network error — transient."""
+    """5xx / network error, transient."""
 
 
 class BadRequest(IntelligenceClientError):
@@ -46,11 +46,11 @@ class BadRequest(IntelligenceClientError):
 
 
 class NotFound(IntelligenceClientError):
-    """404 — typically "no pending activation" or "no account"."""
+    """404, typically "no pending activation" or "no account"."""
 
 
 class Conflict(IntelligenceClientError):
-    """409 — idempotency / eligibility blocker."""
+    """409, idempotency / eligibility blocker."""
 
     def __init__(self, *args, retry_after: int | None = None, **kwargs):
         super().__init__(*args, **kwargs)
@@ -58,7 +58,7 @@ class Conflict(IntelligenceClientError):
 
 
 class ActivationRejected(IntelligenceClientError):
-    """4xx from /activate-preflight or /activate-commit — payment problem,
+    """4xx from /activate-preflight or /activate-commit, payment problem,
     metadata mismatch, unknown_checkout_attempt, etc."""
 
     @property

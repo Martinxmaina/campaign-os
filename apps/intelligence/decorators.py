@@ -1,11 +1,11 @@
 """View decorators for the Intelligence integration.
 
 ``@intelligence_subscription_required`` is layered on top of
-``@require_org_permission("use_intelligence")`` for tool endpoints —
+``@require_org_permission("use_intelligence")`` for tool endpoints,
 it ensures the org's ``IntelligenceSubscription`` is in ``status='active'``
 before letting the call hit Intelligence. Non-active states render an
 inline HTMX partial (or a full-page redirect) rather than a hard 4xx,
-because the user is allowed to BE here — just not to call tools yet.
+because the user is allowed to BE here, just not to call tools yet.
 """
 
 from __future__ import annotations

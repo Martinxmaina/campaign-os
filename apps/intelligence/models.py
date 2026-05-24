@@ -28,7 +28,7 @@ from apps.common.encryption import EncryptedTextField
 
 
 # ---------------------------------------------------------------------------
-# IntelligenceSubscription — one per Organization
+# IntelligenceSubscription, one per Organization
 # ---------------------------------------------------------------------------
 
 
@@ -36,12 +36,12 @@ class IntelligenceSubscription(models.Model):
     """One row per Studio Organization with an Intelligence subscription.
 
     Status lifecycle:
-    - provisioning : in-request sync setup (never visible to users — the
+    - provisioning : in-request sync setup (never visible to users, the
                      activate view holds the request until it flips).
     - finalizing   : paid + sync setup failed → background worker is
                      completing. UI shows a polling overlay.
     - active       : fully provisioned, tools usable.
-    - past_due     : Stripe couldn't charge — Studio learns via /v1/me.
+    - past_due     : Stripe couldn't charge, Studio learns via /v1/me.
     - canceled     : user canceled via Stripe Portal.
     - provisioning_failed : terminal failure after the worker's backoff
                             retries exhaust.
@@ -67,13 +67,13 @@ class IntelligenceSubscription(models.Model):
     )
     plan_slug = models.SlugField(max_length=64, blank=True, default="")
 
-    # Stripe ids (display + audit only — Studio never calls Stripe directly).
+    # Stripe ids (display + audit only, Studio never calls Stripe directly).
     stripe_customer_id = models.CharField(max_length=255, blank=True, default="")
     stripe_subscription_id = models.CharField(max_length=255, blank=True, default="")
 
     # Intelligence-side identifiers.
     intelligence_account_id = models.CharField(max_length=64, blank=True, default="")
-    # Encrypted at rest. Assign plaintext to this field directly — the
+    # Encrypted at rest. Assign plaintext to this field directly, the
     # EncryptedTextField wraps encrypt/decrypt; calling encrypt() manually
     # would double-encrypt.
     intelligence_api_key = EncryptedTextField(blank=True, default="")
@@ -97,7 +97,7 @@ class IntelligenceSubscription(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# StudioCheckoutAttempt — financial-correctness backstop
+# StudioCheckoutAttempt, financial-correctness backstop
 # ---------------------------------------------------------------------------
 
 
@@ -114,7 +114,7 @@ class StudioCheckoutAttempt(models.Model):
       far in the first place.
     - ``status='creating'`` indicates the Intelligence call is in flight
       and we don't yet have a checkout_url to resume. Other callers
-      see this and render a polling UI ("Setting up your checkout —
+      see this and render a polling UI ("Setting up your checkout,
       please wait") rather than mistakenly believing the URL was lost.
     - ``status='open'`` means the Stripe Checkout URL is ready and the
       attempt can be resumed by anyone with org admin permission.
@@ -135,7 +135,7 @@ class StudioCheckoutAttempt(models.Model):
         related_name="intelligence_checkout_attempts",
     )
     # The user who initiated the checkout. Recorded for audit + so we can
-    # show "your finance admin started a checkout — resume?" UI to other
+    # show "your finance admin started a checkout, resume?" UI to other
     # admins; the activate view does NOT trust this for authorization
     # (only current OrgMembership matters).
     user = models.ForeignKey(
@@ -177,7 +177,7 @@ class StudioCheckoutAttempt(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# PendingActivation — worker fallback
+# PendingActivation, worker fallback
 # ---------------------------------------------------------------------------
 
 
@@ -189,7 +189,7 @@ class PendingActivation(models.Model):
     without needing the original request context. Notably the
     ``user`` FK so the worker can re-check the CURRENT
     ``OrgMembership(pending.user, resolved_org).org_role`` before
-    committing — initiator-only authorization is rejected; if the user
+    committing, initiator-only authorization is rejected; if the user
     was demoted between checkout and activation completion, the worker
     refuses to write the local IntelligenceSubscription.
     """
@@ -234,7 +234,7 @@ class PendingActivation(models.Model):
 
 
 # ---------------------------------------------------------------------------
-# IntelligenceUsageEvent — local audit log
+# IntelligenceUsageEvent, local audit log
 # ---------------------------------------------------------------------------
 
 

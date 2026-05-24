@@ -15,7 +15,7 @@ def parse_iso_datetime(value):
     """Convert an ISO 8601 string from the Intelligence API into a
     ``datetime`` so Django's built-in ``|date`` filter can format it.
 
-    Returns ``None`` for empty / unparseable input — callers should
+    Returns ``None`` for empty / unparseable input, callers should
     chain ``|default:""`` or wrap in ``{% if %}`` to handle absent
     dates.
     """
@@ -72,7 +72,7 @@ def humanize_count(value):
     except (TypeError, ValueError):
         return str(value) if value is not None else ""
     if n == 0:
-        return "—"
+        return ","
     if n >= 1_000_000_000:
         return f"{n / 1_000_000_000:.2f}B"
     if n >= 1_000_000:

@@ -2,18 +2,18 @@
 
 Three recurring/triggered tasks:
 
-- ``provision_intelligence_account_via_session(pending_id)`` — worker
+- ``provision_intelligence_account_via_session(pending_id)``, worker
   fallback when the sync activate view transient-failed. Re-runs the
   two-phase activation flow + the OrgMembership re-check before
   committing locally. Critical: the worker is the authoritative auth
   re-checker (T18 demoted-admin bypass defense).
 
-- ``reconcile_intelligence_subscriptions()`` — every 6 h. Pulls
+- ``reconcile_intelligence_subscriptions()``, every 6 h. Pulls
   ``/internal/v1/accounts/{user_id}`` for every non-canceled local sub
   to catch drift (status changes, plan changes, period rollover) that
   webhook-driven state may have missed.
 
-- ``refresh_subscription_on_visit(org_id)`` — fire-and-forget; called
+- ``refresh_subscription_on_visit(org_id)``, fire-and-forget; called
   at the end of the playground view to keep the local mirror fresh.
   Throttled by a cache key so a hot org doesn't generate one task per
   page render.
@@ -64,7 +64,7 @@ def provision_intelligence_account_via_session(pending_id):
 
     # Claim the row atomically. On Postgres (Studio's prod backend),
     # ``select_for_update`` requires an open transaction or it raises
-    # ``TransactionManagementError`` — this used to break every worker
+    # ``TransactionManagementError``, this used to break every worker
     # run before any work began. The lock is released when the ``with``
     # block exits so the subsequent network calls do not hold a row
     # lock during Stripe/Intelligence I/O.
@@ -92,14 +92,14 @@ def provision_intelligence_account_via_session(pending_id):
 
     client = InternalClient()
 
-    # Phase 1 — same as the sync view, but the worker needs to derive
+    # Phase 1, same as the sync view, but the worker needs to derive
     # the expected_external_org_id itself. The sync view used the
     # StudioCheckoutAttempt; we have to look it up by session_id.
     attempt = StudioCheckoutAttempt.objects.filter(
         stripe_session_id=pending.session_id,
     ).first()
     if attempt is None:
-        # No local attempt exists for this session — either it was
+        # No local attempt exists for this session, either it was
         # cleaned up by a manual operator or never written. Mark
         # provisioning_failed so the user sees a clear error.
         pending.status = PendingActivation.Status.PROVISIONING_FAILED
@@ -174,7 +174,7 @@ def provision_intelligence_account_via_session(pending_id):
         )
         return
 
-    # Phase 2 — commit.
+    # Phase 2, commit.
     try:
         commit_resp = client.activate_commit(
             validation_token=preflight["validation_token"],
@@ -298,12 +298,12 @@ def refresh_subscription_on_visit(org_id: str):
 
     Called at the end of the playground view. The throttle (60s in
     cache) means a busy org with frequent playground hits generates at
-    most one task per minute. NOT decorated with @background — it
+    most one task per minute. NOT decorated with @background, it
     schedules another task that IS background.
     """
     cache_key = f"intel:refresh:{org_id}"
     if cache.get(cache_key):
-        return  # Throttled — recent refresh already in flight.
+        return  # Throttled, recent refresh already in flight.
     cache.set(cache_key, "1", timeout=60)
     _refresh_one_subscription(str(org_id))
 

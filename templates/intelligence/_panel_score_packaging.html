@@ -11,7 +11,7 @@
       - Server-side validation of an uploaded file is straightforward
         (size cap + Pillow magic-byte verification) and lets us
         guarantee Intelligence only ever sees real JPEG/PNG/WebP bytes
-        with bounded size — neither true for an arbitrary URL.
+        with bounded size, neither true for an arbitrary URL.
 
       The form posts as multipart/form-data; the view base64-encodes
       the validated bytes server-side before forwarding to Intelligence.
@@ -105,7 +105,7 @@
 (function () {
     // Score-packaging file-upload widget. All UX-only; the server
     // re-runs the same checks (size, MIME, Pillow magic-byte) before
-    // forwarding to Intelligence — see _validate_thumbnail_upload in
+    // forwarding to Intelligence, see _validate_thumbnail_upload in
     // apps/intelligence/views.py. Browser-side checks are convenience
     // for the user, not a security boundary.
     var MAX_BYTES = 5 * 1024 * 1024;
@@ -200,7 +200,7 @@
     });
 
     // NOTE: the previous version cleared the picker after a successful
-    // HTMX submit. We deliberately do NOT — the user often wants to
+    // HTMX submit. We deliberately do NOT, the user often wants to
     // iterate on title text against the same thumbnail and re-Score,
     // so keeping the file visible (and re-submitted on next click) is
     // the friendlier default. The × button still clears explicitly.

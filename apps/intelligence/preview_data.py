@@ -9,7 +9,7 @@ panel for the ``_subscribe_required.html`` paywall fragment.
 
 Kept in its own module rather than inlined in ``views.py`` so the
 view stays focused on request handling. Data shapes match the
-``apps/api/serializers.py`` response schemas exactly — each example
+``apps/api/serializers.py`` response schemas exactly, each example
 goes through the same result partial that a real API response would.
 """
 
@@ -33,13 +33,13 @@ PREVIEW_INPUTS = {
     },
     "research_content_gaps": {
         # The combobox uses this as the pre-selected niche.
-        "niche_slug": "ai_money_making",
-        "niche_name": "ai money making",
+        "niche_slug": "python_programming_tutorials",
+        "niche_name": "python programming tutorials",
     },
 }
 
 
-# Realistic API response payloads — each one passes through the
+# Realistic API response payloads, each one passes through the
 # corresponding ``_*_result.html`` partial as if it were a real call.
 PREVIEW_RESULTS = {
     "score_packaging": {
@@ -206,69 +206,81 @@ PREVIEW_RESULTS = {
         },
     },
     "research_content_gaps": {
-        "niche": {"slug": "ai_money_making", "name": "ai money making"},
+        "niche": {"slug": "python_programming_tutorials",
+                  "name": "python programming tutorials"},
         "gaps": [
             {
-                "canonical_title": "94% Use AI Side Hustles 2026! #shorts #viral",
-                "opportunity_score": 65,
+                "canonical_title": "Python Tutorial for Beginners, Learn Python in 1 Hour",
+                "opportunity_score": 68,
                 "gap_type": "stale",
-                "components": {"demand": 0.24, "supply": 0.04, "recency": 0.10},
+                "components": {"demand": 0.42, "supply": 0.08, "recency": 0.12},
                 "explanation": (
-                    "The assumption that generic 'AI Side Hustles' consistently "
-                    "generate '$5K/month' relies on broad, high-level claims that "
-                    "lack granular execution details for current market conditions. "
-                    "A fresh take is warranted to shift the focus from speculative "
-                    "monthly income projections to specific, repeatable workflows."
+                    "The top-ranking beginner tutorials predate Python 3.12 and "
+                    "the rise of modern tooling (uv, ruff, pydantic v2, the "
+                    "free-threaded interpreter in 3.13). They still teach "
+                    "virtualenv + pip workflows that newcomers no longer see in "
+                    "real codebases. A 2026-current refresher would land in a "
+                    "market with high search demand and stale incumbents."
                 ),
                 "suggested_angles": [
-                    "3 AI Side Hustles That Actually Scaled in Q3 2026",
-                    "Midjourney vs. Flux: Which AI Art Workflow Pays Better?",
-                    "Stop Selling AI Logos: 3 Services Clients Pay More For",
+                    "Modern Python in 2026: uv, ruff, and pydantic v2 from scratch",
+                    "What actually changed in Python 3.12 and 3.13",
+                    "Stop using virtualenv: the uv-first Python workflow",
                 ],
                 "evidence": {
-                    "newest_quality_video_age_days": 36,
-                    "trends_appearance_count": 4,
-                    "autocomplete_rank": None,
-                    "residual_outlier_count": 1,
+                    "newest_quality_video_age_days": 412,
+                    "trends_appearance_count": 6,
+                    "autocomplete_rank": 1,
+                    "residual_outlier_count": 2,
                     "top_competitors": [
-                        {"title": "These AI Side Hustles Make $5K/Month in 2026",
-                         "channel_title": "FINANCER NEEDS", "subscriber_count": 46,
-                         "view_count": 378, "age_days": 43},
-                        {"title": "5 AI Side Hustles That Pay Real Money in 2026",
-                         "channel_title": "OLY", "subscriber_count": None,
-                         "view_count": 170, "age_days": 36},
+                        {"title": "Learn Python - Full Course for Beginners",
+                         "channel_title": "freeCodeCamp.org",
+                         "subscriber_count": 12_400_000,
+                         "view_count": 41_200_000, "age_days": 1820},
+                        {"title": "Python Tutorial - Python Full Course for Beginners",
+                         "channel_title": "Programming with Mosh",
+                         "subscriber_count": 4_510_000,
+                         "view_count": 38_800_000, "age_days": 1640},
+                        {"title": "Python for Beginners - Learn Python in 1 Hour",
+                         "channel_title": "Programming with Mosh",
+                         "subscriber_count": 4_510_000,
+                         "view_count": 17_900_000, "age_days": 1455},
                     ],
                     "related_queries": [],
                 },
             },
             {
-                "canonical_title": "How to make $100 with ChatGPT",
-                "opportunity_score": 42,
+                "canonical_title": "Async Python: from callbacks to async/await",
+                "opportunity_score": 52,
                 "gap_type": "underserved",
-                "components": {"demand": 0.29, "supply": 0.18, "recency": 0.35},
+                "components": {"demand": 0.31, "supply": 0.14, "recency": 0.38},
                 "explanation": (
-                    "Top videos rely on generic 'copy-paste' strategies and lack "
-                    "verified daily-revenue audits — there's room for a creator "
-                    "who shows real, repeatable workflows with screenshots and "
-                    "actual payouts."
+                    "Existing asyncio tutorials stop at \"what is a coroutine\" "
+                    "without covering production patterns: TaskGroup, structured "
+                    "concurrency, timeouts, and how to debug a hung event loop. "
+                    "Search demand is steady and the few quality videos are "
+                    "fragmented across blog-style explainers, not a single "
+                    "go-to walkthrough."
                 ),
                 "suggested_angles": [
-                    "I Tried 5 ChatGPT Hustles: Only 1 Made Real Money",
-                    "30-Day ChatGPT Side-Income Audit (Spreadsheet Inside)",
-                    "Real Results: Scaling AI Income From $0 to $3K/Month",
+                    "Production asyncio: TaskGroup, timeouts, and structured concurrency",
+                    "Async or threads? A decision guide for I/O-bound Python",
+                    "Debugging a hung event loop: 3 patterns I wish I'd known",
                 ],
                 "evidence": {
-                    "newest_quality_video_age_days": 95,
-                    "trends_appearance_count": 5,
-                    "autocomplete_rank": 2,
-                    "residual_outlier_count": 0,
+                    "newest_quality_video_age_days": 184,
+                    "trends_appearance_count": 4,
+                    "autocomplete_rank": 3,
+                    "residual_outlier_count": 1,
                     "top_competitors": [
-                        {"title": "The SIMPLEST Way to Make Money Online with AI",
-                         "channel_title": "Sean Dollwet", "subscriber_count": 449_000,
-                         "view_count": 228_858, "age_days": 112},
-                        {"title": "Copy & Paste THIS Strategy to Make $13k/Month",
-                         "channel_title": "Iman Gadzhi", "subscriber_count": 5_850_000,
-                         "view_count": 183_178, "age_days": 166},
+                        {"title": "AsyncIO in Python - Full Tutorial",
+                         "channel_title": "Tech With Tim",
+                         "subscriber_count": 1_850_000,
+                         "view_count": 612_000, "age_days": 730},
+                        {"title": "Understanding async/await in Python",
+                         "channel_title": "ArjanCodes",
+                         "subscriber_count": 412_000,
+                         "view_count": 188_000, "age_days": 540},
                     ],
                     "related_queries": [],
                 },
@@ -277,16 +289,16 @@ PREVIEW_RESULTS = {
     },
     "list_niches": {
         "niches": [
-            {"slug": "ai_money_making", "name": "ai money making", "gap_count": 44},
-            {"slug": "ai_business_automation", "name": "ai business automation", "gap_count": 89},
-            {"slug": "beginner_guitar_lessons", "name": "beginner guitar lessons", "gap_count": 70},
-            {"slug": "cryptocurrency_education_guides", "name": "cryptocurrency education guides", "gap_count": 82},
-            {"slug": "diy_woodworking_projects", "name": "diy woodworking projects", "gap_count": 81},
-            {"slug": "geopolitical_news_commentary", "name": "geopolitical news commentary", "gap_count": 81},
-            {"slug": "homemade_bread_baking", "name": "homemade bread baking", "gap_count": 79},
-            {"slug": "manhwa_recap_summaries", "name": "manhwa recap summaries", "gap_count": 75},
             {"slug": "python_programming_tutorials", "name": "python programming tutorials", "gap_count": 76},
-            {"slug": "real_estate_investing", "name": "real estate investing", "gap_count": 108},
+            {"slug": "data_science_career_roadmaps", "name": "data science career roadmaps", "gap_count": 40},
+            {"slug": "full_stack_web_development", "name": "full stack web development", "gap_count": 51},
+            {"slug": "devops_and_cloud_engineering", "name": "devops and cloud engineering", "gap_count": 44},
+            {"slug": "ancient_history_documentaries", "name": "ancient history documentaries", "gap_count": 61},
+            {"slug": "beginner_investment_strategies", "name": "beginner investment strategies", "gap_count": 66},
+            {"slug": "personal_finance_budgeting", "name": "personal finance budgeting", "gap_count": 18},
+            {"slug": "diy_woodworking_projects", "name": "diy woodworking projects", "gap_count": 81},
+            {"slug": "homemade_bread_baking", "name": "homemade bread baking", "gap_count": 79},
+            {"slug": "japan_travel_guides", "name": "japan travel guides", "gap_count": 72},
         ],
     },
 }
