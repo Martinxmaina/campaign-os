@@ -113,19 +113,14 @@ def require_org_permission(permission_key):
             if org_id is None:
                 raise PermissionDenied("URL is missing required org_id.")
             try:
-                membership = (
-                    OrgMembership.objects.select_related("organization")
-                    .get(user=request.user, organization_id=org_id)
+                membership = OrgMembership.objects.select_related("organization").get(
+                    user=request.user, organization_id=org_id
                 )
             except OrgMembership.DoesNotExist as exc:
-                raise PermissionDenied(
-                    "Not a member of this organization."
-                ) from exc
+                raise PermissionDenied("Not a member of this organization.") from exc
 
             if not has_org_permission(membership, permission_key):
-                raise PermissionDenied(
-                    f"Missing org permission: {permission_key}"
-                )
+                raise PermissionDenied(f"Missing org permission: {permission_key}")
 
             # Make resolved context available to the view body.
             request.org_membership = membership

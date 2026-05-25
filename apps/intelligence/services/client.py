@@ -47,27 +47,29 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 
-_ACTIVATION_REJECTED_CODES = frozenset({
-    "metadata_missing_studio_source",
-    "deployment_mismatch",
-    "client_reference_mismatch",
-    "price_not_allowlisted",
-    "not_paid",
-    "session_not_found",
-    "session_incomplete",
-    "wrong_mode",
-    "no_line_items",
-    "unknown_checkout_attempt",
-    "token_expired",
-    "token_already_consumed",
-    "invalid_token",
-    "token_deployment_mismatch",
-    "missing_subscription_id",
-    "unknown_plan",
-    "unmapped_price",
-    "no_pending_activation",
-    "session_id_mismatch",
-})
+_ACTIVATION_REJECTED_CODES = frozenset(
+    {
+        "metadata_missing_studio_source",
+        "deployment_mismatch",
+        "client_reference_mismatch",
+        "price_not_allowlisted",
+        "not_paid",
+        "session_not_found",
+        "session_incomplete",
+        "wrong_mode",
+        "no_line_items",
+        "unknown_checkout_attempt",
+        "token_expired",
+        "token_already_consumed",
+        "invalid_token",
+        "token_deployment_mismatch",
+        "missing_subscription_id",
+        "unknown_plan",
+        "unmapped_price",
+        "no_pending_activation",
+        "session_id_mismatch",
+    }
+)
 
 
 class InternalClient:
@@ -78,10 +80,14 @@ class InternalClient:
     pattern-match without inspecting status codes.
     """
 
-    def __init__(self, *, base_url: str | None = None,
-                 deployment_id: str | None = None,
-                 secret: str | None = None,
-                 timeout: float = 8.0):
+    def __init__(
+        self,
+        *,
+        base_url: str | None = None,
+        deployment_id: str | None = None,
+        secret: str | None = None,
+        timeout: float = 8.0,
+    ):
         self.base_url = (base_url or settings.INTELLIGENCE_INTERNAL_URL).rstrip("/")
         self.deployment_id = deployment_id or settings.STUDIO_DEPLOYMENT_ID
         self.secret = secret or settings.STUDIO_SHARED_SECRET
@@ -94,14 +100,16 @@ class InternalClient:
 
     def check_eligibility(self, *, external_org_id: str) -> dict:
         return self._request(
-            "GET", "/check-eligibility",
+            "GET",
+            "/check-eligibility",
             query={"external_org_id": external_org_id},
         )
 
     def pending_activation(self, *, external_org_id: str) -> dict | None:
         try:
             return self._request(
-                "GET", "/pending-activation",
+                "GET",
+                "/pending-activation",
                 query={"external_org_id": external_org_id},
             )
         except NotFound:
@@ -109,11 +117,18 @@ class InternalClient:
 
     # ---- Activation (POST, idempotent) -----------------------------------
 
-    def studio_checkout_session(self, *, external_org_id: str, org_name: str,
-                                 billing_email: str, plan_slug: str,
-                                 contact_email: str, contact_full_name: str,
-                                 return_base_url: str,
-                                 idempotency_key: str) -> dict:
+    def studio_checkout_session(
+        self,
+        *,
+        external_org_id: str,
+        org_name: str,
+        billing_email: str,
+        plan_slug: str,
+        contact_email: str,
+        contact_full_name: str,
+        return_base_url: str,
+        idempotency_key: str,
+    ) -> dict:
         body = {
             "external_org_id": external_org_id,
             "org_name": org_name,
@@ -124,16 +139,25 @@ class InternalClient:
             "return_base_url": return_base_url,
         }
         return self._request(
-            "POST", "/studio-checkout-session", body=body,
+            "POST",
+            "/studio-checkout-session",
+            body=body,
             idempotency_key=idempotency_key,
         )
 
-    def activate_preflight(self, *, session_id: str,
-                            expected_external_org_id: str, plan_slug: str,
-                            billing_email: str = "", org_name: str = "",
-                            contact_email: str = "", contact_full_name: str = "",
-                            recover: bool = False,
-                            idempotency_key: str) -> dict:
+    def activate_preflight(
+        self,
+        *,
+        session_id: str,
+        expected_external_org_id: str,
+        plan_slug: str,
+        billing_email: str = "",
+        org_name: str = "",
+        contact_email: str = "",
+        contact_full_name: str = "",
+        recover: bool = False,
+        idempotency_key: str,
+    ) -> dict:
         body = {
             "session_id": session_id,
             "expected_external_org_id": expected_external_org_id,
@@ -145,14 +169,22 @@ class InternalClient:
             "recover": recover,
         }
         return self._request(
-            "POST", "/activate-preflight", body=body,
+            "POST",
+            "/activate-preflight",
+            body=body,
             idempotency_key=idempotency_key,
         )
 
-    def activate_commit(self, *, validation_token: str,
-                         contact_email: str = "", contact_full_name: str = "",
-                         billing_email: str = "", org_name: str = "",
-                         idempotency_key: str) -> dict:
+    def activate_commit(
+        self,
+        *,
+        validation_token: str,
+        contact_email: str = "",
+        contact_full_name: str = "",
+        billing_email: str = "",
+        org_name: str = "",
+        idempotency_key: str,
+    ) -> dict:
         body = {
             "validation_token": validation_token,
             "contact_email": contact_email,
@@ -161,7 +193,9 @@ class InternalClient:
             "org_name": org_name,
         }
         return self._request(
-            "POST", "/activate-commit", body=body,
+            "POST",
+            "/activate-commit",
+            body=body,
             idempotency_key=idempotency_key,
         )
 
@@ -170,18 +204,18 @@ class InternalClient:
     def get_account(self, user_id: int | str) -> dict:
         return self._request("GET", f"/accounts/{user_id}")
 
-    def rotate_key(self, *, user_id: int | str, external_org_id: str,
-                    idempotency_key: str) -> dict:
+    def rotate_key(self, *, user_id: int | str, external_org_id: str, idempotency_key: str) -> dict:
         return self._request(
-            "POST", f"/accounts/{user_id}/rotate-key",
+            "POST",
+            f"/accounts/{user_id}/rotate-key",
             body={"external_org_id": external_org_id},
             idempotency_key=idempotency_key,
         )
 
-    def deactivate_keys(self, *, user_id: int | str, external_org_id: str,
-                         idempotency_key: str) -> dict:
+    def deactivate_keys(self, *, user_id: int | str, external_org_id: str, idempotency_key: str) -> dict:
         return self._request(
-            "DELETE", f"/accounts/{user_id}/api-keys",
+            "DELETE",
+            f"/accounts/{user_id}/api-keys",
             body={"external_org_id": external_org_id},
             idempotency_key=idempotency_key,
         )
@@ -190,14 +224,15 @@ class InternalClient:
 
     def portal_session(self, *, external_org_id: str) -> dict:
         return self._request(
-            "POST", "/portal-session",
+            "POST",
+            "/portal-session",
             body={"external_org_id": external_org_id},
         )
 
-    def update_billing_contact(self, *, external_org_id: str,
-                                billing_email: str, org_name: str) -> dict:
+    def update_billing_contact(self, *, external_org_id: str, billing_email: str, org_name: str) -> dict:
         return self._request(
-            "POST", "/update-billing-contact",
+            "POST",
+            "/update-billing-contact",
             body={
                 "external_org_id": external_org_id,
                 "billing_email": billing_email,
@@ -210,9 +245,15 @@ class InternalClient:
 
     # ---- Internals -------------------------------------------------------
 
-    def _request(self, method: str, path: str, *, body: dict | None = None,
-                 query: dict | None = None,
-                 idempotency_key: str | None = None) -> dict:
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        body: dict | None = None,
+        query: dict | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict:
         url = f"{self.base_url}{path}"
         # Serialize body deterministically, the server hashes the exact
         # bytes it received, so our hash must match. ``json.dumps`` with
@@ -240,6 +281,7 @@ class InternalClient:
         # smuggle attacker-controlled bytes past the HMAC integrity
         # check by exploiting the encoding discrepancy.
         from urllib.parse import urlencode, urlsplit
+
         full_path = urlsplit(f"{self.base_url}{path}").path
         if query:
             qs = urlencode(query, doseq=True)
@@ -251,12 +293,20 @@ class InternalClient:
         timestamp = str(int(time.time()))
         nonce = secrets.token_urlsafe(16)
         body_hash = hashlib.sha256(body_bytes).hexdigest()
-        canonical = "\n".join([
-            method.upper(), path_with_query, timestamp, body_hash,
-            self.deployment_id, nonce,
-        ]).encode("utf-8")
+        canonical = "\n".join(
+            [
+                method.upper(),
+                path_with_query,
+                timestamp,
+                body_hash,
+                self.deployment_id,
+                nonce,
+            ]
+        ).encode("utf-8")
         signature = hmac.new(
-            self.secret.encode("utf-8"), canonical, hashlib.sha256,
+            self.secret.encode("utf-8"),
+            canonical,
+            hashlib.sha256,
         ).hexdigest()
 
         headers = {
@@ -314,8 +364,7 @@ class InternalClient:
         msg = (body or {}).get("message") or code or resp.text or "error"
 
         if resp.status_code == 401:
-            if code in {"unknown_deployment", "deployment_not_authorized",
-                         "deployment_not_registered"}:
+            if code in {"unknown_deployment", "deployment_not_authorized", "deployment_not_registered"}:
                 raise DeploymentNotAuthorized(msg, status_code=401, code=code, body=body)
             raise InvalidApiKey(msg, status_code=401, code=code, body=body)
         if resp.status_code == 402:
@@ -342,8 +391,7 @@ class InternalClient:
             if ra is not None:
                 with contextlib.suppress(ValueError):
                     retry_after = int(ra)
-            raise Conflict(msg, status_code=409, code=code, body=body,
-                           retry_after=retry_after)
+            raise Conflict(msg, status_code=409, code=code, body=body, retry_after=retry_after)
         if resp.status_code == 410:
             raise ActivationRejected(msg, status_code=410, code=code, body=body)
         if resp.status_code == 429:
@@ -352,20 +400,15 @@ class InternalClient:
             if ra is not None:
                 with contextlib.suppress(ValueError):
                     retry_after = int(ra)
-            raise RateLimited(msg, status_code=429, code=code, body=body,
-                              retry_after=retry_after)
+            raise RateLimited(msg, status_code=429, code=code, body=body, retry_after=retry_after)
         if 400 <= resp.status_code < 500:
             if code in _ACTIVATION_REJECTED_CODES:
-                raise ActivationRejected(msg, status_code=resp.status_code,
-                                          code=code, body=body)
-            raise BadRequest(msg, status_code=resp.status_code,
-                              code=code, body=body)
+                raise ActivationRejected(msg, status_code=resp.status_code, code=code, body=body)
+            raise BadRequest(msg, status_code=resp.status_code, code=code, body=body)
         if resp.status_code >= 500:
-            raise ServiceUnavailable(msg, status_code=resp.status_code,
-                                      code=code, body=body)
+            raise ServiceUnavailable(msg, status_code=resp.status_code, code=code, body=body)
 
-        raise IntelligenceClientError(msg, status_code=resp.status_code,
-                                       code=code, body=body)
+        raise IntelligenceClientError(msg, status_code=resp.status_code, code=code, body=body)
 
 
 # ---------------------------------------------------------------------------
@@ -377,8 +420,7 @@ class IntelligenceAPIClient:
     """Calls Intelligence's public /v1/ tool endpoints using a per-org
     ``bb_`` bearer key (decrypted from ``IntelligenceSubscription``)."""
 
-    def __init__(self, api_key: str, *, base_url: str | None = None,
-                 timeout: float = 30.0):
+    def __init__(self, api_key: str, *, base_url: str | None = None, timeout: float = 30.0):
         if not api_key:
             raise ValueError("api_key required")
         self.api_key = api_key
@@ -395,10 +437,14 @@ class IntelligenceAPIClient:
 
     # ---- Tools ----------------------------------------------------------
 
-    def score_packaging(self, *, title: str | None = None,
-                         thumbnail_url: str | None = None,
-                         thumbnail_base64: str | None = None,
-                         channel_url: str | None = None) -> dict:
+    def score_packaging(
+        self,
+        *,
+        title: str | None = None,
+        thumbnail_url: str | None = None,
+        thumbnail_base64: str | None = None,
+        channel_url: str | None = None,
+    ) -> dict:
         body: dict[str, Any] = {}
         if title is not None:
             body["title"] = title
@@ -412,11 +458,14 @@ class IntelligenceAPIClient:
 
     def score_video_hook(self, *, youtube_url: str) -> dict:
         return self._request(
-            "POST", "/score/video-hook", body={"youtube_url": youtube_url},
+            "POST",
+            "/score/video-hook",
+            body={"youtube_url": youtube_url},
         )
 
-    def research_content_gaps(self, *, niche: str, gap_type: list[str] | None = None,
-                                limit: int = 20, min_score: int = 0) -> dict:
+    def research_content_gaps(
+        self, *, niche: str, gap_type: list[str] | None = None, limit: int = 20, min_score: int = 0
+    ) -> dict:
         params = {"niche": niche, "limit": limit, "min_score": min_score}
         if gap_type:
             params["gap_type"] = ",".join(gap_type)
@@ -433,8 +482,7 @@ class IntelligenceAPIClient:
 
     # ---- Internals ------------------------------------------------------
 
-    def _request(self, method: str, path: str, *, body: dict | None = None,
-                 query: dict | None = None) -> dict:
+    def _request(self, method: str, path: str, *, body: dict | None = None, query: dict | None = None) -> dict:
         url = f"{self.base_url}{path}"
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -443,8 +491,7 @@ class IntelligenceAPIClient:
         try:
             with httpx.Client(timeout=self.timeout) as client:
                 if body is not None:
-                    resp = client.request(method, url, json=body, headers=headers,
-                                           params=query)
+                    resp = client.request(method, url, json=body, headers=headers, params=query)
                 else:
                     resp = client.request(method, url, headers=headers, params=query)
         except httpx.TimeoutException as exc:

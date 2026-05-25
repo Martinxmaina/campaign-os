@@ -408,13 +408,15 @@ STUDIO_DEPLOYMENT_ID = env("STUDIO_DEPLOYMENT_ID", default="")
 STUDIO_SHARED_SECRET = env("STUDIO_SHARED_SECRET", default="")
 STUDIO_BASE_URL = env("STUDIO_BASE_URL", default="")
 
-INTELLIGENCE_ENABLED = all([
-    INTELLIGENCE_INTERNAL_URL.strip(),
-    INTELLIGENCE_PUBLIC_URL.strip(),
-    STUDIO_DEPLOYMENT_ID.strip(),
-    STUDIO_SHARED_SECRET.strip(),
-    STUDIO_BASE_URL.strip(),
-])
+INTELLIGENCE_ENABLED = all(
+    [
+        INTELLIGENCE_INTERNAL_URL.strip(),
+        INTELLIGENCE_PUBLIC_URL.strip(),
+        STUDIO_DEPLOYMENT_ID.strip(),
+        STUDIO_SHARED_SECRET.strip(),
+        STUDIO_BASE_URL.strip(),
+    ]
+)
 
 if INTELLIGENCE_ENABLED:
     # Security invariants — raised (not asserted) because ``python -O``
@@ -426,9 +428,7 @@ if INTELLIGENCE_ENABLED:
     from django.core.exceptions import ImproperlyConfigured
 
     if not STUDIO_BASE_URL.startswith("https://"):
-        raise ImproperlyConfigured(
-            "STUDIO_BASE_URL must be https:// when Intelligence is enabled."
-        )
+        raise ImproperlyConfigured("STUDIO_BASE_URL must be https:// when Intelligence is enabled.")
 
     # The Intelligence URLs carry sensitive material in BOTH directions:
     # /activate-commit and /rotate-key return plaintext API keys in the

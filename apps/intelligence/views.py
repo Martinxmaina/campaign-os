@@ -26,6 +26,7 @@ from __future__ import annotations
 import contextlib
 import logging
 import time
+from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
@@ -133,8 +134,7 @@ def _niches_for(sub: IntelligenceSubscription | None) -> list[dict] | None:
     return niches
 
 
-def _record_usage(*, organization, user, endpoint, status_code,
-                  credits_charged=0, latency_ms=None):
+def _record_usage(*, organization, user, endpoint, status_code, credits_charged=0, latency_ms=None):
     IntelligenceUsageEvent.objects.create(
         organization=organization,
         user=user if user.is_authenticated else None,
@@ -174,7 +174,8 @@ def playground(request, org_id):
     me = _me_for(request, org_id, sub)
 
     can_manage_billing = has_org_permission(
-        request.org_membership, "manage_intelligence_billing",
+        request.org_membership,
+        "manage_intelligence_billing",
     )
 
     # Closed-tab recovery: only check Intelligence if we have no local sub
@@ -183,8 +184,7 @@ def playground(request, org_id):
     if sub is None and can_manage_billing:
         try:
             pending = _client().pending_activation(external_org_id=str(org_id))
-        except (ServiceUnavailable, DeploymentNotAuthorized,
-                IntelligenceClientError):
+        except (ServiceUnavailable, DeploymentNotAuthorized, IntelligenceClientError):
             logger.exception("/pending-activation lookup failed; suppressing")
             pending = None
 
@@ -199,6 +199,7 @@ def playground(request, org_id):
 
     if is_preview:
         from . import preview_data
+
         preview_inputs = preview_data.PREVIEW_INPUTS
         preview_results = preview_data.PREVIEW_RESULTS
         # Skip the billed /v1/research/niches call in preview mode,
@@ -254,15 +255,23 @@ def subscribe(request, org_id):
         return redirect("intelligence:playground", org_id=org_id)
 
     # Look for an in-progress local attempt; if found, render "Resume" UI.
-    resumable = StudioCheckoutAttempt.objects.filter(
-        organization=request.org,
-        status=StudioCheckoutAttempt.Status.OPEN,
-    ).order_by("-created_at").first()
+    resumable = (
+        StudioCheckoutAttempt.objects.filter(
+            organization=request.org,
+            status=StudioCheckoutAttempt.Status.OPEN,
+        )
+        .order_by("-created_at")
+        .first()
+    )
 
-    in_flight = StudioCheckoutAttempt.objects.filter(
-        organization=request.org,
-        status=StudioCheckoutAttempt.Status.CREATING,
-    ).order_by("-created_at").first()
+    in_flight = (
+        StudioCheckoutAttempt.objects.filter(
+            organization=request.org,
+            status=StudioCheckoutAttempt.Status.CREATING,
+        )
+        .order_by("-created_at")
+        .first()
+    )
 
     # Cross-check with Intelligence so a checkout URL we never persisted
     # locally (e.g. Studio crashed between Stripe.create returning and
@@ -275,7 +284,7 @@ def subscribe(request, org_id):
         except (DeploymentNotAuthorized, IntelligenceClientError):
             remote = {"eligible": True}
         if not remote.get("eligible", True):
-            details = (remote.get("details") or {})
+            details = remote.get("details") or {}
             if remote.get("reason") == "open_checkout" and details.get("checkout_url"):
                 # Surface as a resumable attempt for the template, same
                 # data shape so the existing UI handles it without
@@ -298,8 +307,10 @@ def subscribe(request, org_id):
         plans_resp = _client().list_plans()
     except DeploymentNotAuthorized:
         return render(
-            request, "intelligence/deployment_not_authorized.html",
-            {"organization": request.org}, status=403,
+            request,
+            "intelligence/deployment_not_authorized.html",
+            {"organization": request.org},
+            status=403,
         )
     except IntelligenceClientError:
         logger.exception("/plans fetch failed")
@@ -391,7 +402,7 @@ def checkout(request, org_id):
         # straight back to the in-flight Stripe Checkout session
         # instead of bouncing them to a confusing "Another checkout is
         # in progress" warning.
-        details = ((exc.body or {}).get("details") or {})
+        details = (exc.body or {}).get("details") or {}
         existing_url = details.get("checkout_url") if exc.code == "open_checkout" else None
         if existing_url:
             messages.info(
@@ -404,14 +415,16 @@ def checkout(request, org_id):
         # page where the eligibility-cross-check we added above will
         # render the right resume / manage UI on the next render.
         messages.warning(
-            request, "Couldn't start checkout: {}".format(exc.code or "conflict"),
+            request,
+            "Couldn't start checkout: {}".format(exc.code or "conflict"),
         )
         return redirect("intelligence:subscribe", org_id=org_id)
     except (ServiceUnavailable, DeploymentNotAuthorized, IntelligenceClientError) as exc:
         attempt.delete()
         logger.exception("studio_checkout_session failed: %s", exc)
         messages.error(
-            request, "We couldn't reach the billing service. Try again in a moment.",
+            request,
+            "We couldn't reach the billing service. Try again in a moment.",
         )
         return redirect("intelligence:subscribe", org_id=org_id)
 
@@ -422,13 +435,16 @@ def checkout(request, org_id):
         attempt.status = StudioCheckoutAttempt.Status.OPEN
         if resp.get("expires_at"):
             with contextlib.suppress(ValueError, AttributeError):
-                attempt.expires_at = timezone.datetime.fromisoformat(
-                    resp["expires_at"].replace("Z", "+00:00")
-                )
-        attempt.save(update_fields=[
-            "stripe_session_id", "checkout_url", "status",
-            "expires_at", "updated_at",
-        ])
+                attempt.expires_at = datetime.fromisoformat(resp["expires_at"].replace("Z", "+00:00"))
+        attempt.save(
+            update_fields=[
+                "stripe_session_id",
+                "checkout_url",
+                "status",
+                "expires_at",
+                "updated_at",
+            ]
+        )
 
     return redirect(resp["checkout_url"])
 
@@ -469,26 +485,40 @@ def activate(request):
         stripe_session_id=session_id,
     ).first()
     if attempt is None:
-        return render(request, "intelligence/activation_failed.html", {
-            "code": "unknown_session",
-            "message": "We don't recognize this Stripe session.",
-            "organization": None,
-        }, status=400)
+        return render(
+            request,
+            "intelligence/activation_failed.html",
+            {
+                "code": "unknown_session",
+                "message": "We don't recognize this Stripe session.",
+                "organization": None,
+            },
+            status=400,
+        )
 
     org = attempt.organization
     membership = OrgMembership.objects.filter(
-        user=request.user, organization=org,
+        user=request.user,
+        organization=org,
         org_role__in=[OrgMembership.OrgRole.OWNER, OrgMembership.OrgRole.ADMIN],
     ).first()
     if membership is None:
-        return render(request, "intelligence/activation_org_mismatch.html", {
-            "organization": org,
-        }, status=403)
+        return render(
+            request,
+            "intelligence/activation_org_mismatch.html",
+            {
+                "organization": org,
+            },
+            status=403,
+        )
 
     try:
         return _activate_two_phase(
-            request, session_id=session_id, attempt=attempt,
-            expected_org=org, user=request.user,
+            request,
+            session_id=session_id,
+            attempt=attempt,
+            expected_org=org,
+            user=request.user,
         )
     except _DeferredToWorker:
         # Fallback path, PendingActivation already persisted in
@@ -517,10 +547,16 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
         )
     except ActivationRejected as exc:
         logger.warning("Activation preflight rejected: code=%s", exc.code)
-        return render(request, "intelligence/activation_failed.html", {
-            "code": exc.code, "message": exc.user_message,
-            "organization": expected_org,
-        }, status=exc.status_code or 400)
+        return render(
+            request,
+            "intelligence/activation_failed.html",
+            {
+                "code": exc.code,
+                "message": exc.user_message,
+                "organization": expected_org,
+            },
+            status=exc.status_code or 400,
+        )
     except ServiceUnavailable:
         # 5xx / network error — genuinely transient, defer to worker.
         logger.exception("Preflight transient failure; deferring to worker")
@@ -537,36 +573,53 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
         # to the user instead of pretending to "finalize" forever.
         logger.error(
             "Preflight permanent client error: code=%s status=%s body=%s",
-            getattr(exc, "code", None), getattr(exc, "status_code", None),
+            getattr(exc, "code", None),
+            getattr(exc, "status_code", None),
             getattr(exc, "body", None),
         )
-        return render(request, "intelligence/activation_failed.html", {
-            "code": getattr(exc, "code", "") or "preflight_failed",
-            "message": (
-                "We couldn't complete activation. Please refresh and try "
-                "again, or contact support if this persists."
-            ),
-            "organization": expected_org,
-        }, status=getattr(exc, "status_code", 400) or 400)
+        return render(
+            request,
+            "intelligence/activation_failed.html",
+            {
+                "code": getattr(exc, "code", "") or "preflight_failed",
+                "message": (
+                    "We couldn't complete activation. Please refresh and try "
+                    "again, or contact support if this persists."
+                ),
+                "organization": expected_org,
+            },
+            status=getattr(exc, "status_code", 400) or 400,
+        )
 
     resolved_org_id = preflight.get("resolved_external_org_id")
     if str(expected_org.id) != str(resolved_org_id):
         # Intelligence resolved a different org than ours. Refuse to commit.
-        return render(request, "intelligence/activation_org_mismatch.html", {
-            "organization": expected_org,
-        }, status=403)
+        return render(
+            request,
+            "intelligence/activation_org_mismatch.html",
+            {
+                "organization": expected_org,
+            },
+            status=403,
+        )
 
     # Re-check membership against the resolved org (belt-and-braces; should
     # be identical to expected_org but the plan calls for the explicit
     # second check).
     membership = OrgMembership.objects.filter(
-        user=user, organization_id=resolved_org_id,
+        user=user,
+        organization_id=resolved_org_id,
         org_role__in=[OrgMembership.OrgRole.OWNER, OrgMembership.OrgRole.ADMIN],
     ).first()
     if membership is None:
-        return render(request, "intelligence/activation_org_mismatch.html", {
-            "organization": expected_org,
-        }, status=403)
+        return render(
+            request,
+            "intelligence/activation_org_mismatch.html",
+            {
+                "organization": expected_org,
+            },
+            status=403,
+        )
 
     commit_key = f"commit-{session_id}"
     try:
@@ -579,10 +632,16 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
             idempotency_key=commit_key,
         )
     except ActivationRejected as exc:
-        return render(request, "intelligence/activation_failed.html", {
-            "code": exc.code, "message": exc.user_message,
-            "organization": expected_org,
-        }, status=exc.status_code or 400)
+        return render(
+            request,
+            "intelligence/activation_failed.html",
+            {
+                "code": exc.code,
+                "message": exc.user_message,
+                "organization": expected_org,
+            },
+            status=exc.status_code or 400,
+        )
     except ServiceUnavailable:
         # 5xx / network error — genuinely transient, defer to worker.
         logger.exception("Commit transient failure; deferring to worker")
@@ -598,17 +657,23 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
         # instead of spinning the worker.
         logger.error(
             "Commit permanent client error: code=%s status=%s body=%s",
-            getattr(exc, "code", None), getattr(exc, "status_code", None),
+            getattr(exc, "code", None),
+            getattr(exc, "status_code", None),
             getattr(exc, "body", None),
         )
-        return render(request, "intelligence/activation_failed.html", {
-            "code": getattr(exc, "code", "") or "commit_failed",
-            "message": (
-                "We couldn't complete activation. Please refresh and try "
-                "again, or contact support if this persists."
-            ),
-            "organization": expected_org,
-        }, status=getattr(exc, "status_code", 400) or 400)
+        return render(
+            request,
+            "intelligence/activation_failed.html",
+            {
+                "code": getattr(exc, "code", "") or "commit_failed",
+                "message": (
+                    "We couldn't complete activation. Please refresh and try "
+                    "again, or contact support if this persists."
+                ),
+                "organization": expected_org,
+            },
+            status=getattr(exc, "status_code", 400) or 400,
+        )
 
     # Final local commit. Wrap in the same transient handler as the
     # phase calls above so a rotate-key failure during lost-key recovery
@@ -617,7 +682,9 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
     # branch in ``_finalize_local_subscription``).
     try:
         return _finalize_local_subscription(
-            request, attempt=attempt, expected_org=expected_org,
+            request,
+            attempt=attempt,
+            expected_org=expected_org,
             commit_resp=commit_resp,
         )
     except (ServiceUnavailable, IntelligenceClientError):
@@ -636,7 +703,8 @@ def _queue_pending_activation(user, session_id: str):
     from .tasks import provision_intelligence_account_via_session
 
     pending, _ = PendingActivation.objects.update_or_create(
-        user=user, session_id=session_id,
+        user=user,
+        session_id=session_id,
         defaults={"status": PendingActivation.Status.PENDING},
     )
     # ``pending.id`` is a UUID; django-background-tasks JSON-encodes
@@ -645,8 +713,7 @@ def _queue_pending_activation(user, session_id: str):
     provision_intelligence_account_via_session(str(pending.id), schedule=0)
 
 
-def _finalize_local_subscription(request, *, attempt, expected_org,
-                                  commit_resp):
+def _finalize_local_subscription(request, *, attempt, expected_org, commit_resp):
     """Write the IntelligenceSubscription row + redirect.
 
     Handles the api_key_minted=False replay case by calling /rotate-key
@@ -683,8 +750,7 @@ def _finalize_local_subscription(request, *, attempt, expected_org,
                 )
             except IntelligenceClientError:
                 logger.exception(
-                    "rotate-key fallback failed; deferring to worker "
-                    "rather than activating without an api_key",
+                    "rotate-key fallback failed; deferring to worker rather than activating without an api_key",
                 )
                 raise
             sub.intelligence_api_key = rot["api_key"]
@@ -694,7 +760,7 @@ def _finalize_local_subscription(request, *, attempt, expected_org,
         sub.plan_slug = commit_resp.get("plan_slug", "")
         if commit_resp.get("period_end"):
             with contextlib.suppress(ValueError, AttributeError):
-                sub.current_period_end = timezone.datetime.fromisoformat(
+                sub.current_period_end = datetime.fromisoformat(
                     commit_resp["period_end"].replace("Z", "+00:00"),
                 )
         sub.status = IntelligenceSubscription.Status.ACTIVE
@@ -743,7 +809,8 @@ def recover(request, org_id):
     # defensive sweep of any non-terminal row that would conflict with
     # the partial-unique index.
     attempt = StudioCheckoutAttempt.objects.filter(
-        organization=request.org, stripe_session_id=session_id,
+        organization=request.org,
+        stripe_session_id=session_id,
     ).first()
     open_defaults = {
         "user": request.user,
@@ -782,8 +849,11 @@ def recover(request, org_id):
             )
     try:
         return _activate_two_phase(
-            request, session_id=session_id, attempt=attempt,
-            expected_org=request.org, user=request.user,
+            request,
+            session_id=session_id,
+            attempt=attempt,
+            expected_org=request.org,
+            user=request.user,
         )
     except _DeferredToWorker:
         return redirect("intelligence_global:finalizing")
@@ -805,11 +875,13 @@ def status_fragment(request, org_id):
         return HttpResponse(status=204)
     if sub.status == IntelligenceSubscription.Status.ACTIVE:
         return render(
-            request, "intelligence/_status_active_oob.html",
+            request,
+            "intelligence/_status_active_oob.html",
             {"organization": request.org, "subscription": sub},
         )
     return render(
-        request, "intelligence/_status_polling.html",
+        request,
+        "intelligence/_status_polling.html",
         {"organization": request.org, "subscription": sub},
     )
 
@@ -819,13 +891,11 @@ def status_fragment(request, org_id):
 def finalizing(request):
     """User-scoped finalizing page shown when sync activation transient-failed
     before we could resolve an org. Polls the user-scoped fragment below."""
-    pending = (
-        PendingActivation.objects.filter(user=request.user)
-        .order_by("-created_at")
-        .first()
-    )
+    pending = PendingActivation.objects.filter(user=request.user).order_by("-created_at").first()
     return render(
-        request, "intelligence/finalizing.html", {"pending": pending},
+        request,
+        "intelligence/finalizing.html",
+        {"pending": pending},
     )
 
 
@@ -833,15 +903,10 @@ def finalizing(request):
 @require_GET
 def finalizing_status(request):
     """HTMX polling fragment for the user-scoped finalizing page."""
-    pending = (
-        PendingActivation.objects.filter(user=request.user)
-        .order_by("-created_at")
-        .first()
-    )
+    pending = PendingActivation.objects.filter(user=request.user).order_by("-created_at").first()
     if pending is None:
         return HttpResponse(status=204)
-    if (pending.status == PendingActivation.Status.COMPLETED
-            and pending.resolved_organization_id):
+    if pending.status == PendingActivation.Status.COMPLETED and pending.resolved_organization_id:
         return render(
             request,
             "intelligence/_finalizing_completed.html",
@@ -849,15 +914,19 @@ def finalizing_status(request):
         )
     if pending.status == PendingActivation.Status.REJECTED_UNAUTHORIZED:
         return render(
-            request, "intelligence/_finalizing_unauthorized.html", {},
+            request,
+            "intelligence/_finalizing_unauthorized.html",
+            {},
         )
     if pending.status == PendingActivation.Status.PROVISIONING_FAILED:
         return render(
-            request, "intelligence/_finalizing_failed.html",
+            request,
+            "intelligence/_finalizing_failed.html",
             {"last_error": pending.last_error},
         )
     return render(
-        request, "intelligence/_finalizing_polling.html",
+        request,
+        "intelligence/_finalizing_polling.html",
         {"pending": pending},
     )
 
@@ -876,7 +945,8 @@ def portal(request, org_id):
     except (ServiceUnavailable, IntelligenceClientError) as exc:
         logger.exception("portal_session failed: %s", exc)
         messages.error(
-            request, "We couldn't open the billing portal. Try again in a moment.",
+            request,
+            "We couldn't open the billing portal. Try again in a moment.",
         )
         return redirect("intelligence:playground", org_id=org_id)
     return redirect(resp["url"])
@@ -900,14 +970,14 @@ def billing_settings(request, org_id):
             account = _client().get_account(user_id=sub.intelligence_account_id)
         except (ServiceUnavailable, IntelligenceClientError):
             logger.warning(
-                "Failed to load /accounts/%s for billing page; "
-                "rendering without cancel info", sub.intelligence_account_id,
+                "Failed to load /accounts/%s for billing page; rendering without cancel info",
+                sub.intelligence_account_id,
             )
 
     cancel_at = None
     if account and account.get("cancel_at"):
         try:
-            cancel_at = timezone.datetime.fromisoformat(
+            cancel_at = datetime.fromisoformat(
                 account["cancel_at"].replace("Z", "+00:00"),
             )
         except (ValueError, AttributeError):
@@ -915,22 +985,26 @@ def billing_settings(request, org_id):
     canceled_at = None
     if account and account.get("canceled_at"):
         try:
-            canceled_at = timezone.datetime.fromisoformat(
+            canceled_at = datetime.fromisoformat(
                 account["canceled_at"].replace("Z", "+00:00"),
             )
         except (ValueError, AttributeError):
             canceled_at = None
 
-    return render(request, "intelligence/billing_settings.html", {
-        "organization": request.org,
-        "subscription": sub,
-        "billing_email": request.org.billing_email or request.user.email,
-        # Stripe-level scheduled-cancel state, may be None if Intel was
-        # unreachable or the sub has no scheduled cancel.
-        "cancel_at": cancel_at,
-        "canceled_at": canceled_at,
-        "cancel_at_period_end": bool(account and account.get("cancel_at_period_end")),
-    })
+    return render(
+        request,
+        "intelligence/billing_settings.html",
+        {
+            "organization": request.org,
+            "subscription": sub,
+            "billing_email": request.org.billing_email or request.user.email,
+            # Stripe-level scheduled-cancel state, may be None if Intel was
+            # unreachable or the sub has no scheduled cancel.
+            "cancel_at": cancel_at,
+            "canceled_at": canceled_at,
+            "cancel_at_period_end": bool(account and account.get("cancel_at_period_end")),
+        },
+    )
 
 
 @require_POST
@@ -960,14 +1034,13 @@ def update_billing_contact(request, org_id):
             logger.exception("update_billing_contact sync failed")
             messages.error(
                 request,
-                "We couldn't reach the billing service. Your change has "
-                "NOT been saved, please try again in a moment.",
+                "We couldn't reach the billing service. Your change has NOT been saved, please try again in a moment.",
             )
             if request.headers.get("HX-Request"):
                 return render(
-                    request, "intelligence/_billing_contact_saved.html",
-                    {"billing_email": request.org.billing_email,
-                     "error": True},
+                    request,
+                    "intelligence/_billing_contact_saved.html",
+                    {"billing_email": request.org.billing_email, "error": True},
                 )
             return redirect("intelligence:billing-settings", org_id=org_id)
 
@@ -977,7 +1050,8 @@ def update_billing_contact(request, org_id):
 
     if request.headers.get("HX-Request"):
         return render(
-            request, "intelligence/_billing_contact_saved.html",
+            request,
+            "intelligence/_billing_contact_saved.html",
             {"billing_email": billing_email},
         )
     messages.success(request, "Billing contact updated.")
@@ -989,8 +1063,7 @@ def update_billing_contact(request, org_id):
 # ---------------------------------------------------------------------------
 
 
-def _call_tool(request, method_name: str, *, body: dict,
-               template: str, endpoint_path: str):
+def _call_tool(request, method_name: str, *, body: dict, template: str, endpoint_path: str):
     """Shared tool-call shim: dispatch to the per-org IntelligenceAPIClient
     method, render the result partial, and log a usage event."""
     sub = request.org.intelligence_subscription
@@ -1001,21 +1074,31 @@ def _call_tool(request, method_name: str, *, body: dict,
     except IntelligenceClientError as exc:
         latency = int((time.monotonic() - start) * 1000)
         _record_usage(
-            organization=request.org, user=request.user,
-            endpoint=endpoint_path, status_code=exc.status_code or 500,
+            organization=request.org,
+            user=request.user,
+            endpoint=endpoint_path,
+            status_code=exc.status_code or 500,
             latency_ms=latency,
         )
         return _render_tool_error(request, exc, organization=request.org)
 
     latency = int((time.monotonic() - start) * 1000)
     _record_usage(
-        organization=request.org, user=request.user,
-        endpoint=endpoint_path, status_code=200, latency_ms=latency,
+        organization=request.org,
+        user=request.user,
+        endpoint=endpoint_path,
+        status_code=200,
+        latency_ms=latency,
         credits_charged=_credits_for(endpoint_path),
     )
-    return render(request, template, {
-        "result": result, "organization": request.org,
-    })
+    return render(
+        request,
+        template,
+        {
+            "result": result,
+            "organization": request.org,
+        },
+    )
 
 
 def _credits_for(endpoint_path: str) -> int:
@@ -1032,9 +1115,13 @@ def _credits_for(endpoint_path: str) -> int:
 
 
 SCORE_PACKAGING_MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024  # 5 MiB
-SCORE_PACKAGING_ALLOWED_THUMBNAIL_TYPES = frozenset({
-    "image/jpeg", "image/png", "image/webp",
-})
+SCORE_PACKAGING_ALLOWED_THUMBNAIL_TYPES = frozenset(
+    {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    }
+)
 # Pillow returns these for the same MIME types; both axes (browser-reported
 # content_type AND Pillow-detected format) must match the allow-list before
 # we forward bytes to Intelligence.
@@ -1111,18 +1198,17 @@ def score_packaging(request, org_id):
         thumbnail_base64, err = _validate_thumbnail_upload(uploaded)
         if err is not None:
             return render(
-                request, "intelligence/_tool_error.html",
-                {"code": "invalid_thumbnail", "message": err,
-                 "organization": request.org},
+                request,
+                "intelligence/_tool_error.html",
+                {"code": "invalid_thumbnail", "message": err, "organization": request.org},
                 status=400,
             )
 
     if not title and not thumbnail_base64:
         return render(
-            request, "intelligence/_tool_error.html",
-            {"code": "missing_input",
-             "message": "Provide a title, a thumbnail, or both.",
-             "organization": request.org},
+            request,
+            "intelligence/_tool_error.html",
+            {"code": "missing_input", "message": "Provide a title, a thumbnail, or both.", "organization": request.org},
             status=400,
         )
 
@@ -1133,7 +1219,9 @@ def score_packaging(request, org_id):
         body["thumbnail_base64"] = thumbnail_base64
 
     return _call_tool(
-        request, "score_packaging", body=body,
+        request,
+        "score_packaging",
+        body=body,
         template="intelligence/_score_packaging_result.html",
         endpoint_path="/v1/score/packaging",
     )
@@ -1145,7 +1233,9 @@ def score_packaging(request, org_id):
 def score_video_hook(request, org_id):
     body = {"youtube_url": request.POST.get("youtube_url", "").strip()}
     return _call_tool(
-        request, "score_video_hook", body=body,
+        request,
+        "score_video_hook",
+        body=body,
         template="intelligence/_score_video_hook_result.html",
         endpoint_path="/v1/score/video-hook",
     )
@@ -1157,7 +1247,9 @@ def score_video_hook(request, org_id):
 def benchmark_channel(request, org_id):
     body = {"url": request.POST.get("url", "").strip()}
     return _call_tool(
-        request, "benchmark_channel", body=body,
+        request,
+        "benchmark_channel",
+        body=body,
         template="intelligence/_benchmark_channel_result.html",
         endpoint_path="/v1/benchmark/channel",
     )
@@ -1169,7 +1261,9 @@ def benchmark_channel(request, org_id):
 def benchmark_video(request, org_id):
     body = {"url": request.POST.get("url", "").strip()}
     return _call_tool(
-        request, "benchmark_video", body=body,
+        request,
+        "benchmark_video",
+        body=body,
         template="intelligence/_benchmark_video_result.html",
         endpoint_path="/v1/benchmark/video",
     )
@@ -1196,7 +1290,9 @@ def research_content_gaps(request, org_id):
     if gap_type:
         body["gap_type"] = gap_type
     return _call_tool(
-        request, "research_content_gaps", body=body,
+        request,
+        "research_content_gaps",
+        body=body,
         template="intelligence/_research_content_gaps_result.html",
         endpoint_path="/v1/research/content-gaps",
     )
@@ -1207,7 +1303,9 @@ def research_content_gaps(request, org_id):
 @intelligence_subscription_required
 def list_niches(request, org_id):
     return _call_tool(
-        request, "list_niches", body={},
+        request,
+        "list_niches",
+        body={},
         template="intelligence/_list_niches_result.html",
         endpoint_path="/v1/research/niches",
     )
@@ -1226,4 +1324,5 @@ def _studio_base_url() -> str:
     redirect defense, so we send whatever is configured in env.
     """
     from django.conf import settings
+
     return getattr(settings, "STUDIO_BASE_URL", "").rstrip("/")

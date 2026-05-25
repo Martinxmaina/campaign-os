@@ -22,17 +22,15 @@ from apps.organizations.models import Organization
 
 def _make_user(email):
     user = User.objects.create_user(
-        email=email, password="testpass123",
+        email=email,
+        password="testpass123",
         tos_accepted_at=timezone.now(),
     )
     # The accounts post_save signal auto-provisions a default Org.
     # Clear it so tests start from a clean slate.
-    auto_org_ids = list(
-        OrgMembership.objects.filter(user=user).values_list(
-            "organization_id", flat=True
-        )
-    )
+    auto_org_ids = list(OrgMembership.objects.filter(user=user).values_list("organization_id", flat=True))
     from apps.members.models import WorkspaceMembership
+
     WorkspaceMembership.objects.filter(user=user).delete()
     OrgMembership.objects.filter(user=user).delete()
     Organization.objects.filter(id__in=auto_org_ids).delete()
@@ -43,13 +41,15 @@ class OrgPermissionTableTests(TestCase):
     def test_owner_has_all_permissions(self):
         keys = {k for k, _ in ORG_PERMISSION_KEYS}
         self.assertEqual(
-            BUILTIN_ORG_PERMISSIONS[OrgMembership.OrgRole.OWNER], keys,
+            BUILTIN_ORG_PERMISSIONS[OrgMembership.OrgRole.OWNER],
+            keys,
         )
 
     def test_admin_has_all_permissions(self):
         keys = {k for k, _ in ORG_PERMISSION_KEYS}
         self.assertEqual(
-            BUILTIN_ORG_PERMISSIONS[OrgMembership.OrgRole.ADMIN], keys,
+            BUILTIN_ORG_PERMISSIONS[OrgMembership.OrgRole.ADMIN],
+            keys,
         )
 
     def test_member_can_use_but_not_manage_billing(self):
@@ -64,7 +64,9 @@ class OrgPermissionTableTests(TestCase):
         user = _make_user("owner@example.com")
         org = Organization.objects.create(name="Acme")
         m = OrgMembership.objects.create(
-            user=user, organization=org, org_role=OrgMembership.OrgRole.OWNER,
+            user=user,
+            organization=org,
+            org_role=OrgMembership.OrgRole.OWNER,
         )
         self.assertTrue(has_org_permission(m, "use_intelligence"))
         self.assertTrue(has_org_permission(m, "manage_intelligence_billing"))
@@ -73,7 +75,9 @@ class OrgPermissionTableTests(TestCase):
         user = _make_user("member@example.com")
         org = Organization.objects.create(name="Acme")
         m = OrgMembership.objects.create(
-            user=user, organization=org, org_role=OrgMembership.OrgRole.MEMBER,
+            user=user,
+            organization=org,
+            org_role=OrgMembership.OrgRole.MEMBER,
         )
         self.assertTrue(has_org_permission(m, "use_intelligence"))
         self.assertFalse(has_org_permission(m, "manage_intelligence_billing"))
@@ -86,9 +90,7 @@ class RequireOrgPermissionDecoratorTests(TestCase):
 
         @require_org_permission("manage_intelligence_billing")
         def billing_view(request, *args, **kwargs):
-            return HttpResponse(
-                f"ok org={request.org.id} mem={request.org_membership.org_role}"
-            )
+            return HttpResponse(f"ok org={request.org.id} mem={request.org_membership.org_role}")
 
         @require_org_permission("use_intelligence")
         def tool_view(request, *args, **kwargs):
@@ -114,7 +116,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
     def test_owner_admits_billing_view(self):
         user = _make_user("owner@example.com")
         OrgMembership.objects.create(
-            user=user, organization=self.org,
+            user=user,
+            organization=self.org,
             org_role=OrgMembership.OrgRole.OWNER,
         )
         req = self._request_as(user, org_id=self.org.id)
@@ -125,7 +128,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
     def test_admin_admits_billing_view(self):
         user = _make_user("admin@example.com")
         OrgMembership.objects.create(
-            user=user, organization=self.org,
+            user=user,
+            organization=self.org,
             org_role=OrgMembership.OrgRole.ADMIN,
         )
         req = self._request_as(user, org_id=self.org.id)
@@ -137,7 +141,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
 
         user = _make_user("member@example.com")
         OrgMembership.objects.create(
-            user=user, organization=self.org,
+            user=user,
+            organization=self.org,
             org_role=OrgMembership.OrgRole.MEMBER,
         )
         req = self._request_as(user, org_id=self.org.id)
@@ -147,7 +152,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
     def test_member_admits_tool_view(self):
         user = _make_user("member@example.com")
         OrgMembership.objects.create(
-            user=user, organization=self.org,
+            user=user,
+            organization=self.org,
             org_role=OrgMembership.OrgRole.MEMBER,
         )
         req = self._request_as(user, org_id=self.org.id)
@@ -161,7 +167,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
         user = _make_user("alice@example.com")
         org_b = Organization.objects.create(name="Other Co")
         OrgMembership.objects.create(
-            user=user, organization=org_b,
+            user=user,
+            organization=org_b,
             org_role=OrgMembership.OrgRole.OWNER,
         )
         # Request to org A (self.org), but user only has membership in org_b.
@@ -183,7 +190,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
 
         user = _make_user("alice@example.com")
         OrgMembership.objects.create(
-            user=user, organization=self.org,
+            user=user,
+            organization=self.org,
             org_role=OrgMembership.OrgRole.OWNER,
         )
         req = self.factory.get("/no-org-id/")
@@ -195,7 +203,8 @@ class RequireOrgPermissionDecoratorTests(TestCase):
         """Wrapped view sees request.org / request.org_membership populated."""
         user = _make_user("owner@example.com")
         OrgMembership.objects.create(
-            user=user, organization=self.org,
+            user=user,
+            organization=self.org,
             org_role=OrgMembership.OrgRole.OWNER,
         )
         req = self._request_as(user, org_id=self.org.id)

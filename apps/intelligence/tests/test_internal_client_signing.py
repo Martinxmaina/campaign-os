@@ -36,12 +36,18 @@ _BASE_URL = "https://intel.example.com/internal/v1"
     STUDIO_SHARED_SECRET="test-secret",
 )
 class TestSigningCanonical(SimpleTestCase):
-    def _canonical(self, method, path_with_query, timestamp, body_bytes, nonce,
-                   secret="test-secret"):
+    def _canonical(self, method, path_with_query, timestamp, body_bytes, nonce, secret="test-secret"):
         body_hash = hashlib.sha256(body_bytes or b"").hexdigest()
-        canonical = "\n".join([
-            method.upper(), path_with_query, timestamp, body_hash, "prod", nonce,
-        ]).encode("utf-8")
+        canonical = "\n".join(
+            [
+                method.upper(),
+                path_with_query,
+                timestamp,
+                body_hash,
+                "prod",
+                nonce,
+            ]
+        ).encode("utf-8")
         return hmac.new(secret.encode("utf-8"), canonical, hashlib.sha256).hexdigest()
 
     def test_get_request_signature(self):
@@ -62,9 +68,15 @@ class TestSigningCanonical(SimpleTestCase):
             # Server-derived deployment id matches header value.
             assert headers["X-Studio-Deployment-Id"] == "prod"
             # Recompute expected signature for the actual headers used.
+            # The client signs over the FULL URL path including the
+            # ``/internal/v1`` prefix from base_url (matches what
+            # Django's ``request.path`` produces server-side); using
+            # just ``/plans`` here would produce a non-matching hash.
             expected = self._canonical(
-                "GET", "/plans",
-                headers["X-Studio-Timestamp"], b"",
+                "GET",
+                "/internal/v1/plans",
+                headers["X-Studio-Timestamp"],
+                b"",
                 headers["X-Studio-Nonce"],
             )
             assert headers["X-Studio-Auth"] == expected
@@ -98,8 +110,10 @@ class TestSigningCanonical(SimpleTestCase):
             assert decoded["plan_slug"] == "hobby"
             # Recompute expected signature.
             expected = self._canonical(
-                "POST", "/studio-checkout-session",
-                headers["X-Studio-Timestamp"], body_bytes,
+                "POST",
+                "/internal/v1/studio-checkout-session",
+                headers["X-Studio-Timestamp"],
+                body_bytes,
                 headers["X-Studio-Nonce"],
             )
             assert headers["X-Studio-Auth"] == expected
@@ -127,8 +141,10 @@ class TestSigningCanonical(SimpleTestCase):
             call = mock_client.request.call_args
             headers = call.kwargs["headers"]
             expected = self._canonical(
-                "GET", "/check-eligibility?external_org_id=abc-uuid",
-                headers["X-Studio-Timestamp"], b"",
+                "GET",
+                "/internal/v1/check-eligibility?external_org_id=abc-uuid",
+                headers["X-Studio-Timestamp"],
+                b"",
                 headers["X-Studio-Nonce"],
             )
             assert headers["X-Studio-Auth"] == expected
@@ -145,7 +161,9 @@ class TestErrorMapping(SimpleTestCase):
         mock_client_cls = ctx.start()
         mock_client = mock_client_cls.return_value.__enter__.return_value
         mock_client.request.return_value = httpx.Response(
-            status, json=body or {}, headers=headers or {},
+            status,
+            json=body or {},
+            headers=headers or {},
         )
         return InternalClient(), ctx
 
@@ -177,7 +195,9 @@ class TestErrorMapping(SimpleTestCase):
 
     def test_409_raises_conflict_with_retry_after(self):
         client, ctx = self._client_returning(
-            409, {"code": "in_progress"}, headers={"Retry-After": "5"},
+            409,
+            {"code": "in_progress"},
+            headers={"Retry-After": "5"},
         )
         try:
             with pytest.raises(Conflict) as exc_info:
@@ -191,7 +211,8 @@ class TestErrorMapping(SimpleTestCase):
         try:
             with pytest.raises(ActivationRejected) as exc_info:
                 client.activate_commit(
-                    validation_token="x", idempotency_key="commit-x",
+                    validation_token="x",
+                    idempotency_key="commit-x",
                 )
             assert exc_info.value.code == "token_expired"
             # User-message mapping.
@@ -201,7 +222,9 @@ class TestErrorMapping(SimpleTestCase):
 
     def test_429_carries_retry_after(self):
         client, ctx = self._client_returning(
-            429, {"code": "rate_limited"}, headers={"Retry-After": "30"},
+            429,
+            {"code": "rate_limited"},
+            headers={"Retry-After": "30"},
         )
         try:
             with pytest.raises(RateLimited) as exc_info:
@@ -212,7 +235,8 @@ class TestErrorMapping(SimpleTestCase):
 
     def test_403_deployment_not_authorized(self):
         client, ctx = self._client_returning(
-            403, {"code": "deployment_not_authorized"},
+            403,
+            {"code": "deployment_not_authorized"},
         )
         try:
             with pytest.raises(DeploymentNotAuthorized):
@@ -232,6 +256,7 @@ class TestErrorMapping(SimpleTestCase):
         client, ctx = self._client_returning(400, {"code": "invalid_request"})
         try:
             from apps.intelligence.services.exceptions import BadRequest
+
             with pytest.raises(BadRequest):
                 client.list_plans()
         finally:
@@ -239,13 +264,16 @@ class TestErrorMapping(SimpleTestCase):
 
     def test_400_with_activation_code_is_activation_rejected(self):
         client, ctx = self._client_returning(
-            400, {"code": "unknown_checkout_attempt"},
+            400,
+            {"code": "unknown_checkout_attempt"},
         )
         try:
             with pytest.raises(ActivationRejected):
                 client.activate_preflight(
-                    session_id="cs_x", expected_external_org_id="x",
-                    plan_slug="hobby", idempotency_key="preflight-x",
+                    session_id="cs_x",
+                    expected_external_org_id="x",
+                    plan_slug="hobby",
+                    idempotency_key="preflight-x",
                 )
         finally:
             ctx.stop()

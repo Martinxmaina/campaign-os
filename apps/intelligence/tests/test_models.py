@@ -29,7 +29,8 @@ class IntelligenceSubscriptionTests(TestCase):
     def test_encrypted_api_key_roundtrip(self):
         org = Organization.objects.create(name="Acme")
         sub = IntelligenceSubscription.objects.create(
-            organization=org, intelligence_api_key="bb_secret_plaintext",
+            organization=org,
+            intelligence_api_key="bb_secret_plaintext",
             intelligence_api_key_prefix="bb_secre",
         )
         sub.refresh_from_db()
@@ -49,60 +50,73 @@ class StudioCheckoutAttemptPartialUniqueTests(TestCase):
         Subscribe clicks cannot both reach Intelligence."""
         org = Organization.objects.create(name="Acme")
         StudioCheckoutAttempt.objects.create(
-            organization=org, plan_slug="hobby",
+            organization=org,
+            plan_slug="hobby",
             status=StudioCheckoutAttempt.Status.CREATING,
         )
         with self.assertRaises(IntegrityError), transaction.atomic():
             StudioCheckoutAttempt.objects.create(
-                organization=org, plan_slug="hobby",
+                organization=org,
+                plan_slug="hobby",
                 status=StudioCheckoutAttempt.Status.OPEN,
             )
 
     def test_partial_unique_covers_creating_open_pending(self):
         org = Organization.objects.create(name="Acme")
-        for s in (StudioCheckoutAttempt.Status.OPEN,
-                  StudioCheckoutAttempt.Status.PENDING):
+        for s in (StudioCheckoutAttempt.Status.OPEN, StudioCheckoutAttempt.Status.PENDING):
             StudioCheckoutAttempt.objects.create(
-                organization=org, plan_slug="hobby", status=s,
+                organization=org,
+                plan_slug="hobby",
+                status=s,
             ).delete()
         # Now lay down a CREATING; OPEN/PENDING must conflict.
         StudioCheckoutAttempt.objects.create(
-            organization=org, plan_slug="hobby",
+            organization=org,
+            plan_slug="hobby",
             status=StudioCheckoutAttempt.Status.CREATING,
         )
-        for s in (StudioCheckoutAttempt.Status.OPEN,
-                  StudioCheckoutAttempt.Status.PENDING):
+        for s in (StudioCheckoutAttempt.Status.OPEN, StudioCheckoutAttempt.Status.PENDING):
             with self.assertRaises(IntegrityError), transaction.atomic():
                 StudioCheckoutAttempt.objects.create(
-                    organization=org, plan_slug="hobby", status=s,
+                    organization=org,
+                    plan_slug="hobby",
+                    status=s,
                 )
 
     def test_terminal_states_do_not_block_new_attempt(self):
         org = Organization.objects.create(name="Acme")
-        for s in (StudioCheckoutAttempt.Status.ACTIVATED,
-                  StudioCheckoutAttempt.Status.EXPIRED,
-                  StudioCheckoutAttempt.Status.CANCELED):
+        for s in (
+            StudioCheckoutAttempt.Status.ACTIVATED,
+            StudioCheckoutAttempt.Status.EXPIRED,
+            StudioCheckoutAttempt.Status.CANCELED,
+        ):
             StudioCheckoutAttempt.objects.create(
-                organization=org, plan_slug="hobby", status=s,
+                organization=org,
+                plan_slug="hobby",
+                status=s,
             )
         # A fresh creating attempt is allowed.
         StudioCheckoutAttempt.objects.create(
-            organization=org, plan_slug="hobby",
+            organization=org,
+            plan_slug="hobby",
             status=StudioCheckoutAttempt.Status.CREATING,
         )
         self.assertEqual(
-            StudioCheckoutAttempt.objects.filter(organization=org).count(), 4,
+            StudioCheckoutAttempt.objects.filter(organization=org).count(),
+            4,
         )
 
     def test_different_orgs_dont_collide(self):
         org_a = Organization.objects.create(name="A")
         org_b = Organization.objects.create(name="B")
         StudioCheckoutAttempt.objects.create(
-            organization=org_a, plan_slug="hobby",
+            organization=org_a,
+            plan_slug="hobby",
             status=StudioCheckoutAttempt.Status.CREATING,
         )
         StudioCheckoutAttempt.objects.create(
-            organization=org_b, plan_slug="hobby",
+            organization=org_b,
+            plan_slug="hobby",
             status=StudioCheckoutAttempt.Status.CREATING,
         )
 
@@ -114,7 +128,8 @@ class PendingActivationTests(TestCase):
         from apps.accounts.models import User
 
         user = User.objects.create_user(
-            email="alice@example.com", password="pw",
+            email="alice@example.com",
+            password="pw",
             tos_accepted_at=timezone.now(),
         )
         PendingActivation.objects.create(user=user, session_id="cs_test")
@@ -127,7 +142,8 @@ class PendingActivationTests(TestCase):
         from apps.accounts.models import User
 
         user = User.objects.create_user(
-            email="alice@example.com", password="pw",
+            email="alice@example.com",
+            password="pw",
             tos_accepted_at=timezone.now(),
         )
         p = PendingActivation.objects.create(user=user, session_id="cs_x")
@@ -141,14 +157,18 @@ class IntelligenceUsageEventTests(TestCase):
         from apps.accounts.models import User
 
         user = User.objects.create_user(
-            email="alice@example.com", password="pw",
+            email="alice@example.com",
+            password="pw",
             tos_accepted_at=timezone.now(),
         )
         org = Organization.objects.create(name="Acme")
         event = IntelligenceUsageEvent.objects.create(
-            organization=org, user=user,
+            organization=org,
+            user=user,
             endpoint="/v1/score/packaging",
-            credits_charged=1, status_code=200, latency_ms=243,
+            credits_charged=1,
+            status_code=200,
+            latency_ms=243,
         )
         self.assertEqual(event.organization, org)
         self.assertEqual(event.endpoint, "/v1/score/packaging")

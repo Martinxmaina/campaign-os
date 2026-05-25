@@ -14,7 +14,8 @@ class BillingEmailDefaultTests(TestCase):
 
     def test_billing_email_can_be_set(self):
         org = Organization.objects.create(
-            name="Acme", billing_email="finance@acme.com",
+            name="Acme",
+            billing_email="finance@acme.com",
         )
         self.assertEqual(org.billing_email, "finance@acme.com")
 

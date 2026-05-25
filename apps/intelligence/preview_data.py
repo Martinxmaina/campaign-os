@@ -205,8 +205,7 @@ PREVIEW_RESULTS = {
         },
     },
     "research_content_gaps": {
-        "niche": {"slug": "python_programming_tutorials",
-                  "name": "python programming tutorials"},
+        "niche": {"slug": "python_programming_tutorials", "name": "python programming tutorials"},
         "gaps": [
             {
                 "canonical_title": "Python Tutorial for Beginners, Learn Python in 1 Hour",
@@ -232,18 +231,27 @@ PREVIEW_RESULTS = {
                     "autocomplete_rank": 1,
                     "residual_outlier_count": 2,
                     "top_competitors": [
-                        {"title": "Learn Python - Full Course for Beginners",
-                         "channel_title": "freeCodeCamp.org",
-                         "subscriber_count": 12_400_000,
-                         "view_count": 41_200_000, "age_days": 1820},
-                        {"title": "Python Tutorial - Python Full Course for Beginners",
-                         "channel_title": "Programming with Mosh",
-                         "subscriber_count": 4_510_000,
-                         "view_count": 38_800_000, "age_days": 1640},
-                        {"title": "Python for Beginners - Learn Python in 1 Hour",
-                         "channel_title": "Programming with Mosh",
-                         "subscriber_count": 4_510_000,
-                         "view_count": 17_900_000, "age_days": 1455},
+                        {
+                            "title": "Learn Python - Full Course for Beginners",
+                            "channel_title": "freeCodeCamp.org",
+                            "subscriber_count": 12_400_000,
+                            "view_count": 41_200_000,
+                            "age_days": 1820,
+                        },
+                        {
+                            "title": "Python Tutorial - Python Full Course for Beginners",
+                            "channel_title": "Programming with Mosh",
+                            "subscriber_count": 4_510_000,
+                            "view_count": 38_800_000,
+                            "age_days": 1640,
+                        },
+                        {
+                            "title": "Python for Beginners - Learn Python in 1 Hour",
+                            "channel_title": "Programming with Mosh",
+                            "subscriber_count": 4_510_000,
+                            "view_count": 17_900_000,
+                            "age_days": 1455,
+                        },
                     ],
                     "related_queries": [],
                 },
@@ -254,7 +262,7 @@ PREVIEW_RESULTS = {
                 "gap_type": "underserved",
                 "components": {"demand": 0.31, "supply": 0.14, "recency": 0.38},
                 "explanation": (
-                    "Existing asyncio tutorials stop at \"what is a coroutine\" "
+                    'Existing asyncio tutorials stop at "what is a coroutine" '
                     "without covering production patterns: TaskGroup, structured "
                     "concurrency, timeouts, and how to debug a hung event loop. "
                     "Search demand is steady and the few quality videos are "
@@ -272,14 +280,20 @@ PREVIEW_RESULTS = {
                     "autocomplete_rank": 3,
                     "residual_outlier_count": 1,
                     "top_competitors": [
-                        {"title": "AsyncIO in Python - Full Tutorial",
-                         "channel_title": "Tech With Tim",
-                         "subscriber_count": 1_850_000,
-                         "view_count": 612_000, "age_days": 730},
-                        {"title": "Understanding async/await in Python",
-                         "channel_title": "ArjanCodes",
-                         "subscriber_count": 412_000,
-                         "view_count": 188_000, "age_days": 540},
+                        {
+                            "title": "AsyncIO in Python - Full Tutorial",
+                            "channel_title": "Tech With Tim",
+                            "subscriber_count": 1_850_000,
+                            "view_count": 612_000,
+                            "age_days": 730,
+                        },
+                        {
+                            "title": "Understanding async/await in Python",
+                            "channel_title": "ArjanCodes",
+                            "subscriber_count": 412_000,
+                            "view_count": 188_000,
+                            "age_days": 540,
+                        },
                     ],
                     "related_queries": [],
                 },

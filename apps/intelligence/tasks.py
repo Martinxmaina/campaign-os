@@ -22,6 +22,7 @@ Three recurring/triggered tasks:
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 
 from background_task import background
 from django.core.cache import cache
@@ -71,16 +72,19 @@ def provision_intelligence_account_via_session(pending_id):
             pending = PendingActivation.objects.select_for_update().get(id=pending_id)
         except PendingActivation.DoesNotExist:
             logger.warning(
-                "PendingActivation %s vanished before worker ran", pending_id,
+                "PendingActivation %s vanished before worker ran",
+                pending_id,
             )
             return
 
         if pending.status not in (
-            PendingActivation.Status.PENDING, PendingActivation.Status.IN_PROGRESS,
+            PendingActivation.Status.PENDING,
+            PendingActivation.Status.IN_PROGRESS,
         ):
             logger.info(
                 "PendingActivation %s already in terminal state %s",
-                pending_id, pending.status,
+                pending_id,
+                pending.status,
             )
             return
 
@@ -145,9 +149,10 @@ def provision_intelligence_account_via_session(pending_id):
         )
         pending.save(update_fields=["status", "last_error", "updated_at"])
         logger.warning(
-            "Worker resolved_org_mismatch for pending %s "
-            "(attempt_org=%s resolved_org=%s)",
-            pending.id, attempt.organization_id, resolved_org_id,
+            "Worker resolved_org_mismatch for pending %s (attempt_org=%s resolved_org=%s)",
+            pending.id,
+            attempt.organization_id,
+            resolved_org_id,
         )
         return
 
@@ -157,18 +162,19 @@ def provision_intelligence_account_via_session(pending_id):
     # through the timeout path could provision into an org the user
     # does not currently administer.
     membership = OrgMembership.objects.filter(
-        user=pending.user, organization_id=resolved_org_id,
+        user=pending.user,
+        organization_id=resolved_org_id,
         org_role__in=[OrgMembership.OrgRole.OWNER, OrgMembership.OrgRole.ADMIN],
     ).first()
     if membership is None:
         pending.status = PendingActivation.Status.REJECTED_UNAUTHORIZED
-        pending.last_error = (
-            f"user no longer OWNER/ADMIN on org {resolved_org_id}"
-        )
+        pending.last_error = f"user no longer OWNER/ADMIN on org {resolved_org_id}"
         pending.save(update_fields=["status", "last_error", "updated_at"])
         logger.warning(
-            "Worker REJECTED_UNAUTHORIZED for pending %s "
-            "(user=%s org=%s)", pending.id, pending.user_id, resolved_org_id,
+            "Worker REJECTED_UNAUTHORIZED for pending %s (user=%s org=%s)",
+            pending.id,
+            pending.user_id,
+            resolved_org_id,
         )
         return
 
@@ -201,7 +207,8 @@ def provision_intelligence_account_via_session(pending_id):
         # _finalize_local_subscription returns a redirect Response; we
         # don't need it here, but we DO need it to run the DB writes.
         _finalize_local_subscription(
-            fake_request, attempt=attempt,
+            fake_request,
+            attempt=attempt,
             expected_org=attempt.organization,
             commit_resp=commit_resp,
         )
@@ -258,7 +265,9 @@ def reconcile_intelligence_subscriptions():
         except IntelligenceClientError as exc:
             logger.warning(
                 "Reconcile failed for sub %s (account %s): %s",
-                sub.id, sub.intelligence_account_id, exc,
+                sub.id,
+                sub.intelligence_account_id,
+                exc,
             )
             continue
         _apply_reconcile_update(sub, remote)
@@ -272,9 +281,12 @@ def _apply_reconcile_update(sub: IntelligenceSubscription, remote: dict):
         updates["status"] = remote["status"]
     if remote.get("period_end"):
         try:
-            period_end = timezone.datetime.fromisoformat(
-                remote["period_end"].replace("Z", "+00:00")
-            )
+            # ``django.utils.timezone`` re-exports ``datetime`` as a
+            # convenience, but the django-stubs package doesn't mark it
+            # as a public attribute, so mypy flags ``timezone.datetime``
+            # as ``attr-defined``. Use stdlib ``datetime`` directly to
+            # keep the typecheck green without losing functionality.
+            period_end = datetime.fromisoformat(remote["period_end"].replace("Z", "+00:00"))
             if period_end != sub.current_period_end:
                 updates["current_period_end"] = period_end
         except (ValueError, AttributeError):

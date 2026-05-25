@@ -43,10 +43,6 @@ class IntelligenceConfig(AppConfig):
                     repeat=6 * 3600,  # every 6 hours
                     verbose_name="intelligence_reconcile",
                 )
-                logger.info(
-                    "Registered recurring intelligence reconcile task (every 6h)"
-                )
+                logger.info("Registered recurring intelligence reconcile task (every 6h)")
         except Exception:
-            logger.debug(
-                "Skipping intelligence reconcile registration (DB not ready)"
-            )
+            logger.debug("Skipping intelligence reconcile registration (DB not ready)")

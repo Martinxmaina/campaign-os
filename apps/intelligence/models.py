@@ -61,7 +61,9 @@ class IntelligenceSubscription(models.Model):
         related_name="intelligence_subscription",
     )
     status = models.CharField(
-        max_length=24, choices=Status.choices, default=Status.PROVISIONING,
+        max_length=24,
+        choices=Status.choices,
+        default=Status.PROVISIONING,
         db_index=True,
     )
     plan_slug = models.SlugField(max_length=64, blank=True, default="")
@@ -140,16 +142,22 @@ class StudioCheckoutAttempt(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="intelligence_checkout_attempts",
     )
     plan_slug = models.SlugField(max_length=64)
     billing_email = models.EmailField(blank=True, default="")
     status = models.CharField(
-        max_length=16, choices=Status.choices, default=Status.CREATING,
+        max_length=16,
+        choices=Status.choices,
+        default=Status.CREATING,
     )
     stripe_session_id = models.CharField(
-        max_length=255, blank=True, default="", db_index=True,
+        max_length=255,
+        blank=True,
+        default="",
+        db_index=True,
     )
     checkout_url = models.URLField(blank=True, default="")
     expires_at = models.DateTimeField(null=True, blank=True)
@@ -163,9 +171,7 @@ class StudioCheckoutAttempt(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=["organization"],
-                condition=models.Q(
-                    status__in=["creating", "open", "pending"]
-                ),
+                condition=models.Q(status__in=["creating", "open", "pending"]),
                 name="intel_studio_attempt_one_in_progress_per_org",
             ),
         ]
@@ -212,11 +218,14 @@ class PendingActivation(models.Model):
     resolved_organization = models.ForeignKey(
         "organizations.Organization",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="intelligence_pending_activations",
     )
     status = models.CharField(
-        max_length=32, choices=Status.choices, default=Status.PENDING,
+        max_length=32,
+        choices=Status.choices,
+        default=Status.PENDING,
         db_index=True,
     )
     attempts = models.IntegerField(default=0)
@@ -256,13 +265,15 @@ class IntelligenceUsageEvent(models.Model):
     workspace = models.ForeignKey(
         "workspaces.Workspace",
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="intelligence_usage_events",
     )
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        null=True, blank=True,
+        null=True,
+        blank=True,
         related_name="intelligence_usage_events",
     )
     endpoint = models.CharField(max_length=64)

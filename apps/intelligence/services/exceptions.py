@@ -13,8 +13,9 @@ class IntelligenceClientError(Exception):
     status_code: int | None = None
     code: str | None = None
 
-    def __init__(self, message: str = "", *, status_code: int | None = None,
-                 code: str | None = None, body: dict | None = None):
+    def __init__(
+        self, message: str = "", *, status_code: int | None = None, code: str | None = None, body: dict | None = None
+    ):
         super().__init__(message)
         self.status_code = status_code
         self.code = code
@@ -65,69 +66,45 @@ class ActivationRejected(IntelligenceClientError):
     def user_message(self) -> str:
         # Map known codes to copy a user can act on.
         return {
-            "metadata_missing_studio_source": (
-                "This Stripe session was not initiated through Studio."
-            ),
-            "deployment_mismatch": (
-                "This Stripe session was created by a different Studio "
-                "deployment."
-            ),
-            "client_reference_mismatch": (
-                "The Stripe session's org reference doesn't match this org."
-            ),
-            "price_not_allowlisted": (
-                "The plan you paid for isn't currently sold by this deployment."
-            ),
+            "metadata_missing_studio_source": ("This Stripe session was not initiated through Studio."),
+            "deployment_mismatch": ("This Stripe session was created by a different Studio deployment."),
+            "client_reference_mismatch": ("The Stripe session's org reference doesn't match this org."),
+            "price_not_allowlisted": ("The plan you paid for isn't currently sold by this deployment."),
             "not_paid": "Stripe is still processing your payment.",
             "session_not_found": "We couldn't find your Stripe payment session.",
             "session_incomplete": (
-                "Your Stripe checkout isn't complete yet. Finish payment in "
-                "Stripe, then come back."
+                "Your Stripe checkout isn't complete yet. Finish payment in Stripe, then come back."
             ),
             "wrong_mode": (
                 "This Stripe session isn't a subscription. Start a new checkout "
                 "from the Activate page to create a subscription."
             ),
-            "no_line_items": (
-                "Your Stripe session has no plan attached. Start a new "
-                "checkout from the Activate page."
-            ),
+            "no_line_items": ("Your Stripe session has no plan attached. Start a new checkout from the Activate page."),
             "unknown_checkout_attempt": (
                 "We can't find a checkout we initiated for this payment. "
                 "If you just paid, please refresh the page in a moment."
             ),
-            "token_expired": (
-                "Your activation token expired. Please refresh and try again."
-            ),
-            "token_already_consumed": (
-                "This activation has already been processed. Please refresh."
-            ),
+            "token_expired": ("Your activation token expired. Please refresh and try again."),
+            "token_already_consumed": ("This activation has already been processed. Please refresh."),
             "missing_subscription_id": (
-                "Stripe didn't return a subscription for this session. Start "
-                "a new checkout from the Activate page."
+                "Stripe didn't return a subscription for this session. Start a new checkout from the Activate page."
             ),
             "unknown_plan": (
                 "The plan attached to this Stripe session isn't recognised. "
                 "Pick a plan from the Activate page to start a fresh checkout."
             ),
             "unmapped_price": (
-                "The price you paid isn't currently mapped to a plan. Please "
-                "contact support so we can reconcile it."
+                "The price you paid isn't currently mapped to a plan. Please contact support so we can reconcile it."
             ),
             "no_pending_activation": (
-                "We don't have a pending activation for this organisation. "
-                "Start a new checkout from the Activate page."
+                "We don't have a pending activation for this organisation. Start a new checkout from the Activate page."
             ),
             "session_id_mismatch": (
-                "The Stripe session you provided doesn't match the pending "
-                "activation for this organisation."
+                "The Stripe session you provided doesn't match the pending activation for this organisation."
             ),
-            "invalid_token": (
-                "Your activation token isn't valid. Please refresh and try again."
-            ),
+            "invalid_token": ("Your activation token isn't valid. Please refresh and try again."),
             "token_deployment_mismatch": (
-                "Your activation token was minted by a different deployment. "
-                "Please refresh and try again."
+                "Your activation token was minted by a different deployment. Please refresh and try again."
             ),
         }.get(self.code or "", "We couldn't complete activation. Please contact support.")
 
