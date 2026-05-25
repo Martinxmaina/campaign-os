@@ -6,7 +6,7 @@
     </p>
     {% if can_manage_billing %}
       <a href="{% url 'intelligence:subscribe' org_id=organization.id %}"
-         class="inline-flex items-center px-6 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700">
+         class="inline-flex items-center px-6 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700 cursor-pointer">
         Resubscribe →
       </a>
     {% endif %}

@@ -4,7 +4,7 @@
   <form method="post" action="{% url 'intelligence:portal' org_id=organization.id %}" class="mt-2">
     {% csrf_token %}
     <button type="submit"
-            class="px-3 py-1 text-xs font-semibold text-white bg-amber-600 rounded-full hover:bg-amber-700">
+            class="px-3 py-1 text-xs font-semibold text-white bg-amber-600 rounded-full hover:bg-amber-700 cursor-pointer">
       Manage billing →
     </button>
   </form>

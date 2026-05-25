@@ -8,7 +8,7 @@
       <form method="post" action="{% url 'intelligence:portal' org_id=organization.id %}">
         {% csrf_token %}
         <button type="submit"
-                class="inline-flex items-center px-6 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700">
+                class="inline-flex items-center px-6 py-2 text-sm font-semibold text-white bg-orange-600 rounded-full hover:bg-orange-700 cursor-pointer">
           Update payment →
         </button>
       </form>

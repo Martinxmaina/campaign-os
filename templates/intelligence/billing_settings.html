@@ -12,10 +12,7 @@
     </div>
 
     <a href="{% url 'intelligence:playground' org_id=organization.id %}"
-       class="text-sm flex items-center gap-1.5 transition-colors"
-       style="color: var(--text-secondary);"
-       onmouseover="this.style.color='var(--text-primary)'"
-       onmouseout="this.style.color='var(--text-secondary)'">
+       class="intel-cta-text-link">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         Back to Intelligence
     </a>
@@ -134,4 +131,8 @@
 
 
 </div>
+{% endblock %}
+
+{% block extra_head %}
+{% include "intelligence/_cta_styles.html" %}
 {% endblock %}
