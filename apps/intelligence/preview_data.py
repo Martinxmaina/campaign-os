@@ -15,7 +15,6 @@ goes through the same result partial that a real API response would.
 
 from __future__ import annotations
 
-
 # Inputs pre-filled into form fields so the playground reads like a
 # realistic walkthrough rather than an empty shell.
 PREVIEW_INPUTS = {

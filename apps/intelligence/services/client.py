@@ -14,6 +14,7 @@ view code calls to score packaging, benchmark channels, etc.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import hmac
 import json
@@ -37,7 +38,6 @@ from .exceptions import (
     RateLimited,
     ServiceUnavailable,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -340,10 +340,8 @@ class InternalClient:
             retry_after = None
             ra = resp.headers.get("Retry-After")
             if ra is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     retry_after = int(ra)
-                except ValueError:
-                    pass
             raise Conflict(msg, status_code=409, code=code, body=body,
                            retry_after=retry_after)
         if resp.status_code == 410:
@@ -352,10 +350,8 @@ class InternalClient:
             retry_after = None
             ra = resp.headers.get("Retry-After")
             if ra is not None:
-                try:
+                with contextlib.suppress(ValueError):
                     retry_after = int(ra)
-                except ValueError:
-                    pass
             raise RateLimited(msg, status_code=429, code=code, body=body,
                               retry_after=retry_after)
         if 400 <= resp.status_code < 500:

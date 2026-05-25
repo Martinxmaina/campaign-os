@@ -23,22 +23,20 @@ URL surface:
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import time
-import uuid
-from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
-from django.http import HttpResponse, HttpResponseBadRequest, JsonResponse
-from django.shortcuts import get_object_or_404, redirect, render
+from django.http import HttpResponse, HttpResponseBadRequest
+from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.members.decorators import require_org_permission
 from apps.members.models import OrgMembership, has_org_permission
-from apps.organizations.models import Organization
 
 from .decorators import intelligence_subscription_required
 from .models import (
@@ -55,11 +53,9 @@ from .services.exceptions import (
     DeploymentNotAuthorized,
     InsufficientCredits,
     IntelligenceClientError,
-    NotFound,
     RateLimited,
     ServiceUnavailable,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -360,15 +356,11 @@ def checkout(request, org_id):
             )
     except IntegrityError:
         # Another admin (or a previous attempt that hasn't terminated)
-        # already holds the slot. Show the appropriate resume / polling UI.
-        existing = StudioCheckoutAttempt.objects.filter(
-            organization=request.org,
-            status__in=[
-                StudioCheckoutAttempt.Status.OPEN,
-                StudioCheckoutAttempt.Status.CREATING,
-                StudioCheckoutAttempt.Status.PENDING,
-            ],
-        ).order_by("-created_at").first()
+        # already holds the partial-unique slot. Redirect to /subscribe/,
+        # which re-queries for the existing attempt and renders the
+        # right "Resume your checkout" / "Setting up…" panel based on
+        # its current status. We don't need to look the row up here
+        # because the redirected view does that.
         return redirect("intelligence:subscribe", org_id=org_id)
 
     # ---- Outside any transaction: Intelligence call --------------------
@@ -429,12 +421,10 @@ def checkout(request, org_id):
         attempt.checkout_url = resp["checkout_url"]
         attempt.status = StudioCheckoutAttempt.Status.OPEN
         if resp.get("expires_at"):
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 attempt.expires_at = timezone.datetime.fromisoformat(
                     resp["expires_at"].replace("Z", "+00:00")
                 )
-            except (ValueError, AttributeError):
-                pass
         attempt.save(update_fields=[
             "stripe_session_id", "checkout_url", "status",
             "expires_at", "updated_at",
@@ -535,7 +525,12 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
         # 5xx / network error — genuinely transient, defer to worker.
         logger.exception("Preflight transient failure; deferring to worker")
         _queue_pending_activation(user, session_id)
-        raise _DeferredToWorker
+        # ``_DeferredToWorker`` is a flow-control signal, not an error
+        # — the user-facing failure is the worker-fallback redirect we're
+        # about to do. Drop the chain explicitly so the traceback in
+        # logs/Sentry doesn't show the upstream ServiceUnavailable
+        # underneath the signal exception.
+        raise _DeferredToWorker from None
     except IntelligenceClientError as exc:
         # Any other 4xx — bad request, conflict, etc. These are permanent
         # for the same payload; the worker would just spin on them. Surface
@@ -592,7 +587,12 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
         # 5xx / network error — genuinely transient, defer to worker.
         logger.exception("Commit transient failure; deferring to worker")
         _queue_pending_activation(user, session_id)
-        raise _DeferredToWorker
+        # ``_DeferredToWorker`` is a flow-control signal, not an error
+        # — the user-facing failure is the worker-fallback redirect we're
+        # about to do. Drop the chain explicitly so the traceback in
+        # logs/Sentry doesn't show the upstream ServiceUnavailable
+        # underneath the signal exception.
+        raise _DeferredToWorker from None
     except IntelligenceClientError as exc:
         # 4xx — permanent for the same payload; surface to the user
         # instead of spinning the worker.
@@ -623,7 +623,12 @@ def _activate_two_phase(request, *, session_id, attempt, expected_org, user):
     except (ServiceUnavailable, IntelligenceClientError):
         logger.exception("Finalize transient failure; deferring to worker")
         _queue_pending_activation(user, session_id)
-        raise _DeferredToWorker
+        # ``_DeferredToWorker`` is a flow-control signal, not an error
+        # — the user-facing failure is the worker-fallback redirect we're
+        # about to do. Drop the chain explicitly so the traceback in
+        # logs/Sentry doesn't show the upstream ServiceUnavailable
+        # underneath the signal exception.
+        raise _DeferredToWorker from None
 
 
 def _queue_pending_activation(user, session_id: str):
@@ -688,12 +693,10 @@ def _finalize_local_subscription(request, *, attempt, expected_org,
         sub.intelligence_account_id = str(commit_resp.get("user_id") or "")
         sub.plan_slug = commit_resp.get("plan_slug", "")
         if commit_resp.get("period_end"):
-            try:
+            with contextlib.suppress(ValueError, AttributeError):
                 sub.current_period_end = timezone.datetime.fromisoformat(
                     commit_resp["period_end"].replace("Z", "+00:00"),
                 )
-            except (ValueError, AttributeError):
-                pass
         sub.status = IntelligenceSubscription.Status.ACTIVE
         sub.last_synced_at = timezone.now()
         sub.save()
@@ -837,13 +840,13 @@ def finalizing_status(request):
     )
     if pending is None:
         return HttpResponse(status=204)
-    if pending.status == PendingActivation.Status.COMPLETED:
-        if pending.resolved_organization_id:
-            return render(
-                request,
-                "intelligence/_finalizing_completed.html",
-                {"org_id": pending.resolved_organization_id},
-            )
+    if (pending.status == PendingActivation.Status.COMPLETED
+            and pending.resolved_organization_id):
+        return render(
+            request,
+            "intelligence/_finalizing_completed.html",
+            {"org_id": pending.resolved_organization_id},
+        )
     if pending.status == PendingActivation.Status.REJECTED_UNAUTHORIZED:
         return render(
             request, "intelligence/_finalizing_unauthorized.html", {},

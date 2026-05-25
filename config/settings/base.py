@@ -421,8 +421,9 @@ if INTELLIGENCE_ENABLED:
     # strips assertions. Open-redirect defense + Stripe success-URL
     # constraint + bearer-key-transit confidentiality all depend on
     # these being enforced at boot rather than per-request.
-    from django.core.exceptions import ImproperlyConfigured
     from urllib.parse import urlparse as _urlparse
+
+    from django.core.exceptions import ImproperlyConfigured
 
     if not STUDIO_BASE_URL.startswith("https://"):
         raise ImproperlyConfigured(

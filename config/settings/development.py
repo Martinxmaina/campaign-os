@@ -1,3 +1,5 @@
+import os as _os
+
 from .base import *  # noqa: F401, F403
 
 DEBUG = True
@@ -10,7 +12,6 @@ ALLOWED_HOSTS = ["*"]
 # set (the integration's https-required env var) so you don't have to
 # remember a second env knob — anything else can go into CSRF_TRUSTED_ORIGINS
 # explicitly via env. Wildcarded scheme: HTTPS only.
-import os as _os
 _csrf_trusted = []
 _studio_base = _os.environ.get("STUDIO_BASE_URL", "").strip().rstrip("/")
 if _studio_base.startswith("https://"):

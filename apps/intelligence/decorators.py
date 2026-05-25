@@ -12,9 +12,7 @@ from __future__ import annotations
 
 import functools
 
-from django.http import HttpResponse
 from django.shortcuts import redirect, render
-from django.urls import reverse
 
 
 def intelligence_subscription_required(view_func):

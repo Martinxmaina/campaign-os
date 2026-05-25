@@ -27,7 +27,6 @@ from apps.intelligence.services.exceptions import (
     ServiceUnavailable,
 )
 
-
 _BASE_URL = "https://intel.example.com/internal/v1"
 
 

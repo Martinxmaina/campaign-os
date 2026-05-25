@@ -7,8 +7,6 @@ api_key roundtrip.
 
 from __future__ import annotations
 
-import uuid
-
 from django.db import IntegrityError, transaction
 from django.test import TestCase
 
@@ -25,9 +23,8 @@ class IntelligenceSubscriptionTests(TestCase):
     def test_one_per_organization(self):
         org = Organization.objects.create(name="Acme")
         IntelligenceSubscription.objects.create(organization=org)
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                IntelligenceSubscription.objects.create(organization=org)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            IntelligenceSubscription.objects.create(organization=org)
 
     def test_encrypted_api_key_roundtrip(self):
         org = Organization.objects.create(name="Acme")
@@ -55,12 +52,11 @@ class StudioCheckoutAttemptPartialUniqueTests(TestCase):
             organization=org, plan_slug="hobby",
             status=StudioCheckoutAttempt.Status.CREATING,
         )
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                StudioCheckoutAttempt.objects.create(
-                    organization=org, plan_slug="hobby",
-                    status=StudioCheckoutAttempt.Status.OPEN,
-                )
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            StudioCheckoutAttempt.objects.create(
+                organization=org, plan_slug="hobby",
+                status=StudioCheckoutAttempt.Status.OPEN,
+            )
 
     def test_partial_unique_covers_creating_open_pending(self):
         org = Organization.objects.create(name="Acme")
@@ -76,11 +72,10 @@ class StudioCheckoutAttemptPartialUniqueTests(TestCase):
         )
         for s in (StudioCheckoutAttempt.Status.OPEN,
                   StudioCheckoutAttempt.Status.PENDING):
-            with self.assertRaises(IntegrityError):
-                with transaction.atomic():
-                    StudioCheckoutAttempt.objects.create(
-                        organization=org, plan_slug="hobby", status=s,
-                    )
+            with self.assertRaises(IntegrityError), transaction.atomic():
+                StudioCheckoutAttempt.objects.create(
+                    organization=org, plan_slug="hobby", status=s,
+                )
 
     def test_terminal_states_do_not_block_new_attempt(self):
         org = Organization.objects.create(name="Acme")
@@ -114,21 +109,22 @@ class StudioCheckoutAttemptPartialUniqueTests(TestCase):
 
 class PendingActivationTests(TestCase):
     def test_session_id_unique(self):
-        from apps.accounts.models import User
         from django.utils import timezone
+
+        from apps.accounts.models import User
 
         user = User.objects.create_user(
             email="alice@example.com", password="pw",
             tos_accepted_at=timezone.now(),
         )
         PendingActivation.objects.create(user=user, session_id="cs_test")
-        with self.assertRaises(IntegrityError):
-            with transaction.atomic():
-                PendingActivation.objects.create(user=user, session_id="cs_test")
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            PendingActivation.objects.create(user=user, session_id="cs_test")
 
     def test_resolved_organization_nullable(self):
-        from apps.accounts.models import User
         from django.utils import timezone
+
+        from apps.accounts.models import User
 
         user = User.objects.create_user(
             email="alice@example.com", password="pw",
@@ -140,8 +136,9 @@ class PendingActivationTests(TestCase):
 
 class IntelligenceUsageEventTests(TestCase):
     def test_create_event(self):
-        from apps.accounts.models import User
         from django.utils import timezone
+
+        from apps.accounts.models import User
 
         user = User.objects.create_user(
             email="alice@example.com", password="pw",

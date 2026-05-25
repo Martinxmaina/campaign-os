@@ -26,7 +26,6 @@ from django.db import models
 
 from apps.common.encryption import EncryptedTextField
 
-
 # ---------------------------------------------------------------------------
 # IntelligenceSubscription, one per Organization
 # ---------------------------------------------------------------------------

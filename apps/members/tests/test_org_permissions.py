@@ -5,8 +5,6 @@ Run via ``pytest apps/members/tests/test_org_permissions.py``.
 
 from __future__ import annotations
 
-import uuid
-
 from django.http import HttpResponse
 from django.test import RequestFactory, TestCase
 from django.utils import timezone

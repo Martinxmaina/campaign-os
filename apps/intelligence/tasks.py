@@ -22,7 +22,6 @@ Three recurring/triggered tasks:
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
 
 from background_task import background
 from django.core.cache import cache
@@ -36,7 +35,6 @@ from .models import (
     PendingActivation,
     StudioCheckoutAttempt,
 )
-
 
 logger = logging.getLogger(__name__)
 
