@@ -6,5 +6,5 @@ Please confirm this email address for your Brightbean Studio account by clicking
 
 If you didn't add this email, you can safely ignore this message.
 
-— The Brightbean team
+- The Brightbean team
 {% endautoescape %}
