@@ -11,11 +11,14 @@ Covers:
 
 from __future__ import annotations
 
+import re
 from unittest.mock import patch
 
 import httpx
+from django.conf import settings
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.template.loader import render_to_string
+from django.template import Context as DjangoContext
+from django.template import Template as DjangoTemplate
 from django.test import RequestFactory, SimpleTestCase, TestCase, override_settings
 from django.utils import timezone
 
@@ -271,6 +274,33 @@ class DiscardCheckoutViewTests(TestCase):
 
 
 class SubscribeTemplateBranchingTests(TestCase):
+    """Render the {% block content %} body of subscribe.html in isolation.
+
+    We can't use ``render_to_string('intelligence/subscribe.html', ...)``
+    here because base.html wraps the content block in
+    ``{% if user.is_authenticated %}``. With no authenticated user in the
+    test context (and adding one would drag in the entire sidebar's URL
+    graph, much of which is feature-gated and unregistered in tests), the
+    base would render the auth-content branch and emit an empty body.
+
+    Instead we extract just the {% block content %} body, prepend the
+    same ``{% load %}`` tags subscribe.html uses, and render that
+    fragment directly. This isolates the test to the actual change site:
+    the branching logic between resume / in-flight / picker.
+    """
+
+    _BLOCK_RE = re.compile(r"{%\s*block content\s*%}(.*?){%\s*endblock\s*%}", re.S)
+    _LOAD_RE = re.compile(r"{%\s*load [^%]+%}")
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        template_path = settings.BASE_DIR / "templates" / "intelligence" / "subscribe.html"
+        src = template_path.read_text()
+        body = cls._BLOCK_RE.search(src).group(1)
+        loads = "".join(cls._LOAD_RE.findall(src))
+        cls._tpl = DjangoTemplate(loads + body)
+
     def setUp(self):
         self.org = Organization.objects.create(name="Acme")
 
@@ -286,7 +316,7 @@ class SubscribeTemplateBranchingTests(TestCase):
             "billing_email": "owner@example.com",
         }
         context.update(context_overrides)
-        return render_to_string("intelligence/subscribe.html", context)
+        return self._tpl.render(DjangoContext(context))
 
     def test_no_attempt_renders_plan_picker_form(self):
         html = self._render()
