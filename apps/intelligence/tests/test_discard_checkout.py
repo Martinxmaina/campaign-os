@@ -30,6 +30,7 @@ from apps.intelligence.models import StudioCheckoutAttempt
 from apps.intelligence.services.client import InternalClient
 from apps.intelligence.services.exceptions import (
     Conflict,
+    IntelligenceClientError,
     ServiceUnavailable,
 )
 from apps.members.models import OrgMembership
@@ -223,21 +224,80 @@ class DiscardCheckoutViewTests(TestCase):
         messages = [m.message for m in storage]
         assert any("Checkout discarded" in m for m in messages)
 
-    def test_no_attempt_is_a_noop_with_info_message(self):
+    def test_no_attempt_anywhere_is_a_noop_with_info_message(self):
+        """No local row AND Intelligence reports nothing open → "No checkout
+        to discard." No cancel call is made."""
         request, storage = self._make_post(self.owner)
         with (
             patch("apps.intelligence.views._client") as mock_client_factory,
             patch("apps.intelligence.views.redirect") as mock_redirect,
         ):
+            mock_client_factory.return_value.check_eligibility.return_value = {"eligible": True}
             mock_redirect.return_value = "REDIRECT"
 
             result = views.discard_checkout(request, org_id=self.org.id)
 
             assert result == "REDIRECT"
-            # No remote call when there's nothing to cancel.
             mock_client_factory.return_value.cancel_studio_checkout_session.assert_not_called()
 
         assert StudioCheckoutAttempt.objects.filter(organization=self.org).count() == 0
+        messages = [m.message for m in storage]
+        assert any("No checkout to discard" in m for m in messages)
+
+    def test_remote_only_drift_cancels_via_check_eligibility(self):
+        """Drift case: Studio's local mirror is gone (or was never saved),
+        but Intelligence still reports an open checkout via
+        check_eligibility. The Discard button must be able to act on
+        that remote-only state, otherwise the subscribe view's
+        cross-check resurrects the resume card and the user is stuck.
+        """
+        request, storage = self._make_post(self.owner)
+        with (
+            patch("apps.intelligence.views._client") as mock_client_factory,
+            patch("apps.intelligence.views.redirect") as mock_redirect,
+        ):
+            mock_client_factory.return_value.check_eligibility.return_value = {
+                "eligible": False,
+                "reason": "open_checkout",
+                "details": {
+                    "stripe_session_id": "cs_remote_drift",
+                    "checkout_url": "https://stripe.example/cs_remote_drift",
+                },
+            }
+            mock_client_factory.return_value.cancel_studio_checkout_session.return_value = {}
+            mock_redirect.return_value = "REDIRECT"
+
+            result = views.discard_checkout(request, org_id=self.org.id)
+
+            assert result == "REDIRECT"
+            # The cancel call was made with the session id we learned
+            # from the remote eligibility check.
+            call = mock_client_factory.return_value.cancel_studio_checkout_session.call_args
+            assert call.kwargs["external_org_id"] == str(self.org.id)
+            assert call.kwargs["stripe_session_id"] == "cs_remote_drift"
+            assert call.kwargs["idempotency_key"] == "cancel-remote-cs_remote_drift"
+
+        # No local row to update.
+        assert StudioCheckoutAttempt.objects.filter(organization=self.org).count() == 0
+        messages = [m.message for m in storage]
+        assert any("Checkout discarded" in m for m in messages)
+
+    def test_remote_eligibility_unreachable_is_a_noop(self):
+        """If Intelligence is unreachable for the eligibility cross-
+        check, fall through to a safe no-op rather than guessing."""
+        request, storage = self._make_post(self.owner)
+        with (
+            patch("apps.intelligence.views._client") as mock_client_factory,
+            patch("apps.intelligence.views.redirect") as mock_redirect,
+        ):
+            mock_client_factory.return_value.check_eligibility.side_effect = IntelligenceClientError(
+                "boom", status_code=500, code="", body={}
+            )
+            mock_redirect.return_value = "REDIRECT"
+
+            views.discard_checkout(request, org_id=self.org.id)
+            mock_client_factory.return_value.cancel_studio_checkout_session.assert_not_called()
+
         messages = [m.message for m in storage]
         assert any("No checkout to discard" in m for m in messages)
 

@@ -461,7 +461,21 @@ def discard_checkout(request, org_id):
     ``/subscribe/`` render would still see ``open_checkout`` from the
     cross-check at ``subscribe()`` and resurrect the resume card.
 
-    On Intelligence reachability failure we leave the local row
+    Three local-state shapes to handle:
+
+    1. Local row in ``creating``/``open``/``pending`` — happy path.
+       Cancel remote, flip local.
+    2. No local row, Intelligence reports ``open_checkout`` via
+       ``check_eligibility`` — drift case. Studio lost its mirror (a
+       crash between Stripe.create and TX2 save, or an earlier discard
+       that flipped local while Intelligence couldn't be reached). The
+       subscribe view fabricates a resumable card from the remote
+       response; the Discard button must be able to act on that too,
+       otherwise the user is stuck staring at the card with no way out.
+       Cancel remote, no local row to flip.
+    3. Neither — nothing to discard.
+
+    On Intelligence reachability failure we leave any local row
     untouched and surface an error message; reattempting later is safe
     because the cancel call is idempotent.
     """
@@ -477,15 +491,44 @@ def discard_checkout(request, org_id):
         .order_by("-created_at")
         .first()
     )
+
+    # Resolve the remote-only "drift" case: no local mirror but
+    # Intelligence still reports open_checkout. Without this, the
+    # subscribe view's cross-check keeps resurrecting the resume card
+    # and the Discard button is a no-op.
+    remote_session_id: str | None = None
     if attempt is None:
-        messages.info(request, "No checkout to discard.")
-        return redirect("intelligence:subscribe", org_id=org_id)
+        try:
+            remote = _client().check_eligibility(external_org_id=str(org_id))
+        except (DeploymentNotAuthorized, IntelligenceClientError):
+            messages.info(request, "No checkout to discard.")
+            return redirect("intelligence:subscribe", org_id=org_id)
+        if remote.get("reason") == "open_checkout":
+            details = remote.get("details") or {}
+            remote_session_id = details.get("stripe_session_id") or None
+        if remote_session_id is None:
+            # Nothing open anywhere.
+            messages.info(request, "No checkout to discard.")
+            return redirect("intelligence:subscribe", org_id=org_id)
+
+    # Build the cancel call. Key the idempotency on the stable id of
+    # what we're canceling — local UUID when we have one, else the
+    # Stripe session id (which is the only stable id we know about the
+    # remote-only attempt). Don't use ``request.org.id`` alone or
+    # repeated discards across the lifetime of multiple checkouts
+    # would all collide on the same idempotency slot.
+    if attempt is not None:
+        cancel_session_id = attempt.stripe_session_id or None
+        idem_key = f"cancel-{attempt.id}"
+    else:
+        cancel_session_id = remote_session_id
+        idem_key = f"cancel-remote-{remote_session_id}"
 
     try:
         _client().cancel_studio_checkout_session(
             external_org_id=str(request.org.id),
-            stripe_session_id=attempt.stripe_session_id or None,
-            idempotency_key=f"cancel-{attempt.id}",
+            stripe_session_id=cancel_session_id,
+            idempotency_key=idem_key,
         )
     except Conflict:
         # Remote already terminal (activated/canceled). Local mirror is
@@ -499,10 +542,12 @@ def discard_checkout(request, org_id):
         )
         return redirect("intelligence:subscribe", org_id=org_id)
 
-    with transaction.atomic():
-        attempt.status = StudioCheckoutAttempt.Status.CANCELED
-        attempt.consumed_at = timezone.now()
-        attempt.save(update_fields=["status", "consumed_at", "updated_at"])
+    # Flip local row if we have one; nothing to do in the remote-only case.
+    if attempt is not None:
+        with transaction.atomic():
+            attempt.status = StudioCheckoutAttempt.Status.CANCELED
+            attempt.consumed_at = timezone.now()
+            attempt.save(update_fields=["status", "consumed_at", "updated_at"])
 
     messages.info(request, "Checkout discarded. Pick a plan to start a new one.")
     return redirect("intelligence:subscribe", org_id=org_id)
