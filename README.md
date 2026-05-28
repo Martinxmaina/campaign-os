@@ -15,6 +15,10 @@
   <a href="https://www.djangoproject.com/"><img src="https://img.shields.io/badge/Django-5.x-green.svg" alt="Django 5.x"></a>
 </p>
 
+<p align="center">
+  <a href="https://brightbean.xyz/studio/"><img src="https://img.shields.io/badge/Free%20hosted%20version-brightbean.xyz%2Fstudio-FFB300?style=for-the-badge" alt="Free hosted version at brightbean.xyz/studio"></a>
+</p>
+
 ---
 
 ## About BrightBean Studio
@@ -23,7 +27,7 @@ BrightBean Studio is an open-source, self-hostable social media management platf
 
 It's for people managing many client accounts under one roof who'd rather own their social stack than pay $100–300/month to a SaaS vendor. Every feature is available to every user. No paid tier, no feature gate, no upsell.
 
-You can deploy it with a one-click button on Heroku, Render, or Railway, run it on your own VPS via Docker, or run it locally. All platform integrations talk directly to the official first-party APIs using your own developer credentials, so there's no aggregator middleman, no vendor lock-in, and no third party sitting between you and your data.
+A free hosted version is available at [brightbean.xyz/studio](https://brightbean.xyz/studio/). You can also deploy it yourself with a one-click button on Heroku, Render, or Railway, run it on your own VPS via Docker, or run it locally. All platform integrations talk directly to the official first-party APIs using your own developer credentials, so there's no aggregator middleman, no vendor lock-in, and no third party sitting between you and your data.
 
 ## Features
 
@@ -72,6 +76,12 @@ You can deploy it with a one-click button on Heroku, Render, or Railway, run it 
 | <img src="https://cdn.simpleicons.org/mastodon" width="16" height="16"> Mastodon | ✓ | ✓ | — | — |
 
 ---
+
+### Hosted Version
+
+A free hosted version of Brightbean Studio is available at [brightbean.xyz/studio](https://brightbean.xyz/studio/). It runs the same codebase as this repository, with no setup or maintenance required.
+
+If you'd rather self-host, choose one of the options below.
 
 ### One-Click Deploy
 
