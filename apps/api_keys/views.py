@@ -102,9 +102,7 @@ def list_keys(request):
     rows = [_row_context(k) for k in qs]
     # Surface a "Show N revoked" toggle only when there's actually something
     # behind it — avoids a noisy control on an org that's never revoked a key.
-    revoked_count = ApiKey.objects.filter(
-        workspace__organization=org, revoked_at__isnull=False
-    ).count()
+    revoked_count = ApiKey.objects.filter(workspace__organization=org, revoked_at__isnull=False).count()
     context = {
         "settings_active": "api_keys",
         "rows": rows,
