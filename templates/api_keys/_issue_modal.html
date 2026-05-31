@@ -43,7 +43,7 @@ reveal modal on top of the freshly-rendered list page.
                                 hx-trigger="change"
                                 hx-target="#workspace-options-target"
                                 hx-include="this"
-                                class="input-focus w-full px-3 py-2 text-sm rounded-lg outline-none transition-colors"
+                                class="input-focus w-full pl-3 pr-10 py-2 text-sm rounded-lg outline-none transition-colors"
                                 style="border: 1px solid var(--border); color: var(--text-primary); background: var(--surface-0);">
                             <option value="">Pick a workspace…</option>
                             {% for ws in issuance.workspaces %}
@@ -72,8 +72,8 @@ reveal modal on top of the freshly-rendered list page.
                         Cancel
                     </button>
                     <button type="submit"
-                            class="btn-neutral px-5 py-2 text-sm font-medium rounded-full cursor-pointer"
-                            style="background: var(--neutral-900, #111827); color: white;">
+                            class="btn-primary-hover px-5 py-2 text-sm font-medium rounded-full cursor-pointer"
+                            style="background: var(--primary); color: white;">
                         Generate
                     </button>
                 </div>

@@ -1,8 +1,10 @@
-{# Cascade partial rendered into the issuance modal when a workspace is picked.
-   Context:
-     workspace               — the selected Workspace
-     accounts                — list of connected SocialAccounts in that workspace
-     grantable_permissions   — list of (perm_key, label) the issuer can grant #}
+{% comment %}
+Cascade partial rendered into the issuance modal when a workspace is picked.
+Context:
+  workspace               — the selected Workspace
+  accounts                — list of connected SocialAccounts in that workspace
+  grantable_permissions   — list of (perm_key, label) the issuer can grant
+{% endcomment %}
 <div>
     <label class="block text-sm font-semibold mb-1" style="color: var(--text-primary);">
         Connected accounts
