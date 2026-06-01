@@ -303,7 +303,12 @@ class MediaAssetResponse(Schema):
     """
 
     id: uuid.UUID
-    organization_id: uuid.UUID
+    # ``organization`` is a nullable FK on ``MediaAsset`` (see
+    # [apps/media_library/models.py:93-99]). Pre-migration legacy rows can
+    # exist with org=NULL, and Pydantic rejects them at response time if
+    # this isn't optional. Staging hit this on 2026-06-01 with the agent
+    # API media list endpoint.
+    organization_id: uuid.UUID | None
     workspace_id: uuid.UUID | None
     filename: str
     media_type: str

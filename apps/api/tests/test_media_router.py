@@ -336,6 +336,33 @@ class TestList:
         ids2 = {i["id"] for i in page2["items"]}
         assert ids1.isdisjoint(ids2)
 
+    def test_legacy_asset_with_null_organization_serializes(self, client_with_token, workspace):
+        """Regression: ``MediaAsset.organization`` is nullable (legacy /
+        pre-migration rows can have org=NULL). The list endpoint hit a
+        500 on staging on 2026-06-01 because ``MediaAssetResponse``
+        declared ``organization_id: uuid.UUID`` instead of ``UUID | None``,
+        so Pydantic rejected any row whose org was None.
+        """
+        from apps.media_library.models import MediaAsset
+
+        MediaAsset.objects.create(
+            organization=None,  # the bug
+            workspace=workspace,
+            filename="legacy.png",
+            file=_png(name="legacy.png"),
+            media_type="image",
+            mime_type="image/png",
+            file_size=68,
+            processing_status="completed",
+        )
+        r = client_with_token.get("/api/v1/media/")
+        assert r.status_code == 200, r.content
+        body = r.json()
+        names = {item["filename"] for item in body["items"]}
+        assert "legacy.png" in names
+        legacy = next(i for i in body["items"] if i["filename"] == "legacy.png")
+        assert legacy["organization_id"] is None
+
     def test_last_used_at_populated_when_referenced(self, client_with_token, seeded_assets, user):
         """The annotation must walk through PostMedia → Post.created_at
         because PostMedia has no created_at of its own.
