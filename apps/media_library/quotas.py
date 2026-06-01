@@ -49,9 +49,7 @@ class StorageQuotaExceededError(Exception):
         self.used = used
         self.limit = limit
         self.attempted = attempted
-        super().__init__(
-            f"Storage quota exceeded: used={used} limit={limit} attempted={attempted}"
-        )
+        super().__init__(f"Storage quota exceeded: used={used} limit={limit} attempted={attempted}")
 
 
 def _resolve_plan_slug(organization) -> str:
@@ -65,9 +63,11 @@ def _resolve_plan_slug(organization) -> str:
     except ImportError:
         return ""
     try:
-        sub = IntelligenceSubscription.objects.filter(
-            organization=organization, status="active"
-        ).only("plan_slug").first()
+        sub = (
+            IntelligenceSubscription.objects.filter(organization=organization, status="active")
+            .only("plan_slug")
+            .first()
+        )
     except Exception:  # pragma: no cover — fall back safely on schema mismatches
         logger.exception("Failed to resolve IntelligenceSubscription for org %s", organization.id)
         return ""
@@ -86,9 +86,7 @@ def _override_bytes(organization) -> int | None:
     except ImportError:
         return None
     try:
-        row = OrgSetting.objects.filter(
-            organization=organization, key=OVERRIDE_SETTING_KEY
-        ).only("value").first()
+        row = OrgSetting.objects.filter(organization=organization, key=OVERRIDE_SETTING_KEY).only("value").first()
     except Exception:  # pragma: no cover
         logger.exception("Failed to read storage quota override for org %s", organization.id)
         return None
@@ -138,10 +136,7 @@ def used_storage_bytes(organization) -> int:
     Live aggregate — fine at realistic scale (a few thousand assets per
     org). Don't denormalize until profiling proves it's needed.
     """
-    total = (
-        MediaAsset.objects.filter(organization=organization)
-        .aggregate(total=Sum("file_size"))["total"]
-    )
+    total = MediaAsset.objects.filter(organization=organization).aggregate(total=Sum("file_size"))["total"]
     return int(total or 0)
 
 

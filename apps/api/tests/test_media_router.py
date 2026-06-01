@@ -141,9 +141,7 @@ class TestUpload:
         r = c.post("/api/v1/media/", data={"file": _png()})
         assert r.status_code == 401
 
-    def test_without_upload_media_permission_returns_403(
-        self, db, user, owner_memberships, workspace, social_account
-    ):
+    def test_without_upload_media_permission_returns_403(self, db, user, owner_memberships, workspace, social_account):
         perms = [p for p in PERMISSION_KEYS if p != "upload_media"]
         key = services.issue_api_key(
             workspace=workspace,

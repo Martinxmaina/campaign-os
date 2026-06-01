@@ -55,7 +55,7 @@ def _require_perm(request: HttpRequest, key: str) -> None:
 
 def _visible_assets_qs(request: HttpRequest):
     """Workspace-scoped assets plus org-shared (workspace_id IS NULL)."""
-    workspace = request.workspace
+    workspace = request.workspace  # type: ignore[attr-defined]  # set by ApiKeyAuth
     return MediaAsset.objects.for_workspace_with_shared(
         workspace_id=workspace.id,
         organization_id=workspace.organization_id,
@@ -308,10 +308,7 @@ def list_media(
     rows = rows[:limit]
 
     body = MediaAssetListResponse(
-        items=[
-            MediaAssetResponse.from_asset(a, last_used_at=getattr(a, "last_used_at", None))
-            for a in rows
-        ],
+        items=[MediaAssetResponse.from_asset(a, last_used_at=getattr(a, "last_used_at", None)) for a in rows],
         next_cursor=_encode_cursor({"o": offset + limit}) if has_more else None,
         limit=limit,
     )

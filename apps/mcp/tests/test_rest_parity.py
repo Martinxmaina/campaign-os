@@ -134,9 +134,7 @@ def scheduled_post(db, user, workspace, social_account):
 
 @pytest.mark.django_db
 class TestRestMcpPostParity:
-    def test_mcp_get_post_and_rest_get_post_return_identical_bodies(
-        self, client_with_token, scheduled_post
-    ):
+    def test_mcp_get_post_and_rest_get_post_return_identical_bodies(self, client_with_token, scheduled_post):
         rest = client_with_token.get(f"/api/v1/posts/{scheduled_post.id}")
         assert rest.status_code == 200, rest.content
         rest_body = rest.json()

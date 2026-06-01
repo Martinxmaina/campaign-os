@@ -126,10 +126,7 @@ def _list_accounts(args: dict, context: dict[str, Any]) -> dict:
     # Reuse the REST schema so MCP and REST stay byte-identical (Gap 4 + 5).
     from apps.api.schemas import AccountSummary
 
-    accounts = [
-        AccountSummary.from_social_account(sa).model_dump(mode="json")
-        for sa in api_key.social_accounts.all()
-    ]
+    accounts = [AccountSummary.from_social_account(sa).model_dump(mode="json") for sa in api_key.social_accounts.all()]
     return _wrap_text({"accounts": accounts})
 
 
@@ -490,9 +487,9 @@ def _serialize_media(asset) -> dict:
     """Return the same shape as ``GET /api/v1/media/{id}``."""
     from apps.api.schemas import MediaAssetResponse
 
-    return MediaAssetResponse.from_asset(
-        asset, last_used_at=getattr(asset, "last_used_at", None)
-    ).model_dump(mode="json")
+    return MediaAssetResponse.from_asset(asset, last_used_at=getattr(asset, "last_used_at", None)).model_dump(
+        mode="json"
+    )
 
 
 def _search_media(args: dict, context: dict[str, Any]) -> dict:
@@ -611,6 +608,7 @@ def _upload_media(args: dict, context: dict[str, Any]) -> dict:
     multipart can't ride a JSON-RPC envelope cleanly.
     """
     import base64
+    import binascii
 
     from django.core.exceptions import ValidationError
     from django.core.files.uploadedfile import SimpleUploadedFile
@@ -630,7 +628,7 @@ def _upload_media(args: dict, context: dict[str, Any]) -> dict:
 
     try:
         raw = base64.b64decode(args["content_base64"], validate=True)
-    except (ValueError, base64.binascii.Error) as exc:
+    except (ValueError, binascii.Error) as exc:
         raise JsonRpcError(INVALID_PARAMS, "content_base64 is not valid base64") from exc
 
     if len(raw) > _MCP_UPLOAD_MAX_BYTES:

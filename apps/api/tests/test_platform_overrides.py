@@ -100,9 +100,7 @@ def _post(client, body: dict):
 
 @pytest.mark.django_db
 class TestPlatformOverrides:
-    def test_all_three_fields_persist_to_platform_specific_columns(
-        self, client_with_token, social_account
-    ):
+    def test_all_three_fields_persist_to_platform_specific_columns(self, client_with_token, social_account):
         r = _post(
             client_with_token,
             {
@@ -202,9 +200,7 @@ class TestPlatformOverrides:
         assert pp.platform_specific_caption is None
         assert pp.platform_specific_first_comment is None
 
-    def test_override_for_unrelated_account_is_422(
-        self, db, client_with_token, social_account, workspace
-    ):
+    def test_override_for_unrelated_account_is_422(self, db, client_with_token, social_account, workspace):
         """The plan calls this out: silently no-op'd overrides are a
         footgun. An override social_account_id that isn't this post's
         target must be rejected before persistence.

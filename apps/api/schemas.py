@@ -35,6 +35,7 @@ def _serialize_utc_z(value: dt.datetime | None) -> str | None:
         value = value.replace(tzinfo=dt.UTC)
     return value.isoformat().replace("+00:00", "Z")
 
+
 # ---------------------------------------------------------------------------
 # /me
 # ---------------------------------------------------------------------------
@@ -266,8 +267,7 @@ class PostResponse(Schema):
         ``social_account`` to avoid an N+1.
         """
         platform_posts = [
-            PlatformPostSummary.from_platform_post(pp)
-            for pp in post.platform_posts.select_related("social_account")
+            PlatformPostSummary.from_platform_post(pp) for pp in post.platform_posts.select_related("social_account")
         ]
         return cls(
             id=post.id,
