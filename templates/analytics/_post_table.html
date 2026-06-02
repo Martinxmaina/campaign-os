@@ -75,7 +75,12 @@
                 <tr onclick="openPost('{% url 'analytics:post_detail' workspace_id=workspace.id post_id=r.post.id %}')">
                     <td class="first">
                         <div style="display: flex; align-items: center; gap: 10px;">
+                            {% if r.thumbnail_url %}
+                            <img src="{{ r.thumbnail_url }}" alt=""
+                                 style="width: 36px; height: 36px; border-radius: 6px; object-fit: cover; flex-shrink: 0; background: var(--surface-2);">
+                            {% else %}
                             <div style="width: 36px; height: 36px; border-radius: 6px; background: var(--surface-2); flex-shrink: 0;"></div>
+                            {% endif %}
                             <span style="overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical;">{{ r.caption|default:"(no caption)" }}</span>
                         </div>
                     </td>

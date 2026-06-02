@@ -163,6 +163,7 @@ def all_posts_for(
             published_at__isnull=False,
         )
         .select_related("post")
+        .prefetch_related("post__media_attachments__media_asset")
         .order_by("-published_at")
     )
     if days_filter is not None:
@@ -183,6 +184,7 @@ def all_posts_for(
                 "date": p.published_at.date().isoformat() if p.published_at else "",
                 "days_ago": (timezone.now() - p.published_at).days if p.published_at else None,
                 "media_kind": media_kind,
+                "thumbnail_url": _first_thumbnail_url(p),
                 "stats": stats_by_post.get(p.id, {}),
             }
         )
@@ -309,3 +311,15 @@ def _media_kind(post: PlatformPost) -> str:
         "mastodon": "Post",
     }
     return platform_default.get(post.social_account.platform, "Post")
+
+
+def _first_thumbnail_url(post: PlatformPost) -> str | None:
+    """URL of the first attachment's thumbnail, or the image file itself if no thumb."""
+    for pm in post.post.media_attachments.all():
+        asset = pm.media_asset
+        if asset.thumbnail:
+            return asset.thumbnail.url
+        if asset.is_image and asset.file:
+            return asset.file.url
+        return None
+    return None
