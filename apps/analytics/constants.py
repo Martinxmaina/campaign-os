@@ -11,7 +11,7 @@ from __future__ import annotations
 # still try to fetch metrics that don't exist.
 NO_ANALYTICS_PLATFORMS: dict[str, str] = {
     "linkedin_personal": (
-        "LinkedIn doesn't expose personal-profile analytics through their REST API. Only Company Pages have analytics."
+        "LinkedIn doesn't expose personal-profile analytics. Only Company Pages have analytics."
     ),
     "bluesky": ("Bluesky's AT Protocol doesn't surface aggregate post analytics."),
     "mastodon": ("The Mastodon API doesn't expose aggregate post analytics."),
