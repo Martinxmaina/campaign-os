@@ -71,3 +71,15 @@ class LinkedInPersonalProvider(LinkedInProvider):
                 "requires Community Management API approval."
             )
         return super().publish_comment(access_token, post_id, text)
+
+    def get_post_metrics(self, access_token: str, post_id: str):
+        raise NotImplementedError(
+            "LinkedIn does not expose personal-profile share statistics via the "
+            "REST API. Only Company Pages (LinkedIn Company) have analytics."
+        )
+
+    def get_account_metrics(self, access_token: str, date_range):
+        raise NotImplementedError(
+            "LinkedIn does not expose personal-profile account analytics via the "
+            "REST API."
+        )

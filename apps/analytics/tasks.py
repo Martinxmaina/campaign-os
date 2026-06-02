@@ -30,16 +30,18 @@ BACKFILL_DAYS_PER_PLATFORM: dict[str, int] = {
     "facebook": 90,
     "instagram": 90,
     "instagram_login": 90,
-    "linkedin_personal": 90,
     "linkedin_company": 90,
     "youtube": 90,
     "pinterest": 90,
     "threads": 90,
     "google_business": 90,
     "tiktok": 60,
-    # Bluesky / Mastodon have no analytics surface — skip.
+    # Bluesky / Mastodon / LinkedIn-Personal have no analytics surface — skip.
+    # LinkedIn only exposes share statistics for Organization URNs, not
+    # personal Person URNs, regardless of granted scopes.
     "bluesky": 0,
     "mastodon": 0,
+    "linkedin_personal": 0,
 }
 DEFAULT_BACKFILL_DAYS = 90
 
