@@ -13,6 +13,7 @@ Cadence (per the plan's "How new metrics get pulled" section):
 
 from __future__ import annotations
 
+import contextlib
 import logging
 from datetime import date as dt_date
 from datetime import timedelta
@@ -136,18 +137,14 @@ def _post_metrics_to_dict(metrics, platform: str) -> dict[str, float]:
     for key in _GENERIC_POST_EXTRA_KEYS:
         v = extra.get(key)
         if v is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 out[key] = float(v)
-            except (TypeError, ValueError):
-                pass
     # Per-platform extras (e.g. Pinterest ``outbound_clicks`` → ``outbound``).
     for src_key, dest_key in extra_overrides.items():
         v = extra.get(src_key)
         if v is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 out[dest_key] = float(v)
-            except (TypeError, ValueError):
-                pass
     return out
 
 
@@ -178,10 +175,8 @@ def _account_metrics_to_dict(metrics, platform: str) -> dict[str, float]:
     for key in ("views", "watch_time", "subscribers", "likes", "comments", "shares"):
         v = extra.get(key)
         if v is not None:
-            try:
+            with contextlib.suppress(TypeError, ValueError):
                 out[key] = float(v)
-            except (TypeError, ValueError):
-                pass
     return out
 
 

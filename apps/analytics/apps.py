@@ -13,14 +13,13 @@ class AnalyticsConfig(AppConfig):
     verbose_name = "Analytics"
 
     def ready(self):
-        # Wire the SocialAccount post_save signal that enqueues backfills.
+        from django.db.models.signals import post_migrate
+
         from . import signals  # noqa: F401
 
         # Register the recurring sync task with django-background-tasks. We
         # use ``post_migrate`` so the task table exists before we touch it;
         # mirrors the pattern in apps/publisher/apps.py.
-        from django.db.models.signals import post_migrate
-
         post_migrate.connect(self._register_sync_task, sender=self)
 
     @staticmethod

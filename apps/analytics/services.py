@@ -22,7 +22,6 @@ from apps.social_accounts.models import SocialAccount
 from .derive import DerivedMetric, derive, engagement_rate, kind_of
 from .metrics import (
     ACCOUNT_ONLY,
-    ENGAGEMENT_DENOMINATORS,
     PLATFORM_METRICS,
     PLATFORM_PRIMARY,
     hero_card_metrics,

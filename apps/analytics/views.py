@@ -58,7 +58,7 @@ def _parse_range(value: str | None) -> int:
 
 def _parse_days_filter(value: str | None) -> int | None:
     """Parse the All-posts table's date filter: 7|30|90 or "all"."""
-    if value in (None, "", "all"):
+    if value is None or value in ("", "all"):
         return None
     try:
         n = int(value)

@@ -301,17 +301,18 @@ class TikTokProvider(SocialProvider):
 
         # Step 2: stream the video binary to TikTok's presigned URL
         with open(video_path, "rb") as f:
-            self._request(
-                "PUT",
-                upload_url,
-                headers={
-                    "Content-Type": content_type,
-                    "Content-Length": str(video_size),
-                    "Content-Range": f"bytes 0-{video_size - 1}/{video_size}",
-                },
-                data=f,
-                timeout=120.0,
-            )
+            video_bytes = f.read()
+        self._request(
+            "PUT",
+            upload_url,
+            headers={
+                "Content-Type": content_type,
+                "Content-Length": str(video_size),
+                "Content-Range": f"bytes 0-{video_size - 1}/{video_size}",
+            },
+            data=video_bytes,
+            timeout=120.0,
+        )
 
         return PublishResult(
             platform_post_id=publish_id,
