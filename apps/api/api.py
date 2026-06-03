@@ -11,11 +11,21 @@ from __future__ import annotations
 
 from typing import Any
 
+from django.conf import settings
 from django.http import HttpRequest, HttpResponse, JsonResponse
 from ninja import NinjaAPI
 from ninja.errors import HttpError
+from ninja.openapi.docs import Swagger
 
 from apps.api.auth import ApiKeyAuth
+
+
+class NoncedSwagger(Swagger):
+    # Ninja loads swagger_cdn.html by absolute path, bypassing Django's
+    # template loader, so a file in templates/ninja/ won't shadow it.
+    # Point at our project override so its inline <script> tags can carry
+    # nonce="{{ request.csp_nonce }}" and satisfy production CSP.
+    template_cdn = str(settings.BASE_DIR / "templates" / "ninja" / "swagger_cdn.html")
 from apps.api.routers.accounts import router as accounts_router
 from apps.api.routers.analytics import router as analytics_router
 from apps.api.routers.me import router as me_router
@@ -52,6 +62,7 @@ api = NinjaAPI(
         "posts are never deletable — they remain as audit records."
     ),
     auth=ApiKeyAuth(),
+    docs=NoncedSwagger(),
     # Trailing slashes are tolerated by the router but we use the
     # explicit-slash form everywhere internally for OpenAPI clarity.
     urls_namespace="agent_api_v1",

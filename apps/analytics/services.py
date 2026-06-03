@@ -31,7 +31,6 @@ from .metrics import (
 )
 from .models import AccountInsightsSnapshot, PostInsightsSnapshot
 
-
 # Metrics whose per-post values are unique-user-per-post counts; summing them
 # across an account's posts double-counts users who saw multiple posts, so the
 # post-fallback can't substitute for an account-level number. Account-level
