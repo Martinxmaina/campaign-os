@@ -165,10 +165,21 @@ def analytics_account(request: HttpRequest, workspace_id, account_id) -> HttpRes
     if is_fresh:
         return render(request, "analytics/index.html", context)
 
-    follower_g = services.follower_growth(account, days)
-    hero_cards = services.hero_cards(account, days)
-    engagement = services.engagement_card(account, days)
-    chart = services.hero_chart_data(account, days, metric=request.GET.get("chart_metric"))
+    # Compute the bundle once and thread series_map into every consumer —
+    # the post-level fallback inside the bundle is the dominant cost, and
+    # calling these helpers without ``series_map`` re-runs it 3-4 times per
+    # render.
+    bundle = services.account_analytics_bundle(account, days)
+    series_map = bundle["series_map"]
+    follower_g = services.follower_growth(account, days, series_map=series_map)
+    hero_cards = services.hero_cards(account, days, series_map=series_map)
+    engagement = services.engagement_card(account, days, series_map=series_map)
+    chart = services.hero_chart_data(
+        account,
+        days,
+        metric=request.GET.get("chart_metric"),
+        series_map=series_map,
+    )
     table = services.all_posts_for(
         account,
         days_filter=_parse_days_filter(request.GET.get("table_range", str(days))),

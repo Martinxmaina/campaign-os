@@ -109,3 +109,17 @@ def get_stat(stats, metric_key) -> int | float:
     if not stats:
         return 0
     return stats.get(metric_key, 0)
+
+
+@register.filter
+def strip_leading_at(value) -> str:
+    """Strip a single leading ``@`` from a handle, leaving in-string ``@`` intact.
+
+    YouTube's ``customUrl`` arrives with a leading ``@`` already attached, and
+    Mastodon-style ``user@instance.tld`` handles contain a meaningful in-string
+    ``@``. The built-in ``|cut:"@"`` filter would corrupt the Mastodon form.
+    """
+    if value is None:
+        return ""
+    s = str(value)
+    return s[1:] if s.startswith("@") else s

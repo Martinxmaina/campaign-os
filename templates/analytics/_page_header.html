@@ -26,7 +26,7 @@
                     </div>
                     <span style="text-align: left;">
                         <span style="display: block; font-size: 0.875rem; font-weight: 600; color: var(--neutral-900); line-height: 1.1;">{{ active_account.account_name }}</span>
-                        <span style="display: block; font-size: 0.6875rem; color: var(--text-tertiary);">@{{ active_account.account_handle }}</span>
+                        <span style="display: block; font-size: 0.6875rem; color: var(--text-tertiary);">@{{ active_account.account_handle|strip_leading_at }}</span>
                     </span>
                     <svg width="16" height="16" fill="none" stroke="var(--neutral-400)" viewBox="0 0 24 24" stroke-width="2" style="margin-left: 2px;"><path d="M19 9l-7 7-7-7"/></svg>
                 </button>

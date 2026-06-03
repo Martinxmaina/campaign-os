@@ -210,7 +210,7 @@ def _account_metrics_to_dict(metrics, platform: str) -> dict[str, float]:
     if gained:
         out["follows"] = float(gained)
     extra = getattr(metrics, "extra", {}) or {}
-    for key in ("views", "watch_time", "subscribers", "likes", "comments", "shares"):
+    for key in ("views", "watch_time", "avg_view_pct", "subscribers", "likes", "comments", "shares"):
         v = extra.get(key)
         if v is not None:
             with contextlib.suppress(TypeError, ValueError):
@@ -313,23 +313,45 @@ def _write_post_snapshot(post, metric_values: dict[str, float], on_date: dt_date
 # ---------------------------------------------------------------------------
 
 
+# Number of recent days to attempt when syncing account-level metrics.
+# Some providers (YouTube Analytics) lag 1-2 days; today's call returns
+# empty for them. Iterating recent days lets finalized data backfill into
+# the snapshot table instead of being lost. Days that already have rows
+# are skipped, so on a steady-state account this costs at most one extra
+# API call when today is the only missing day.
+_ACCOUNT_METRICS_RECENT_DAYS = 3
+
+
 def _sync_account_metrics(account, on_date: dt_date) -> None:
-    """Fetch today's account-level metrics and write one snapshot row per metric."""
+    """Fetch account-level metrics for ``on_date`` and any recent missing days.
+
+    Walks ``on_date`` and the prior ``_ACCOUNT_METRICS_RECENT_DAYS - 1`` days,
+    skipping days that already have an :class:`AccountInsightsSnapshot`. For
+    providers without lag (Instagram, Facebook) this is a no-op past
+    ``on_date`` because the existing rows short-circuit the iteration.
+    """
     from datetime import datetime, time
 
+    from .models import AccountInsightsSnapshot
+
     provider = _resolve_provider(account)
-    start = datetime.combine(on_date, time.min, tzinfo=timezone.get_current_timezone())
-    end = datetime.combine(on_date, time.max, tzinfo=timezone.get_current_timezone())
-    try:
-        metrics = provider.get_account_metrics(account.oauth_access_token, (start, end))
-    except NotImplementedError:
-        return
-    except Exception as exc:
-        if _is_insufficient_scope(exc):
-            _mark_needs_reconnect(account)
-        logger.warning("get_account_metrics failed for %s: %s", account, exc)
-        return
-    _write_account_snapshot(account, _account_metrics_to_dict(metrics, account.platform), on_date)
+    tz = timezone.get_current_timezone()
+    for offset in range(_ACCOUNT_METRICS_RECENT_DAYS):
+        target = on_date - timedelta(days=offset)
+        if AccountInsightsSnapshot.objects.filter(social_account=account, date=target).exists():
+            continue
+        start = datetime.combine(target, time.min, tzinfo=tz)
+        end = datetime.combine(target, time.max, tzinfo=tz)
+        try:
+            metrics = provider.get_account_metrics(account.oauth_access_token, (start, end))
+        except NotImplementedError:
+            return
+        except Exception as exc:
+            if _is_insufficient_scope(exc):
+                _mark_needs_reconnect(account)
+            logger.warning("get_account_metrics failed for %s on %s: %s", account, target, exc)
+            return
+        _write_account_snapshot(account, _account_metrics_to_dict(metrics, account.platform), target)
 
 
 def _sync_post_metrics(post, on_date: dt_date) -> None:
