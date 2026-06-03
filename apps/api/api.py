@@ -18,6 +18,12 @@ from ninja.errors import HttpError
 from ninja.openapi.docs import Swagger
 
 from apps.api.auth import ApiKeyAuth
+from apps.api.routers.accounts import router as accounts_router
+from apps.api.routers.analytics import router as analytics_router
+from apps.api.routers.me import router as me_router
+from apps.api.routers.media import router as media_router
+from apps.api.routers.posts import router as posts_router
+from apps.mcp.transport import router as mcp_router
 
 
 class NoncedSwagger(Swagger):
@@ -26,12 +32,6 @@ class NoncedSwagger(Swagger):
     # Point at our project override so its inline <script> tags can carry
     # nonce="{{ request.csp_nonce }}" and satisfy production CSP.
     template_cdn = str(settings.BASE_DIR / "templates" / "ninja" / "swagger_cdn.html")
-from apps.api.routers.accounts import router as accounts_router
-from apps.api.routers.analytics import router as analytics_router
-from apps.api.routers.me import router as me_router
-from apps.api.routers.media import router as media_router
-from apps.api.routers.posts import router as posts_router
-from apps.mcp.transport import router as mcp_router
 
 api = NinjaAPI(
     title="Brightbean Agent API",
