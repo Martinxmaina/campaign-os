@@ -33,6 +33,7 @@ class NoncedSwagger(Swagger):
     # nonce="{{ request.csp_nonce }}" and satisfy production CSP.
     template_cdn = str(settings.BASE_DIR / "templates" / "ninja" / "swagger_cdn.html")
 
+
 api = NinjaAPI(
     title="Brightbean Agent API",
     version="1.0.0",
