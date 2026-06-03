@@ -50,15 +50,15 @@ A free hosted version is available at [brightbean.xyz/studio](https://brightbean
 
 <table>
   <tr>
-    <td width="50%"><img src=".github/assets/BrightBean%20Studio%20Calendar.webp" alt="Calendar view"><br><sub><b>Visual calendar</b> - drag-and-drop scheduling with recurring slots and queues.</sub></td>
+    <td colspan="2"><img src=".github/assets/BrightBean%20Studio%20Calendar.webp" alt="Calendar view"><br><sub><b>Visual calendar</b> - drag-and-drop scheduling with recurring slots and queues.</sub></td>
+  </tr>
+  <tr>
     <td width="50%"><img src=".github/assets/BrightBean%20Studio%20Post%20Editor.webp" alt="Post editor"><br><sub><b>Post editor</b> - composer with per-platform overrides and previews.</sub></td>
-  </tr>
-  <tr>
     <td width="50%"><img src=".github/assets/BrightBean%20Studio%20Idea%20Kanban%20Board.webp" alt="Idea kanban board"><br><sub><b>Idea board</b> - Kanban workflow to keep track of all your post ideas.</sub></td>
-    <td width="50%"><img src=".github/assets/BrightBean%20Social%20Media%20Platforms.webp" alt="Connected platforms"><br><sub><b>Connect anything</b> - 10+ first-party integrations, no aggregator.</sub></td>
   </tr>
   <tr>
-    <td colspan="2"><img src=".github/assets/BrightBean%20Studio%20Analytics.webp" alt="Analytics dashboard"><br><sub><b>Performance analytics</b> - per-post and channel-level metrics with KPI cards and trend charts.</sub></td>
+    <td width="50%"><img src=".github/assets/BrightBean%20Social%20Media%20Platforms.webp" alt="Connected platforms"><br><sub><b>Connect anything</b> - 10+ first-party integrations, no aggregator.</sub></td>
+    <td width="50%"><img src=".github/assets/BrightBean%20Studio%20Analytics.webp" alt="Analytics dashboard"><br><sub><b>Performance analytics</b> - per-post and channel-level metrics with KPI cards and trend charts.</sub></td>
   </tr>
 </table>
 
