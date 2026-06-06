@@ -189,12 +189,13 @@ def _post_metrics_to_dict(metrics, platform: str) -> dict[str, float]:
 def _account_metrics_to_dict(metrics, platform: str) -> dict[str, float]:
     """Flatten ``AccountMetrics`` into ``{metric_key: value}``.
 
-    ``platform`` is reserved for future per-platform tweaks (Facebook stashes
-    page_engaged_users in the ``reach`` field, etc.) but currently no platform
-    overrides are needed for the implemented account-level metrics. Kept
-    symmetric with ``_post_metrics_to_dict``.
+    ``platform`` gates per-platform persistence rules (e.g. ``followers``
+    is only persisted for platforms whose catalog lists it), so the
+    function asks ``apps.analytics.metrics.PLATFORM_METRICS`` rather than
+    writing every populated dataclass field for every platform.
     """
-    del platform  # currently unused but reserved
+    from .metrics import PLATFORM_METRICS
+
     out: dict[str, float] = {}
     for src, key in (
         ("impressions", "impressions"),
@@ -209,6 +210,14 @@ def _account_metrics_to_dict(metrics, platform: str) -> dict[str, float]:
     gained = getattr(metrics, "followers_gained", 0) or 0
     if gained:
         out["follows"] = float(gained)
+    # ``followers`` = current total follower count, persisted only when the
+    # platform's catalog lists ``followers`` (today: TikTok). Use ``is not
+    # None`` so brand-new accounts with 0 followers still get a baseline
+    # snapshot — the chart needs the zero day to render a continuous line.
+    if "followers" in PLATFORM_METRICS.get(platform, []):
+        total_followers = getattr(metrics, "followers", None)
+        if total_followers is not None:
+            out["followers"] = float(total_followers)
     extra = getattr(metrics, "extra", {}) or {}
     for key in ("views", "watch_time", "avg_view_pct", "subscribers", "likes", "comments", "shares"):
         v = extra.get(key)
@@ -357,7 +366,13 @@ def _sync_account_metrics(account, on_date: dt_date) -> None:
 
     provider = _resolve_provider(account)
     tz = timezone.get_current_timezone()
-    for offset in range(_ACCOUNT_METRICS_RECENT_DAYS):
+    # Providers whose stats endpoint returns only lifetime totals (TikTok)
+    # must NOT have those totals written into past dates as if they were
+    # historical observations — that fabricates fake history. Run only the
+    # current day for them; backfill of true historical values is impossible
+    # without an API that supports it.
+    recent_days = _ACCOUNT_METRICS_RECENT_DAYS if getattr(provider, "account_metrics_supports_date_range", True) else 1
+    for offset in range(recent_days):
         target = on_date - timedelta(days=offset)
         if AccountInsightsSnapshot.objects.filter(social_account=account, date=target).exists():
             continue
