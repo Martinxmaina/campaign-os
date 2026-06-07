@@ -2,6 +2,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django.views.generic import TemplateView
 
 from apps.accounts.views import health_check
 from apps.api.api import api as agent_api
@@ -10,6 +11,8 @@ from apps.approvals.views import org_approval_queue
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health_check, name="health_check"),
+    # AGPL source-availability: public modification notice + source link.
+    path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
     path("accounts/", include("apps.accounts.urls")),
     path("accounts/", include("allauth.urls")),
     path("organizations/", include("apps.organizations.urls")),

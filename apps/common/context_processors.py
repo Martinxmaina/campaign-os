@@ -1,6 +1,19 @@
 """Context processors for sidebar and global template data."""
 
+from django.conf import settings
 from django.db.models import Count, Q
+
+
+def branding(request):
+    """Expose site branding + AGPL source-availability info to all templates.
+
+    SOURCE_REPO_URL backs the AGPL "Source" footer link and the /about/ page;
+    SITE_NAME is the rebranded display name (WAIIS Dispatch).
+    """
+    return {
+        "SITE_NAME": getattr(settings, "SITE_NAME", "WAIIS Dispatch"),
+        "SOURCE_REPO_URL": getattr(settings, "SOURCE_REPO_URL", ""),
+    }
 
 
 def sidebar_context(request):

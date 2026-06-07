@@ -1,0 +1,18 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>About {{ SITE_NAME|default:"WAIIS Dispatch" }}</title>
+    <link rel="icon" href="{% static 'favicon/favicon.ico' %}" sizes="any">
+</head>
+<body style="font-family: system-ui, sans-serif; max-width: 720px; margin: 4rem auto; padding: 0 1.5rem; line-height: 1.7; color: #1c1917;">
+    <h1>About {{ SITE_NAME|default:"WAIIS Dispatch" }}</h1>
+    <p>{{ SITE_NAME|default:"WAIIS Dispatch" }} is a modified version of BrightBean Studio
+    (<a href="https://github.com/brightbeanxyz/brightbean-studio">brightbeanxyz/brightbean-studio</a>),
+    used under the GNU Affero General Public License v3.0. Modified by AfCEN, 2026-06.</p>
+    <p>Source: <a href="{{ SOURCE_REPO_URL }}">{{ SOURCE_REPO_URL }}</a></p>
+    <p><a href="/">Back to {{ SITE_NAME|default:"WAIIS Dispatch" }}</a></p>
+</body>
+</html>

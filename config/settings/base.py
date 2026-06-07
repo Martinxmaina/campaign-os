@@ -13,6 +13,8 @@ env = environ.Env(
     EMAIL_BACKEND_TYPE=(str, "smtp"),
     SENTRY_DSN=(str, ""),
     REDIS_URL=(str, ""),
+    SITE_NAME=(str, "WAIIS Dispatch"),
+    SOURCE_REPO_URL=(str, "https://github.com/brightbeanxyz/brightbean-studio"),
 )
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
@@ -21,6 +23,10 @@ SECRET_KEY = env("SECRET_KEY")
 DEBUG = env("DEBUG")
 ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 APP_URL = env("APP_URL")
+
+# Branding / AGPL source-availability
+SITE_NAME = env("SITE_NAME")
+SOURCE_REPO_URL = env("SOURCE_REPO_URL")
 
 # Application definition
 
@@ -110,6 +116,7 @@ TEMPLATES = [
                 "django.contrib.messages.context_processors.messages",
                 "apps.notifications.context_processors.unread_notification_count",
                 "apps.common.context_processors.sidebar_context",
+                "apps.common.context_processors.branding",
                 "apps.onboarding.context_processors.onboarding_checklist",
                 "apps.intelligence.context_processors.intelligence_flag",
             ],
