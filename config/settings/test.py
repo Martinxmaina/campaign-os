@@ -8,6 +8,10 @@ from .base import *  # noqa: F401, F403
 DEBUG = False
 ALLOWED_HOSTS = ["*"]
 
+# Enable the mock provider so tests and slice acceptance have a
+# deterministic, network-free publish path.
+ENABLE_MOCK_PROVIDER = True
+
 # Use faster password hasher in tests
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",

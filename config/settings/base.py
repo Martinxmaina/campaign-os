@@ -356,6 +356,12 @@ if SENTRY_DSN:
         profiles_sample_rate=0.1,
     )
 
+# Mock provider — a deterministic, network-free publish path used by the
+# test suite and the slice acceptance flow. Off by default so it can never
+# reach a real deployment by accident; flipped on in the test settings and
+# (optionally) via the ENABLE_MOCK_PROVIDER env var for local acceptance runs.
+ENABLE_MOCK_PROVIDER = env.bool("ENABLE_MOCK_PROVIDER", default=False)
+
 # Platform credentials env vars (cloud version)
 _META_CREDENTIALS = {
     "app_id": env("PLATFORM_FACEBOOK_APP_ID", default=""),

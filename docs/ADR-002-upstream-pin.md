@@ -33,6 +33,20 @@ and the `PlatformCredential.Platform` DB choices are intentionally left intact
 facebook, instagram, instagram_login, linkedin_personal, linkedin_company,
 youtube, threads.
 
+## Task 5: mock provider (test + slice acceptance)
+Added `providers/mock.py` (`MockProvider`, platform_name "Mock",
+max_caption_length 10000, post types TEXT/IMAGE/VIDEO) returning a synthetic
+`mock_<hex16>` id. Registered into `PROVIDER_REGISTRY` only via
+`providers._register_mock()`, which syncs the `"mock"` entry to the truthiness
+of `settings.ENABLE_MOCK_PROVIDER` (idempotent both directions); called at
+import time and on every `get_provider()` call so a runtime flag flip is
+honoured. `ENABLE_MOCK_PROVIDER` added to base settings (env-driven, default
+False) and set True in `config/settings/test.py`. The registry-completeness
+assertion in `tests/providers/test_base.py::test_registry_contains_all_platforms`
+was updated to compare `keys() - {"mock"}` against the real-platform set, since
+the mock entry is an optional, flag-gated extra rather than a real platform. No
+tests deselected; full suite green at 604 passed.
+
 ## Local environment notes
 - Dev DB: `createdb -h localhost -U macbook waiis_dispatch`
   (Postgres 17, role `macbook`, no password);

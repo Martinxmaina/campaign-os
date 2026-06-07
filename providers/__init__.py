@@ -32,6 +32,23 @@ PROVIDER_REGISTRY: dict[str, type[SocialProvider]] = {
 }
 
 
+def _register_mock() -> None:
+    """Sync the mock provider into the registry to match the current setting.
+
+    Idempotent: adds ``"mock"`` when ``settings.ENABLE_MOCK_PROVIDER`` is
+    truthy and removes it otherwise, so the registry never carries the mock
+    provider in a deployment where the flag is off. Safe to call repeatedly.
+    """
+    from django.conf import settings
+
+    if getattr(settings, "ENABLE_MOCK_PROVIDER", False):
+        from .mock import MockProvider
+
+        PROVIDER_REGISTRY["mock"] = MockProvider
+    else:
+        PROVIDER_REGISTRY.pop("mock", None)
+
+
 def get_provider(platform: str, credentials: dict | None = None) -> SocialProvider:
     """Instantiate and return a provider for the given platform.
 
@@ -45,6 +62,9 @@ def get_provider(platform: str, credentials: dict | None = None) -> SocialProvid
     Raises:
         ValueError: If no provider is registered for the given platform.
     """
+    # Keep the mock entry in sync with the current setting so toggling
+    # ENABLE_MOCK_PROVIDER at runtime (e.g. in tests) is always honoured.
+    _register_mock()
     provider_cls = PROVIDER_REGISTRY.get(platform)
     if provider_cls is None:
         raise ValueError(f"No provider registered for platform: {platform}")
@@ -54,3 +74,11 @@ def get_provider(platform: str, credentials: dict | None = None) -> SocialProvid
         env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
         credentials = env_creds.get(platform, {})
     return provider_cls(credentials=credentials)
+
+
+# Register the mock provider at import time when the flag is on. Wrapped so a
+# missing/unconfigured Django settings module never breaks the import.
+try:  # pragma: no cover - import-time best effort
+    _register_mock()
+except Exception:  # noqa: BLE001
+    pass

@@ -21,7 +21,10 @@ class TestProviderRegistry:
             "threads",
             "twitter",
         }
-        assert set(PROVIDER_REGISTRY.keys()) == expected
+        # "mock" is an optional, flag-gated entry (ENABLE_MOCK_PROVIDER) that
+        # is present in the test settings; it is not a real platform, so the
+        # completeness check compares the registry minus that optional entry.
+        assert set(PROVIDER_REGISTRY.keys()) - {"mock"} == expected
 
     def test_all_registry_values_are_provider_subclasses(self):
         for platform, cls in PROVIDER_REGISTRY.items():
