@@ -14,6 +14,7 @@ from .instagram_login import InstagramLoginProvider
 from .linkedin_company import LinkedInCompanyProvider
 from .linkedin_personal import LinkedInPersonalProvider
 from .threads import ThreadsProvider
+from .twitter import TwitterProvider
 from .youtube import YouTubeProvider
 
 if TYPE_CHECKING:
@@ -27,6 +28,7 @@ PROVIDER_REGISTRY: dict[str, type[SocialProvider]] = {
     "linkedin_company": LinkedInCompanyProvider,
     "youtube": YouTubeProvider,
     "threads": ThreadsProvider,
+    "twitter": TwitterProvider,
 }
 
 

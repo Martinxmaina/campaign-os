@@ -19,6 +19,7 @@ class TestProviderRegistry:
             "linkedin_company",
             "youtube",
             "threads",
+            "twitter",
         }
         assert set(PROVIDER_REGISTRY.keys()) == expected
 
@@ -33,7 +34,7 @@ class TestProviderRegistry:
 
     def test_get_provider_raises_on_unknown_platform(self):
         with pytest.raises(ValueError, match="No provider registered"):
-            get_provider("twitter")
+            get_provider("nonexistent_platform")
 
     def test_get_provider_default_credentials(self, settings):
         # When a registered platform has no env credentials configured,
