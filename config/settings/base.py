@@ -418,23 +418,8 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
     # company app's Community Management API credentials (Path B). See README.
     "linkedin_personal": _LINKEDIN_PERSONAL_CREDENTIALS,
     "linkedin_company": _LINKEDIN_COMPANY_CREDENTIALS,
-    "tiktok": {
-        "client_key": env("PLATFORM_TIKTOK_CLIENT_KEY", default=""),
-        "client_secret": env("PLATFORM_TIKTOK_CLIENT_SECRET", default=""),
-    },
-    # Google platforms - YouTube and Google Business Profile share the same OAuth client
+    # Google platform - YouTube OAuth client
     "youtube": _GOOGLE_CREDENTIALS,
-    "google_business": _GOOGLE_CREDENTIALS,
-    "pinterest": {
-        "app_id": env("PLATFORM_PINTEREST_APP_ID", default=""),
-        "app_secret": env("PLATFORM_PINTEREST_APP_SECRET", default=""),
-    },
-    # Bluesky - session-based auth (app passwords), no app-level credentials needed
-    "bluesky": {},
-    # Mastodon - instance-specific OAuth; credentials are registered per-instance
-    # on first connect and persisted in MastodonAppRegistration. No repo-wide
-    # credentials apply.
-    "mastodon": {},
 }
 
 # Webhook verification

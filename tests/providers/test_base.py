@@ -17,13 +17,8 @@ class TestProviderRegistry:
             "instagram_login",
             "linkedin_personal",
             "linkedin_company",
-            "tiktok",
             "youtube",
-            "pinterest",
             "threads",
-            "bluesky",
-            "google_business",
-            "mastodon",
         }
         assert set(PROVIDER_REGISTRY.keys()) == expected
 
@@ -40,8 +35,11 @@ class TestProviderRegistry:
         with pytest.raises(ValueError, match="No provider registered"):
             get_provider("twitter")
 
-    def test_get_provider_default_credentials(self):
-        provider = get_provider("bluesky")
+    def test_get_provider_default_credentials(self, settings):
+        # When a registered platform has no env credentials configured,
+        # get_provider() falls back to an empty credentials dict.
+        settings.PLATFORM_CREDENTIALS_FROM_ENV = {}
+        provider = get_provider("threads")
         assert provider.credentials == {}
 
 
@@ -86,12 +84,6 @@ class TestSocialProviderInterface:
         rl = provider.rate_limits
         assert rl.requests_per_hour > 0
 
-    def test_session_providers_raise_on_get_auth_url(self):
-        """Bluesky (session auth) should raise on OAuth methods."""
-        provider = get_provider("bluesky")
-        with pytest.raises(NotImplementedError):
-            provider.get_auth_url("http://localhost/callback", "state123")
-
     def test_oauth_providers_implement_get_auth_url(self):
         """OAuth providers should return a URL string."""
         provider = get_provider(
@@ -130,21 +122,9 @@ class TestProviderMetadata:
         p = get_provider("linkedin_company")
         assert p.max_caption_length == 3000
 
-    def test_bluesky_max_caption(self):
-        p = get_provider("bluesky")
-        assert p.max_caption_length == 300
-
     def test_threads_max_caption(self):
         p = get_provider("threads")
         assert p.max_caption_length == 500
-
-    def test_bluesky_auth_type_is_session(self):
-        p = get_provider("bluesky")
-        assert p.auth_type == AuthType.SESSION
-
-    def test_mastodon_auth_type_is_instance_oauth(self):
-        p = get_provider("mastodon")
-        assert p.auth_type == AuthType.INSTANCE_OAUTH
 
     def test_facebook_auth_type_is_oauth2(self):
         p = get_provider("facebook")

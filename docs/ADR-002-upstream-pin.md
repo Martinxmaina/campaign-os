@@ -17,6 +17,22 @@ Python 3.13, Django 5.1.x, Django-Ninja, Postgres (job queue via
 django-background-tasks). Deps via uv (`uv venv --python 3.13` +
 `uv pip install -r requirements.txt`) per `requirements.txt`.
 
+## Task 3: slimmed social providers (kept 7, removed 5)
+Removed providers `tiktok`, `pinterest`, `google_business`, `mastodon`,
+`bluesky` from `PROVIDER_REGISTRY` and deleted their `providers/*.py` modules
+plus their dedicated tests (`tests/providers/test_tiktok.py`,
+`tests/providers/test_bluesky.py`). In `tests/providers/test_base.py` the
+registry-completeness set was trimmed to the kept 7; the bluesky/mastodon
+metadata tests and the session-auth `get_auth_url` test were removed (they
+exercised deleted providers); `test_get_provider_default_credentials` now
+clears `PLATFORM_CREDENTIALS_FROM_ENV` via the `settings` fixture and uses a
+kept provider. Dead env entries for the 5 removed platforms were dropped from
+`PLATFORM_CREDENTIALS_FROM_ENV` in `config/settings/base.py`. Migration history
+and the `PlatformCredential.Platform` DB choices are intentionally left intact
+(no new migration; `makemigrations --check` reports no changes). Kept-7 set:
+facebook, instagram, instagram_login, linkedin_personal, linkedin_company,
+youtube, threads.
+
 ## Local environment notes
 - Dev DB: `createdb -h localhost -U macbook waiis_dispatch`
   (Postgres 17, role `macbook`, no password);
