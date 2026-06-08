@@ -853,6 +853,16 @@ def autosave(request, workspace_id, post_id=None):
 
     post.save()
 
+    # FIX C: editing gated content (caption / first_comment / title) in the
+    # composer invalidates any prior approval. Clear gate_id + content_hash on
+    # every child still carrying a gate so the publish engine's authoritative
+    # chokepoint blocks until the post is re-approved. New (unsaved) posts have
+    # no children yet, so this is a no-op for them.
+    if not is_new:
+        post.platform_posts.exclude(gate_id__isnull=True).update(
+            gate_id=None, content_hash="", updated_at=timezone.now()
+        )
+
     # Attach pending session media when creating a new post
     if is_new:
         from apps.media_library.models import MediaAsset

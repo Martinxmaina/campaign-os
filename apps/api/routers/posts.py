@@ -256,10 +256,14 @@ def create(request, payload: CreatePostRequest):
 
             for pp in post.platform_posts.all():
                 pp.gate_id = payload.gate_id
-                pp.content_hash = canonical_content_hash(
-                    pp.effective_caption or "",
-                    [str(m.media_asset_id) for m in pp.post.media_attachments.all()],
-                )
+                # Hash TEXT ONLY to stay in parity with agent-service, which
+                # gates on canonical_content_hash(content) (text only). Binding
+                # media_refs / first_comment into the gated hash diverges from
+                # the approver side — any post carrying media would never match
+                # and would be GATE BLOCKed. Binding media/first_comment into
+                # the gated hash is a Phase-2 enhancement (it requires the
+                # agent-service approver to hash the same fields).
+                pp.content_hash = canonical_content_hash(pp.effective_caption or "")
                 pp.save(update_fields=["gate_id", "content_hash", "updated_at"])
         body = _post_to_response(post)
         status_code = 201
@@ -348,6 +352,21 @@ def update(request, post_id: uuid.UUID, payload: UpdatePostRequest):
         if missing:
             raise HttpError(422, f"Media asset(s) not in workspace: {missing}")
 
+    # Mutating gated content (caption / media / first_comment) invalidates any
+    # prior approval — the approver signed off on the *old* text. Clearing the
+    # gate (gate_id=None, content_hash="") forces re-approval: the publish
+    # engine's authoritative chokepoint then GATE BLOCKs until the post is
+    # re-gated. Title-only edits don't enter the gated hash (text only, see
+    # FIX B) but we clear on title too for safety since the editor surfaces it
+    # alongside the caption. ``scheduled_at`` re-timing is NOT a content edit
+    # and must not clear the gate.
+    gate_clearing_edit = (
+        payload.caption is not None
+        or payload.title is not None
+        or payload.first_comment is not None
+        or payload.media_asset_ids is not None
+    )
+
     with transaction.atomic():
         update_fields: list[str] = []
         if payload.caption is not None:
@@ -386,6 +405,16 @@ def update(request, post_id: uuid.UUID, payload: UpdatePostRequest):
 
         if update_fields:
             post.save(update_fields=[*update_fields, "updated_at"])
+
+        # FIX C: clear the gate on any content edit so a stale approval can
+        # never publish. Targets every child still carrying a gate_id; the
+        # next publish attempt GATE BLOCKs until re-gated.
+        if gate_clearing_edit:
+            from django.utils import timezone as _tz
+
+            post.platform_posts.exclude(gate_id__isnull=True).update(
+                gate_id=None, content_hash="", updated_at=_tz.now()
+            )
 
         sync_post_scheduled_at(post)
 

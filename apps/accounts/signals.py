@@ -4,11 +4,23 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 
-def provision_organization_and_workspace(user):
-    """Create a default Organization, Workspace, and memberships for a new user.
+# WAIIS is a single-tenant deployment: every signup lands in the one
+# Organization ("AfCEN") + default Workspace ("WAIIS") seeded by the
+# Task 12 migration (organizations/0003_seed_default_org_workspace). We
+# never provision a per-user org any more — exactly one Organization must
+# exist after any number of signups.
+SINGLETON_ORG_NAME = "AfCEN"
+SINGLETON_WORKSPACE_NAME = "WAIIS"
 
-    Skips if the user already belongs to an organization (e.g. invited users).
-    Safe to call multiple times - the guard is idempotent.
+
+def provision_organization_and_workspace(user):
+    """Attach a new user to the AfCEN/WAIIS singleton org + workspace.
+
+    Uses ``get_or_create`` on the singleton (matching the Task 12 seed
+    migration) rather than creating a new per-user organization, so exactly
+    one Organization exists after any signup. Skips if the user already
+    belongs to an organization (e.g. invited users). Idempotent — safe to
+    call multiple times.
     """
     from apps.members.models import OrgMembership, WorkspaceMembership
     from apps.organizations.models import Organization
@@ -18,28 +30,27 @@ def provision_organization_and_workspace(user):
     if OrgMembership.objects.filter(user=user).exists():
         return
 
-    org = Organization.objects.create(
-        name="My Organization",
-        default_timezone="UTC",
+    org, _ = Organization.objects.get_or_create(
+        name=SINGLETON_ORG_NAME,
+        defaults={"default_timezone": "UTC"},
     )
 
-    OrgMembership.objects.create(
+    OrgMembership.objects.get_or_create(
         user=user,
         organization=org,
-        org_role=OrgMembership.OrgRole.OWNER,
+        defaults={"org_role": OrgMembership.OrgRole.OWNER},
     )
 
-    # Create a default workspace so the user can start immediately
-    workspace = Workspace.objects.create(
+    workspace, _ = Workspace.objects.get_or_create(
         organization=org,
-        name="My Workspace",
-        description="Your default workspace. Rename it anytime.",
+        name=SINGLETON_WORKSPACE_NAME,
+        defaults={"description": "Default WAIIS workspace."},
     )
 
-    WorkspaceMembership.objects.create(
+    WorkspaceMembership.objects.get_or_create(
         user=user,
         workspace=workspace,
-        workspace_role=WorkspaceMembership.WorkspaceRole.OWNER,
+        defaults={"workspace_role": WorkspaceMembership.WorkspaceRole.OWNER},
     )
 
     # Set as last workspace so dashboard redirects here
@@ -76,15 +87,15 @@ def create_organization_on_signup(sender, request, user, **kwargs):
     instead of creating a default org. The invite token is stored in
     the session by the accept_invite view.
 
-    By this point, post_save has already fired and provisioned a default
-    "My Organization". If invite acceptance succeeds, we clean up that
-    default org so the user only belongs to the invited org.
+    By this point, post_save has already fired and attached the user to the
+    AfCEN/WAIIS singleton. If invite acceptance succeeds, we detach the user
+    from the singleton so they only belong to the invited org — but we never
+    delete the singleton itself (it is shared across all WAIIS users).
     """
     pending_token = request.session.pop("pending_invite_token", None)
     if pending_token:
         from apps.members.models import Invitation, OrgMembership
         from apps.members.services import accept_invitation
-        from apps.workspaces.models import Workspace
 
         try:
             invitation = Invitation.objects.get(
@@ -100,19 +111,15 @@ def create_organization_on_signup(sender, request, user, **kwargs):
                 # that often differs from the invited address.
                 accept_invitation(invitation, user, require_email_match=False)
 
-                # Clean up the default org that post_save created, if it's
-                # different from the invited org.
+                # Detach the user from the auto-attached singleton org if the
+                # invite is to a different org. The singleton (AfCEN/WAIIS) is
+                # shared across all WAIIS users, so we only remove the user's
+                # membership — never the org or its workspace.
                 default_memberships = OrgMembership.objects.filter(
                     user=user,
                 ).exclude(organization_id=invited_org_id)
                 for membership in default_memberships:
-                    org = membership.organization
                     membership.delete()
-                    # Only delete the org if it's the auto-provisioned one
-                    # and has no other members.
-                    if org.name == "My Organization" and not org.memberships.exists():
-                        Workspace.objects.filter(organization=org).delete()
-                        org.delete()
 
                 return  # Done - user is now in the invited org only
         except Invitation.DoesNotExist:

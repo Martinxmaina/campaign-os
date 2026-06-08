@@ -42,6 +42,15 @@ logger = logging.getLogger(__name__)
 RETRY_BACKOFF = [60, 300, 1800]  # 1min, 5min, 30min
 
 
+class GateBlockError(Exception):
+    """Raised at the provider dispatch chokepoint when a PlatformPost is not
+    cleared by the approval gate. A gate block is a terminal, non-retryable
+    condition: re-publishing the identical (unapproved) content would fail
+    the gate again forever, so we mark the post FAILED and do NOT schedule a
+    retry. Re-approval (new gate_id + matching content_hash) is required to
+    publish."""
+
+
 def _resolve_publish_credentials(account):
     """Resolve the credentials dict for publishing on behalf of `account`.
 
@@ -228,23 +237,34 @@ class PublishEngine:
             if comment_text:
                 _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
 
-    def _gate_ok(self, platform_post) -> bool:
-        """Untouchable gate: block any publish lacking a valid pass/approved
-        gate_id whose content_hash matches. Applies to API- and editor-composed
-        posts alike (single chokepoint)."""
+    def _gate_failure_reason(self, platform_post) -> str | None:
+        """Verify the approval gate for a PlatformPost.
+
+        Returns ``None`` when the post is cleared to publish (valid
+        pass/approved gate_id whose content_hash matches), or a human-readable
+        reason string when it is blocked. Pure check — does NOT mutate state.
+        """
         if not platform_post.gate_id:
-            self._block(platform_post, "missing gate_id")
-            return False
+            return "missing gate_id"
         try:
             res = verify_gate(str(platform_post.gate_id))
         except GateError as exc:
-            self._block(platform_post, f"gate verify error: {exc}")
-            return False
+            return f"gate verify error: {exc}"
         if res.get("verdict") not in ("pass", "approved"):
-            self._block(platform_post, f"gate verdict {res.get('verdict')}")
-            return False
+            return f"gate verdict {res.get('verdict')}"
         if res.get("content_hash") != platform_post.content_hash:
-            self._block(platform_post, "content hash mismatch")
+            return "content hash mismatch"
+        return None
+
+    def _gate_ok(self, platform_post) -> bool:
+        """Fail-fast gate filter used in _publish_post_group BEFORE the
+        SCHEDULED → PUBLISHING transition. The AUTHORITATIVE enforcement lives
+        at the provider dispatch chokepoint (_dispatch_to_provider) so EVERY
+        path — fresh and retry — is gated by construction; this early filter
+        just lets us skip the transition for an obviously-blocked post."""
+        reason = self._gate_failure_reason(platform_post)
+        if reason is not None:
+            self._block(platform_post, reason)
             return False
         return True
 
@@ -278,7 +298,7 @@ class PublishEngine:
             return {"success": False, "error": error_msg}
 
         try:
-            # Get the provider for this platform
+            # Get the provider for this platform (gated at the dispatch site)
             result = self._dispatch_to_provider(platform_post)
 
             duration_ms = int((time.monotonic() - start_time) * 1000)
@@ -321,6 +341,11 @@ class PublishEngine:
                 self._schedule_retry(platform_post, error_msg)
                 return result
 
+        except GateBlockError as e:
+            # Terminal: _block() already set status=FAILED + logged the GATE
+            # BLOCK. Do NOT schedule a retry — re-publishing identical
+            # unapproved content would just fail the gate again forever.
+            return {"success": False, "error": f"GATE BLOCK: {e}"}
         except Exception as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
             error_msg = str(e)
@@ -370,6 +395,19 @@ class PublishEngine:
         """
         account = platform_post.social_account
         platform = account.platform
+
+        # AUTHORITATIVE GATE CHOKEPOINT. Every publish path funnels through
+        # here — fresh (_publish_post_group → _publish_platform_post) AND
+        # retry (_process_retries → _publish_platform_post). Enforcing the
+        # gate immediately before the provider call makes it impossible to
+        # publish unapproved content by construction, regardless of how the
+        # post reached this method. The early _gate_ok filter in
+        # _publish_post_group is only a fail-fast; this check is the
+        # source of truth. A gate block is terminal (non-retryable).
+        reason = self._gate_failure_reason(platform_post)
+        if reason is not None:
+            self._block(platform_post, reason)
+            raise GateBlockError(reason)
 
         credentials = _resolve_publish_credentials(account)
         provider = get_provider(platform, credentials)
@@ -676,6 +714,33 @@ def _post_first_comment_task(platform_post_id):
 
     comment_text = platform_post.effective_first_comment
     if not comment_text:
+        return
+
+    # Re-verify the approval gate for the parent post before publishing the
+    # first comment. Editing first_comment clears the gate (FIX C), so a
+    # mutated comment's parent will fail this check; we also re-verify here so
+    # the comment can never reach the provider without a live pass/approved
+    # verdict on a present gate_id.
+    if not platform_post.gate_id:
+        logger.warning(
+            "Skipping first comment for %s: parent has no gate_id", platform_post.id
+        )
+        return
+    try:
+        gate_res = verify_gate(str(platform_post.gate_id))
+    except GateError as exc:
+        logger.warning(
+            "Skipping first comment for %s: gate verify error: %s",
+            platform_post.id,
+            exc,
+        )
+        return
+    if gate_res.get("verdict") not in ("pass", "approved"):
+        logger.warning(
+            "Skipping first comment for %s: gate verdict %s",
+            platform_post.id,
+            gate_res.get("verdict"),
+        )
         return
 
     account = platform_post.social_account

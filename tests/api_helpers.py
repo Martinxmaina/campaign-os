@@ -93,3 +93,9 @@ def api_post(path: str, key, body: dict):
     """POST ``body`` (JSON) to ``path`` authenticated as ``key``."""
     client = _SecureClient(HTTP_AUTHORIZATION=f"Bearer {key.plaintext_token}")
     return client.post(path, data=json.dumps(body), content_type="application/json")
+
+
+def api_patch(path: str, key, body: dict):
+    """PATCH ``body`` (JSON) to ``path`` authenticated as ``key``."""
+    client = _SecureClient(HTTP_AUTHORIZATION=f"Bearer {key.plaintext_token}")
+    return client.patch(path, data=json.dumps(body), content_type="application/json")

@@ -118,6 +118,11 @@ def _build_dispatch_mocks(platform: str, account_platform_id: str, platform_extr
     platform_post.effective_title = None
     platform_post.effective_first_comment = None
     platform_post.platform_extra = platform_extra or {}
+    # The authoritative gate runs at the dispatch chokepoint, so these
+    # extras-injection unit tests give the post a passing gate. ``verify_gate``
+    # is patched per-test to return a verdict + matching content_hash.
+    platform_post.gate_id = "00000000-0000-0000-0000-000000000001"
+    platform_post.content_hash = "gate-ok"
 
     mock_provider = MagicMock()
     mock_provider.auth_type = AuthType.OAUTH2
@@ -133,9 +138,15 @@ def _build_dispatch_mocks(platform: str, account_platform_id: str, platform_extr
 class DispatchExtraInjectionTest(SimpleTestCase):
     """Verify _dispatch_to_provider injects platform-specific extras."""
 
+    @patch(
+        "apps.publisher.engine.verify_gate",
+        return_value={"verdict": "pass", "content_hash": "gate-ok"},
+    )
     @patch("apps.publisher.engine.get_provider")
     @patch("apps.publisher.engine._resolve_publish_credentials", return_value={})
-    def test_injects_organization_author_for_linkedin_company(self, _mock_creds, mock_get_provider):
+    def test_injects_organization_author_for_linkedin_company(
+        self, _mock_creds, mock_get_provider, _mock_gate
+    ):
         engine, platform_post, mock_provider = _build_dispatch_mocks(
             platform="linkedin_company",
             account_platform_id="98765",
@@ -148,9 +159,15 @@ class DispatchExtraInjectionTest(SimpleTestCase):
         _access_token, content = mock_provider.publish_post.call_args.args
         self.assertEqual(content.extra.get("author"), "urn:li:organization:98765")
 
+    @patch(
+        "apps.publisher.engine.verify_gate",
+        return_value={"verdict": "pass", "content_hash": "gate-ok"},
+    )
     @patch("apps.publisher.engine.get_provider")
     @patch("apps.publisher.engine._resolve_publish_credentials", return_value={})
-    def test_does_not_overwrite_explicit_author(self, _mock_creds, mock_get_provider):
+    def test_does_not_overwrite_explicit_author(
+        self, _mock_creds, mock_get_provider, _mock_gate
+    ):
         # When the caller has already set extra["author"], the engine must not
         # overwrite it — important for callers that pass a different URN.
         engine, platform_post, mock_provider = _build_dispatch_mocks(
@@ -165,9 +182,15 @@ class DispatchExtraInjectionTest(SimpleTestCase):
         _access_token, content = mock_provider.publish_post.call_args.args
         self.assertEqual(content.extra.get("author"), "urn:li:organization:override")
 
+    @patch(
+        "apps.publisher.engine.verify_gate",
+        return_value={"verdict": "pass", "content_hash": "gate-ok"},
+    )
     @patch("apps.publisher.engine.get_provider")
     @patch("apps.publisher.engine._resolve_publish_credentials", return_value={})
-    def test_does_not_inject_author_for_other_platforms(self, _mock_creds, mock_get_provider):
+    def test_does_not_inject_author_for_other_platforms(
+        self, _mock_creds, mock_get_provider, _mock_gate
+    ):
         # Sanity: the author-injection branch is scoped to linkedin_company only.
         engine, platform_post, mock_provider = _build_dispatch_mocks(
             platform="linkedin_personal",

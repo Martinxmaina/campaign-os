@@ -108,7 +108,17 @@ def write_only_membership(db, organization, workspace):
         name="R2 Editor",
         tos_accepted_at=timezone.now(),
     )
-    OrgMembership.objects.create(user=u, organization=organization, org_role=OrgMembership.OrgRole.ADMIN)
+    # WAIIS is single-org: the signup signal already attaches this user to the
+    # AfCEN singleton (the same org the ``user`` fixture resolves to). Reuse
+    # that membership and set the ADMIN role rather than creating a duplicate.
+    om, _ = OrgMembership.objects.get_or_create(
+        user=u,
+        organization=organization,
+        defaults={"org_role": OrgMembership.OrgRole.ADMIN},
+    )
+    if om.org_role != OrgMembership.OrgRole.ADMIN:
+        om.org_role = OrgMembership.OrgRole.ADMIN
+        om.save(update_fields=["org_role"])
     return WorkspaceMembership.objects.create(
         user=u,
         workspace=workspace,
