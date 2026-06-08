@@ -451,6 +451,11 @@ STUDIO_DEPLOYMENT_ID = env("STUDIO_DEPLOYMENT_ID", default="")
 STUDIO_SHARED_SECRET = env("STUDIO_SHARED_SECRET", default="")
 STUDIO_BASE_URL = env("STUDIO_BASE_URL", default="")
 
+# agent-service gate client (HMAC-signed publish gate). Base URL of the
+# agent-service exposing GET /gate/verify/{id}. Signed with STUDIO_SHARED_SECRET
+# and identified by STUDIO_DEPLOYMENT_ID.
+AGENT_SERVICE_BASE_URL = env("AGENT_SERVICE_BASE_URL", default="")
+
 INTELLIGENCE_ENABLED = all(
     [
         INTELLIGENCE_INTERNAL_URL.strip(),
