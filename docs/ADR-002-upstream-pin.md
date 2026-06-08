@@ -47,6 +47,20 @@ was updated to compare `keys() - {"mock"}` against the real-platform set, since
 the mock entry is an optional, flag-gated extra rather than a real platform. No
 tests deselected; full suite green at 604 passed.
 
+## Task 10: gate_id required to schedule via REST API
+`CreatePostRequest` gained `gate_id: uuid.UUID | None`. The `POST /api/v1/posts/`
+`create` route now 422s (`"gate_id is required to schedule/publish."`) when
+`action="schedule"` and no `gate_id` is supplied; on success it stamps
+`gate_id` + `content_hash=canonical_content_hash(effective_caption, media_refs)`
+onto each child `PlatformPost` (defence-in-depth atop the publish-engine gate
+hook from Task 9). Drafts may omit `gate_id`. Six existing schedule-path tests
+that POST'd without a gate (`apps/api/tests/test_routers.py::TestCreatePost::
+test_create_scheduled`, both `TestPlatformQuota` cases; `test_e2e.py`'s
+publisher-pickup, quota-429, and audit-label schedule tests) were updated to
+include a `gate_id` in the body — the contract change is intentional, no tests
+were deselected. Added `tests/api_helpers.py` (`make_api_key`, `api_post`) for
+top-level API tests. Full suite green at 612 passed.
+
 ## Local environment notes
 - Dev DB: `createdb -h localhost -U macbook waiis_dispatch`
   (Postgres 17, role `macbook`, no password);

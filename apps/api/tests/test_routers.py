@@ -227,6 +227,7 @@ class TestCreatePost:
                     "social_account_id": str(social_account.id),
                     "caption": "See you in 2h.",
                     "action": "schedule",
+                    "gate_id": "33333333-3333-3333-3333-333333333333",
                     "scheduled_at": when,
                 }
             ),
@@ -506,6 +507,7 @@ class TestPlatformQuota:
                     "social_account_id": str(ig_account.id),
                     "caption": "this one should succeed",
                     "action": "schedule",
+                    "gate_id": "33333333-3333-3333-3333-333333333333",
                     "scheduled_at": when,
                 }
             ),
@@ -539,6 +541,7 @@ class TestPlatformQuota:
                     "social_account_id": str(ig_account.id),
                     "caption": "should 429",
                     "action": "schedule",
+                    "gate_id": "33333333-3333-3333-3333-333333333333",
                     "scheduled_at": when,
                 }
             ),

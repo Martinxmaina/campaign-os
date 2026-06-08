@@ -150,6 +150,7 @@ class TestRestToPublisherChain:
                     "social_account_id": str(social_account.id),
                     "caption": "ready to publish",
                     "action": "schedule",
+                    "gate_id": "33333333-3333-3333-3333-333333333333",
                     "scheduled_at": past,
                 }
             ),
@@ -292,6 +293,7 @@ class TestRateLimitResponseHeaders:
                     "social_account_id": str(social_account.id),
                     "caption": "over the cap",
                     "action": "schedule",
+                    "gate_id": "33333333-3333-3333-3333-333333333333",
                     "scheduled_at": future,
                 }
             ),
@@ -385,6 +387,7 @@ class TestAuditLabelCoverage:
                     "social_account_id": str(social_account.id),
                     "caption": "audit me",
                     "action": "schedule",
+                    "gate_id": "33333333-3333-3333-3333-333333333333",
                     "scheduled_at": when,
                 }
             ),

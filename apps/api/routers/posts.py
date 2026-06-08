@@ -146,6 +146,14 @@ def create(request, payload: CreatePostRequest):
     social_account = _resolve_account(request, payload.social_account_id)
     if payload.action == "schedule" and payload.scheduled_at is None:
         raise HttpError(422, "scheduled_at is required when action='schedule'.")
+    # Defence-in-depth atop the publish-engine gate hook (Task 9): a post
+    # cannot be queued for publishing without a passing approval gate. The
+    # engine re-verifies the gate_id + content_hash at publish time, but
+    # requiring it here gives the agent a 422 at compose time rather than
+    # a silent GATE BLOCK 15s later. Drafts are not publishable, so they
+    # may omit gate_id.
+    if payload.action == "schedule" and payload.gate_id is None:
+        raise HttpError(422, "gate_id is required to schedule/publish.")
 
     # Build the platform_overrides dict and validate that each override's
     # social_account_id matches one of the post's target accounts. In the
@@ -236,6 +244,23 @@ def create(request, payload: CreatePostRequest):
             status="scheduled" if payload.action == "schedule" else "draft",
             platform_overrides=platform_overrides,
         )
+        # Stamp the gate decision + canonical content hash onto every
+        # child PlatformPost. The publish engine's untouchable gate hook
+        # (apps/publisher/engine.py::_gate_ok) re-verifies both at publish
+        # time against agent-service; persisting them here is the
+        # defence-in-depth half of that contract. Drafts may carry a
+        # gate_id too (harmless), but the engine only runs the check when
+        # they are scheduled.
+        if payload.gate_id is not None:
+            from apps.publisher.gate_hash import canonical_content_hash
+
+            for pp in post.platform_posts.all():
+                pp.gate_id = payload.gate_id
+                pp.content_hash = canonical_content_hash(
+                    pp.effective_caption or "",
+                    [str(m.media_asset_id) for m in pp.post.media_attachments.all()],
+                )
+                pp.save(update_fields=["gate_id", "content_hash", "updated_at"])
         body = _post_to_response(post)
         status_code = 201
         log_audit_entry(

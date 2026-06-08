@@ -189,6 +189,14 @@ class CreatePostRequest(Schema):
         None,
         description="UTC timestamp. Required when ``action='schedule'``.",
     )
+    gate_id: uuid.UUID | None = Field(
+        None,
+        description=(
+            "Approval-gate decision ID from agent-service. Required when "
+            "``action='schedule'`` — a post cannot be queued for publishing "
+            "without a passing gate. Optional for drafts."
+        ),
+    )
     idempotency_key: str | None = Field(
         None,
         max_length=128,
