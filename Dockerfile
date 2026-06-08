@@ -31,4 +31,7 @@ RUN DJANGO_SETTINGS_MODULE=config.settings.production \
 
 EXPOSE 8000
 
-CMD gunicorn config.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --threads 2
+# One image, two roles (PROCESS_TYPE=web|worker). web runs migrate + gunicorn; worker runs process_tasks.
+ENV DJANGO_SETTINGS_MODULE=config.settings.production
+RUN chmod +x docker-entrypoint.sh
+CMD ["./docker-entrypoint.sh"]
