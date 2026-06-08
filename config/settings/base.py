@@ -456,6 +456,12 @@ STUDIO_BASE_URL = env("STUDIO_BASE_URL", default="")
 # and identified by STUDIO_DEPLOYMENT_ID.
 AGENT_SERVICE_BASE_URL = env("AGENT_SERVICE_BASE_URL", default="")
 
+# agent-service ingest webhook (publish/inbox/analytics events → /ingest).
+# Authenticated with a per-feed key in the X-Ingest-Key header (Phase 0
+# contract), distinct from the HMAC-signed gate-verify path above.
+AGENT_SERVICE_INGEST_URL = env("AGENT_SERVICE_INGEST_URL", default="")
+AGENT_SERVICE_INGEST_KEY = env("AGENT_SERVICE_INGEST_KEY", default="")
+
 INTELLIGENCE_ENABLED = all(
     [
         INTELLIGENCE_INTERNAL_URL.strip(),

@@ -240,6 +240,31 @@ def _create_if_new(
         from .tasks import InboxSyncEngine
 
         InboxSyncEngine()._notify_new_message(obj)
+        _emit_engagement_ingest(obj)
+
+
+def _emit_engagement_ingest(message):
+    """Best-effort emit of a new inbox engagement to agent-service /ingest."""
+    if not getattr(settings, "AGENT_SERVICE_INGEST_URL", "") or not getattr(
+        settings, "AGENT_SERVICE_INGEST_KEY", ""
+    ):
+        return
+    from apps.publisher.ingest_webhook import post_to_ingest
+
+    try:
+        post_to_ingest(
+            source_type="social_engagement",
+            source_id="inbox_message",
+            payload={
+                "platform_message_id": message.platform_message_id,
+                "platform": message.social_account.platform,
+                "message_type": message.message_type,
+                "sentiment": message.sentiment,
+            },
+            dedupe_key=str(message.id),
+        )
+    except Exception:  # noqa: BLE001 - ingest is non-fatal
+        logger.exception("Failed to emit inbox engagement to /ingest for %s", message.id)
 
 
 # --- YouTube PubSubHubbub ---

@@ -297,7 +297,32 @@ def _write_account_snapshot(account, metric_values: dict[str, float], on_date: d
             defaults={"value": value},
         )
         count += 1
+    _emit_analytics_ingest(account, metric_values, on_date)
     return count
+
+
+def _emit_analytics_ingest(account, metric_values: dict[str, float], on_date: dt_date) -> None:
+    """Best-effort emit of an account analytics snapshot to agent-service /ingest."""
+    if not getattr(settings, "AGENT_SERVICE_INGEST_URL", "") or not getattr(
+        settings, "AGENT_SERVICE_INGEST_KEY", ""
+    ):
+        return
+    from apps.publisher.ingest_webhook import post_to_ingest
+
+    try:
+        post_to_ingest(
+            source_type="analytics",
+            source_id="account_snapshot",
+            payload={
+                "social_account_id": str(account.id),
+                "platform": account.platform,
+                "date": on_date.isoformat(),
+                "metrics": metric_values,
+            },
+            dedupe_key=f"{account.id}:{on_date.isoformat()}",
+        )
+    except Exception:  # noqa: BLE001 - ingest is non-fatal
+        logger.exception("Failed to emit analytics snapshot to /ingest for %s", account.id)
 
 
 def _write_post_snapshot(post, metric_values: dict[str, float], on_date: dt_date) -> int:

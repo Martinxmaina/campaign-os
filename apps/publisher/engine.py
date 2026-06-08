@@ -30,6 +30,7 @@ from django.utils import timezone
 from apps.composer.models import PlatformPost
 from apps.credentials.models import PlatformCredential
 from apps.publisher.gate_client import GateError, verify_gate
+from apps.publisher.ingest_webhook import post_to_ingest
 from providers import get_provider
 from providers.types import AuthType, PostType, PublishContent
 
@@ -300,6 +301,9 @@ class PublishEngine:
                 # Update rate limit state
                 self._update_rate_limit(account, result)
 
+                # Emit publish result to agent-service /ingest (non-fatal).
+                self._emit_ingest(platform_post, result)
+
                 return result
             else:
                 error_msg = result.get("error", "Unknown publish error")
@@ -330,6 +334,32 @@ class PublishEngine:
 
             self._schedule_retry(platform_post, error_msg)
             return {"success": False, "error": error_msg}
+
+    def _emit_ingest(self, platform_post, result):
+        """POST a successful publish result to agent-service /ingest.
+
+        Best-effort: any misconfiguration or transport error is logged and
+        swallowed so the publish path is never blocked by the ingest webhook.
+        """
+        if not getattr(settings, "AGENT_SERVICE_INGEST_URL", "") or not getattr(
+            settings, "AGENT_SERVICE_INGEST_KEY", ""
+        ):
+            return
+        platform_post_id = result.get("platform_post_id") or platform_post.platform_post_id
+        try:
+            post_to_ingest(
+                source_type="webhook",
+                source_id="platform_publish",
+                payload={
+                    "platform_post_id": platform_post_id,
+                    "internal_post_id": str(platform_post.id),
+                    "platform": platform_post.social_account.platform,
+                    "status": platform_post.status,
+                },
+                dedupe_key=platform_post_id or str(platform_post.id),
+            )
+        except Exception:  # noqa: BLE001 - ingest is non-fatal
+            logger.exception("Failed to emit publish result to /ingest for %s", platform_post.id)
 
     def _dispatch_to_provider(self, platform_post):
         """Dispatch to the appropriate platform provider.
