@@ -12,6 +12,11 @@ ALLOWED_HOSTS = ["*"]
 # deterministic, network-free publish path.
 ENABLE_MOCK_PROVIDER = True
 
+# Run the publish fan-out inline (no ThreadPoolExecutor) so the worker's
+# DB writes are visible inside the per-test transaction. Production keeps
+# the threaded path.
+PUBLISHER_SYNCHRONOUS = True
+
 # Use faster password hasher in tests
 PASSWORD_HASHERS = [
     "django.contrib.auth.hashers.MD5PasswordHasher",

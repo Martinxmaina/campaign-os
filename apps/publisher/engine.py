@@ -29,6 +29,7 @@ from django.utils import timezone
 
 from apps.composer.models import PlatformPost
 from apps.credentials.models import PlatformCredential
+from apps.publisher.gate_client import GateError, verify_gate
 from providers import get_provider
 from providers.types import AuthType, PostType, PublishContent
 
@@ -90,6 +91,18 @@ MAX_CONCURRENT_PUBLISHES = getattr(settings, "PUBLISHER_MAX_CONCURRENT_PUBLISHES
 MAX_CONCURRENT_POSTS = getattr(settings, "PUBLISHER_MAX_CONCURRENT_POSTS", 4)
 
 
+def _synchronous_publish() -> bool:
+    """Run the publish fan-out inline instead of via ThreadPoolExecutor.
+
+    The worker fans out across threads in production. Under the test suite
+    those threads would open independent DB connections that cannot see the
+    transaction pytest-django wraps each test in, so the gate-hook end-to-end
+    test (``poll_and_publish`` → gate → mock provider) needs an inline path.
+    Controlled by ``settings.PUBLISHER_SYNCHRONOUS`` (default False).
+    """
+    return bool(getattr(settings, "PUBLISHER_SYNCHRONOUS", False))
+
+
 class PublishEngine:
     """Orchestrates the publishing of scheduled posts."""
 
@@ -107,17 +120,26 @@ class PublishEngine:
             groups.setdefault(pp.post_id, []).append(pp)
 
         published_count = 0
-        with ThreadPoolExecutor(max_workers=min(len(groups), MAX_CONCURRENT_POSTS) or 1) as executor:
-            futures = {
-                executor.submit(self._publish_post_group, pps[0].post, pps): post_id for post_id, pps in groups.items()
-            }
-            for future in as_completed(futures):
-                post_id = futures[future]
+        if _synchronous_publish():
+            for post_id, pps in groups.items():
                 try:
-                    future.result()
+                    self._publish_post_group(pps[0].post, pps)
                     published_count += 1
                 except Exception:
                     logger.exception("Unexpected error publishing post group %s", post_id)
+        else:
+            with ThreadPoolExecutor(max_workers=min(len(groups), MAX_CONCURRENT_POSTS) or 1) as executor:
+                futures = {
+                    executor.submit(self._publish_post_group, pps[0].post, pps): post_id
+                    for post_id, pps in groups.items()
+                }
+                for future in as_completed(futures):
+                    post_id = futures[future]
+                    try:
+                        future.result()
+                        published_count += 1
+                    except Exception:
+                        logger.exception("Unexpected error publishing post group %s", post_id)
 
         # Always process retries, even when no new posts are due
         self._process_retries()
@@ -159,20 +181,36 @@ class PublishEngine:
             if not platform_posts:
                 return
 
+            # Untouchable gate chokepoint: block-and-skip any child lacking a
+            # valid pass/approved gate_id whose content_hash matches, BEFORE
+            # the SCHEDULED → PUBLISHING transition. Covers native editor- and
+            # API-composed posts alike (single chokepoint).
+            platform_posts = [pp for pp in platform_posts if self._gate_ok(pp)]
+
+            if not platform_posts:
+                return
+
             PlatformPost.objects.filter(id__in=[pp.id for pp in platform_posts]).update(
                 status=PlatformPost.Status.PUBLISHING
             )
 
         # Publish in parallel
         results = {}
-        with ThreadPoolExecutor(max_workers=min(len(platform_posts), 5)) as executor:
-            futures = {executor.submit(self._publish_platform_post, pp): pp for pp in platform_posts}
-            for future in as_completed(futures):
-                pp = futures[future]
+        if _synchronous_publish():
+            for pp in platform_posts:
                 try:
-                    results[pp.id] = future.result()
+                    results[pp.id] = self._publish_platform_post(pp)
                 except Exception as e:
                     results[pp.id] = {"success": False, "error": str(e)}
+        else:
+            with ThreadPoolExecutor(max_workers=min(len(platform_posts), 5)) as executor:
+                futures = {executor.submit(self._publish_platform_post, pp): pp for pp in platform_posts}
+                for future in as_completed(futures):
+                    pp = futures[future]
+                    try:
+                        results[pp.id] = future.result()
+                    except Exception as e:
+                        results[pp.id] = {"success": False, "error": str(e)}
 
         # Reflect the aggregate onto Post.published_at so dashboards that
         # display "last published" don't need to query every child.
@@ -188,6 +226,36 @@ class PublishEngine:
             comment_text = pp.effective_first_comment
             if comment_text:
                 _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
+
+    def _gate_ok(self, platform_post) -> bool:
+        """Untouchable gate: block any publish lacking a valid pass/approved
+        gate_id whose content_hash matches. Applies to API- and editor-composed
+        posts alike (single chokepoint)."""
+        if not platform_post.gate_id:
+            self._block(platform_post, "missing gate_id")
+            return False
+        try:
+            res = verify_gate(str(platform_post.gate_id))
+        except GateError as exc:
+            self._block(platform_post, f"gate verify error: {exc}")
+            return False
+        if res.get("verdict") not in ("pass", "approved"):
+            self._block(platform_post, f"gate verdict {res.get('verdict')}")
+            return False
+        if res.get("content_hash") != platform_post.content_hash:
+            self._block(platform_post, "content hash mismatch")
+            return False
+        return True
+
+    def _block(self, platform_post, reason: str):
+        platform_post.status = PlatformPost.Status.FAILED
+        platform_post.publish_error = f"GATE BLOCK: {reason}"
+        platform_post.save(update_fields=["status", "publish_error", "updated_at"])
+        PublishLog.objects.create(
+            platform_post=platform_post,
+            error_message=f"GATE BLOCK: {reason}",
+        )
+        logger.warning("Gate blocked publish for %s: %s", platform_post.id, reason)
 
     def _publish_platform_post(self, platform_post):
         """Publish a single PlatformPost to its target platform.
@@ -559,6 +627,10 @@ class PublishEngine:
         if latest and post.published_at != latest:
             post.published_at = latest
             post.save(update_fields=["published_at", "updated_at"])
+
+
+# Public alias — the gate hook + slice tests refer to the engine as ``Publisher``.
+Publisher = PublishEngine
 
 
 @background(schedule=0)
