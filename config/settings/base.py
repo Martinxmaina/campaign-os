@@ -68,12 +68,11 @@ LOCAL_APPS = [
     "apps.notifications",
     "apps.inbox",
     "apps.approvals",
-    "apps.client_portal",
-    "apps.onboarding",
-    # Always installed (migrations consistent across deployments). URLs +
-    # templates short-circuit when ``settings.INTELLIGENCE_ENABLED`` is False,
-    # so self-hosters who don't set the Intelligence env vars get no
-    # Stripe / billing surface at all.
+    # WAIIS single-tenant fork: client_portal + onboarding apps removed
+    # (multi-tenant client-facing surfaces). Intelligence kept installed
+    # for migration consistency but its billing/checkout surface is never
+    # mounted — INTELLIGENCE_ENABLED stays False (no env vars), so URLs +
+    # templates short-circuit and no Stripe / checkout routes exist.
     "apps.intelligence",
     "apps.api_keys",
     "apps.api",
@@ -117,7 +116,6 @@ TEMPLATES = [
                 "apps.notifications.context_processors.unread_notification_count",
                 "apps.common.context_processors.sidebar_context",
                 "apps.common.context_processors.branding",
-                "apps.onboarding.context_processors.onboarding_checklist",
                 "apps.intelligence.context_processors.intelligence_flag",
             ],
         },

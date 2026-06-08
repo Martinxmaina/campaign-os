@@ -39,15 +39,11 @@ urlpatterns = [
     path("api/v1/", agent_api.urls),
     # Approval Workflow (Stream F)
     path("workspace/<uuid:workspace_id>/", include("apps.approvals.urls")),
-    # Client Portal Admin (workspace settings)
-    path("workspace/<uuid:workspace_id>/settings/clients/", include("apps.client_portal.urls_admin")),
     # Media Library
     path("workspace/<uuid:workspace_id>/media/", include("apps.media_library.urls")),
     path("approvals/org/", org_approval_queue, name="org_approval_queue"),
-    # Client Portal (Stream F)
-    path("portal/", include("apps.client_portal.urls")),
+    # WAIIS single-tenant fork: client_portal + onboarding routes removed.
     path("notifications/", include("apps.notifications.urls")),
-    path("onboarding/", include("apps.onboarding.urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]

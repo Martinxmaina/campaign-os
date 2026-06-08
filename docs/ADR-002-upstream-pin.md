@@ -61,6 +61,26 @@ include a `gate_id` in the body — the contract change is intentional, no tests
 were deselected. Added `tests/api_helpers.py` (`make_api_key`, `api_post`) for
 top-level API tests. Full suite green at 612 passed.
 
+## Task 12: collapse to single org/workspace; strip billing/client-portal/onboarding
+WAIIS is single-tenant: a `RunPython` data migration
+(`apps/organizations/migrations/0003_seed_default_org_workspace.py`) idempotently
+seeds exactly one Organization ("AfCEN") + one default Workspace ("WAIIS") via
+`get_or_create`, with a reverse (`unseed`) op for a clean migrate round-trip.
+The `apps.client_portal` and `apps.onboarding` apps were removed entirely
+(deleted dirs + `templates/client_portal/` + `templates/onboarding/`), dropped
+from `INSTALLED_APPS`, their URL includes removed from `config/urls.py`, and the
+`onboarding.context_processors.onboarding_checklist` template context processor
+removed from `config/settings/base.py`. Dangling UI refs fixed: the onboarding
+checklist include in `templates/base.html` and the Client Portal link in
+`templates/layouts/workspace_settings.html`. The intelligence app stays
+installed for migration consistency but its billing/checkout surface is never
+mounted — `INTELLIGENCE_ENABLED` is False (env vars unset), so
+`intelligence:checkout` does not reverse. **Deselected/dropped test:**
+`apps/members/tests/test_role_hierarchy.py::ClientPortalManagerInviteTests`
+(exercised the removed `client_portal_admin:invite_client` flow) was deleted —
+the only test removed for this task; the flow no longer exists. Full suite green
+at 601 passed.
+
 ## Local environment notes
 - Dev DB: `createdb -h localhost -U macbook waiis_dispatch`
   (Postgres 17, role `macbook`, no password);
