@@ -1,4 +1,4 @@
-name: CI
+name: waiis-dispatch CI
 
 on:
   push:
@@ -7,7 +7,6 @@ on:
     branches: [main]
 
 # Principle of least privilege: default to read-only for every job.
-# Individual jobs can opt into more permissions if needed.
 permissions:
   contents: read
 
@@ -81,13 +80,16 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
     env:
       DJANGO_SETTINGS_MODULE: config.settings.test
-      SECRET_KEY: test-secret-key-not-for-production
+      SECRET_KEY: ci-secret
+      ENCRYPTION_KEY_SALT: ci-salt
+      ALLOWED_HOSTS: "*"
+      ENABLE_MOCK_PROVIDER: "True"
       DATABASE_URL: postgres://postgres:postgres@localhost:5432/brightbean_test
       DB_HOST: localhost
       DB_USER: postgres
@@ -98,17 +100,21 @@ jobs:
         with:
           persist-credentials: false
 
+      # The fork's dependency manager is uv (uv venv + uv pip install).
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
       - name: Set up Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: "3.12"
-          cache: "pip"
+        run: uv python install 3.12
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: uv pip install --system -r requirements.txt
+
+      - name: Migrate
+        run: python manage.py migrate
 
       - name: pytest
-        run: pytest --cov=apps --cov-report=term-missing
+        run: pytest -q --cov=apps --cov-report=term-missing
 
   build:
     name: Docker build
@@ -129,7 +135,7 @@ jobs:
         with:
           context: .
           push: false
-          tags: brightbean:latest
+          tags: waiis-dispatch:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
