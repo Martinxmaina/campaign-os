@@ -5,14 +5,33 @@
 <div id="graph" style="height:calc(100vh - 12rem); border:1px solid #e7e5e4; border-radius:8px;"></div>
 <script nonce="{{ request.csp_nonce }}" src="{% static 'vendor/force-graph.min.js' %}"></script>
 <script nonce="{{ request.csp_nonce }}">
-  const COLORS = { wiki:'#2563eb', sector:'#16a34a', agent:'#9333ea', content:'#ea580c', source:'#64748b' };
+  const COLORS = { root:'#dc2626', wiki:'#2563eb', sector:'#16a34a', agent:'#9333ea',
+                   content:'#ea580c', source:'#64748b', idea:'#0d9488', thread:'#db2777', dossier:'#7c3aed' };
   fetch('/console/graph.json').then(r => r.json()).then(g => {
     const data = { nodes: g.nodes, links: g.edges };
-    ForceGraph()(document.getElementById('graph'))
+    // degree = how many edges touch a node; hubs (root, sectors) render larger
+    const deg = {};
+    data.links.forEach(l => {
+      const s = l.source.id || l.source, t = l.target.id || l.target;
+      deg[s] = (deg[s] || 0) + 1; deg[t] = (deg[t] || 0) + 1;
+    });
+    const el = document.getElementById('graph');
+    const fg = ForceGraph()(el)
       .graphData(data)
-      .nodeLabel(n => n.type + ': ' + n.label)
+      .backgroundColor('#fafaf9')
+      .nodeLabel(n => n.type + ': ' + n.label + '  (' + (deg[n.id] || 0) + ' links)')
       .nodeColor(n => COLORS[n.type] || '#999')
-      .linkColor(() => 'rgba(120,113,108,0.25)');
+      .nodeVal(n => 1 + (deg[n.id] || 0) * (n.type === 'root' ? 4 : 1.5))
+      .nodeRelSize(4)
+      .linkColor(() => 'rgba(87,83,78,0.35)')
+      .linkWidth(1)
+      .linkDirectionalParticles(2)
+      .linkDirectionalParticleWidth(1.6)
+      .linkDirectionalParticleSpeed(0.006)
+      .cooldownTicks(120);
+    // pull the graph into one cohesive cluster, then frame it
+    fg.d3Force('charge').strength(-120);
+    fg.onEngineStop(() => fg.zoomToFit(400, 40));
   });
 </script>
 {% endblock %}
