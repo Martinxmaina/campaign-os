@@ -1,0 +1,21 @@
+{% extends "console/base.html" %}
+{% block console %}
+<h1 class="text-xl font-bold mb-4">Ideas {{ week }}</h1>
+{% if down %}{% include "console/_unavailable.html" %}{% endif %}
+<div class="grid gap-3 md:grid-cols-2">
+  {% for i in items %}
+  <div class="border border-stone-200 rounded-lg p-4 bg-white">
+    <div class="text-[11px] uppercase tracking-wider text-stone-500">{{ i.sector|default:"general" }} · rank {{ i.rank }} · {{ i.status }}</div>
+    <h3 class="font-semibold mt-1">{{ i.title }}</h3>
+    <p class="text-sm text-stone-600 mt-1">{{ i.rationale.why }}</p>
+    {% if i.status == "proposed" %}
+    <form method="post" action="/console/ideas/{{ i.id }}/decide" class="flex gap-2 mt-3">
+      {% csrf_token %}
+      <button name="decision" value="accept" class="text-sm bg-emerald-600 text-white rounded-md px-3 py-1">Accept</button>
+      <button name="decision" value="reject" class="text-sm border rounded-md px-3 py-1">Reject</button>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}<p class="text-stone-500">No ideas.</p>{% endfor %}
+</div>
+{% endblock %}
