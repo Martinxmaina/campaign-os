@@ -1,0 +1,20 @@
+{% extends "console/base.html" %}
+{% block console %}
+<h1 class="text-xl font-bold mb-4">Drafts</h1>
+{% if down %}{% include "console/_unavailable.html" %}{% endif %}
+<div class="grid gap-3 md:grid-cols-2">
+  {% for c in items %}
+  <a href="/console/drafts/{{ c.id }}" class="block border border-stone-200 rounded-lg p-4 bg-white hover:border-stone-400 transition-colors">
+    <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-stone-500">
+      <span>{{ c.sector|default:"general" }}</span>
+      {% if c.gate_verdict %}
+      <span class="rounded px-1.5 py-0.5 {% if c.gate_verdict == 'pass' %}bg-emerald-100 text-emerald-700{% elif c.gate_verdict == 'fail' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ c.gate_verdict }}</span>
+      {% endif %}
+      {% if c.confidence != None %}<span>conf {{ c.confidence }}</span>{% endif %}
+    </div>
+    <h3 class="font-semibold mt-1">{{ c.title|default:"(untitled)" }}</h3>
+    <p class="text-sm text-stone-600 mt-1">{{ c.body|truncatewords:24 }}</p>
+  </a>
+  {% empty %}<p class="text-stone-500">No drafts.</p>{% endfor %}
+</div>
+{% endblock %}

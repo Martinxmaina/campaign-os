@@ -25,3 +25,18 @@ def idea_decide(request, idea_id):
     except Exception:
         pass
     return redirect("console:ideas")
+
+
+@login_required
+def drafts(request):
+    sector = request.GET.get("sector", "")
+    path = f"/content/items?sector={sector}" if sector else "/content/items"
+    data = safe_get(path, default={"items": []})
+    return render(request, "console/drafts.html",
+                  {"items": (data or {}).get("items", []), "down": data is None})
+
+
+@login_required
+def draft_detail(request, content_id):
+    data = safe_get(f"/content/items/{content_id}", default=None)
+    return render(request, "console/draft_detail.html", {"c": data, "down": data is None})

@@ -1,0 +1,23 @@
+{% extends "console/base.html" %}
+{% block console %}
+<h1 class="text-xl font-bold mb-4">AI Approvals</h1>
+{% if down %}{% include "console/_unavailable.html" %}{% endif %}
+<div class="grid gap-3 md:grid-cols-2">
+  {% for a in items %}
+  <div class="border border-stone-200 rounded-lg p-4 bg-white">
+    <div class="text-sm">{{ a.target_type }} · {{ a.target_ref|slice:":8" }} · {{ a.status }}</div>
+    {% if a.status == "pending" %}
+    <form method="post" action="/console/approvals/{{ a.id }}/decide" class="mt-2 space-y-2">
+      {% csrf_token %}
+      <textarea name="edit_text" placeholder="optional edit" class="w-full border rounded px-2 py-1 text-sm"></textarea>
+      <div class="flex gap-2">
+        <button name="decision" value="approve" class="text-sm bg-emerald-600 text-white rounded px-3 py-1">Approve</button>
+        <button name="decision" value="edit" class="text-sm border rounded px-3 py-1">Approve w/ edit</button>
+        <button name="decision" value="reject" class="text-sm border rounded px-3 py-1">Reject</button>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+  {% empty %}<p class="text-stone-500">Nothing pending.</p>{% endfor %}
+</div>
+{% endblock %}

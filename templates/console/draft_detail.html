@@ -1,0 +1,18 @@
+{% extends "console/base.html" %}
+{% block console %}
+<a href="/console/drafts" class="text-sm text-stone-500 hover:text-stone-900">&larr; Drafts</a>
+{% if down or not c %}{% include "console/_unavailable.html" %}{% else %}
+<div class="border border-stone-200 rounded-lg p-6 bg-white mt-3">
+  <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-stone-500">
+    <span>{{ c.sector|default:"general" }}</span>
+    {% if c.gate_verdict %}
+    <span class="rounded px-1.5 py-0.5 {% if c.gate_verdict == 'pass' %}bg-emerald-100 text-emerald-700{% elif c.gate_verdict == 'fail' %}bg-rose-100 text-rose-700{% else %}bg-amber-100 text-amber-700{% endif %}">{{ c.gate_verdict }}</span>
+    {% endif %}
+    {% if c.confidence != None %}<span>conf {{ c.confidence }}</span>{% endif %}
+  </div>
+  <h1 class="text-xl font-bold mt-1">{{ c.title|default:"(untitled)" }}</h1>
+  {% if c.fit_rationale %}<p class="text-sm text-stone-600 mt-2">{{ c.fit_rationale }}</p>{% endif %}
+  <div class="prose prose-sm mt-4 whitespace-pre-wrap text-stone-800">{{ c.body }}</div>
+</div>
+{% endif %}
+{% endblock %}
