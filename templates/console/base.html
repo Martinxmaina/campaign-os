@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Console · WAIIS Dispatch{% endblock %}
+{% block content %}
+<div class="px-1 py-1">
+  <div class="flex flex-wrap gap-4 mb-5 text-sm border-b border-stone-200 pb-2">
+    <a href="/console/ideas" class="text-stone-600 hover:text-stone-900 transition-colors">Ideas</a>
+    <a href="/console/drafts" class="text-stone-600 hover:text-stone-900 transition-colors">Drafts</a>
+    <a href="/console/approvals" class="text-stone-600 hover:text-stone-900 transition-colors">AI Approvals</a>
+    <a href="/console/pipeline" class="text-stone-600 hover:text-stone-900 transition-colors">Pipeline</a>
+    <a href="/console/brain" class="text-stone-600 hover:text-stone-900 transition-colors">Brain</a>
+  </div>
+  {% block console %}{% endblock %}
+</div>
+{% endblock %}

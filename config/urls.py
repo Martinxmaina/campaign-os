@@ -44,6 +44,9 @@ urlpatterns = [
     path("approvals/org/", org_approval_queue, name="org_approval_queue"),
     # WAIIS single-tenant fork: client_portal + onboarding routes removed.
     path("notifications/", include("apps.notifications.urls")),
+    # Intelligence console (Slice G') — server-rendered operator surfaces
+    # backed by agent-service over HTTP. Mounted top-level, login-gated per view.
+    path("console/", include("config.console_urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]
