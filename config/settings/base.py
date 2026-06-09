@@ -454,6 +454,10 @@ STUDIO_BASE_URL = env("STUDIO_BASE_URL", default="")
 # and identified by STUDIO_DEPLOYMENT_ID.
 AGENT_SERVICE_BASE_URL = env("AGENT_SERVICE_BASE_URL", default="")
 
+# Bearer token (JWT for a dedicated 'platform' agent-service user) used by the
+# shared console client (apps/common/agent_client.py) to read/act over HTTP.
+AGENT_SERVICE_TOKEN = env("AGENT_SERVICE_TOKEN", default="")
+
 # agent-service ingest webhook (publish/inbox/analytics events → /ingest).
 # Authenticated with a per-feed key in the X-Ingest-Key header (Phase 0
 # contract), distinct from the HMAC-signed gate-verify path above.
