@@ -26,5 +26,7 @@ urlpatterns = [
     path("notifications", intel_console.notifications, name="notifications"),
     path("notifications/<str:notification_id>/read", intel_console.notification_read, name="notification-read"),
     path("brain", intel_console.brain, name="brain"),
+    path("news", intel_console.news, name="news"),
+    path("news/draft", intel_console.news_draft, name="news-draft"),
     path("graph.json", intel_console.graph_json, name="graph-json"),
 ]

@@ -7,6 +7,7 @@ per-workspace and don't need database storage.
 from urllib.parse import urlsplit
 
 FEED_CATEGORIES = [
+    {"slug": "afcen-africa", "label": "AfCEN / Africa"},
     {"slug": "brightbean-favorites", "label": "Brightbean Favorites"},
     {"slug": "tech", "label": "Tech"},
     {"slug": "news", "label": "News"},
@@ -17,6 +18,39 @@ FEED_CATEGORIES = [
 ]
 
 CURATED_FEEDS = {
+    "afcen-africa": [
+        {"name": "ESI Africa", "website": "https://www.esi-africa.com/", "rss": "https://www.esi-africa.com/feed/"},
+        {"name": "African Business", "website": "https://african.business/", "rss": "https://african.business/feed"},
+        {
+            "name": "Climate Home News",
+            "website": "https://www.climatechangenews.com/",
+            "rss": "https://www.climatechangenews.com/feed/",
+        },
+        {"name": "pv magazine", "website": "https://www.pv-magazine.com/", "rss": "https://www.pv-magazine.com/feed/"},
+        {"name": "Carbon Brief", "website": "https://www.carbonbrief.org/", "rss": "https://www.carbonbrief.org/feed/"},
+        {"name": "TechCabal", "website": "https://techcabal.com/", "rss": "https://techcabal.com/feed/"},
+        {"name": "Disrupt Africa", "website": "https://disruptafrica.com/", "rss": "https://disruptafrica.com/feed/"},
+        {
+            "name": "Rest of World",
+            "website": "https://restofworld.org/",
+            "rss": "https://restofworld.org/feed/latest/",
+        },
+        {
+            "name": "Google News: Africa energy transition",
+            "website": "https://news.google.com/",
+            "rss": "https://news.google.com/rss/search?q=Africa%20energy%20transition&hl=en-US&gl=US&ceid=US:en",
+        },
+        {
+            "name": "Google News: Africa climate",
+            "website": "https://news.google.com/",
+            "rss": "https://news.google.com/rss/search?q=Africa%20climate&hl=en-US&gl=US&ceid=US:en",
+        },
+        {
+            "name": "Google News: Africa artificial intelligence",
+            "website": "https://news.google.com/",
+            "rss": "https://news.google.com/rss/search?q=Africa%20artificial%20intelligence&hl=en-US&gl=US&ceid=US:en",
+        },
+    ],
     "brightbean-favorites": [
         {"name": "Creator Science", "website": "https://creatorscience.com/", "rss": "https://creatorscience.com/rss/"},
         {

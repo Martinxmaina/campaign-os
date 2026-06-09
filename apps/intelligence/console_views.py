@@ -44,3 +44,48 @@ def graph_json(request):
 @login_required
 def brain(request):
     return render(request, "console/brain.html", {})
+
+
+_NEWS_DEFAULT = {"items": [], "counts": {}, "generated_at": None}
+
+
+@login_required
+def news(request):
+    sector = request.GET.get("sector", "")
+    africa = request.GET.get("africa", "")
+    params = []
+    if sector:
+        params.append(f"sector={sector}")
+    if africa:
+        params.append(f"africa={africa}")
+    qs = ("?" + "&".join(params)) if params else ""
+    data = safe_get("/news/digest" + qs, default=dict(_NEWS_DEFAULT))
+    data = data or dict(_NEWS_DEFAULT)
+    return render(
+        request,
+        "console/news.html",
+        {
+            "items": data.get("items", []),
+            "counts": data.get("counts", {}),
+            "generated_at": data.get("generated_at"),
+            "sector": sector or "all",
+            "africa": africa,
+            "down": data is None,
+        },
+    )
+
+
+@login_required
+@require_POST
+def news_draft(request):
+    sector = request.POST.get("sector", "")
+    title = request.POST.get("title", "")
+    summary = request.POST.get("summary", "")
+    link = request.POST.get("link", "")
+    source = request.POST.get("source", "")
+    brief = "\n".join(p for p in [title, summary, f"Source: {source}" if source else "", link] if p)
+    try:
+        agent_post("/agents/herald/draft", {"sector": sector, "brief": brief})
+    except Exception:
+        pass
+    return redirect("console:approvals")

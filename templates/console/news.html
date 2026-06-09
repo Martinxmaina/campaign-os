@@ -1,0 +1,74 @@
+{% extends "console/base.html" %}
+{% block console %}
+<div class="flex items-baseline justify-between mb-3">
+  <h1 class="text-xl font-bold">Recommended for AfCEN</h1>
+  {% if generated_at %}<span class="text-xs text-stone-400">updated {{ generated_at }}</span>{% endif %}
+</div>
+
+{% if down %}
+<div class="mb-4 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+  Couldn't load the news digest from the intelligence service. Showing nothing for now.
+</div>
+{% endif %}
+
+{% comment %} Filter chips: sector + Africa-only toggle. Links set GET params. {% endcomment %}
+<div class="flex flex-wrap items-center gap-2 mb-5 text-sm">
+  <span class="text-stone-400 mr-1">Sector:</span>
+  <a href="?{% if africa %}africa={{ africa }}{% endif %}"
+     class="px-2 py-0.5 rounded-full border {% if sector == 'all' %}bg-stone-800 text-white border-stone-800{% else %}border-stone-300 text-stone-600 hover:border-stone-500{% endif %}">All</a>
+  <a href="?sector=climate{% if africa %}&africa={{ africa }}{% endif %}"
+     class="px-2 py-0.5 rounded-full border {% if sector == 'climate' %}bg-stone-800 text-white border-stone-800{% else %}border-stone-300 text-stone-600 hover:border-stone-500{% endif %}">Climate</a>
+  <a href="?sector=energy{% if africa %}&africa={{ africa }}{% endif %}"
+     class="px-2 py-0.5 rounded-full border {% if sector == 'energy' %}bg-stone-800 text-white border-stone-800{% else %}border-stone-300 text-stone-600 hover:border-stone-500{% endif %}">Energy</a>
+  <a href="?sector=ai{% if africa %}&africa={{ africa }}{% endif %}"
+     class="px-2 py-0.5 rounded-full border {% if sector == 'ai' %}bg-stone-800 text-white border-stone-800{% else %}border-stone-300 text-stone-600 hover:border-stone-500{% endif %}">AI</a>
+
+  <span class="ml-3">
+    {% if africa == 'true' %}
+    <a href="?{% if sector and sector != 'all' %}sector={{ sector }}{% endif %}"
+       class="px-2 py-0.5 rounded-full border bg-emerald-600 text-white border-emerald-600">🌍 Africa only ✓</a>
+    {% else %}
+    <a href="?{% if sector and sector != 'all' %}sector={{ sector }}&{% endif %}africa=true"
+       class="px-2 py-0.5 rounded-full border border-stone-300 text-stone-600 hover:border-emerald-500">🌍 Africa only</a>
+    {% endif %}
+  </span>
+</div>
+
+{% if items %}
+<div class="space-y-3">
+  {% for it in items %}
+  <article class="rounded-lg border border-stone-200 p-4">
+    <div class="flex flex-wrap items-center gap-2 mb-1">
+      <span class="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 uppercase">{{ it.sector }}</span>
+      {% if it.africa %}<span class="px-2 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-800">🌍 Africa</span>{% endif %}
+      <span class="text-xs text-stone-500">score {{ it.score }}</span>
+      <span class="text-xs text-stone-400">· {{ it.source }}</span>
+      {% if it.published_at %}<span class="text-xs text-stone-400">· {{ it.published_at }}</span>{% endif %}
+    </div>
+    <h2 class="font-semibold text-stone-900">{{ it.title }}</h2>
+    {% if it.summary %}<p class="text-sm text-stone-600 mt-1">{{ it.summary }}</p>{% endif %}
+    {% if it.rationale %}<p class="text-xs text-stone-500 italic mt-2">Why: {{ it.rationale }}</p>{% endif %}
+    <div class="flex items-center gap-3 mt-3">
+      <a href="{{ it.link }}" target="_blank" rel="noopener noreferrer"
+         class="text-sm text-blue-600 hover:underline">View source ↗</a>
+      <form method="post" action="{% url 'console:news-draft' %}" class="inline">
+        {% csrf_token %}
+        <input type="hidden" name="sector" value="{{ it.sector }}">
+        <input type="hidden" name="title" value="{{ it.title }}">
+        <input type="hidden" name="summary" value="{{ it.summary }}">
+        <input type="hidden" name="link" value="{{ it.link }}">
+        <input type="hidden" name="source" value="{{ it.source }}">
+        <button type="submit"
+                class="text-sm px-3 py-1 rounded bg-stone-800 text-white hover:bg-stone-700">Draft with HERALD</button>
+      </form>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% else %}
+<div class="rounded-lg border border-dashed border-stone-300 p-8 text-center text-stone-500">
+  <p class="font-medium">No recommendations yet.</p>
+  <p class="text-sm mt-1">The daily curation run hasn't surfaced any matching stories for this filter.</p>
+</div>
+{% endif %}
+{% endblock %}
