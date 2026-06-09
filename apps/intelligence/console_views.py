@@ -1,5 +1,6 @@
 """Agent-service-backed console: pipeline, notifications, brain (Slice G')."""
 from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -32,3 +33,14 @@ def notification_read(request, notification_id):
     except Exception:
         pass
     return redirect("console:notifications")
+
+
+@login_required
+def graph_json(request):
+    data = safe_get("/graph", default={"nodes": [], "edges": []})
+    return JsonResponse(data or {"nodes": [], "edges": []})
+
+
+@login_required
+def brain(request):
+    return render(request, "console/brain.html", {})

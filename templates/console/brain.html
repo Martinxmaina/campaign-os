@@ -1,0 +1,18 @@
+{% extends "console/base.html" %}
+{% load static %}
+{% block console %}
+<h1 class="text-xl font-bold mb-2">The Brain</h1>
+<div id="graph" style="height:calc(100vh - 12rem); border:1px solid #e7e5e4; border-radius:8px;"></div>
+<script nonce="{{ request.csp_nonce }}" src="{% static 'vendor/force-graph.min.js' %}"></script>
+<script nonce="{{ request.csp_nonce }}">
+  const COLORS = { wiki:'#2563eb', sector:'#16a34a', agent:'#9333ea', content:'#ea580c', source:'#64748b' };
+  fetch('/console/graph.json').then(r => r.json()).then(g => {
+    const data = { nodes: g.nodes, links: g.edges };
+    ForceGraph()(document.getElementById('graph'))
+      .graphData(data)
+      .nodeLabel(n => n.type + ': ' + n.label)
+      .nodeColor(n => COLORS[n.type] || '#999')
+      .linkColor(() => 'rgba(120,113,108,0.25)');
+  });
+</script>
+{% endblock %}

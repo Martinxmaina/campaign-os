@@ -25,5 +25,6 @@ urlpatterns = [
     path("pipeline", intel_console.pipeline, name="pipeline"),
     path("notifications", intel_console.notifications, name="notifications"),
     path("notifications/<str:notification_id>/read", intel_console.notification_read, name="notification-read"),
-    # brain/graph.json added in G'6
+    path("brain", intel_console.brain, name="brain"),
+    path("graph.json", intel_console.graph_json, name="graph-json"),
 ]
