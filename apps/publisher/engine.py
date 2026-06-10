@@ -646,7 +646,12 @@ class PublishEngine:
         )
 
     def _process_retries(self):
-        """Process platform posts that are due for retry."""
+        """Process platform posts that are due for retry.
+
+        Uses an atomic status flip (UPDATE WHERE status=SCHEDULED) before
+        calling the network publisher.  If two cycles race, only one UPDATE
+        will match; the other gets 0 rows and skips, preventing double-publish.
+        """
         now = timezone.now()
         retry_posts = PlatformPost.objects.filter(
             status=PlatformPost.Status.SCHEDULED,
@@ -657,8 +662,20 @@ class PublishEngine:
 
         for pp in retry_posts:
             try:
-                pp.status = PlatformPost.Status.PUBLISHING
-                pp.save(update_fields=["status", "updated_at"])
+                # Atomic claim: only proceed if this cycle wins the race.
+                claimed = PlatformPost.objects.filter(
+                    status=PlatformPost.Status.SCHEDULED,
+                    id=pp.id,
+                ).update(status=PlatformPost.Status.PUBLISHING)
+                if not claimed:
+                    # Another concurrent cycle already claimed this row; skip.
+                    logger.debug(
+                        "PlatformPost %s already claimed by another cycle; skipping",
+                        pp.id,
+                    )
+                    continue
+                # Refresh from DB so pp.status reflects the committed update.
+                pp.refresh_from_db(fields=["status"])
                 result = self._publish_platform_post(pp)
                 if result.get("success"):
                     self._sync_parent_published_at(pp.post)
