@@ -7,5 +7,8 @@ register recurring work. Entries are filled in as tasks are migrated
 from celery.schedules import schedule
 
 BEAT_SCHEDULE: dict = {
-    # filled in by later tasks
+    "sweep-stale-idempotency": {
+        "task": "apps.api.tasks.sweep_stale_idempotency_records",
+        "schedule": schedule(run_every=3600),  # hourly
+    },
 }
