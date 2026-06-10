@@ -22,7 +22,7 @@ Three recurring/triggered tasks:
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from celery import shared_task
 from django.core.cache import cache
@@ -308,6 +308,64 @@ def _apply_reconcile_update(sub: IntelligenceSubscription, remote: dict):
         for k, v in updates.items():
             setattr(sub, k, v)
         sub.save(update_fields=list(updates) + ["updated_at"])
+
+
+# ---------------------------------------------------------------------------
+# Durability sweep: re-enqueue stranded PendingActivation rows
+# ---------------------------------------------------------------------------
+
+#: After this many seconds without an update, a PENDING or IN_PROGRESS row is
+#: considered stranded (broker message was lost or .delay() threw at enqueue
+#: time).  The backoff ladder tops out at 3600 s (1 h), so anything silent for
+#: longer than 2 h is safely re-triggerable without risk of double-processing —
+#: the worker is idempotent and status-gated (accepts PENDING/IN_PROGRESS,
+#: skips terminal rows).
+_PENDING_ACTIVATION_STALE_SECONDS = 7200  # 2 h
+
+
+@shared_task
+def sweep_stale_pending_activations():
+    """Hourly durability net for the paid-activation worker path.
+
+    ``provision_intelligence_account_via_session`` is enqueued as a Redis-only
+    Celery message (no Postgres persistence).  If the broker loses the message
+    — Redis restart / eviction during the up-to-1 h countdown window — or
+    ``.delay()`` raises at enqueue time, the ``PendingActivation`` row is
+    stranded in PENDING forever: ``finalizing_status`` polls indefinitely and
+    ``reconcile_intelligence_subscriptions`` only covers ``IntelligenceSubscription``
+    rows, not ``PendingActivation``.
+
+    This sweep re-enqueues any PENDING or IN_PROGRESS row whose ``updated_at``
+    has not moved for ``_PENDING_ACTIVATION_STALE_SECONDS`` (default 2 h).
+    The worker itself is idempotent: it claims the row with
+    ``select_for_update``, skips terminal states, and increments ``attempts``
+    only on entry, so double-delivery is benign.
+
+    Consistent with the established ``sweep_scheduled_org_deletions`` pattern
+    (commit 0061ffa).
+    """
+    cutoff = timezone.now() - timedelta(seconds=_PENDING_ACTIVATION_STALE_SECONDS)
+    stale = PendingActivation.objects.filter(
+        status__in=[
+            PendingActivation.Status.PENDING,
+            PendingActivation.Status.IN_PROGRESS,
+        ],
+        updated_at__lte=cutoff,
+    )
+    count = 0
+    for row in stale:
+        provision_intelligence_account_via_session.delay(str(row.id))
+        logger.info(
+            "sweep_stale_pending_activations: re-enqueued pending %s (status=%s attempts=%s)",
+            row.id,
+            row.status,
+            row.attempts,
+        )
+        count += 1
+    if count:
+        logger.info("sweep_stale_pending_activations: re-enqueued %d row(s)", count)
+    else:
+        logger.debug("sweep_stale_pending_activations: no stale rows found")
 
 
 # ---------------------------------------------------------------------------

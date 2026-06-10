@@ -41,4 +41,16 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.organizations.tasks.sweep_scheduled_org_deletions",
         "schedule": schedule(run_every=86400),  # daily
     },
+    "sweep-stale-pending-activations": {
+        # Durability net for the paid-activation worker path.
+        # provision_intelligence_account_via_session is enqueued as a
+        # Redis-only Celery message; a broker restart / eviction during
+        # the up-to-1 h countdown window silently strands the
+        # PendingActivation row in PENDING forever.  This hourly sweep
+        # re-enqueues any PENDING/IN_PROGRESS row not updated within 2 h.
+        # The worker is idempotent and status-gated, so double-delivery
+        # is safe.  Consistent with sweep_scheduled_org_deletions pattern.
+        "task": "apps.intelligence.tasks.sweep_stale_pending_activations",
+        "schedule": schedule(run_every=3600),  # hourly
+    },
 }
