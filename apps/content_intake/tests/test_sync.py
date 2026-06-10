@@ -171,3 +171,10 @@ def test_sync_creates_unblock_conditions(workspace):
         "'verify source before posting' note"
     )
     assert source_cond.first().status == "open"
+
+
+def test_column_part_extracts_columns():
+    from apps.content_intake.sheets_sync import _column_part
+    assert _column_part("Sheet1!A:P") == "A:P"
+    assert _column_part("'My Tab — v2'!A:P") == "A:P"
+    assert _column_part("A:P") == "A:P"

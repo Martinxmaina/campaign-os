@@ -110,11 +110,35 @@ def _build_credentials():
     return None
 
 
+def _column_part(sheet_range: str) -> str:
+    """Return the column portion of an A1 range (e.g. 'Tab'!A:P -> A:P)."""
+    if "!" in sheet_range:
+        return sheet_range.rsplit("!", 1)[1]
+    return sheet_range or "A:P"
+
+
+def _first_tab_title(service, sheet_id: str) -> str | None:
+    """Return the title of the first tab in the spreadsheet, or None."""
+    try:
+        meta = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
+        sheets = meta.get("sheets", [])
+        if sheets:
+            return sheets[0].get("properties", {}).get("title")
+    except Exception:
+        logger.exception("Failed to read spreadsheet metadata id=%s", sheet_id)
+    return None
+
+
 def _get_sheet_rows(sheet_id: str, sheet_range: str) -> list[list[str]]:
     """Fetch raw rows from a Google Sheet.
 
     Returns an empty list when no credentials are configured
     (tests and local dev without credentials get a no-op sync).
+
+    Resilient to tab-name drift: if the configured range's tab does not
+    exist (HTTP 400 "Unable to parse range"), the actual first tab title
+    is auto-detected and the same column span is retried. This means the
+    team can rename the tab without a config change.
 
     The first row returned by the Sheets API is the header; callers must
     skip row 0.
@@ -124,17 +148,34 @@ def _get_sheet_rows(sheet_id: str, sheet_range: str) -> list[list[str]]:
         logger.debug("No Google Sheets credentials configured — skipping fetch")
         return []
 
-    try:
-        from googleapiclient.discovery import build
-        service = build("sheets", "v4", credentials=creds, cache_discovery=False)
-        result = (
-            service.spreadsheets()
-            .values()
-            .get(spreadsheetId=sheet_id, range=sheet_range)
+    from googleapiclient.discovery import build
+    service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+
+    def _fetch(rng: str) -> list[list[str]]:
+        return (
+            service.spreadsheets().values()
+            .get(spreadsheetId=sheet_id, range=rng)
             .execute()
-        )
-        return result.get("values", [])
-    except Exception:
+        ).get("values", [])
+
+    try:
+        return _fetch(sheet_range)
+    except Exception as first_exc:
+        # Tab name likely doesn't match — auto-detect the real first tab.
+        title = _first_tab_title(service, sheet_id)
+        if title:
+            cols = _column_part(sheet_range)
+            retry_range = f"'{title}'!{cols}"
+            try:
+                rows = _fetch(retry_range)
+                logger.info(
+                    "Sheets range auto-corrected to %s (configured %s failed)",
+                    retry_range, sheet_range,
+                )
+                return rows
+            except Exception:
+                logger.exception("Auto-corrected range %s also failed", retry_range)
+                return []
         logger.exception("Failed to fetch Google Sheet id=%s range=%s", sheet_id, sheet_range)
         return []
 
