@@ -131,15 +131,36 @@ publisher and be dispatched.
 
 ---
 
-## Already done (no action needed)
+## Procrastinate
 
-| Capability | Location | Status |
-|---|---|---|
-| Redis cache | `config/settings/base.py:131` — `django.core.cache.backends.redis.RedisCache` | Live |
-| Celery broker + result backend | `config/celery.py` — `campaign_os` app, Redis URL | Live |
-| Celery Beat heartbeat | `jobs/schedules.py` — `beat-heartbeat` every 60 s | Live |
-| Celery Beat publish cycle | `jobs/schedules.py` — `publish-cycle` every 15 s | Live |
-| X / Twitter provider | `providers/twitter.py` — X API v2 manage-Tweets, OAuth2 user-context | Live (text; media upload deferred until creds available) |
-| Approval gate chokepoint | `apps/publisher/engine.py:194-198` — every `PlatformPost` blocked before dispatch | Live |
-| HMAC gate-verify client | `apps/publisher/gate_client.py` | Live |
-| Agent-service gate endpoint | `agent-service /gate/verify/{id}` | Live (deployed to Railway) |
+Not installed; Celery + Redis already in place. No migration needed. ✅
+
+---
+
+## Redis + Celery
+
+Fully wired:
+
+| Component | Location |
+|---|---|
+| Redis cache | `config/settings/base.py:131` — `django.core.cache.backends.redis.RedisCache` |
+| Celery broker + result backend | `config/celery.py` — `campaign_os` app, Redis URL |
+| Celery Beat publish cycle | `jobs/schedules.py` — `publish-cycle` every 15 s |
+
+---
+
+## Beat heartbeat
+
+`jobs/tasks.beat_heartbeat` registered in `BEAT_SCHEDULE` (`jobs/schedules.py` — `beat-heartbeat` every 60 s). ✅
+
+---
+
+## X/Twitter derivation
+
+`providers/twitter.py` exists — X API v2 manage-Tweets, OAuth2 user-context; live for text posts. Daily derive job not wired (Task 20). Media upload deferred until credentials available.
+
+---
+
+## Media/first_comment binding in gate hash
+
+Deferred from Phase 1. Implement in Task 10.
