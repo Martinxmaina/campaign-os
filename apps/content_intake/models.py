@@ -138,6 +138,16 @@ class ContentIntake(models.Model):
         related_name="intake_source",
     )
 
+    # HERALD drafting linkage (agent-service content_item)
+    herald_content_id = models.CharField(
+        max_length=64, blank=True, default="",
+        help_text="agent-service content_item id produced by HERALD from this intake.",
+    )
+    herald_drafted_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="When HERALD last drafted this item (idempotency guard).",
+    )
+
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

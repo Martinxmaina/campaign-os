@@ -274,3 +274,15 @@ def test_proof_status_defaults_to_tbd(workspace):
         status=ContentIntake.Status.IDEA,
     )
     assert intake.proof_status == ContentIntake.ProofStatus.TBD
+
+
+@pytest.mark.django_db
+def test_herald_link_fields_default_empty(workspace):
+    from apps.content_intake.models import ContentIntake
+    item = ContentIntake.objects.create(
+        workspace=workspace, external_id="HL-1",
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
+        status=ContentIntake.Status.ACCEPTED,
+    )
+    assert item.herald_content_id == ""
+    assert item.herald_drafted_at is None
