@@ -44,6 +44,8 @@ dependencies = [
     "factory-boy>=3.3,<4.0",
     # Monitoring
     "sentry-sdk[django]>=2.13,<3.0",
+    "google-api-python-client>=2.197.0",
+    "google-auth>=2.53.0",
 ]
 
 [tool.ruff]

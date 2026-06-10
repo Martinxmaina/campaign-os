@@ -53,4 +53,16 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.intelligence.tasks.sweep_stale_pending_activations",
         "schedule": schedule(run_every=3600),  # hourly
     },
+    "intake-sheets-sync": {
+        # Pull content-planning register from Google Sheets every 15 minutes.
+        # No-ops when CONTENT_INTAKE_SHEET_ID is not configured.
+        "task": "apps.content_intake.tasks.sync_all_intake_sheets",
+        "schedule": schedule(run_every=900),  # 15 min
+    },
+    "calendar-gap-scan": {
+        # Scan all active workspaces for 14-day calendar gaps once per day.
+        # Results are cached and surfaced to HERALD / the intake board.
+        "task": "apps.content_intake.tasks.run_calendar_gap_scan",
+        "schedule": schedule(run_every=86400),  # daily
+    },
 }
