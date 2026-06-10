@@ -4,6 +4,8 @@ import pytest
 from django.urls import reverse
 
 from apps.content_intake.models import ContentIntake, UnblockCondition
+from apps.organizations.models import Organization
+from apps.workspaces.models import Workspace
 
 
 # ---------------------------------------------------------------------------
@@ -137,3 +139,88 @@ def test_close_condition_marks_closed(authenticated_client, intake_item):
     assert condition.evidence_note == "Verified via email"
     assert condition.closed_by is not None
     assert condition.closed_at is not None
+
+
+@pytest.mark.django_db
+def test_intake_board_invalid_status_filter_ignored(authenticated_client, intake_item):
+    """An invalid ?status= value must not filter results — it is silently ignored.
+
+    Previously the unsanitized string was passed directly to the ORM, returning
+    an empty queryset without any error, and exposing status enum names as an
+    oracle. After the fix, unrecognised values are discarded and all items are
+    returned.
+    """
+    url = reverse("content_intake:board")
+    response = authenticated_client.get(url + "?status=__invalid__")
+    assert response.status_code == 200
+    # The intake_item should still appear because the filter was discarded.
+    assert intake_item.angle.encode() in response.content
+
+
+@pytest.mark.django_db
+def test_close_condition_cross_workspace_isolation(client, db, workspace):
+    """A user authenticated in workspace A must not be able to close a condition
+    belonging to workspace B (cross-tenant isolation).
+
+    The ``intake__workspace=request.workspace`` guard in get_object_or_404 is
+    the only line of defence; this test verifies it is effective.
+    """
+    from django.utils import timezone
+
+    from apps.accounts.models import User
+    from apps.members.models import OrgMembership, WorkspaceMembership
+
+    # --- workspace A setup (the client's workspace) ---
+    user_a = User.objects.create_user(
+        email="user_a@example.com",
+        password="testpass123",
+        name="User A",
+        tos_accepted_at=timezone.now(),
+    )
+    OrgMembership.objects.create(
+        user=user_a,
+        organization=workspace.organization,
+        org_role=OrgMembership.OrgRole.OWNER,
+    )
+    WorkspaceMembership.objects.create(
+        user=user_a,
+        workspace=workspace,
+        workspace_role="manager",
+    )
+    user_a.last_workspace_id = workspace.id
+    user_a.save(update_fields=["last_workspace_id"])
+
+    # --- workspace B setup (a completely separate tenant) ---
+    org_b = Organization.objects.create(name="Other Org")
+    workspace_b = Workspace.objects.create(organization=org_b, name="Other WS")
+
+    intake_b = ContentIntake.objects.create(
+        workspace=workspace_b,
+        external_id="ROW-B01",
+        pillar_theme="Other Theme",
+        angle="Should not be accessible",
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
+        status=ContentIntake.Status.ACCEPTED,
+    )
+    condition_b = UnblockCondition.objects.create(
+        intake=intake_b,
+        condition_type=UnblockCondition.ConditionType.SOURCE_VERIFICATION,
+        description="Workspace B condition",
+        status=UnblockCondition.ConditionStatus.OPEN,
+    )
+
+    # Log in as user_a (scoped to workspace A) and try to close workspace B's condition.
+    client.force_login(user_a)
+    url = reverse(
+        "content_intake:close_condition",
+        kwargs={"condition_pk": condition_b.pk},
+    )
+    response = client.post(url, {"evidence_note": "Cross-tenant attack"})
+
+    # The request.workspace (workspace A) does not match condition_b's workspace,
+    # so get_object_or_404 must return 404.
+    assert response.status_code == 404
+
+    # Verify the condition was NOT mutated.
+    condition_b.refresh_from_db()
+    assert condition_b.status == UnblockCondition.ConditionStatus.OPEN

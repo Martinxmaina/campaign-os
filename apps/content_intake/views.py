@@ -1,5 +1,6 @@
 """Intake board views."""
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -28,7 +29,10 @@ def board(request):
     owner_filter = request.GET.get("owner", "")
 
     if status_filter:
-        qs = qs.filter(status=status_filter)
+        if status_filter not in ContentIntake.Status.values:
+            status_filter = ""
+        else:
+            qs = qs.filter(status=status_filter)
     if pillar_filter:
         qs = qs.filter(pillar_theme__icontains=pillar_filter)
     if owner_filter:
@@ -54,6 +58,13 @@ def board(request):
 @login_required
 @require_POST
 def close_condition(request, condition_pk):
+    # Guard: workspace must be resolved by RBAC middleware before proceeding.
+    # Without this check, a misconfigured middleware (no last_workspace_id, no
+    # workspace URL kwarg) would silently return 404 instead of 403, masking
+    # the misconfiguration.
+    if request.workspace is None:
+        raise PermissionDenied("No workspace context resolved for this request.")
+
     condition = get_object_or_404(UnblockCondition, pk=condition_pk,
                                    intake__workspace=request.workspace)
     evidence = request.POST.get("evidence_note", "").strip()
@@ -64,8 +75,14 @@ def close_condition(request, condition_pk):
     condition.save(update_fields=["status", "evidence_note", "closed_by", "closed_at", "updated_at"])
 
     if request.headers.get("HX-Request"):
+        # Prefetch unblock_conditions to avoid an N+1 query when the checklist
+        # partial renders condition.intake.unblock_conditions.all().
+        intake = (
+            ContentIntake.objects.prefetch_related("unblock_conditions")
+            .get(pk=condition.intake_id)
+        )
         return render(request, "content_intake/_condition_checklist.html", {
-            "conditions": condition.intake.unblock_conditions.all(),
-            "intake": condition.intake,
+            "conditions": intake.unblock_conditions.all(),
+            "intake": intake,
         })
     return HttpResponse(status=204)
