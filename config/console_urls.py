@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
-from django.urls import path
+from django.urls import include, path
 
 from apps.composer import console_views as composer_console
 from apps.approvals import console_views as approvals_console
@@ -29,4 +29,6 @@ urlpatterns = [
     path("news", intel_console.news, name="news"),
     path("news/draft", intel_console.news_draft, name="news-draft"),
     path("graph.json", intel_console.graph_json, name="graph-json"),
+    # Content Intake board (T9)
+    path("", include("apps.content_intake.urls")),
 ]

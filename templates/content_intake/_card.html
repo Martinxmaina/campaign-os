@@ -1,0 +1,27 @@
+{% load i18n %}
+<div class="border border-stone-200 rounded-lg p-4 bg-white">
+  <div class="flex items-center gap-2 mb-2">
+    <span class="text-[11px] uppercase tracking-wider text-stone-500 font-mono">{{ item.external_id }}</span>
+    <span class="text-[11px] uppercase tracking-wider text-stone-500">·</span>
+    <span class="text-[11px] uppercase tracking-wider text-stone-500">{{ item.get_status_display }}</span>
+
+    {% if item.sensitivity == "public_safe" %}
+      <span class="ml-auto text-[10px] uppercase tracking-wide bg-emerald-100 text-emerald-800 rounded px-2 py-0.5">public</span>
+    {% elif item.sensitivity == "partner_only" %}
+      <span class="ml-auto text-[10px] uppercase tracking-wide bg-blue-100 text-blue-800 rounded px-2 py-0.5">partner</span>
+    {% elif item.sensitivity == "private_hold" %}
+      <span class="ml-auto text-[10px] uppercase tracking-wide bg-amber-100 text-amber-800 rounded px-2 py-0.5">private hold</span>
+    {% elif item.sensitivity == "confidential" %}
+      <span class="ml-auto text-[10px] uppercase tracking-wide bg-red-100 text-red-800 rounded px-2 py-0.5">confidential</span>
+    {% else %}
+      <span class="ml-auto text-[10px] uppercase tracking-wide bg-stone-100 text-stone-600 rounded px-2 py-0.5">{{ item.sensitivity }}</span>
+    {% endif %}
+  </div>
+
+  <h3 class="font-semibold text-stone-900">{{ item.pillar_theme|default:"(no pillar)" }}</h3>
+  {% if item.angle %}
+  <p class="text-sm text-stone-600 mt-1">{{ item.angle }}</p>
+  {% endif %}
+
+  {% include "content_intake/_condition_checklist.html" with intake=item conditions=item.unblock_conditions.all %}
+</div>
