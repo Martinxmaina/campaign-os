@@ -25,7 +25,32 @@ services:
     name: brightbean-worker
     runtime: docker
     dockerfilePath: ./Dockerfile
-    dockerCommand: python manage.py process_tasks
+    dockerCommand: celery -A config worker -l info --concurrency 2
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: SECRET_KEY
+        fromService:
+          name: brightbean-web
+          type: web
+          envVarKey: SECRET_KEY
+      - key: ENCRYPTION_KEY_SALT
+        fromService:
+          name: brightbean-web
+          type: web
+          envVarKey: ENCRYPTION_KEY_SALT
+      - key: DATABASE_URL
+        fromDatabase:
+          name: brightbean-db
+          property: connectionString
+      - key: STORAGE_BACKEND
+        value: s3
+
+  - type: worker
+    name: brightbean-beat
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: celery -A config beat -l info
     envVars:
       - key: DJANGO_SETTINGS_MODULE
         value: config.settings.production

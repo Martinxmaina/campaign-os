@@ -3,8 +3,8 @@
 Usage:
     python manage.py run_approval_reminders
 
-This runs the reminder check once. Schedule it via cron or process_tasks
-for periodic execution (recommended: every hour).
+This runs the reminder check once. Schedule it via cron or a Celery beat
+entry for periodic execution (recommended: every hour).
 """
 
 from django.core.management.base import BaseCommand

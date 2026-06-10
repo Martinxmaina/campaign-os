@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
-from background_task import background
+from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 from django.db.models.functions import Coalesce
@@ -235,7 +235,7 @@ class PublishEngine:
                 continue
             comment_text = pp.effective_first_comment
             if comment_text:
-                _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
+                _post_first_comment_task.apply_async(args=[str(pp.id)], countdown=FIRST_COMMENT_DELAY)
 
     def _gate_failure_reason(self, platform_post) -> str | None:
         """Verify the approval gate for a PlatformPost.
@@ -701,7 +701,7 @@ class PublishEngine:
 Publisher = PublishEngine
 
 
-@background(schedule=0)
+@shared_task
 def _post_first_comment_task(platform_post_id):
     """Post the first comment as a background task (avoids blocking the publisher thread)."""
     try:

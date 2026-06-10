@@ -167,7 +167,7 @@ def upload(
     # defaults.
     from apps.media_library.tasks import process_media_asset
 
-    process_media_asset(str(asset.id))
+    process_media_asset.delay(str(asset.id))
 
     body = MediaAssetResponse.from_asset(asset)
     status_code = 201

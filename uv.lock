@@ -462,19 +462,6 @@ socialaccount = [
 ]
 
 [[package]]
-name = "django-background-tasks"
-version = "1.2.8"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "django" },
-    { name = "six" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/dd/e3/d2c442305e922912f68fa157f92bec6661c150110bdce62c3bac58c62931/django_background_tasks-1.2.8.tar.gz", hash = "sha256:1ed5816f8d60f0ed436cd0435405e55e7b91e825fd69bcdada2d605ee1a97056", size = 21287, upload-time = "2024-08-16T14:39:21.56Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/ba/e8d45c180bbc2eb98d461db1931d53ed6786a294f0cc3847b22b6de22ff5/django_background_tasks-1.2.8-py3-none-any.whl", hash = "sha256:266b64316e364771afc3af73ae4c3e75f16782aa69e36c9e71d289cfd241347f", size = 25154, upload-time = "2024-08-16T14:39:20.227Z" },
-]
-
-[[package]]
 name = "django-browser-reload"
 version = "1.21.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1515,7 +1502,6 @@ dependencies = [
     { name = "cryptography" },
     { name = "django" },
     { name = "django-allauth", extra = ["socialaccount"] },
-    { name = "django-background-tasks" },
     { name = "django-csp" },
     { name = "django-environ" },
     { name = "django-htmx" },
@@ -1549,7 +1535,6 @@ requires-dist = [
     { name = "cryptography", specifier = ">=43.0,<44.0" },
     { name = "django", specifier = ">=5.1,<5.2" },
     { name = "django-allauth", extras = ["socialaccount"], specifier = ">=65.0,<66.0" },
-    { name = "django-background-tasks", specifier = ">=1.2,<2.0" },
     { name = "django-csp", specifier = ">=3.8,<4.0" },
     { name = "django-environ", specifier = ">=0.11,<1.0" },
     { name = "django-htmx", specifier = ">=1.19,<2.0" },

@@ -27,8 +27,8 @@ def enqueue_analytics_backfill(sender, instance: SocialAccount, created: bool, u
             return
     if instance.connection_status != SocialAccount.ConnectionStatus.CONNECTED:
         return
-    # Import inside the handler so AppConfig.ready() doesn't pull in
-    # background_task before the apps registry is fully loaded.
+    # Import inside the handler so AppConfig.ready() doesn't pull in the
+    # tasks module before the apps registry is fully loaded.
     from .tasks import backfill_account_analytics
 
-    backfill_account_analytics(str(instance.id))
+    backfill_account_analytics.delay(str(instance.id))

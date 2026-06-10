@@ -31,7 +31,8 @@ RUN DJANGO_SETTINGS_MODULE=config.settings.production \
 
 EXPOSE 8000
 
-# One image, two roles (PROCESS_TYPE=web|worker). web runs migrate + gunicorn; worker runs process_tasks.
+# One image, three roles (PROCESS_TYPE=web|worker|beat). web runs migrate + gunicorn;
+# worker runs the celery worker; beat runs the celery beat scheduler.
 ENV DJANGO_SETTINGS_MODULE=config.settings.production
 RUN chmod +x docker-entrypoint.sh
 CMD ["./docker-entrypoint.sh"]
