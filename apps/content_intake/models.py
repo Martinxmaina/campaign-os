@@ -70,7 +70,7 @@ class ContentIntake(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="submitted_intakes",
+        related_name="submitted_intake_items",
     )
     submitted_by_raw = models.CharField(max_length=255, blank=True, default="")
 
@@ -96,8 +96,7 @@ class ContentIntake(models.Model):
     priority = models.CharField(
         max_length=1,
         choices=Priority.choices,
-        blank=True,
-        default="",
+        default=Priority.MEDIUM,
     )
     status = models.CharField(
         max_length=20,
@@ -112,7 +111,7 @@ class ContentIntake(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="owned_intakes",
+        related_name="owned_intake_items",
     )
     owner_raw = models.CharField(max_length=255, blank=True, default="")
 
@@ -126,7 +125,7 @@ class ContentIntake(models.Model):
 
     # Sync tracking
     last_synced_at = models.DateTimeField(null=True, blank=True)
-    sync_error = models.CharField(max_length=500, blank=True, default="")
+    sync_error = models.TextField(blank=True, default="")
 
     # Linked composer post (set once a draft has been created)
     post = models.ForeignKey(
@@ -262,7 +261,7 @@ class IntakeReviewItem(models.Model):
         related_name="intake_review_items",
     )
     external_id = models.CharField(max_length=100, blank=True, default="")
-    raw_row = models.JSONField(default=dict)
+    raw_row = models.JSONField(help_text="Original row data from Sheets")
     reason = models.CharField(
         max_length=30,
         choices=ReviewReason.choices,
