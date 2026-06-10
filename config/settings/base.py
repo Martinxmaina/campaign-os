@@ -436,6 +436,11 @@ else:
     # via `_is_oidc_mode` if it ever sees an empty credentials dict.
     _LINKEDIN_PERSONAL_CREDENTIALS = {"client_id": "", "client_secret": ""}
 
+_TWITTER_CREDENTIALS = {
+    "client_id": env("PLATFORM_TWITTER_CLIENT_ID", default=""),
+    "client_secret": env("PLATFORM_TWITTER_CLIENT_SECRET", default=""),
+}
+
 PLATFORM_CREDENTIALS_FROM_ENV = {
     # Meta platforms - Facebook, Instagram, and Threads share the same app
     "facebook": _META_CREDENTIALS,
@@ -451,6 +456,8 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
     "linkedin_company": _LINKEDIN_COMPANY_CREDENTIALS,
     # Google platform - YouTube OAuth client
     "youtube": _GOOGLE_CREDENTIALS,
+    # X/Twitter OAuth 2.0 client
+    "twitter": _TWITTER_CREDENTIALS,
 }
 
 # Webhook verification
