@@ -16,6 +16,9 @@
   "addons": [
     {
       "plan": "heroku-postgresql:essential-0"
+    },
+    {
+      "plan": "heroku-redis:mini"
     }
   ],
   "env": {

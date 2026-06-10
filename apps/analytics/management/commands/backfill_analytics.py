@@ -34,9 +34,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         if opts["sync_cron"]:
-            self.stdout.write("Running sync_all_account_analytics …")
-            sync_all_account_analytics()
-            self.stdout.write(self.style.SUCCESS("Done."))
+            self.stdout.write("Queuing sync_all_account_analytics …")
+            sync_all_account_analytics.delay()
+            self.stdout.write(self.style.SUCCESS("Queued."))
             return
 
         enabled = set(AnalyticsPlatformConfig.enabled_platforms())
@@ -49,7 +49,7 @@ class Command(BaseCommand):
                 raise CommandError(
                     f"Platform {account.platform!r} is disabled in AnalyticsPlatformConfig — backfill skipped.",
                 )
-            backfill_account_analytics(str(account.id), days=opts["days"])
+            backfill_account_analytics.delay(str(account.id), days=opts["days"])
             self.stdout.write(self.style.SUCCESS(f"Queued backfill for {account.account_name} ({account.platform})."))
             return
 
@@ -60,6 +60,6 @@ class Command(BaseCommand):
             )
         )
         for account in accounts:
-            backfill_account_analytics(str(account.id), days=opts["days"])
+            backfill_account_analytics.delay(str(account.id), days=opts["days"])
             self.stdout.write(f"  · queued {account.account_name} ({account.platform})")
         self.stdout.write(self.style.SUCCESS(f"Queued {len(accounts)} account(s)."))

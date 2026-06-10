@@ -25,4 +25,9 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings.development")
 
 app = Celery("campaign_os")
 app.config_from_object("django.conf:settings", namespace="CELERY")
+# Autodiscover task modules of every INSTALLED_APP, plus the infra-level
+# ``jobs`` package (which is NOT a Django app, so the default
+# INSTALLED_APPS scan would never import jobs.tasks and the beat
+# heartbeat would be dispatched but never registered with the worker).
 app.autodiscover_tasks()
+app.autodiscover_tasks(["jobs"])

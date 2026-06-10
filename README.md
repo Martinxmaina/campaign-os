@@ -216,10 +216,16 @@ source .venv/bin/activate
 python manage.py runserver
 ```
 
-Tab 3 - Background worker:
+Tab 3 - Celery worker (requires a running Redis; set `REDIS_URL`):
 ```bash
 source .venv/bin/activate
-python manage.py process_tasks
+celery -A config worker -l info --concurrency 2
+```
+
+Tab 4 - Celery beat scheduler (periodic jobs):
+```bash
+source .venv/bin/activate
+celery -A config beat -l info
 ```
 
 Open http://localhost:8000 and log in with the superuser you created.
@@ -229,8 +235,10 @@ Open http://localhost:8000 and log in with the superuser you created.
 ```bash
 source .venv/bin/activate                # activate Python env
 python manage.py runserver               # start web server
+# (open another tab — requires a running Redis, see REDIS_URL)
+celery -A config worker -l info          # start worker
 # (open another tab)
-python manage.py process_tasks           # start worker
+celery -A config beat -l info            # start beat scheduler
 ```
 
 > **Note:** SQLite is fine for local development and small deployments. For production or heavy concurrent usage, switch to PostgreSQL.
@@ -654,7 +662,7 @@ Make sure the Tailwind watcher is running: `cd theme/static_src && npm run start
 The redirect URI registered on the platform must exactly match `{APP_URL}/social-accounts/callback/{platform}/`. Check that `APP_URL` in `.env` matches the URL you're accessing (including `http` vs `https` and port number).
 
 **Background tasks not running (posts not publishing)**
-Make sure the worker is running: `python manage.py process_tasks`. In Docker: check `docker compose logs worker`.
+Make sure the Celery worker and beat scheduler are running: `celery -A config worker -l info` and `celery -A config beat -l info` (both need Redis via `REDIS_URL`). In Docker: check `docker compose logs worker` / `docker compose logs beat`.
 
 ## Contributing
 

@@ -20,6 +20,16 @@ services:
         value: "*"
       - key: STORAGE_BACKEND
         value: s3
+      - key: REDIS_URL
+        fromService:
+          name: brightbean-redis
+          type: keyvalue
+          property: connectionString
+
+  - type: keyvalue
+    name: brightbean-redis
+    plan: free
+    ipAllowList: []
 
   - type: worker
     name: brightbean-worker
@@ -45,6 +55,11 @@ services:
           property: connectionString
       - key: STORAGE_BACKEND
         value: s3
+      - key: REDIS_URL
+        fromService:
+          name: brightbean-redis
+          type: keyvalue
+          property: connectionString
 
   - type: worker
     name: brightbean-beat
@@ -70,6 +85,11 @@ services:
           property: connectionString
       - key: STORAGE_BACKEND
         value: s3
+      - key: REDIS_URL
+        fromService:
+          name: brightbean-redis
+          type: keyvalue
+          property: connectionString
 
 databases:
   - name: brightbean-db

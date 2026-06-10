@@ -184,22 +184,26 @@ All intervals configurable via F-1.6.
 
 ### 6.1 Docker Compose (all deployments)
 
-**Development - 3 containers:**
+**Development - containers:**
 
 ```
 app:      Django runserver + volume mount
-worker:   python manage.py process_tasks
+worker:   celery -A config worker
+beat:     celery -A config beat
 postgres: postgres:16-alpine
+redis:    redis:7-alpine (Celery broker + result backend)
 
 Tailwind: `python manage.py tailwind start` on host (watches + recompiles)
 ```
 
-**Production - 4 containers:**
+**Production - containers:**
 
 ```
 app:      Gunicorn (4 workers, 2 threads)
-worker:   python manage.py process_tasks
+worker:   celery -A config worker
+beat:     celery -A config beat
 postgres: postgres:16-alpine
+redis:    redis:7-alpine (Celery broker + result backend)
 caddy:    Reverse proxy + auto-TLS
 
 Tailwind: built during Docker image build
@@ -250,7 +254,8 @@ Config: `Procfile` + `app.json` (enables "Deploy to Heroku" button).
 **Procfile:**
 ```
 web: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --threads 2
-worker: python manage.py process_tasks
+worker: celery -A config worker -l info --concurrency 2
+beat: celery -A config beat -l info
 ```
 
 **app.json** pre-configures: Basic dynos, PostgreSQL Essential-0, auto-generated SECRET_KEY, post-deploy migration, env var prompts. README includes deploy button linking to `https://heroku.com/deploy?template=https://github.com/yourorg/social-platform` - running app in ~5 minutes.
@@ -535,7 +540,7 @@ SENTRY_DSN=
 git clone https://github.com/yourorg/social-platform.git && cd social-platform
 cp .env.example .env  # set DEBUG=true, DATABASE_URL
 
-docker compose up postgres -d
+docker compose up postgres redis -d
 
 python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
@@ -546,7 +551,8 @@ python manage.py tailwind start     # watches + recompiles CSS
 python manage.py migrate
 python manage.py createsuperuser
 python manage.py runserver           # terminal 1
-python manage.py process_tasks       # terminal 2
+celery -A config worker -l info      # terminal 2
+celery -A config beat -l info        # terminal 3
 ```
 
 Or: `docker compose up` (Tailwind builds inside Dockerfile).
