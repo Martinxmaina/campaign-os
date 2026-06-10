@@ -77,6 +77,7 @@ LOCAL_APPS = [
     "apps.api",
     "apps.mcp",
     "apps.analytics",
+    "apps.content_intake",
     "theme",
 ]
 
