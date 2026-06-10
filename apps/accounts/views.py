@@ -20,8 +20,18 @@ def _beat_status():
 
 
 def health_check(request):
-    """Health check endpoint at /health/."""
-    return JsonResponse({"status": "ok", "beat": _beat_status()})
+    """Health check endpoint at /health/.
+
+    Returns HTTP 503 when the beat process has not recently written a
+    heartbeat (status 'stale' or 'unknown').  Render uses this path as
+    a rolling-deploy health gate, so a dead beat must surface as unhealthy.
+    """
+    beat = _beat_status()
+    healthy = beat == "fresh"
+    return JsonResponse(
+        {"status": "ok" if healthy else "degraded", "beat": beat},
+        status=200 if healthy else 503,
+    )
 
 
 @login_required
