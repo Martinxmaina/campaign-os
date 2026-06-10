@@ -86,6 +86,7 @@ LOCAL_APPS = [
     "apps.mcp",
     "apps.analytics",
     "apps.content_intake",
+    "apps.evals",
     "theme",
 ]
 
