@@ -2,7 +2,7 @@
 
 import logging
 
-from background_task import background
+from celery import shared_task
 from django.utils import timezone
 
 from .models import Organization
@@ -10,7 +10,7 @@ from .models import Organization
 logger = logging.getLogger(__name__)
 
 
-@background(schedule=0)
+@shared_task
 def execute_scheduled_org_deletion(org_id):
     """Delete an org whose 14-day grace period has elapsed.
 

@@ -149,7 +149,7 @@ def _handle_org_deletion(request, org):
     org.deletion_scheduled_for = django_tz.now() + grace
     org.save(update_fields=["deletion_requested_at", "deletion_scheduled_for"])
 
-    execute_scheduled_org_deletion(str(org.id), schedule=grace)
+    execute_scheduled_org_deletion.apply_async(args=[str(org.id)], eta=org.deletion_scheduled_for)
 
     messages.success(request, "Organization scheduled for deletion in 14 days.")
     return redirect("organizations:settings")
