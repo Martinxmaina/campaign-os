@@ -407,7 +407,7 @@ class PublishEngine:
                 platform_post.transition_to("failed")
                 platform_post.publish_error = f"[INTAKE GATE] {_reason}"
                 platform_post.save(update_fields=["status", "publish_error", "updated_at"])
-                return {"success": False, "error": f"[INTAKE GATE] {_reason}"}
+                return
 
         # AUTHORITATIVE GATE CHOKEPOINT. Every publish path funnels through
         # here — fresh (_publish_post_group → _publish_platform_post) AND
