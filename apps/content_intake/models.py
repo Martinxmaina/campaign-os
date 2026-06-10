@@ -13,6 +13,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models import Count, Q
 
 from apps.common.managers import WorkspaceScopedManager
 
@@ -81,7 +82,7 @@ class ContentIntake(models.Model):
     proof_status = models.CharField(
         max_length=20,
         choices=ProofStatus.choices,
-        default=ProofStatus.CONFIRMED,
+        default=ProofStatus.TBD,
     )
     target_audience = models.TextField(blank=True, default="")
     sensitivity = models.CharField(
@@ -127,8 +128,10 @@ class ContentIntake(models.Model):
     last_synced_at = models.DateTimeField(null=True, blank=True)
     sync_error = models.TextField(blank=True, default="")
 
-    # Linked composer post (set once a draft has been created)
-    post = models.ForeignKey(
+    # Linked composer post (set once a draft has been created).
+    # OneToOneField enforces the cross-house wall: one Post → at most one ContentIntake,
+    # preventing the same draft from being double-dispatched via two intake rows.
+    post = models.OneToOneField(
         "composer.Post",
         on_delete=models.SET_NULL,
         null=True,
@@ -160,7 +163,22 @@ class ContentIntake(models.Model):
 
     @property
     def has_open_conditions(self) -> bool:
-        """True if any UnblockCondition for this item is still open."""
+        """True if any UnblockCondition for this item is still open.
+
+        Implementation note — N+1 avoidance:
+        If the queryset that produced this instance was annotated with
+        ``open_cond_count`` (via
+        ``ContentIntake.objects.annotate(open_cond_count=Count(
+            'unblock_conditions', filter=Q(unblock_conditions__status='open')))``
+        ) the annotation is used directly, avoiding any additional query.
+        Otherwise the property falls back to a targeted EXISTS query, which is
+        still safe for single-object access (e.g. detail views / signal handlers).
+        Use ``prefetch_related('unblock_conditions')`` + the annotated queryset
+        pattern for list contexts (e.g. the intake board queryset) to keep query
+        counts O(1) rather than O(N).
+        """
+        if hasattr(self, "open_cond_count"):
+            return self.open_cond_count > 0  # type: ignore[attr-defined]
         return self.unblock_conditions.filter(
             status=UnblockCondition.ConditionStatus.OPEN
         ).exists()
