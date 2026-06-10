@@ -8,7 +8,7 @@ from apps.content_intake.models import ContentIntake, UnblockCondition
 
 
 @pytest.mark.django_db
-def test_scan_14day_gaps_returns_list(workspace):
+def test_gap_scan_returns_proposals(workspace):
     """scan_14day_gaps must return a list (possibly empty) for any workspace."""
     from apps.content_intake.calendar_agent import scan_14day_gaps
 
@@ -43,7 +43,7 @@ def test_blocked_items_not_proposed(workspace):
 
 
 @pytest.mark.django_db
-def test_scan_respects_target_publish_date(workspace):
+def test_gap_scan_respects_target_dates(workspace):
     """An item with a future target_publish_date must not be proposed before that date."""
     from apps.content_intake.calendar_agent import scan_14day_gaps
 

@@ -58,16 +58,20 @@ def sync_all_intake_sheets():
 def run_calendar_gap_scan():
     """Run the 14-day calendar gap scanner for every non-archived workspace.
 
-    Returns a dict mapping workspace slug/pk to the list of proposals produced
-    by scan_14day_gaps. Logs a summary line per workspace.
+    Returns a dict mapping workspace pk to the count of proposals produced
+    by scan_14day_gaps. Proposals are cached for 24 hours per workspace.
+    Logs a summary line per workspace.
     """
+    from django.core.cache import cache
+
     from apps.workspaces.models import Workspace
     from apps.content_intake.calendar_agent import scan_14day_gaps
 
     results = {}
     for ws in Workspace.objects.filter(is_archived=False):
         proposals = scan_14day_gaps(ws)
-        results[str(ws.pk)] = proposals
+        cache.set(f"calendar_proposals:{ws.pk}", proposals, timeout=86400)
+        results[str(ws.pk)] = len(proposals)
         logger.info(
             "calendar_gap_scan: workspace=%s proposals=%d",
             ws.pk,
