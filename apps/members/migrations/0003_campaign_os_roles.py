@@ -13,7 +13,12 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='workspacemembership',
             name='pillar',
-            field=models.CharField(blank=True, default='', help_text='Pillar scope for pillar_lead role', max_length=100),
+            field=models.CharField(blank=True, default='', help_text="Pillar/theme scope for pillar_lead role (e.g. 'energy', 'agribusiness')", max_length=100),
+        ),
+        migrations.AddField(
+            model_name='workspacemembership',
+            name='house',
+            field=models.CharField(blank=True, default='', help_text="House/workspace scope (e.g. 'WAIIS', 'AfCEN')", max_length=100),
         ),
         migrations.AlterField(
             model_name='workspacemembership',

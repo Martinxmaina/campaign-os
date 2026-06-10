@@ -73,7 +73,13 @@ class WorkspaceMembership(models.Model):
         max_length=100,
         blank=True,
         default="",
-        help_text="Pillar scope for pillar_lead role",
+        help_text="Pillar/theme scope for pillar_lead role (e.g. 'energy', 'agribusiness')",
+    )
+    house = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="House/workspace scope (e.g. 'WAIIS', 'AfCEN')",
     )
     custom_role = models.ForeignKey(
         "CustomRole",
@@ -193,7 +199,6 @@ PERMISSION_KEYS = [
 
 BUILTIN_ROLE_PERMISSIONS = {
     "owner": {k: True for k in PERMISSION_KEYS},
-    "admin": {k: True for k in PERMISSION_KEYS},
     "campaign_owner": {k: True for k in PERMISSION_KEYS},
     "principal": {
         "create_posts": True,
@@ -207,7 +212,7 @@ BUILTIN_ROLE_PERMISSIONS = {
         "manage_workspace_settings": False,
         "upload_media": True,
         "edit_media": True,
-        "delete_media": True,
+        "delete_media": False,
         "manage_media": False,
     },
     "pillar_lead": {
