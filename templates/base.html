@@ -631,6 +631,14 @@
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 13.41 13.41 7.76 16.24 10.59 10.59 16.24 7.76"/></svg>
                     <span class="sidebar-nav-label">Brain</span>
                 </a>
+                <a href="/console/intake/" class="mb-1 sidebar-nav-item {% if request.resolver_match.url_name == 'intake-board' and request.resolver_match.app_name == 'console' %}active{% endif %}">
+                    <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11H3v10h6V11z"/><path d="M21 3h-6v18h6V3z"/><path d="M15 7H9v14h6V7z"/></svg>
+                    <span class="sidebar-nav-label">Intake</span>
+                </a>
+                <a href="/console/news" class="mb-1 sidebar-nav-item {% if request.resolver_match.url_name == 'news' and request.resolver_match.app_name == 'console' %}active{% endif %}">
+                    <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 22h16a2 2 0 002-2V4a2 2 0 00-2-2H8a2 2 0 00-2 2v16a2 2 0 01-2 2zm0 0a2 2 0 01-2-2v-9c0-1.1.9-2 2-2h2"/><path d="M18 14h-8M15 18h-5M10 6h8v4h-8z"/></svg>
+                    <span class="sidebar-nav-label">News</span>
+                </a>
 
                 {% if request.workspace %}
                 {% if analytics_enabled_platforms %}

@@ -1,0 +1,5 @@
+{% load tz %}
+<div class="px-3 py-1 text-[10px] text-stone-400 leading-tight">
+  {% if last_sync_at %}<div>Sheet synced: {{ last_sync_at }}</div>{% endif %}
+  {% if last_draft_at %}<div>HERALD drafted: {{ last_draft_at }}</div>{% endif %}
+</div>
