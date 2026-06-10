@@ -223,6 +223,29 @@ class TestMapStatus:
         assert val == "review_queue"
         assert flag is True
 
+    # --- regression: composite inputs must resolve to the more specific value
+    def test_approved_for_review_resolves_to_approved(self):
+        """'approved for review' must resolve to approved, not in_review."""
+        assert map_status("approved for review") == ("approved", False)
+
+    def test_archived_for_review_resolves_to_archived(self):
+        """'archived for review' must resolve to archived, not in_review."""
+        assert map_status("archived for review") == ("archived", False)
+
+    # --- regression: canonical values must round-trip without re-mapping
+    def test_review_queue_canonical_round_trips(self):
+        """A previously-normalised 'review_queue' string must not be promoted
+        to 'in_review' on re-ingestion."""
+        val, flag = map_status("review_queue")
+        assert val == "review_queue"
+        assert flag is True
+
+    def test_in_review_canonical_round_trips(self):
+        assert map_status("in_review") == ("in_review", False)
+
+    def test_approved_canonical_round_trips(self):
+        assert map_status("approved") == ("approved", False)
+
 
 # ===========================================================================
 # extract_unblock_conditions
@@ -251,6 +274,13 @@ class TestExtractUnblockConditions:
 
     def test_dont_post_until(self):
         result = extract_unblock_conditions("Don't post until board approval received")
+        types = [c["type"] for c in result]
+        assert "legal_milestone" in types
+
+    def test_dont_post_until_curly_apostrophe(self):
+        """Google Sheets often outputs curly/smart apostrophes (U+2019).
+        'Don’t post until…' must still match legal_milestone."""
+        result = extract_unblock_conditions("Don’t post until MoU is signed")
         types = [c["type"] for c in result]
         assert "legal_milestone" in types
 

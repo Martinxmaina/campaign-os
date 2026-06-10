@@ -144,6 +144,27 @@ def map_status(raw: str) -> tuple[str, bool]:
 
     s = raw.strip().lower()
 
+    # --- Pass 1: exact match against known canonical values ----------------
+    # Prevents re-ingested canonical strings (e.g. "review_queue") from being
+    # incorrectly re-mapped by the prefix patterns below.
+    _CANONICAL_EXACT: dict[str, str] = {
+        "idea": "idea",
+        "accepted": "accepted",
+        "drafting": "drafting",
+        "in_review": "in_review",
+        "approved": "approved",
+        "scheduled": "scheduled",
+        "published": "published",
+        "archived": "archived",
+        "held": "held",
+        "review_queue": "review_queue",
+    }
+    if s in _CANONICAL_EXACT:
+        canonical = _CANONICAL_EXACT[s]
+        needs_review = canonical == "review_queue"
+        return canonical, needs_review
+
+    # --- Pass 2: free-text pattern matching --------------------------------
     if s == "idea":
         return "idea", False
 
@@ -154,20 +175,24 @@ def map_status(raw: str) -> tuple[str, bool]:
     if re.search(r"\bdraft", s):
         return "drafting", False
 
-    if re.search(r"\breview", s):
-        return "in_review", False
-
+    # approv* must be checked before review* so that composite inputs like
+    # "approved for review" and "approval pending" resolve to "approved".
     if re.search(r"\bapprov", s):
         return "approved", False
+
+    # archiv* must also be checked before review* to avoid "archived for review"
+    # resolving to "in_review".
+    if re.search(r"\barchiv|\bdone\b", s):
+        return "archived", False
+
+    if re.search(r"\breview", s):
+        return "in_review", False
 
     if re.search(r"\bschedul", s):
         return "scheduled", False
 
     if re.search(r"\bpublish|\blive\b", s):
         return "published", False
-
-    if re.search(r"\barchiv|\bdone\b", s):
-        return "archived", False
 
     if re.search(r"\bhold|\bblock|\bwait", s):
         return "held", False
@@ -216,7 +241,10 @@ def extract_unblock_conditions(notes: str) -> list[dict]:
         _add(_SOURCE_VERIFICATION)
 
     # legal_milestone (MoU + sign, hold-until, don't-post-until)
-    mou_sign = re.search(r"\bMoU\b|\buntil\s+sign|\bdon['']?t\s+post\s+until|\bnot\s+until\b|\bhold\s+until\b", n, re.IGNORECASE)
+    # The character class ['''] covers: straight-quote U+0027 and curly
+    # right-single-quotation-mark U+2019 (Google Sheets often outputs the
+    # latter, e.g. "Don’t post until…").
+    mou_sign = re.search(r"\bMoU\b|\buntil\s+sign|\bdon[''']t\s+post\s+until|\bnot\s+until\b|\bhold\s+until\b", n, re.IGNORECASE)
     if mou_sign:
         _add(_LEGAL_MILESTONE)
 
