@@ -6,4 +6,6 @@ app_name = "credentials"
 
 urlpatterns = [
     path("", views.credentials_list, name="list"),
+    path("<str:platform>/save/", views.save_credential, name="save"),
+    path("<str:platform>/delete/", views.delete_credential, name="delete"),
 ]
