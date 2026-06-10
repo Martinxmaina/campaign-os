@@ -74,31 +74,58 @@ _COL_REF_LINKS = 15
 # Private helpers
 # ---------------------------------------------------------------------------
 
+_SHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets.readonly"
+_TOKEN_URI = "https://oauth2.googleapis.com/token"
+
+
+def _build_credentials():
+    """Return Google credentials using OAuth2 refresh token (preferred)
+    or service-account JSON (fallback). Returns None when neither is configured."""
+    # --- OAuth2 path (preferred; works when org policy blocks SA keys) -------
+    client_id = settings.GOOGLE_SHEETS_CLIENT_ID
+    client_secret = settings.GOOGLE_SHEETS_CLIENT_SECRET
+    refresh_token = settings.GOOGLE_SHEETS_REFRESH_TOKEN
+
+    if client_id and client_secret and refresh_token:
+        from google.oauth2.credentials import Credentials
+        return Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri=_TOKEN_URI,
+            client_id=client_id,
+            client_secret=client_secret,
+            scopes=[_SHEETS_SCOPE],
+        )
+
+    # --- Service-account JSON fallback ---------------------------------------
+    sa_json = settings.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON
+    if sa_json:
+        import json as _json
+        from google.oauth2 import service_account
+        info = _json.loads(sa_json)
+        return service_account.Credentials.from_service_account_info(
+            info, scopes=[_SHEETS_SCOPE]
+        )
+
+    return None
+
+
 def _get_sheet_rows(sheet_id: str, sheet_range: str) -> list[list[str]]:
     """Fetch raw rows from a Google Sheet.
 
-    Returns an empty list when GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON is not set
-    (so tests and local dev without credentials just get a no-op sync).
+    Returns an empty list when no credentials are configured
+    (tests and local dev without credentials get a no-op sync).
 
     The first row returned by the Sheets API is the header; callers must
     skip row 0.
     """
-    sa_json = settings.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON
-    if not sa_json:
-        logger.debug("GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON not set — skipping Sheets fetch")
+    creds = _build_credentials()
+    if creds is None:
+        logger.debug("No Google Sheets credentials configured — skipping fetch")
         return []
 
     try:
-        import json as _json
-
-        from google.oauth2 import service_account
         from googleapiclient.discovery import build
-
-        info = _json.loads(sa_json)
-        creds = service_account.Credentials.from_service_account_info(
-            info,
-            scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
-        )
         service = build("sheets", "v4", credentials=creds, cache_discovery=False)
         result = (
             service.spreadsheets()

@@ -245,6 +245,11 @@ GOOGLE_AUTH_CLIENT_ID = env("GOOGLE_AUTH_CLIENT_ID", default="")
 GOOGLE_AUTH_CLIENT_SECRET = env("GOOGLE_AUTH_CLIENT_SECRET", default="")
 
 # Google Sheets content-intake sync
+# OAuth2 (preferred — works even when org policy blocks service-account keys)
+GOOGLE_SHEETS_CLIENT_ID = env.str("GOOGLE_SHEETS_CLIENT_ID", default="")
+GOOGLE_SHEETS_CLIENT_SECRET = env.str("GOOGLE_SHEETS_CLIENT_SECRET", default="")
+GOOGLE_SHEETS_REFRESH_TOKEN = env.str("GOOGLE_SHEETS_REFRESH_TOKEN", default="")
+# Fallback: service-account JSON (one line). Used only when OAuth2 vars are not set.
 GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = env.str("GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON", default="")
 CONTENT_INTAKE_SHEET_ID = env.str("CONTENT_INTAKE_SHEET_ID", default="")
 CONTENT_INTAKE_SHEET_RANGE = env.str("CONTENT_INTAKE_SHEET_RANGE", default="Sheet1!A:P")
