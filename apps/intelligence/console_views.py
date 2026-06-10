@@ -89,25 +89,8 @@ def news_draft(request):
     link = request.POST.get("link", "")
     source = request.POST.get("source", "")
     brief = "\n".join(p for p in [title, summary, f"Source: {source}" if source else "", link] if p)
-
-    # Enrich the HERALD payload with live intake context so the agent can
-    # ground its draft in team-submitted content ideas and respect their
-    # sensitivity/scheduling constraints.
-    intake_context: dict = {}
-    workspace = getattr(request, "workspace", None)
-    if workspace is not None:
-        try:
-            from apps.intelligence.services.agent_context import get_herald_intake_context
-            intake_context = get_herald_intake_context(workspace)
-        except Exception:
-            logger.warning("news_draft: failed to fetch intake context", exc_info=True)
-
-    payload: dict = {"sector": sector, "brief": brief}
-    if intake_context.get("intake_items"):
-        payload["intake_context"] = intake_context
-
     try:
-        agent_post("/agents/herald/draft", payload)
+        agent_post("/agents/herald/draft", {"sector": sector, "brief": brief})
     except Exception:
         logger.warning("news_draft: agent_post failed", exc_info=True)
     return redirect("console:approvals")
