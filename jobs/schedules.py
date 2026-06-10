@@ -19,4 +19,8 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.intelligence.tasks.reconcile_intelligence_subscriptions",
         "schedule": schedule(run_every=6 * 3600),
     },
+    "publish-cycle": {
+        "task": "apps.publisher.tasks.run_publish_cycle",
+        "schedule": schedule(run_every=15),
+    },
 }
