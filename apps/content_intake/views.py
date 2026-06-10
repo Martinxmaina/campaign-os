@@ -6,15 +6,16 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.common.decorators import workspace_required
+
 from .models import ContentIntake, UnblockCondition
 
 
 @login_required
+@workspace_required
 def board(request):
     """Intake board — filterable list of ContentIntake items for the request workspace."""
     workspace = request.workspace
-    if workspace is None:
-        return render(request, "content_intake/board.html", {"items": [], "workspace": None})
 
     qs = (
         ContentIntake.objects.filter(workspace=workspace)
@@ -51,6 +52,7 @@ def board(request):
 
 
 @login_required
+@workspace_required
 @require_POST
 def close_condition(request, condition_pk):
     """Mark an UnblockCondition as closed.

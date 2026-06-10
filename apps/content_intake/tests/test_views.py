@@ -59,30 +59,30 @@ def authenticated_client(client, db, workspace):
 
 
 # ---------------------------------------------------------------------------
-# Tests
+# Tests (spec-compliant names — Task 9)
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_board_requires_login(client, workspace):
+def test_intake_board_requires_login(client, workspace):
     """Unauthenticated GET /console/intake/ must redirect (302) to login."""
-    url = reverse("console:content_intake:board")
+    url = reverse("content_intake:board")
     response = client.get(url)
     assert response.status_code == 302
     assert "/accounts/" in response.url or "login" in response.url.lower()
 
 
 @pytest.mark.django_db
-def test_board_shows_pillar_theme(authenticated_client, intake_item):
+def test_intake_board_shows_items(authenticated_client, intake_item):
     """Authenticated GET /console/intake/ must include the item's pillar_theme."""
-    url = reverse("console:content_intake:board")
+    url = reverse("content_intake:board")
     response = authenticated_client.get(url)
     assert response.status_code == 200
     assert b"Climate Finance" in response.content
 
 
 @pytest.mark.django_db
-def test_board_filter_by_status(authenticated_client, workspace, intake_item):
+def test_intake_board_filter_by_status(authenticated_client, workspace, intake_item):
     """GET /console/intake/?status=idea must return 200 (filter works)."""
     # Create an extra item with a different status to ensure filtering is exercised
     ContentIntake.objects.create(
@@ -92,7 +92,7 @@ def test_board_filter_by_status(authenticated_client, workspace, intake_item):
         sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
         status=ContentIntake.Status.IDEA,
     )
-    url = reverse("console:content_intake:board") + "?status=idea"
+    url = reverse("content_intake:board") + "?status=idea"
     response = authenticated_client.get(url)
     assert response.status_code == 200
     # Pillar of the *idea* item should appear; *accepted* item should not
@@ -101,7 +101,7 @@ def test_board_filter_by_status(authenticated_client, workspace, intake_item):
 
 
 @pytest.mark.django_db
-def test_close_condition_marks_closed_with_evidence(authenticated_client, intake_item):
+def test_close_condition_marks_closed(authenticated_client, intake_item):
     """POST to close_condition must set status=closed and persist evidence_note."""
     condition = UnblockCondition.objects.create(
         intake=intake_item,
@@ -110,7 +110,7 @@ def test_close_condition_marks_closed_with_evidence(authenticated_client, intake
         status=UnblockCondition.ConditionStatus.OPEN,
     )
     url = reverse(
-        "console:content_intake:close_condition",
+        "content_intake:close_condition",
         kwargs={"condition_pk": condition.pk},
     )
     response = authenticated_client.post(url, {"evidence_note": "Verified via email"})

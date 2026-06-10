@@ -47,6 +47,8 @@ urlpatterns = [
     # Intelligence console (Slice G') — server-rendered operator surfaces
     # backed by agent-service over HTTP. Mounted top-level, login-gated per view.
     path("console/", include("config.console_urls")),
+    # Content Intake board (Task 9) — mounted at /console/intake/
+    path("console/", include("apps.content_intake.urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]
