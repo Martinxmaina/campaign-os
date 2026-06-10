@@ -55,6 +55,12 @@ def organization(db):
 
 
 @pytest.fixture
+def workspace(db, organization):
+    from apps.workspaces.models import Workspace
+    return Workspace.objects.create(organization=organization, name="WAIIS")
+
+
+@pytest.fixture
 def org_owner(db, user, organization):
     OrgMembership.objects.create(user=user, organization=organization, org_role=OrgMembership.OrgRole.OWNER)
     return user

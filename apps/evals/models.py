@@ -66,8 +66,7 @@ class EvalCase(models.Model):
     objects = WorkspaceScopedManager()
 
     class Meta:
-        db_table = "evals_evalcase"
-        ordering = ["created_at"]
+        db_table = "evals_eval_case"
 
     def __str__(self):
         return f"EvalCase[{self.agent}] {self.description[:60]}"
@@ -93,7 +92,7 @@ class EvalRun(models.Model):
     agent = models.CharField(max_length=50)
 
     status = models.CharField(
-        max_length=20,
+        max_length=10,
         choices=Status.choices,
         default=Status.ERROR,
     )
@@ -109,14 +108,14 @@ class EvalRun(models.Model):
 
     duration_seconds = models.FloatField(default=0.0)
 
-    triggered_by = models.CharField(max_length=100, default="manual")
+    triggered_by = models.CharField(max_length=50, default="manual")
 
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = WorkspaceScopedManager()
 
     class Meta:
-        db_table = "evals_evalrun"
+        db_table = "evals_eval_run"
         ordering = ["-created_at"]
 
     def __str__(self):
