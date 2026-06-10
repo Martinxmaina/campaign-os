@@ -12,7 +12,11 @@ case "$PROCESS_TYPE" in
     exec gunicorn config.wsgi:application --bind 0.0.0.0:"${PORT:-8000}" --workers 2 --threads 2
     ;;
   worker)
-    exec celery -A config worker -l info --concurrency 2
+    # Single-worker Railway deploy: run beat embedded (-B) so periodic
+    # schedules fire without a separate dyno. If you scale to multiple
+    # workers, drop -B here and run a dedicated PROCESS_TYPE=beat service
+    # (the `beat)` case below) so only ONE scheduler is active.
+    exec celery -A config worker -B -l info --concurrency 2
     ;;
   beat)
     exec celery -A config beat -l info
