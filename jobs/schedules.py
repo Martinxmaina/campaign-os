@@ -11,4 +11,8 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.api.tasks.sweep_stale_idempotency_records",
         "schedule": schedule(run_every=3600),  # hourly
     },
+    "social-health-checks": {
+        "task": "apps.social_accounts.tasks.schedule_all_health_checks",
+        "schedule": schedule(run_every=6 * 3600),
+    },
 }

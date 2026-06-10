@@ -3,13 +3,13 @@
 import logging
 from datetime import timedelta
 
-from background_task import background
+from celery import shared_task
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
 
-@background(schedule=0)
+@shared_task
 def check_social_account_health(account_id: str):
     """Check health of a single social account.
 
@@ -122,7 +122,7 @@ def check_social_account_health(account_id: str):
     )
 
 
-@background(schedule=0)
+@shared_task
 def schedule_all_health_checks():
     """Enqueue individual health checks for all active accounts."""
     from .models import SocialAccount
@@ -136,7 +136,7 @@ def schedule_all_health_checks():
 
     count = 0
     for account_id in accounts:
-        check_social_account_health(str(account_id))
+        check_social_account_health.delay(str(account_id))
         count += 1
 
     logger.info("Scheduled health checks for %d accounts", count)
