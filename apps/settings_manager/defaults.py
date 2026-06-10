@@ -49,4 +49,8 @@ APP_DEFAULTS = {
     "infra.max_concurrent_publish_jobs": 10,
     "infra.recurrence_generation_interval": "daily",
     "infra.cleanup_job_schedule": "daily_03:00_utc",
+    # Content intake — Google Sheets sync
+    "intake.sheet_id": "",
+    "intake.sheet_range": "Sheet1!A:P",
+    "intake.sync_enabled": True,
 }

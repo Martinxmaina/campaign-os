@@ -1,5 +1,6 @@
 """Settings cascade helper: workspace -> org -> app default."""
 
+
 from .defaults import APP_DEFAULTS
 from .models import OrgSetting, WorkspaceSetting
 
@@ -39,3 +40,20 @@ def get_setting(workspace_id, key, workspace_org_id=None):
 
     # 3. Fall back to application default
     return APP_DEFAULTS.get(key)
+
+
+def set_org_setting(org_id, key, value):
+    """Upsert an org-level setting."""
+    OrgSetting.objects.update_or_create(
+        organization_id=org_id,
+        key=key,
+        defaults={"value": value},
+    )
+
+
+def get_org_setting(org_id, key):
+    """Return an org-level setting, falling back to app default."""
+    try:
+        return OrgSetting.objects.get(organization_id=org_id, key=key).value
+    except OrgSetting.DoesNotExist:
+        return APP_DEFAULTS.get(key)

@@ -1,8 +1,129 @@
 {% extends "base.html" %}
 {% block page_title %}Settings{% endblock %}
+
 {% block content %}
-<div class="max-w-4xl">
-    <h2 class="text-xl font-semibold mb-6">Settings</h2>
-    <p class="text-gray-500">Settings management coming soon.</p>
+<div class="max-w-3xl space-y-8">
+
+  <div>
+    <h2 class="text-xl font-semibold text-gray-900">Settings</h2>
+    <p class="mt-1 text-sm text-gray-500">Manage platform configuration for your organisation.</p>
+  </div>
+
+  {% if messages %}
+  <div class="space-y-2">
+    {% for message in messages %}
+    <div class="rounded-md px-4 py-3 text-sm {% if message.tags == 'success' %}bg-green-50 text-green-800 border border-green-200{% else %}bg-red-50 text-red-800 border border-red-200{% endif %}">
+      {{ message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ── Content Intake ──────────────────────────────────────────────────── #}
+  <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="border-b border-gray-100 px-6 py-4">
+      <div class="flex items-center gap-3">
+        <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50">
+          <svg class="h-4 w-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+        <div>
+          <h3 class="font-semibold text-gray-900">Content Intake — Google Sheets Sync</h3>
+          <p class="text-xs text-gray-500">Syncs your team's content intake sheet every 15 minutes.</p>
+        </div>
+      </div>
+    </div>
+
+    <form method="post" action="{% url 'settings_manager:save_intake_settings' %}" class="px-6 py-5 space-y-5">
+      {% csrf_token %}
+
+      <div>
+        <label for="intake_sheet_id" class="block text-sm font-medium text-gray-700 mb-1">
+          Google Sheet ID
+        </label>
+        <input
+          type="text"
+          id="intake_sheet_id"
+          name="intake_sheet_id"
+          value="{{ intake_sheet_id }}"
+          placeholder="e.g. 1cHFwSI-W2B_sXMewVVUhPQJ16ZtFONGJl2OQux7UqJE"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 {% if not can_manage %}bg-gray-50 text-gray-500{% endif %}"
+          {% if not can_manage %}readonly{% endif %}
+        >
+        <p class="mt-1 text-xs text-gray-400">
+          The ID from the sheet URL:
+          <code class="bg-gray-100 px-1 rounded">docs.google.com/spreadsheets/d/<strong>SHEET_ID</strong>/edit</code>
+        </p>
+      </div>
+
+      <div>
+        <label for="intake_sheet_range" class="block text-sm font-medium text-gray-700 mb-1">
+          Sheet Range
+        </label>
+        <input
+          type="text"
+          id="intake_sheet_range"
+          name="intake_sheet_range"
+          value="{{ intake_sheet_range }}"
+          placeholder="Sheet1!A:P"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 {% if not can_manage %}bg-gray-50 text-gray-500{% endif %}"
+          {% if not can_manage %}readonly{% endif %}
+        >
+        <p class="mt-1 text-xs text-gray-400">
+          Tab name + column range. Use the exact tab name shown at the bottom of your sheet.
+        </p>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <label class="relative inline-flex cursor-pointer items-center {% if not can_manage %}opacity-50 pointer-events-none{% endif %}">
+          <input
+            type="checkbox"
+            name="intake_sync_enabled"
+            id="intake_sync_enabled"
+            class="sr-only peer"
+            {% if intake_sync_enabled %}checked{% endif %}
+            {% if not can_manage %}disabled{% endif %}
+          >
+          <div class="h-5 w-9 rounded-full bg-gray-200 peer-checked:bg-blue-600 peer-focus:ring-2 peer-focus:ring-blue-300 transition-colors after:absolute after:left-[2px] after:top-[2px] after:h-4 after:w-4 after:rounded-full after:bg-white after:shadow after:transition-all peer-checked:after:translate-x-4"></div>
+        </label>
+        <span class="text-sm text-gray-700">Enable automatic sync (every 15 min)</span>
+      </div>
+
+      {% if intake_sheet_id %}
+      <div class="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-700">
+        <span class="font-medium">Syncing from:</span>
+        <a href="https://docs.google.com/spreadsheets/d/{{ intake_sheet_id }}/edit"
+           target="_blank" rel="noopener"
+           class="ml-1 underline hover:text-blue-900 font-mono text-xs break-all">
+          {{ intake_sheet_id }}
+        </a>
+        &nbsp;·&nbsp; range: <code class="font-mono">{{ intake_sheet_range }}</code>
+      </div>
+      {% else %}
+      <div class="rounded-lg bg-amber-50 border border-amber-100 px-4 py-3 text-sm text-amber-700">
+        No sheet connected yet. Enter the Sheet ID above to activate syncing.
+      </div>
+      {% endif %}
+
+      {% if can_manage %}
+      <div class="flex justify-end pt-2">
+        <button type="submit"
+          class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors">
+          Save intake settings
+        </button>
+      </div>
+      {% else %}
+      <p class="text-xs text-gray-400">You need admin or campaign_owner role to change these settings.</p>
+      {% endif %}
+
+    </form>
+  </div>
+
+  {# Placeholder for future panels #}
+  <div class="rounded-xl border border-dashed border-gray-200 px-6 py-8 text-center text-sm text-gray-400">
+    More settings panels coming in future phases.
+  </div>
+
 </div>
 {% endblock %}

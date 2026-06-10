@@ -203,8 +203,23 @@ def sync_sheet_to_intake(
         parse_channels,
     )
 
-    effective_sheet_id = sheet_id or settings.CONTENT_INTAKE_SHEET_ID
-    effective_range = sheet_range or settings.CONTENT_INTAKE_SHEET_RANGE
+    # Sheet ID priority: explicit arg → DB org setting → env var
+    from apps.settings_manager.helpers import get_org_setting
+    org_id = workspace.organization_id
+    effective_sheet_id = (
+        sheet_id
+        or get_org_setting(org_id, "intake.sheet_id")
+        or settings.CONTENT_INTAKE_SHEET_ID
+    )
+    effective_range = (
+        sheet_range
+        or get_org_setting(org_id, "intake.sheet_range")
+        or settings.CONTENT_INTAKE_SHEET_RANGE
+    )
+    sync_enabled = get_org_setting(org_id, "intake.sync_enabled")
+    if sync_enabled is False:
+        logger.info("Intake sync disabled for org=%s — skipping", org_id)
+        return {"created": 0, "updated": 0, "skipped": 0, "review_queue": 0, "errors": 0}
 
     rows = _get_sheet_rows(effective_sheet_id, effective_range)
 
