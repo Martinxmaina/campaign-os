@@ -83,9 +83,36 @@ def test_intake_board_shows_items(authenticated_client, intake_item):
 
 @pytest.mark.django_db
 def test_intake_board_filter_by_status(authenticated_client, workspace, intake_item):
-    url = reverse("content_intake:board") + "?status=idea"
-    response = authenticated_client.get(url)
+    """Status filter must show matching items and hide non-matching ones.
+
+    Uses ``angle`` as the per-card discriminator because ``pillar_theme`` also
+    appears in the filter <select> dropdown for all workspace items, which
+    would make a raw-content search ambiguous.
+    """
+    # intake_item has status=accepted, angle="Green bonds surge"
+    # Create a second item with status=idea and a distinct angle
+    idea_item = ContentIntake.objects.create(
+        workspace=workspace,
+        external_id="ROW-V02",
+        pillar_theme="Renewable Energy",
+        angle="Solar push unique",
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
+        status=ContentIntake.Status.IDEA,
+    )
+
+    url = reverse("content_intake:board")
+
+    # Filter by 'idea' — idea_item card must be present, intake_item card absent
+    response = authenticated_client.get(url + "?status=idea")
     assert response.status_code == 200
+    assert idea_item.angle.encode() in response.content
+    assert intake_item.angle.encode() not in response.content
+
+    # Filter by 'accepted' — intake_item card must be present, idea_item card absent
+    response = authenticated_client.get(url + "?status=accepted")
+    assert response.status_code == 200
+    assert intake_item.angle.encode() in response.content
+    assert idea_item.angle.encode() not in response.content
 
 
 @pytest.mark.django_db

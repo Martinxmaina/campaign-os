@@ -11,6 +11,14 @@ from apps.content_intake.models import ContentIntake, UnblockCondition
 @login_required
 def board(request):
     workspace = request.workspace
+    if workspace is None:
+        return render(request, "content_intake/board.html", {
+            "items": [],
+            "statuses": ContentIntake.Status.choices,
+            "pillars": [],
+            "status_filter": "",
+            "pillar_filter": "",
+        })
     qs = ContentIntake.objects.filter(workspace=workspace).exclude(
         status=ContentIntake.Status.SKIPPED
     ).prefetch_related("unblock_conditions")
