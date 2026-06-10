@@ -15,6 +15,10 @@ env = environ.Env(
     REDIS_URL=(str, ""),
     SITE_NAME=(str, "WAIIS Dispatch"),
     SOURCE_REPO_URL=(str, "https://github.com/africacen/campaign-os"),
+    # Stable identity for the principal approver who must sign off on
+    # Joseph-personal channel posts.  Set via env var in production so that a
+    # rename or email change is a single config update with no code change.
+    JOSEPH_APPROVER_EMAIL=(str, ""),
 )
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
@@ -27,6 +31,10 @@ APP_URL = env("APP_URL")
 # Branding / AGPL source-availability
 SITE_NAME = env("SITE_NAME")
 SOURCE_REPO_URL = env("SOURCE_REPO_URL")
+
+# Principal approver for Joseph-personal channel posts.
+# Overridden via JOSEPH_APPROVER_EMAIL env var in production.
+JOSEPH_APPROVER_EMAIL = env("JOSEPH_APPROVER_EMAIL")
 
 # Application definition
 

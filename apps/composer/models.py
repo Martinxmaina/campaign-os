@@ -354,7 +354,7 @@ class PlatformPost(models.Model):
         "changes_requested": {"pending_review", "draft"},
         "rejected": {"draft", "pending_review"},
         "scheduled": {"publishing", "draft"},
-        "publishing": {"published", "failed", "scheduled"},  # scheduled = retry
+        "publishing": {"published", "failed", "scheduled", "pending_client"},  # scheduled = retry; pending_client = approval hold
         "failed": {"publishing", "draft", "scheduled"},
         "published": set(),  # terminal
     }

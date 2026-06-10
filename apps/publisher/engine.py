@@ -410,14 +410,21 @@ class PublishEngine:
                 self._block(platform_post, _full_reason)
                 raise GateBlockError(_full_reason)
 
-        # Joseph-personal channel requires Joseph's explicit approval
+        # Joseph-personal channel requires Joseph's explicit approval.
+        # A missing approval is a normal workflow hold, not an error — transition
+        # to pending_client so the post is not mis-classified as broken and does
+        # not exhaust retry-count budgets or trigger error dashboards.
         if _intake_item:
             from apps.content_intake.channel_routing import requires_joseph_approval as _req_joseph
             if _req_joseph(_intake_item.channel_targets):
                 if not _check_joseph_approval(platform_post):
-                    platform_post.transition_to("failed")
-                    platform_post.publish_error = "[JOSEPH GATE] Joseph personal channel requires Joseph approval"
+                    platform_post.transition_to("pending_client")
+                    platform_post.publish_error = "[JOSEPH GATE] Awaiting Joseph personal-channel approval"
                     platform_post.save(update_fields=["status", "publish_error", "updated_at"])
+                    logger.info(
+                        "Joseph gate hold for PlatformPost %s — moved to pending_client",
+                        platform_post.id,
+                    )
                     return
 
         # AUTHORITATIVE GATE CHOKEPOINT. Every publish path funnels through
@@ -739,15 +746,56 @@ class PublishEngine:
 
 
 def _check_joseph_approval(platform_post) -> bool:
-    """Return True if the post has an approval action from the user with owner_raw='joseph'."""
+    """Return True if the post has an approval action from the principal approver.
+
+    Identity resolution uses two stable checks applied in order:
+
+    1. ``ContentIntake.owner_raw`` — the raw sheet value populated at import
+       time (typically 'Joseph').  This avoids a user-table scan entirely and
+       is the canonical approach when the intake item is available.
+
+    2. ``settings.JOSEPH_APPROVER_EMAIL`` — a deployment-level setting that
+       names the approver by their exact email address.  This is the fallback
+       for posts whose intake item carries no ``owner_raw``, and is the only
+       place the email address needs to change when the account is renamed.
+
+    Both checks require an ApprovalAction.APPROVED row on the post — the
+    approver's identity is verified against that row, not inferred from the
+    intake owner alone.
+    """
+    from django.conf import settings
+
     from apps.approvals.models import ApprovalAction
-    from apps.accounts.models import User
-    joseph_users = User.objects.filter(email__icontains="joseph").values_list("pk", flat=True)
-    return ApprovalAction.objects.filter(
+
+    # Prefer matching via the intake owner_raw field (no user-table scan needed).
+    try:
+        intake_item = platform_post.post.intake_source
+        intake_owner_raw = (intake_item.owner_raw or "").strip().lower()
+    except Exception:  # noqa: BLE001 — intake_source may not exist
+        intake_owner_raw = ""
+
+    joseph_email = (getattr(settings, "JOSEPH_APPROVER_EMAIL", "") or "").strip().lower()
+
+    # Build approval queryset once.
+    approvals_qs = ApprovalAction.objects.filter(
         post=platform_post.post,
         action=ApprovalAction.ActionType.APPROVED,
-        user__in=joseph_users,
-    ).exists()
+    ).select_related("user")
+
+    for action in approvals_qs:
+        approver_email = (action.user.email if action.user else "").strip().lower()
+
+        # Check 1: approver's email matches the configured principal email (exact match).
+        if joseph_email and approver_email == joseph_email:
+            return True
+
+        # Check 2: approver's email matches the intake owner_raw value (exact match,
+        # not a substring).  This covers cases where owner_raw holds the account
+        # email or a normalised name that the approver also uses as their login.
+        if intake_owner_raw and approver_email == intake_owner_raw:
+            return True
+
+    return False
 
 
 # Public alias — the gate hook + slice tests refer to the engine as ``Publisher``.
