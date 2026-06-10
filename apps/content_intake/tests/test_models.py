@@ -29,7 +29,7 @@ class TestContentIntakeSchedulability:
             intake=intake_item,
             condition_type=UnblockCondition.ConditionType.SOURCE_VERIFICATION,
             description="Needs source URL confirmed",
-            status=UnblockCondition.Status.OPEN,
+            status=UnblockCondition.ConditionStatus.OPEN,
         )
 
         # Refresh from DB to ensure the queryset picks up the new condition

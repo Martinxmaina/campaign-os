@@ -57,7 +57,7 @@ class ContentIntake(models.Model):
     workspace = models.ForeignKey(
         "workspaces.Workspace",
         on_delete=models.CASCADE,
-        related_name="content_intakes",
+        related_name="intake_items",
     )
 
     # Source identity
@@ -76,18 +76,19 @@ class ContentIntake(models.Model):
 
     # Content metadata
     pillar_theme = models.CharField(max_length=255, blank=True, default="")
-    angle = models.CharField(max_length=255, blank=True, default="")
+    angle = models.TextField(blank=True, default="")
     proof_point = models.TextField(blank=True, default="")
     proof_status = models.CharField(
         max_length=20,
         choices=ProofStatus.choices,
-        default=ProofStatus.TBD,
+        default=ProofStatus.CONFIRMED,
     )
-    target_audience = models.CharField(max_length=255, blank=True, default="")
+    target_audience = models.TextField(blank=True, default="")
     sensitivity = models.CharField(
         max_length=20,
         choices=Sensitivity.choices,
         default=Sensitivity.PRIVATE_HOLD,
+        db_index=True,
     )
     channel_targets = models.JSONField(default=list, blank=True)
     campaign = models.CharField(max_length=255, blank=True, default="")
@@ -102,6 +103,7 @@ class ContentIntake(models.Model):
         max_length=20,
         choices=Status.choices,
         default=Status.IDEA,
+        db_index=True,
     )
 
     # Ownership
@@ -127,12 +129,12 @@ class ContentIntake(models.Model):
     sync_error = models.CharField(max_length=500, blank=True, default="")
 
     # Linked composer post (set once a draft has been created)
-    post = models.OneToOneField(
+    post = models.ForeignKey(
         "composer.Post",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="intake",
+        related_name="intake_source",
     )
 
     # Timestamps
@@ -142,9 +144,13 @@ class ContentIntake(models.Model):
     objects = WorkspaceScopedManager()
 
     class Meta:
-        db_table = "content_intake_contentintake"
+        db_table = "content_intake_item"
         unique_together = [("workspace", "external_id")]
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "sensitivity"], name="idx_intake_status_sens"),
+            models.Index(fields=["workspace", "priority"], name="idx_intake_ws_priority"),
+        ]
 
     def __str__(self):
         return f"[{self.external_id}] {self.pillar_theme} — {self.angle}"
@@ -157,7 +163,7 @@ class ContentIntake(models.Model):
     def has_open_conditions(self) -> bool:
         """True if any UnblockCondition for this item is still open."""
         return self.unblock_conditions.filter(
-            status=UnblockCondition.Status.OPEN
+            status=UnblockCondition.ConditionStatus.OPEN
         ).exists()
 
     @property
@@ -191,7 +197,7 @@ class UnblockCondition(models.Model):
         LEGAL_MILESTONE = "legal_milestone", "Legal Milestone"
         FIGURE_CONFIRMATION = "figure_confirmation", "Figure Confirmation"
 
-    class Status(models.TextChoices):
+    class ConditionStatus(models.TextChoices):
         OPEN = "open", "Open"
         CLOSED = "closed", "Closed"
 
@@ -216,8 +222,8 @@ class UnblockCondition(models.Model):
     owner_raw = models.CharField(max_length=255, blank=True, default="")
     status = models.CharField(
         max_length=10,
-        choices=Status.choices,
-        default=Status.OPEN,
+        choices=ConditionStatus.choices,
+        default=ConditionStatus.OPEN,
     )
     evidence_note = models.TextField(blank=True, default="")
     closed_by = models.ForeignKey(
@@ -233,7 +239,7 @@ class UnblockCondition(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        db_table = "content_intake_unblockcondition"
+        db_table = "content_intake_unblock_condition"
         ordering = ["created_at"]
 
     def __str__(self):
@@ -243,7 +249,7 @@ class UnblockCondition(models.Model):
 class IntakeReviewItem(models.Model):
     """A row that failed normalisation, quarantined for manual triage."""
 
-    class Reason(models.TextChoices):
+    class ReviewReason(models.TextChoices):
         SENSITIVITY_UNRECOGNIZED = "sensitivity_unrecognized", "Sensitivity Unrecognized"
         STATUS_UNMAPPED = "status_unmapped", "Status Unmapped"
         CHANNEL_UNPARSEABLE = "channel_unparseable", "Channel Unparseable"
@@ -259,7 +265,7 @@ class IntakeReviewItem(models.Model):
     raw_row = models.JSONField(default=dict)
     reason = models.CharField(
         max_length=30,
-        choices=Reason.choices,
+        choices=ReviewReason.choices,
     )
     detail = models.TextField(blank=True, default="")
     resolved = models.BooleanField(default=False)
@@ -275,7 +281,7 @@ class IntakeReviewItem(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        db_table = "content_intake_intakereviewitem"
+        db_table = "content_intake_review_item"
         ordering = ["-created_at"]
 
     def __str__(self):
