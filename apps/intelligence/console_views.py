@@ -1,4 +1,6 @@
 """Agent-service-backed console: pipeline, notifications, brain (Slice G')."""
+import logging
+
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -6,6 +8,8 @@ from django.views.decorators.http import require_POST
 
 from apps.common.agent_client import agent_post
 from apps.common.safe import safe_get
+
+logger = logging.getLogger(__name__)
 
 _LIGHTS = ["green", "amber", "red"]
 
@@ -59,8 +63,9 @@ def news(request):
     if africa:
         params.append(f"africa={africa}")
     qs = ("?" + "&".join(params)) if params else ""
-    data = safe_get("/news/digest" + qs, default=dict(_NEWS_DEFAULT))
-    data = data or dict(_NEWS_DEFAULT)
+    raw = safe_get("/news/digest" + qs, default=None)
+    down = raw is None
+    data = raw if raw is not None else dict(_NEWS_DEFAULT)
     return render(
         request,
         "console/news.html",
@@ -70,7 +75,7 @@ def news(request):
             "generated_at": data.get("generated_at"),
             "sector": sector or "all",
             "africa": africa,
-            "down": data is None,
+            "down": down,
         },
     )
 
@@ -87,5 +92,5 @@ def news_draft(request):
     try:
         agent_post("/agents/herald/draft", {"sector": sector, "brief": brief})
     except Exception:
-        pass
+        logger.warning("news_draft: agent_post failed", exc_info=True)
     return redirect("console:approvals")

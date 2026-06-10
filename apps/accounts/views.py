@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -7,6 +5,7 @@ from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_http_methods
 from PIL import Image
 
@@ -15,7 +14,10 @@ def _beat_status():
     raw = cache.get("beat:heartbeat")
     if not raw:
         return "unknown"
-    age = (timezone.now() - datetime.fromisoformat(raw)).total_seconds()
+    ts = parse_datetime(raw)
+    if ts is None:
+        return "unknown"
+    age = (timezone.now() - ts).total_seconds()
     return "fresh" if age < 180 else "stale"
 
 
