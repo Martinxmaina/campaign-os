@@ -3,8 +3,6 @@
 All functions are pure — no database required.
 """
 
-import pytest
-
 from apps.content_intake.normalization import (
     extract_unblock_conditions,
     map_status,

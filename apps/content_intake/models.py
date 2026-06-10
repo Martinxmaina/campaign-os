@@ -13,7 +13,6 @@ import uuid
 
 from django.conf import settings
 from django.db import models
-from django.db.models import Count, Q
 
 from apps.common.managers import WorkspaceScopedManager
 
