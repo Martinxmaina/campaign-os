@@ -24,4 +24,13 @@
   {% endif %}
 
   {% include "content_intake/_condition_checklist.html" with intake=item conditions=item.unblock_conditions.all %}
+
+  {% if item.status == "accepted" and item.sensitivity in "public_safe,partner_only" %}
+  <form hx-post="{% url 'console:intake-draft-now' item.pk %}" hx-target="closest .rounded-lg" hx-swap="outerHTML" class="mt-2">
+    {% csrf_token %}
+    <button type="submit" class="rounded bg-indigo-600 text-white px-3 py-1 text-xs font-medium hover:bg-indigo-700">
+      ✨ Draft with HERALD
+    </button>
+  </form>
+  {% endif %}
 </div>

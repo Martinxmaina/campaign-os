@@ -224,3 +224,17 @@ def test_close_condition_cross_workspace_isolation(client, db, workspace):
     # Verify the condition was NOT mutated.
     condition_b.refresh_from_db()
     assert condition_b.status == UnblockCondition.ConditionStatus.OPEN
+
+
+@pytest.mark.django_db
+def test_draft_now_calls_herald(authenticated_client, intake_item):
+    from django.urls import reverse
+    from unittest.mock import patch
+    intake_item.status = "accepted"
+    intake_item.sensitivity = "public_safe"
+    intake_item.save()
+    url = reverse("console:intake-draft-now", args=[intake_item.pk])
+    with patch("apps.content_intake.views.request_herald_draft", return_value=True) as m:
+        resp = authenticated_client.post(url)
+    assert resp.status_code in (200, 204, 302)
+    m.assert_called_once()

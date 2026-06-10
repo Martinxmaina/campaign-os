@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.content_intake.herald_bridge import request_herald_draft
 from apps.content_intake.models import ContentIntake, UnblockCondition
 
 
@@ -86,3 +87,17 @@ def close_condition(request, condition_pk):
             "intake": intake,
         })
     return HttpResponse(status=204)
+
+
+@login_required
+@require_POST
+def draft_now(request, intake_pk):
+    """Manually ask HERALD to draft a single intake item."""
+    if request.workspace is None:
+        raise PermissionDenied("No workspace context resolved for this request.")
+
+    intake = get_object_or_404(ContentIntake, pk=intake_pk, workspace=request.workspace)
+    ok = request_herald_draft(intake)
+    if request.headers.get("HX-Request"):
+        return render(request, "content_intake/_card.html", {"item": intake})
+    return HttpResponse(status=204 if ok else 409)
