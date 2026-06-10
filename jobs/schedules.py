@@ -31,4 +31,14 @@ BEAT_SCHEDULE: dict = {
         "task": "jobs.tasks.beat_heartbeat",
         "schedule": schedule(run_every=60),
     },
+    "sweep-scheduled-org-deletions": {
+        # Durability net for the 14-day grace-period deletion flow.
+        # The eta-enqueued Celery message lives only in Redis; a broker
+        # restart without persistence would silently strand orgs in
+        # 'pending deletion'.  This daily sweep re-uses the idempotent
+        # execute_scheduled_org_deletion body via a dedicated sweep task
+        # so any missed eta fires are caught within 24 h at most.
+        "task": "apps.organizations.tasks.sweep_scheduled_org_deletions",
+        "schedule": schedule(run_every=86400),  # daily
+    },
 }
