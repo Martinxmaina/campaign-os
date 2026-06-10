@@ -15,4 +15,4 @@ def test_footer_has_source_link():
 def test_about_page_exposes_notice():
     resp = Client().get("/about/")
     assert resp.status_code == 200
-    assert "modified version of brightbean" in resp.content.decode().lower()
+    assert "modified version of campaign os" in resp.content.decode().lower()
