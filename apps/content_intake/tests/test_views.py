@@ -68,7 +68,7 @@ def authenticated_client(client, db, workspace):
 @pytest.mark.django_db
 def test_intake_board_requires_login(client, workspace):
     """Unauthenticated GET /console/intake/ must redirect (302) to login."""
-    url = reverse("content_intake:board")
+    url = reverse("console:intake-board")
     response = client.get(url)
     assert response.status_code == 302
     assert "/login" in response["Location"] or "/accounts" in response["Location"]
@@ -77,7 +77,7 @@ def test_intake_board_requires_login(client, workspace):
 @pytest.mark.django_db
 def test_intake_board_shows_items(authenticated_client, intake_item):
     """Authenticated GET /console/intake/ must include the item's pillar_theme."""
-    url = reverse("content_intake:board")
+    url = reverse("console:intake-board")
     response = authenticated_client.get(url)
     assert response.status_code == 200
     assert b"Climate Finance" in response.content
@@ -102,7 +102,7 @@ def test_intake_board_filter_by_status(authenticated_client, workspace, intake_i
         status=ContentIntake.Status.IDEA,
     )
 
-    url = reverse("content_intake:board")
+    url = reverse("console:intake-board")
 
     # Filter by 'idea' — idea_item card must be present, intake_item card absent
     response = authenticated_client.get(url + "?status=idea")
@@ -127,7 +127,7 @@ def test_close_condition_marks_closed(authenticated_client, intake_item):
         status=UnblockCondition.ConditionStatus.OPEN,
     )
     url = reverse(
-        "content_intake:close_condition",
+        "console:intake-close-condition",
         kwargs={"condition_pk": condition.pk},
     )
     response = authenticated_client.post(url, {"evidence_note": "Verified via email"})
@@ -150,7 +150,7 @@ def test_intake_board_invalid_status_filter_ignored(authenticated_client, intake
     oracle. After the fix, unrecognised values are discarded and all items are
     returned.
     """
-    url = reverse("content_intake:board")
+    url = reverse("console:intake-board")
     response = authenticated_client.get(url + "?status=__invalid__")
     assert response.status_code == 200
     # The intake_item should still appear because the filter was discarded.
@@ -212,7 +212,7 @@ def test_close_condition_cross_workspace_isolation(client, db, workspace):
     # Log in as user_a (scoped to workspace A) and try to close workspace B's condition.
     client.force_login(user_a)
     url = reverse(
-        "content_intake:close_condition",
+        "console:intake-close-condition",
         kwargs={"condition_pk": condition_b.pk},
     )
     response = client.post(url, {"evidence_note": "Cross-tenant attack"})

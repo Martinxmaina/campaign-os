@@ -4,6 +4,7 @@ from django.urls import path
 
 from apps.composer import console_views as composer_console
 from apps.approvals import console_views as approvals_console
+from apps.content_intake import views as intake_views
 from apps.intelligence import console_views as intel_console
 
 app_name = "console"
@@ -29,4 +30,7 @@ urlpatterns = [
     path("news", intel_console.news, name="news"),
     path("news/draft", intel_console.news_draft, name="news-draft"),
     path("graph.json", intel_console.graph_json, name="graph-json"),
+    # Content intake board
+    path("intake/", intake_views.board, name="intake-board"),
+    path("intake/conditions/<uuid:condition_pk>/close/", intake_views.close_condition, name="intake-close-condition"),
 ]
