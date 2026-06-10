@@ -239,6 +239,13 @@ GOOGLE_AUTH_CLIENT_SECRET = env("GOOGLE_AUTH_CLIENT_SECRET", default="")
 GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = env.str("GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON", default="")
 CONTENT_INTAKE_SHEET_ID = env.str("CONTENT_INTAKE_SHEET_ID", default="")
 CONTENT_INTAKE_SHEET_RANGE = env.str("CONTENT_INTAKE_SHEET_RANGE", default="Sheet1!A:P")
+# DEFERRED: write-back support (updating the sheet's Status column after a
+# ContentIntake row is promoted / published) is not yet implemented.
+# This flag is declared here and in .env.example so the feature can be
+# activated without a settings change when the writeback path is built.
+# Until then it must remain False and must not be read anywhere — any
+# code that checks this flag should be added only alongside the
+# corresponding writeback implementation.
 CONTENT_INTAKE_WRITEBACK_ENABLED = env.bool("CONTENT_INTAKE_WRITEBACK_ENABLED", default=False)
 
 SOCIALACCOUNT_PROVIDERS = {

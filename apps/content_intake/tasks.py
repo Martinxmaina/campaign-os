@@ -19,6 +19,15 @@ def sync_intake_sheet(self, workspace_id: str):
 
     try:
         workspace = Workspace.objects.get(pk=workspace_id)
+    except Workspace.DoesNotExist:
+        # Workspace was deleted between enqueue and execution — nothing to do.
+        logger.warning(
+            "sync_intake_sheet: workspace %s no longer exists; discarding task",
+            workspace_id,
+        )
+        return
+
+    try:
         return sync_sheet_to_intake(workspace)
     except Exception as exc:
         raise self.retry(exc=exc)

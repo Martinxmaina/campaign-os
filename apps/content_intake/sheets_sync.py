@@ -49,7 +49,11 @@ _SKIP_PILLAR_THEMES: frozenset[str] = frozenset({"EXAMPLE"})
 #   H                I        J         K        L       M                  N    O        P
 #   Sensitivity flag Channel  Campaign  Priority  Status  Owner  Target publish date  Notes  Doc links
 _COL_EXTERNAL_ID = 0
-_COL_DATE_ADDED = 1
+# Column 1 (B) is "Date added" from the sheet; ContentIntake has no
+# date_added model field — the value is preserved in the row_hash so
+# a later date correction re-syncs the row, but it is not stored
+# separately.  Do not add a bare _COL_DATE_ADDED constant here unless
+# it is actually read in the sync loop.
 _COL_SUBMITTED_BY_RAW = 2
 _COL_PILLAR = 3
 _COL_ANGLE = 4
