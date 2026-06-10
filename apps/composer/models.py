@@ -426,6 +426,14 @@ class PlatformPost(models.Model):
 
     gate_id = models.UUIDField(null=True, blank=True, db_index=True)
     content_hash = models.CharField(max_length=64, blank=True, default="")
+    gate_bypassed = models.BooleanField(
+        default=False,
+        help_text=(
+            "True for human-authored posts composed directly in the UI. The "
+            "publish gate's missing-gate_id block is skipped for these. "
+            "AI/HERALD-originated posts leave this False and stay gated."
+        ),
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

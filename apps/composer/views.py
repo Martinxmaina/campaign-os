@@ -90,6 +90,9 @@ def _sync_platform_posts(request, post, workspace, initial_status=None):
             social_account=account,
             defaults=defaults,
         )
+        # Human-authored in the composer → bypass the agent publish gate.
+        # (AI/HERALD posts create PlatformPosts elsewhere and stay gated.)
+        pp.gate_bypassed = True
         override_title = request.POST.get(f"override_title_{acc_id}", "").strip()
         override_caption = request.POST.get(f"override_caption_{acc_id}", "").strip()
         override_comment = request.POST.get(f"override_comment_{acc_id}", "").strip()
@@ -543,10 +546,6 @@ def save_post(request, workspace_id, post_id=None):
         form = PostForm(request.POST)
 
     if not form.is_valid():
-        logger.warning(
-            "save_post 400: action=%s post=%s errors=%s keys=%s",
-            action, post_id, dict(form.errors), sorted(request.POST.keys()),
-        )
         return JsonResponse({"errors": form.errors}, status=400)
 
     post = form.save(commit=False)

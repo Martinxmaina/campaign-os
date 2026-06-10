@@ -244,6 +244,10 @@ class PublishEngine:
         pass/approved gate_id whose content_hash matches), or a human-readable
         reason string when it is blocked. Pure check — does NOT mutate state.
         """
+        if platform_post.gate_bypassed:
+            # Human-authored composer post — the gate is intentionally skipped
+            # (operator chose direct human authorship over agent gating).
+            return None
         if not platform_post.gate_id:
             return "missing gate_id"
         try:
