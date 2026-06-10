@@ -4,6 +4,8 @@ import logging
 
 from celery import shared_task
 
+from apps.content_intake.herald_bridge import request_herald_draft
+
 logger = logging.getLogger(__name__)
 
 
@@ -27,10 +29,18 @@ def sync_intake_sheet(self, workspace_id: str):
         )
         return
 
+    from django.core.cache import cache
+    from django.utils import timezone
+
     try:
-        return sync_sheet_to_intake(workspace)
+        result = sync_sheet_to_intake(workspace)
     except Exception as exc:
         raise self.retry(exc=exc)
+
+    cache.set(f"intake:last_sync:{workspace_id}", timezone.now().isoformat(), timeout=None)
+    # Kick off HERALD drafting for any newly-accepted items (auto-on-sync).
+    request_herald_drafts_for_workspace.delay(str(workspace.pk))
+    return result
 
 
 @shared_task
@@ -78,4 +88,26 @@ def run_calendar_gap_scan():
             len(proposals),
         )
     return results
+
+
+@shared_task
+def request_herald_drafts_for_workspace(workspace_id: str):
+    """Ask HERALD to draft every eligible accepted intake item in a workspace."""
+    from django.core.cache import cache
+    from django.utils import timezone
+
+    from apps.content_intake.models import ContentIntake
+
+    eligible = ContentIntake.objects.filter(
+        workspace_id=workspace_id,
+        status=ContentIntake.Status.ACCEPTED,
+        sensitivity__in=["public_safe", "partner_only"],
+        herald_drafted_at__isnull=True,
+    )
+    drafted = 0
+    for item in eligible:
+        if request_herald_draft(item):
+            drafted += 1
+    cache.set(f"intake:last_draft:{workspace_id}", timezone.now().isoformat(), timeout=None)
+    return {"drafted": drafted}
 
