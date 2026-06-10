@@ -2,9 +2,9 @@
 
 Token shape::
 
-    bb_studio_<random32>_<lookup8>
-    \\_______/ \\_______/ \\_____/
-     prefix     secret     lookup
+    cos_<random32>_<lookup8>
+    \\___/ \\_______/ \\_____/
+    prefix  secret    lookup
 
 The secret part is what gets HMAC-hashed at rest. The lookup part is an
 indexed plaintext column that makes verification O(1) without revealing
@@ -31,7 +31,7 @@ from django.utils import timezone
 
 from apps.api_keys.models import ApiKey
 
-TOKEN_PREFIX = "bb_studio_"
+TOKEN_PREFIX = "cos_"
 LOOKUP_LEN = 8
 REVOCATION_CACHE_TTL = 30  # seconds
 
@@ -61,7 +61,7 @@ def _derive_hmac_pepper() -> bytes:
         algorithm=SHA256(),
         length=32,
         salt=salt,
-        info=b"brightbean-api-key-hmac",
+        info=b"campaign-os-api-key-hmac",
     ).derive(secret)
 
 

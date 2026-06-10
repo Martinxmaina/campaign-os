@@ -178,7 +178,7 @@ class TestProtocolMechanics:
         )
         assert status == 200
         result = body["result"]
-        assert result["serverInfo"]["name"] == "brightbean-studio"
+        assert result["serverInfo"]["name"] == "campaign-os"
         assert "protocolVersion" in result
         assert "tools" in result["capabilities"]
 

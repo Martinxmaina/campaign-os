@@ -28,7 +28,7 @@ class ApiKey(models.Model):
 
     Token format (constructed in ``services.issue_api_key``):
 
-        bb_studio_<random32>_<lookup8>
+        cos_<random32>_<lookup8>
 
     Where:
       * ``random32`` — 32 url-safe bytes from ``secrets.token_urlsafe(32)``

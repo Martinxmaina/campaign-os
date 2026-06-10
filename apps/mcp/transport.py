@@ -2,7 +2,7 @@
 ``apps/api/api.py``.
 
 Auth piggy-backs on the same ``ApiKeyAuth`` the REST surface uses, so
-every MCP request carries a ``Authorization: Bearer bb_studio_...``
+every MCP request carries a ``Authorization: Bearer cos_...``
 header — one credential surface, one audit trail, one revocation path.
 
 For v1 we only implement the POST direction (client → server requests

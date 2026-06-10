@@ -299,7 +299,7 @@ def generate_video_thumbnail(file_path):
     fd = None
     thumb_path = None
     try:
-        fd, thumb_path = tempfile.mkstemp(suffix=".jpg", prefix="brightbean_thumb_")
+        fd, thumb_path = tempfile.mkstemp(suffix=".jpg", prefix="campaign_os_thumb_")
         # Close the fd immediately - ffmpeg will write to the path directly
         os.close(fd)
         fd = None

@@ -1,6 +1,6 @@
 """Django Ninja bearer-token auth class for the Agent API.
 
-Resolves an ``Authorization: Bearer bb_studio_…`` header to an active
+Resolves an ``Authorization: Bearer cos_…`` header to an active
 ``ApiKey``, then duck-types a ``request.workspace_membership`` shim so the
 existing ``@require_permission`` decorator from
 ``apps.members.decorators`` works unchanged when called from within a

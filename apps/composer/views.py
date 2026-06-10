@@ -3039,7 +3039,7 @@ def feed_add(request, workspace_id):
     name = request.POST.get("name", "").strip()
     website_url = request.POST.get("website_url", "").strip()
     source = request.POST.get("source", "")
-    category = request.POST.get("category", "brightbean-favorites")
+    category = request.POST.get("category", "campaign-os-picks")
     selected_feed_id = request.POST.get("feed_id", "all")
     derived_metadata = {}
 
@@ -3134,7 +3134,7 @@ def feed_delete(request, workspace_id, feed_id):
 def feed_explore(request, workspace_id):
     """Return the explore feeds modal content for a given category."""
     workspace = _get_workspace(request, workspace_id)
-    category = request.GET.get("category", "brightbean-favorites")
+    category = request.GET.get("category", "campaign-os-picks")
     return _render_explore(request, workspace, category)
 
 

@@ -287,7 +287,7 @@ class TestIssue:
         body = r.content.decode()
         # Reveal modal markers.
         assert "Save this token now." in body
-        assert "bb_studio_" in body
+        assert "cos_" in body
         # Row persisted.
         keys = list(ApiKey.objects.filter(workspace=workspace))
         assert len(keys) == 1
@@ -310,13 +310,13 @@ class TestIssue:
         assert r0.status_code == 302
         assert r0.headers["Location"] == reverse("api_keys:list")
         # And the plaintext token is NOT carried in the redirect URL.
-        assert "bb_studio_" not in r0.headers["Location"]
+        assert "cos_" not in r0.headers["Location"]
 
         # Following the redirect reveals the token once.
         r1 = admin_client.get(r0.headers["Location"])
         body1 = r1.content.decode()
         assert "Save this token now." in body1
-        assert "bb_studio_" in body1
+        assert "cos_" in body1
         assert ApiKey.objects.filter(workspace=workspace).count() == 1
 
         # Reloading the list page: token was popped, so no modal — and,
@@ -325,7 +325,7 @@ class TestIssue:
         r2 = admin_client.get(reverse("api_keys:list"))
         body2 = r2.content.decode()
         assert "Save this token now." not in body2
-        assert "bb_studio_" not in body2
+        assert "cos_" not in body2
         assert ApiKey.objects.filter(workspace=workspace).count() == 1
 
     def test_missing_name_is_rejected(self, admin_client, workspace, social_account):

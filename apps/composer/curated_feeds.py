@@ -8,7 +8,7 @@ from urllib.parse import urlsplit
 
 FEED_CATEGORIES = [
     {"slug": "afcen-africa", "label": "AfCEN / Africa"},
-    {"slug": "brightbean-favorites", "label": "Brightbean Favorites"},
+    {"slug": "campaign-os-picks", "label": "Campaign OS Picks"},
     {"slug": "tech", "label": "Tech"},
     {"slug": "news", "label": "News"},
     {"slug": "business", "label": "Business"},
@@ -51,7 +51,7 @@ CURATED_FEEDS = {
             "rss": "https://news.google.com/rss/search?q=Africa%20artificial%20intelligence&hl=en-US&gl=US&ceid=US:en",
         },
     ],
-    "brightbean-favorites": [
+    "campaign-os-picks": [
         {"name": "Creator Science", "website": "https://creatorscience.com/", "rss": "https://creatorscience.com/rss/"},
         {
             "name": "Lindsey Gamble's Newsletter",

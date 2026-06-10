@@ -14,7 +14,7 @@ env = environ.Env(
     SENTRY_DSN=(str, ""),
     REDIS_URL=(str, ""),
     SITE_NAME=(str, "WAIIS Dispatch"),
-    SOURCE_REPO_URL=(str, "https://github.com/brightbeanxyz/brightbean-studio"),
+    SOURCE_REPO_URL=(str, "https://github.com/africacen/campaign-os"),
 )
 
 environ.Env.read_env(BASE_DIR / ".env", overwrite=False)
@@ -141,7 +141,7 @@ else:
 
 # Database
 DATABASES = {
-    "default": env.db("DATABASE_URL", default="postgres://postgres:postgres@localhost:5432/brightbean"),
+    "default": env.db("DATABASE_URL", default="postgres://postgres:postgres@localhost:5432/campaign_os"),
 }
 
 # Custom user model

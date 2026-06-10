@@ -148,7 +148,7 @@ class TestTokenFormat:
             name="round-trip",
             permissions=["create_posts"],
         )
-        assert issued.plaintext_token.startswith("bb_studio_")
+        assert issued.plaintext_token.startswith("cos_")
         parsed = services.parse_token(issued.plaintext_token)
         assert parsed is not None
         assert parsed.lookup_prefix == issued.api_key.lookup_prefix
@@ -157,12 +157,12 @@ class TestTokenFormat:
         assert services.parse_token("") is None
         assert services.parse_token("not-our-prefix") is None
         # Missing lookup
-        assert services.parse_token("bb_studio_short") is None
+        assert services.parse_token("cos_short") is None
         # Wrong lookup length
-        assert services.parse_token("bb_studio_AAAA_xyz") is None
+        assert services.parse_token("cos_AAAA_xyz") is None
         # Wrong lookup (content-addressed mismatch)
         # 43 chars secret, but lookup is wrong
-        bad = "bb_studio_" + ("A" * 43) + "_00000000"
+        bad = "cos_" + ("A" * 43) + "_00000000"
         assert services.parse_token(bad) is None
 
     def test_two_tokens_have_distinct_secrets(self, workspace, workspace_owner, social_account):
