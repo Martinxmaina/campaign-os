@@ -2,6 +2,7 @@
 
 import contextlib
 import json
+import logging
 import re
 import uuid
 from datetime import UTC, datetime
@@ -45,6 +46,8 @@ from .models import (
     PostVersion,
     Tag,
 )
+
+logger = logging.getLogger(__name__)
 
 MAX_CSV_UPLOAD_BYTES = 5 * 1024 * 1024  # 5 MB cap on CSV planner imports
 
@@ -540,6 +543,10 @@ def save_post(request, workspace_id, post_id=None):
         form = PostForm(request.POST)
 
     if not form.is_valid():
+        logger.warning(
+            "save_post 400: action=%s post=%s errors=%s keys=%s",
+            action, post_id, dict(form.errors), sorted(request.POST.keys()),
+        )
         return JsonResponse({"errors": form.errors}, status=400)
 
     post = form.save(commit=False)
