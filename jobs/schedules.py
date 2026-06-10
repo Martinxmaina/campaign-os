@@ -23,4 +23,8 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.publisher.tasks.run_publish_cycle",
         "schedule": schedule(run_every=15),
     },
+    "beat-heartbeat": {
+        "task": "jobs.tasks.beat_heartbeat",
+        "schedule": schedule(run_every=60),
+    },
 }
