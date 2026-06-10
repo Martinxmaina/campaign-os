@@ -16,7 +16,14 @@ def create_post_from_content(content: dict, intake) -> Post:
 
     If no SocialAccount matches a channel target, the Post is created without
     PlatformPosts (draft-only) so it is ready once the channel is connected.
+
+    Idempotent: if this intake already has a linked Post (re-approval, or any
+    re-fire of approval_decide), return the existing Post rather than creating a
+    second one and silently orphaning the first.
     """
+    if intake.post_id:
+        return intake.post
+
     body = str(content.get("body", "")).strip()
     title = str(content.get("title", "") or intake.angle)[:255]
 

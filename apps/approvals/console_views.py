@@ -25,23 +25,28 @@ def approval_decide(request, approval_id):
     try:
         agent_post(f"/approvals/{approval_id}/decide", body)
     except Exception:
-        pass
+        # The agent-service is the system of record for the decision. If the
+        # decide call failed, do NOT create a local Post — that would diverge
+        # the two systems (a publishable Post with no recorded approval).
+        return redirect("console:approvals")
 
     if decision == "approve":
-        _try_create_post(request, approval_id)
+        _try_create_post(request)
 
     return redirect("console:approvals")
 
 
-def _try_create_post(request, approval_id):
-    """On approve, pull the content item and create a publishable Post."""
+def _try_create_post(request):
+    """On approve, pull the content item and create a publishable Post.
+
+    The content id is the approval's ``target_ref`` (a content_item id). It is
+    submitted by the approvals form as a hidden field, so no extra round-trip
+    to the agent-service is needed (and there is no GET /approvals/{id} route).
+    """
     from apps.approvals.intake_publish import create_post_from_content
     from apps.content_intake.models import ContentIntake
 
-    approval = safe_get(f"/approvals/{approval_id}", default=None)
-    if not approval:
-        return
-    content_id = approval.get("target_id") or approval.get("content_id")
+    content_id = request.POST.get("target_ref")
     if not content_id:
         return
     content = safe_get(f"/content/items/{content_id}", default=None)

@@ -31,6 +31,9 @@ def test_approval_decide_posts(logged_client, monkeypatch):
     calls = {}
     monkeypatch.setattr(console_views, "agent_post",
                         lambda path, json=None: calls.update(path=path, json=json) or {"status": "approved"})
-    resp = logged_client.post("/console/approvals/a1/decide", {"decision": "approve"})
+    # No matching intake → _try_create_post is a no-op, but the decide call still fires.
+    monkeypatch.setattr(console_views, "safe_get", lambda path, default=None: None)
+    resp = logged_client.post("/console/approvals/a1/decide",
+                              {"decision": "approve", "target_ref": "c1"})
     assert resp.status_code in (302, 303)
     assert calls["path"] == "/approvals/a1/decide" and calls["json"]["decision"] == "approve"

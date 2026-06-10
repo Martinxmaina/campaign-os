@@ -9,6 +9,7 @@
     {% if a.status == "pending" %}
     <form method="post" action="/console/approvals/{{ a.id }}/decide" class="mt-2 space-y-2">
       {% csrf_token %}
+      <input type="hidden" name="target_ref" value="{{ a.target_ref }}">
       <textarea name="edit_text" placeholder="optional edit" class="w-full border rounded px-2 py-1 text-sm"></textarea>
       <div class="flex gap-2">
         <button name="decision" value="approve" class="text-sm bg-emerald-600 text-white rounded px-3 py-1">Approve</button>
