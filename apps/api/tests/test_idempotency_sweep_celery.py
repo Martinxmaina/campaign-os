@@ -9,6 +9,10 @@ does not match the real model: ``api_key`` is a FK and
 ``request_fingerprint`` / ``response_status`` / ``response_body`` are
 non-null. We build a minimal ApiKey (which needs a workspace -> org) so
 the staleness logic stays identical to the plan.
+
+Code-quality fix: ``apps/api/apps.py`` must NOT import or reference
+``background_task`` so that removing the package in Task 10 cannot bring
+the application down.
 """
 
 import datetime as dt
@@ -62,3 +66,40 @@ def test_sweep_deletes_only_stale_rows():
 
     assert not IdempotencyRecord.objects.filter(pk=old.pk).exists()
     assert IdempotencyRecord.objects.filter(pk=fresh.pk).exists()
+
+
+def test_api_apps_has_no_background_task_import():
+    """``apps/api/apps.py`` must not reference ``background_task`` at all.
+
+    The ready() hook that registered the sweep via django-background-tasks
+    was superseded by the Celery beat entry in ``jobs/schedules.py``. If
+    the old import is still present it will raise ImportError once Task 10
+    removes the package, taking the whole application down.
+    """
+    import pathlib
+
+    apps_py = pathlib.Path(__file__).resolve().parent.parent / "apps.py"
+    source = apps_py.read_text()
+    assert "background_task" not in source, (
+        "apps/api/apps.py still references 'background_task'. "
+        "Remove the ready() hook — sweep is now scheduled via Celery beat."
+    )
+
+
+def test_api_appconfig_has_no_ready_hook():
+    """``ApiConfig`` must not override ``ready()`` after the Celery migration.
+
+    The ready() hook connected a post_migrate signal that tried to schedule
+    the idempotency sweep via django-background-tasks. Now that the sweep is
+    a Celery beat entry, the hook is dead code and a latent startup hazard.
+    We verify that ApiConfig does not define its own ready() — the base-class
+    no-op inherited from AppConfig is fine and expected.
+    """
+    from django.apps import AppConfig
+
+    from apps.api.apps import ApiConfig
+
+    assert "ready" not in ApiConfig.__dict__, (
+        "ApiConfig still overrides ready(). "
+        "Remove it — sweep scheduling is done via jobs/schedules.py."
+    )
