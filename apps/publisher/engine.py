@@ -397,17 +397,18 @@ class PublishEngine:
         platform = account.platform
 
         # Intake sensitivity gate (before agent-service gate)
+        from apps.content_intake.models import ContentIntake
         from apps.publisher.intake_gate import check_intake_gate
-        _intake_qs = getattr(platform_post.post, "intake_source", None)
-        _intake_item = _intake_qs.filter().first() if _intake_qs is not None else None
-        if _intake_item:
+        try:
+            _intake_item = platform_post.post.intake_source
+        except ContentIntake.DoesNotExist:
+            _intake_item = None
+        if _intake_item is not None:
             _blocked, _reason = check_intake_gate(_intake_item)
             if _blocked:
-                logger.warning("Intake gate blocked publish for pp=%s: %s", platform_post.pk, _reason)
-                platform_post.transition_to("failed")
-                platform_post.publish_error = f"[INTAKE GATE] {_reason}"
-                platform_post.save(update_fields=["status", "publish_error", "updated_at"])
-                return
+                _full_reason = f"[INTAKE GATE] {_reason}"
+                self._block(platform_post, _full_reason)
+                raise GateBlockError(_full_reason)
 
         # AUTHORITATIVE GATE CHOKEPOINT. Every publish path funnels through
         # here — fresh (_publish_post_group → _publish_platform_post) AND
