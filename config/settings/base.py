@@ -479,7 +479,9 @@ CELERY_TASK_TIME_LIMIT = 600       # hard kill at 10 min
 CELERY_TASK_SOFT_TIME_LIMIT = 540  # SoftTimeLimitExceeded at 9 min
 CELERY_TASK_DEFAULT_RETRY_DELAY = 30
 CELERY_TASK_ALWAYS_EAGER = False
-# CELERY_BEAT_SCHEDULE is set in Task 2 (from jobs/schedules.py).
+from jobs.schedules import BEAT_SCHEDULE  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = BEAT_SCHEDULE
 
 INTELLIGENCE_ENABLED = all(
     [
