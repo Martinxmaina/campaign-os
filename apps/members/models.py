@@ -98,6 +98,41 @@ class WorkspaceMembership(models.Model):
         role = self.custom_role.name if self.custom_role else self.workspace_role
         return f"{self.user.email} - {self.workspace.name} ({role})"
 
+    def clean(self):
+        """Enforce role-scoped constraints on pillar/house fields.
+
+        ``pillar`` must only be set when the role is ``pillar_lead``.
+        ``house`` is unrestricted across roles (it denotes the workspace brand
+        context, e.g. 'WAIIS', 'AfCEN', and is valid for any role), but stale
+        ``pillar`` data left behind after a role change from ``pillar_lead`` to
+        anything else is silently misleading — raise ValidationError so the
+        caller knows to clear it.
+        """
+        from django.core.exceptions import ValidationError
+
+        if self.workspace_role != self.WorkspaceRole.PILLAR_LEAD and self.pillar:
+            raise ValidationError(
+                {
+                    "pillar": (
+                        "The 'pillar' field may only be set when workspace_role is "
+                        f"'pillar_lead'. Current role is '{self.workspace_role}'. "
+                        "Clear the pillar field before changing the role."
+                    )
+                }
+            )
+
+    def save(self, *args, **kwargs):
+        """Ensure clean() runs on every programmatic save, not just form saves.
+
+        We call validate_constraints=False to avoid re-running the DB-level
+        unique_together check on partial updates (update_fields), which would
+        raise a spurious IntegrityError on rows that already own their slot.
+        The clean() method itself carries the constraint we actually care about
+        (pillar/role consistency).
+        """
+        self.full_clean(validate_unique=False, validate_constraints=False)
+        super().save(*args, **kwargs)
+
     @property
     def effective_permissions(self):
         """Return the effective permission dict for this membership."""
@@ -199,6 +234,14 @@ PERMISSION_KEYS = [
 
 BUILTIN_ROLE_PERMISSIONS = {
     "owner": {k: True for k in PERMISSION_KEYS},
+    # campaign_owner intentionally mirrors owner: within their campaign scope
+    # they need full authority to approve, publish, and manage accounts.
+    # This is deliberate RBAC design — campaign owners are scoped to a single
+    # workspace/campaign, so they hold all permissions within that scope just
+    # as a workspace owner does. If future requirements restrict certain
+    # permissions for campaign_owner, update this entry and add a test to
+    # assert the divergence. See Task 3 (RBAC — campaign_owner/principal/
+    # pillar_lead roles) and the associated test_campaign_owner_vs_owner test.
     "campaign_owner": {k: True for k in PERMISSION_KEYS},
     "principal": {
         "create_posts": True,

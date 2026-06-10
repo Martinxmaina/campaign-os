@@ -23,11 +23,21 @@ ORG_ROLE_LEVEL = {
     OrgMembership.OrgRole.MEMBER: 1,
 }
 WS_ROLE_LEVEL = {
-    WorkspaceMembership.WorkspaceRole.OWNER: 6,
-    WorkspaceMembership.WorkspaceRole.MANAGER: 5,
-    WorkspaceMembership.WorkspaceRole.EDITOR: 4,
-    WorkspaceMembership.WorkspaceRole.CONTRIBUTOR: 3,
-    WorkspaceMembership.WorkspaceRole.CLIENT: 2,
+    # Levels must stay in sync with decorators.py role_hierarchy.
+    # New campaign-OS roles (ADMIN, CAMPAIGN_OWNER, PRINCIPAL, PILLAR_LEAD, MEMBER)
+    # are slotted between OWNER and the legacy lower-tier roles. Existing ordinals
+    # for MANAGER..VIEWER are shifted down one tier to keep a clean gap from the
+    # new roles above them.
+    WorkspaceMembership.WorkspaceRole.OWNER: 9,
+    WorkspaceMembership.WorkspaceRole.ADMIN: 8,
+    WorkspaceMembership.WorkspaceRole.CAMPAIGN_OWNER: 7,
+    WorkspaceMembership.WorkspaceRole.PRINCIPAL: 6,
+    WorkspaceMembership.WorkspaceRole.PILLAR_LEAD: 5,
+    WorkspaceMembership.WorkspaceRole.MANAGER: 4,
+    WorkspaceMembership.WorkspaceRole.EDITOR: 3,
+    WorkspaceMembership.WorkspaceRole.MEMBER: 2,
+    WorkspaceMembership.WorkspaceRole.CONTRIBUTOR: 2,
+    WorkspaceMembership.WorkspaceRole.CLIENT: 1,
     WorkspaceMembership.WorkspaceRole.VIEWER: 1,
 }
 

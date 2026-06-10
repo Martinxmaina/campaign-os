@@ -40,12 +40,21 @@ def require_workspace_role(min_role):
 
     Role hierarchy (built-in): owner > manager > editor > contributor > client > viewer
     """
+    # Must stay in sync with WS_ROLE_LEVEL in services.py.
+    # Covers every choice in WorkspaceMembership.WorkspaceRole so that users
+    # with any valid role get the correct ordinal (missing roles fall back to 0
+    # and receive PermissionDenied even for viewer-gated views — a hard bug).
     role_hierarchy = {
-        "owner": 6,
-        "manager": 5,
-        "editor": 4,
-        "contributor": 3,
-        "client": 2,
+        "owner": 9,
+        "admin": 8,
+        "campaign_owner": 7,
+        "principal": 6,
+        "pillar_lead": 5,
+        "manager": 4,
+        "editor": 3,
+        "member": 2,
+        "contributor": 2,
+        "client": 1,
         "viewer": 1,
     }
 
