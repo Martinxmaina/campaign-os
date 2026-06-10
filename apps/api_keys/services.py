@@ -57,18 +57,19 @@ def _derive_hmac_pepper() -> bytes:
         )
     if isinstance(salt, str):
         salt = salt.encode("utf-8")
-    # IMPORTANT: Do NOT change this info string.
+    # IMPORTANT: Do NOT change this info string.  # keep
     # It is baked into every API-key HMAC stored in the production database.
     # All HMAC hashes written before 2026-06-10 were produced with
-    # b"brightbean-api-key-hmac". Changing this value would permanently
-    # invalidate every existing API key stored in the DB. If a key-rotation
-    # is ever needed, write a migration that re-hashes all stored tokens
-    # with the new info string before deploying the change.
+    # b"brightbean-api-key-hmac" (frozen legacy byte-string — # keep).
+    # Changing this value would permanently invalidate every existing API key
+    # stored in the DB. If a key-rotation is ever needed, write a migration
+    # that re-hashes all stored tokens with the new info string before
+    # deploying the change.
     return HKDF(
         algorithm=SHA256(),
         length=32,
         salt=salt,
-        info=b"brightbean-api-key-hmac",
+        info=b"brightbean-api-key-hmac",  # keep — frozen HKDF anchor
     ).derive(secret)
 
 

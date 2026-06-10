@@ -30,18 +30,19 @@ def _derive_key() -> bytes:
         )
     if isinstance(salt, str):
         salt = salt.encode("utf-8")
-    # IMPORTANT: Do NOT change this info string.
+    # IMPORTANT: Do NOT change this info string.  # keep
     # It is baked into every derived key stored in the production database.
     # All field-encrypted rows written before 2026-06-10 were produced with
-    # b"brightbean-field-encryption". Changing this value would make every
-    # existing encrypted row permanently unreadable. If a key-rotation is
-    # ever needed, write a data migration that decrypts with the old info
-    # string and re-encrypts with the new one before deploying the change.
+    # b"brightbean-field-encryption" (frozen legacy byte-string — # keep).
+    # Changing this value would make every existing encrypted row permanently
+    # unreadable. If a key-rotation is ever needed, write a data migration
+    # that decrypts with the old info string and re-encrypts with the new one
+    # before deploying the change.
     hkdf = HKDF(
         algorithm=SHA256(),
         length=32,
         salt=salt,
-        info=b"brightbean-field-encryption",
+        info=b"brightbean-field-encryption",  # keep — frozen HKDF anchor
     )
     return hkdf.derive(secret)
 
