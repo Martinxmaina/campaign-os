@@ -1,6 +1,9 @@
 """Build intake context dict for HERALD/ATLAS deliberation."""
 from __future__ import annotations
-from apps.content_intake.models import ContentIntake
+
+from django.db.models import Count, Q
+
+from apps.content_intake.models import ContentIntake, UnblockCondition
 
 _PRIORITY_WEIGHTS = {"H": 3, "M": 2, "L": 1}
 _AGENT_VISIBLE_SENSITIVITIES = frozenset(["public_safe", "partner_only"])
@@ -12,6 +15,12 @@ def build_intake_context(workspace) -> dict:
 
     Excludes private_hold/confidential — agents must NOT see those.
     Submitted items get priority_weight boost.
+
+    Query strategy: a single annotate(open_cond_count=...) replaces the
+    prefetch_related('unblock_conditions') approach.  The annotation is used by
+    ContentIntake.has_open_conditions (fast-path, zero extra queries) and also
+    drives the open_conditions list via a second prefetch so we can render the
+    condition details without an extra per-item query.
     """
     qs = (
         ContentIntake.objects.filter(
@@ -19,14 +28,23 @@ def build_intake_context(workspace) -> dict:
             sensitivity__in=_AGENT_VISIBLE_SENSITIVITIES,
             status__in=_DRAFTABLE_STATUSES,
         )
+        .annotate(
+            open_cond_count=Count(
+                "unblock_conditions",
+                filter=Q(unblock_conditions__status=UnblockCondition.ConditionStatus.OPEN),
+            )
+        )
         .prefetch_related("unblock_conditions")
         .order_by("-priority", "-created_at")[:50]
     )
     items = []
     for intake in qs:
+        # Use the prefetched reverse relation; the annotation already satisfies
+        # has_open_conditions so no extra DB hit occurs there either.
         open_conditions = [
             {"type": c.condition_type, "description": c.description}
-            for c in intake.unblock_conditions.all() if c.status == "open"
+            for c in intake.unblock_conditions.all()
+            if c.status == UnblockCondition.ConditionStatus.OPEN
         ]
         items.append({
             "external_id": intake.external_id,

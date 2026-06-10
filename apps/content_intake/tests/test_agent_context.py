@@ -9,9 +9,14 @@ from apps.content_intake.models import ContentIntake
 
 @pytest.mark.django_db
 def test_context_includes_accepted_items(workspace, intake_item):
-    """Accepted, public_safe items must appear in the agent context."""
+    """Accepted, public_safe items must appear in the agent context with correct fields."""
     ctx = build_intake_context(workspace)
-    assert any(i["external_id"] == intake_item.external_id for i in ctx["intake_items"])
+    assert ctx["total_visible"] == 1
+    assert ctx["workspace"] == str(workspace.pk)
+    item = next((i for i in ctx["intake_items"] if i["external_id"] == intake_item.external_id), None)
+    assert item is not None, f"expected {intake_item.external_id!r} in context"
+    assert item["sensitivity"] == "public_safe"
+    assert item["priority"] == "H"
 
 
 @pytest.mark.django_db
@@ -85,4 +90,8 @@ def test_context_includes_target_dates(workspace, intake_item_with_date):
         None,
     )
     assert item is not None
-    assert item["target_publish_date"] is not None
+    date_val = item["target_publish_date"]
+    assert isinstance(date_val, str), f"expected str, got {type(date_val)}"
+    assert date_val == intake_item_with_date.target_publish_date.isoformat(), (
+        f"date mismatch: got {date_val!r}, expected {intake_item_with_date.target_publish_date.isoformat()!r}"
+    )
