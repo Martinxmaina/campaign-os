@@ -11,6 +11,10 @@ bcrypt>=4.2,<5.0
 # Background tasks
 django-background-tasks>=1.2,<2.0
 
+# Celery task queue
+celery>=5.4,<6
+redis>=5,<6
+
 # Frontend
 django-tailwind[reload]>=3.8,<4.0
 django-htmx>=1.19,<2.0
