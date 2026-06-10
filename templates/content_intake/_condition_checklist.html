@@ -19,8 +19,8 @@
     {% if cond.status == "open" %}
     <form
       method="post"
-      action="{% url 'content_intake:close_condition' condition_pk=cond.pk %}"
-      hx-post="{% url 'content_intake:close_condition' condition_pk=cond.pk %}"
+      action="{% url 'console:intake-close-condition' condition_pk=cond.pk %}"
+      hx-post="{% url 'console:intake-close-condition' condition_pk=cond.pk %}"
       hx-target="#conditions-{{ intake.pk }}"
       hx-swap="outerHTML"
       class="flex gap-1 items-center"
