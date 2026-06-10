@@ -410,6 +410,22 @@ class PublishEngine:
                 self._block(platform_post, _full_reason)
                 raise GateBlockError(_full_reason)
 
+        # Joseph-personal channel requires Joseph's explicit approval
+        if _intake_item:
+            from apps.content_intake.channel_routing import requires_joseph_approval as _req_joseph
+            if _req_joseph(_intake_item.channel_targets):
+                from apps.approvals.models import ApprovalAction
+                joseph_approved = ApprovalAction.objects.filter(
+                    post=platform_post.post,
+                    action=ApprovalAction.ActionType.APPROVED,
+                    user__email__icontains="joseph",
+                ).exists()
+                if not joseph_approved:
+                    platform_post.transition_to("failed")
+                    platform_post.publish_error = "[JOSEPH GATE] Joseph personal channel requires Joseph approval"
+                    platform_post.save(update_fields=["status", "publish_error", "updated_at"])
+                    return
+
         # AUTHORITATIVE GATE CHOKEPOINT. Every publish path funnels through
         # here — fresh (_publish_post_group → _publish_platform_post) AND
         # retry (_process_retries → _publish_platform_post). Enforcing the
