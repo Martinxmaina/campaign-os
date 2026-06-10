@@ -44,23 +44,3 @@ def sync_all_intake_sheets():
         count += 1
     return {"queued": count}
 
-
-@shared_task
-def run_calendar_gap_scan():
-    """Scan all active workspaces for 14-day calendar gaps and cache proposals.
-
-    Results are stored in the cache under the key ``calendar_proposals:<ws.pk>``
-    with a 24-hour TTL.  The intake board and HERALD context builder read from
-    this cache key.
-    """
-    from django.core.cache import cache
-
-    from apps.content_intake.calendar_agent import scan_14day_gaps
-    from apps.workspaces.models import Workspace
-
-    results = {}
-    for ws in Workspace.objects.filter(is_archived=False):
-        proposals = scan_14day_gaps(ws)
-        cache.set(f"calendar_proposals:{ws.pk}", proposals, timeout=86400)
-        results[str(ws.pk)] = len(proposals)
-    return results

@@ -59,10 +59,4 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.content_intake.tasks.sync_all_intake_sheets",
         "schedule": schedule(run_every=900),  # 15 min
     },
-    "calendar-gap-scan": {
-        # Scan all active workspaces for 14-day calendar gaps once per day.
-        # Results are cached and surfaced to HERALD / the intake board.
-        "task": "apps.content_intake.tasks.run_calendar_gap_scan",
-        "schedule": schedule(run_every=86400),  # daily
-    },
 }

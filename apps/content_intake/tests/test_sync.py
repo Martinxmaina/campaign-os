@@ -3,23 +3,23 @@
 All tests mock _get_sheet_rows to avoid any network calls.  The DB is
 exercised via pytest-django's @pytest.mark.django_db.
 
-SAMPLE_ROWS structure (index → column label):
-  0  external_id
-  1  pillar_theme
-  2  angle
-  3  proof_point
-  4  status
-  5  sensitivity
-  6  channels
-  7  priority
-  8  campaign
-  9  house
-  10 owner_raw
-  11 submitted_by_raw
-  12 target_date
-  13 notes
-  14 ref_links
-  15 skip_reason
+SAMPLE_ROWS structure matches the spec's prescribed column order (0-based):
+  0  ID
+  1  Date added
+  2  Submitted by
+  3  Pillar/Theme
+  4  Angle
+  5  Proof point
+  6  Target audience
+  7  Sensitivity flag
+  8  Channel
+  9  Campaign
+  10 Priority
+  11 Status
+  12 Owner
+  13 Target publish date
+  14 Notes
+  15 Doc links
 """
 
 from unittest.mock import patch
@@ -33,34 +33,29 @@ from apps.content_intake.models import ContentIntake, IntakeReviewItem, UnblockC
 # ---------------------------------------------------------------------------
 
 HEADER_ROW = [
-    "ID", "Pillar/Theme", "Angle", "Proof Point", "Status", "Sensitivity",
-    "Channels", "Priority", "Campaign", "House", "Owner", "Submitted By",
-    "Target Date", "Notes", "Ref Links", "Skip Reason",
+    "ID", "Date added", "Submitted by", "Pillar/Theme", "Angle", "Proof point",
+    "Target audience", "Sensitivity flag", "Channel", "Campaign", "Priority",
+    "Status", "Owner", "Target publish date", "Notes", "Doc links",
 ]
 
 # A template/sentinel row that must be silently ignored
 EXAMPLE_ROW = [
-    "EXAMPLE", "EXAMPLE", "Sample angle", "Sample proof",
-    "Idea", "Public safe", "LinkedIn", "M", "Campaign A",
-    "WAIIS", "Martin", "Joseph", "2025-06-01", "", "", "",
+    "EXAMPLE", "2026-01-01", "Admin", "EXAMPLE", "EXAMPLE", "EXAMPLE",
+    "EXAMPLE", "Public", "LinkedIn", "", "M", "Idea", "", "", "EXAMPLE row", "",
 ]
 
 # A clean, fully-valid real row
 REAL_ROW_001 = [
-    "ROW-001", "Energy", "Solar growth story", "IRENA report 2024",
-    "Accepted", "Public safe", "LinkedIn WAIIS", "H", "EGM 2025",
-    "WAIIS", "Martin", "Joseph", "2025-06-15",
-    "Good to go", "https://irena.org", "",
+    "ROW-001", "2026-06-01", "Lazarus", "Energy", "Solar growth in EA",
+    "IEA 2024 report", "Policy makers", "Public-safe", "LinkedIn (WAIIS page)",
+    "WAIIS", "H", "Idea", "Lazarus", "2026-06-15", "", "",
 ]
 
 # A row with unrecognized sensitivity — should go to review queue
 BAD_SENSITIVITY_ROW = [
-    "ROW-002", "Climate", "Carbon markets explainer", "UNFCCC data",
-    "Drafting", "mega-private-ultra",  # unrecognized sensitivity
-    "Newsletter", "M", "EGM 2025",
-    "WAIIS", "Martin", "Joseph", "2025-06-20",
-    "verify source before publishing",  # triggers source_verification condition
-    "", "",
+    "ROW-002", "2026-06-02", "Nduta", "AI", "AI 10Bn thesis",
+    "tbd", "VCs", "weird unclear", "Twitter",
+    "AI10Bn", "M", "Idea", "Nduta", "", "verify source before posting", "",
 ]
 
 SAMPLE_ROWS = [HEADER_ROW, EXAMPLE_ROW, REAL_ROW_001, BAD_SENSITIVITY_ROW]
@@ -90,7 +85,6 @@ def test_sync_skips_example_rows(workspace):
 
 @pytest.mark.django_db
 def test_sync_creates_real_row(workspace):
-    # Only include header + real row to isolate this test
     rows = [HEADER_ROW, REAL_ROW_001]
     with patch(MODULE_PATH, return_value=rows):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake
@@ -102,7 +96,7 @@ def test_sync_creates_real_row(workspace):
     obj = ContentIntake.objects.get(workspace=workspace, external_id="ROW-001")
     assert obj.pillar_theme == "Energy"
     assert obj.sensitivity == "public_safe"
-    assert obj.status == "accepted"
+    assert obj.status == "idea"
     assert obj.priority == "H"
 
 
@@ -123,6 +117,7 @@ def test_sync_bad_sensitivity_goes_to_review_queue(workspace):
         workspace=workspace, external_id="ROW-002"
     )
     assert review.exists(), "IntakeReviewItem should have been created for ROW-002"
+    assert review.first().reason == "sensitivity_unrecognized"
 
     # The ContentIntake record is still created, but sensitivity is private_hold
     intake = ContentIntake.objects.get(workspace=workspace, external_id="ROW-002")
@@ -166,13 +161,13 @@ def test_sync_creates_unblock_conditions(workspace):
     intake = ContentIntake.objects.get(workspace=workspace, external_id="ROW-002")
     conditions = UnblockCondition.objects.filter(intake=intake)
 
-    # BAD_SENSITIVITY_ROW notes = "verify source before publishing"
+    # BAD_SENSITIVITY_ROW notes = "verify source before posting"
     # → extract_unblock_conditions should yield source_verification
     source_cond = conditions.filter(
         condition_type=UnblockCondition.ConditionType.SOURCE_VERIFICATION
     )
     assert source_cond.exists(), (
         "source_verification condition should have been created from "
-        "'verify source before publishing' note"
+        "'verify source before posting' note"
     )
     assert source_cond.first().status == "open"

@@ -43,27 +43,27 @@ _SKIP_EXTERNAL_IDS: frozenset[str] = frozenset({"EXAMPLE", "example", "template"
 _SKIP_PILLAR_THEMES: frozenset[str] = frozenset({"EXAMPLE"})
 
 # Column indices (0-based) expected in Sheet1!A:P
-# The canonical column order matches the planning register template:
-#   A  B           C       D           E      F        G             H
-#   ID Pillar/Theme Angle  Proof point Status Sensitivity Channels  Priority
-#   I         J             K               L           M         N    O        P
-#   Campaign  House         Owner           SubmittedBy TargetDate Notes RefLinks SkipReason
+# Canonical column order matches the planning register template spec:
+#   A   B           C             D              E      F            G
+#   ID  Date added  Submitted by  Pillar/Theme   Angle  Proof point  Target audience
+#   H                I        J         K        L       M                  N    O        P
+#   Sensitivity flag Channel  Campaign  Priority  Status  Owner  Target publish date  Notes  Doc links
 _COL_EXTERNAL_ID = 0
-_COL_PILLAR = 1
-_COL_ANGLE = 2
-_COL_PROOF_POINT = 3
-_COL_STATUS = 4
-_COL_SENSITIVITY = 5
-_COL_CHANNELS = 6
-_COL_PRIORITY = 7
-_COL_CAMPAIGN = 8
-_COL_HOUSE = 9
-_COL_OWNER_RAW = 10
-_COL_SUBMITTED_BY_RAW = 11
-_COL_TARGET_DATE = 12
-_COL_NOTES = 13
-_COL_REF_LINKS = 14
-_COL_SKIP_REASON = 15
+_COL_DATE_ADDED = 1
+_COL_SUBMITTED_BY_RAW = 2
+_COL_PILLAR = 3
+_COL_ANGLE = 4
+_COL_PROOF_POINT = 5
+_COL_TARGET_AUDIENCE = 6
+_COL_SENSITIVITY = 7
+_COL_CHANNELS = 8
+_COL_CAMPAIGN = 9
+_COL_PRIORITY = 10
+_COL_STATUS = 11
+_COL_OWNER_RAW = 12
+_COL_TARGET_DATE = 13
+_COL_NOTES = 14
+_COL_REF_LINKS = 15
 
 
 # ---------------------------------------------------------------------------
@@ -252,20 +252,24 @@ def sync_sheet_to_intake(
         try:
             defaults = {
                 "row_hash": row_hash,
+                "submitted_by_raw": _row_value(row, _COL_SUBMITTED_BY_RAW),
                 "pillar_theme": pillar_theme,
                 "angle": _row_value(row, _COL_ANGLE),
                 "proof_point": _row_value(row, _COL_PROOF_POINT),
+                "target_audience": _row_value(row, _COL_TARGET_AUDIENCE),
                 "sensitivity": sensitivity,
                 "status": status,
                 "channel_targets": channels,
                 "priority": priority,
                 "campaign": _row_value(row, _COL_CAMPAIGN),
-                "house": _row_value(row, _COL_HOUSE),
                 "owner_raw": _row_value(row, _COL_OWNER_RAW),
-                "submitted_by_raw": _row_value(row, _COL_SUBMITTED_BY_RAW),
                 "target_publish_date": target_date,
                 "notes_raw": notes_raw,
-                "skip_reason": _row_value(row, _COL_SKIP_REASON),
+                "reference_links": [
+                    lnk.strip()
+                    for lnk in _row_value(row, _COL_REF_LINKS).split(",")
+                    if lnk.strip()
+                ],
                 "last_synced_at": timezone.now(),
                 "sync_error": "",
             }
