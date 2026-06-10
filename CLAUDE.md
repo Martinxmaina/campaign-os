@@ -20,9 +20,11 @@
 | apps/notifications | In-app + email notifications |
 | apps/inbox | Social inbox; reply management |
 | apps/api | Django-Ninja API (Agent API); idempotency |
-| apps/api_keys | API key issuance (prefix: cos_) |
-| apps/evals | EvalCase + EvalRun for content agent QA |
-| jobs/ | Celery tasks + beat schedules (single source of truth in jobs/schedules.py) |
+| apps/api_keys | API key issuance + rotation |
+| apps/credentials | Encrypted credential store |
+| apps/mcp | MCP server transport |
+| apps/settings_manager | Per-workspace settings |
+| jobs/ | Celery tasks (heartbeat) + beat schedules (single source of truth) |
 | providers/ | Social platform publish adapters (LinkedIn, Meta, X, YouTube, Threads, Mock) |
 | config/ | Django settings (base/dev/prod/test), Celery, URLs |
 
@@ -34,7 +36,6 @@
 - Cross-house wall: ContentIntake items are workspace-scoped; Posts reference intake from same workspace only.
 - Sensitivity fail-closed: unrecognized strings → private_hold + IntakeReviewItem (never silent drop).
 - Unblock conditions block scheduling at model level (ContentIntake.is_schedulable property).
-- Agent API keys use prefix cos_ (not bb_studio_).
 
 ## Running tests
 ```bash
@@ -46,6 +47,3 @@ uv run pytest -x -q
 uv run python manage.py makemigrations
 uv run python manage.py migrate
 ```
-
-## Sheets sync
-Reads from CONTENT_INTAKE_SHEET_ID env var. Beat task: apps.content_intake.tasks.sync_all_intake_sheets (15-min).
