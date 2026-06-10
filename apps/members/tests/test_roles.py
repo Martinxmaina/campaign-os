@@ -52,6 +52,26 @@ def test_all_workspace_roles_in_ws_role_level():
         )
 
 
+def test_all_workspace_roles_in_builtin_role_permissions():
+    """Every WorkspaceRole choice must have an entry in BUILTIN_ROLE_PERMISSIONS.
+
+    A missing role causes effective_permissions to return {}, which makes every
+    permission key default to False via .get(key, False) in require_permission.
+    The 'admin' role was the specific offender: despite having the highest
+    non-owner WS_ROLE_LEVEL it silently had zero permissions.
+    """
+    for role_value, _ in WorkspaceMembership.WorkspaceRole.choices:
+        assert role_value in BUILTIN_ROLE_PERMISSIONS, (
+            f"WorkspaceRole '{role_value}' is missing from BUILTIN_ROLE_PERMISSIONS in models.py. "
+            "Members with this role will have all permissions silently default to False."
+        )
+        # Also verify every permission key is present (no partial dict).
+        missing_keys = [k for k in PERMISSION_KEYS if k not in BUILTIN_ROLE_PERMISSIONS[role_value]]
+        assert not missing_keys, (
+            f"BUILTIN_ROLE_PERMISSIONS['{role_value}'] is missing keys: {missing_keys}"
+        )
+
+
 def test_new_roles_have_higher_level_than_viewer():
     """campaign_owner, principal, pillar_lead must outrank viewer and member."""
     viewer_level = WS_ROLE_LEVEL[WorkspaceMembership.WorkspaceRole.VIEWER]
@@ -189,3 +209,93 @@ def test_role_change_from_pillar_lead_clears_pillar_on_explicit_clear():
     m.refresh_from_db()
     assert m.workspace_role == WorkspaceMembership.WorkspaceRole.EDITOR
     assert m.pillar == ""
+
+
+@pytest.mark.django_db
+def test_update_workspace_assignments_clears_pillar_on_role_change():
+    """update_workspace_assignments must auto-clear pillar when role changes away
+    from pillar_lead, rather than surfacing an unhandled ValidationError.
+
+    Regression guard for the service-layer fix: previously the service called
+    m.save(update_fields=['workspace_role']) without touching m.pillar, which
+    caused clean() to raise ValidationError for any existing pillar_lead row
+    being re-assigned to a non-pillar_lead role.
+    """
+    from apps.accounts.models import User
+    from apps.organizations.models import Organization
+    from apps.workspaces.models import Workspace
+    from apps.members.models import OrgMembership
+    from apps.members.services import update_workspace_assignments
+
+    user = User.objects.create_user(
+        email="svc_pillar@example.com",
+        password="testpass123",
+        tos_accepted_at=timezone.now(),
+    )
+    auto_org_ids = list(OrgMembership.objects.filter(user=user).values_list("organization_id", flat=True))
+    WorkspaceMembership.objects.filter(user=user).delete()
+    OrgMembership.objects.filter(user=user).delete()
+    Organization.objects.filter(id__in=auto_org_ids).delete()
+
+    org = Organization.objects.create(name="SvcOrg")
+    ws = Workspace.objects.create(organization=org, name="SvcWS")
+
+    # Start as pillar_lead with a pillar set.
+    m = WorkspaceMembership.objects.create(
+        user=user,
+        workspace=ws,
+        workspace_role=WorkspaceMembership.WorkspaceRole.PILLAR_LEAD,
+        pillar="agribusiness",
+    )
+    assert m.pillar == "agribusiness"
+
+    # Reassign to editor via the service — must not raise.
+    update_workspace_assignments(
+        org=org,
+        user=user,
+        assignments=[{"workspace_id": str(ws.id), "role": WorkspaceMembership.WorkspaceRole.EDITOR}],
+    )
+
+    m.refresh_from_db()
+    assert m.workspace_role == WorkspaceMembership.WorkspaceRole.EDITOR
+    assert m.pillar == "", "pillar must be cleared when role changes away from pillar_lead"
+
+
+@pytest.mark.django_db
+def test_admin_workspace_role_has_all_permissions():
+    """WorkspaceRole.ADMIN must have all 13 permissions set to True.
+
+    Regression guard for the BUILTIN_ROLE_PERMISSIONS omission: previously
+    'admin' was absent from the dict, causing effective_permissions to return
+    {} and every permission check to silently return False for workspace admins.
+    """
+    from apps.accounts.models import User
+    from apps.organizations.models import Organization
+    from apps.workspaces.models import Workspace
+    from apps.members.models import OrgMembership
+
+    user = User.objects.create_user(
+        email="admin_perms@example.com",
+        password="testpass123",
+        tos_accepted_at=timezone.now(),
+    )
+    auto_org_ids = list(OrgMembership.objects.filter(user=user).values_list("organization_id", flat=True))
+    WorkspaceMembership.objects.filter(user=user).delete()
+    OrgMembership.objects.filter(user=user).delete()
+    Organization.objects.filter(id__in=auto_org_ids).delete()
+
+    org = Organization.objects.create(name="AdminPermOrg")
+    ws = Workspace.objects.create(organization=org, name="AdminPermWS")
+
+    m = WorkspaceMembership.objects.create(
+        user=user,
+        workspace=ws,
+        workspace_role=WorkspaceMembership.WorkspaceRole.ADMIN,
+    )
+
+    perms = m.effective_permissions
+    assert perms, "effective_permissions must not return empty dict for admin role"
+    for key in PERMISSION_KEYS:
+        assert perms.get(key) is True, (
+            f"admin role missing permission '{key}' in effective_permissions"
+        )

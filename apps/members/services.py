@@ -365,7 +365,15 @@ def update_workspace_assignments(org, user, assignments, *, inviter=None):
             m = current_map[ws_id]
             if m.workspace_role != role:
                 m.workspace_role = role
-                m.save(update_fields=["workspace_role"])
+                # If moving away from pillar_lead, clear the stale pillar value
+                # before save() calls full_clean(). Without this guard, clean()
+                # would raise ValidationError("pillar may only be set when role
+                # is pillar_lead") for any pillar_lead being re-assigned to
+                # another role, surfacing an unhandled exception to the API layer
+                # instead of silently clearing the now-meaningless field.
+                if role != WorkspaceMembership.WorkspaceRole.PILLAR_LEAD:
+                    m.pillar = ""
+                m.save(update_fields=["workspace_role", "pillar"])
         else:
             WorkspaceMembership.objects.create(
                 user=user,

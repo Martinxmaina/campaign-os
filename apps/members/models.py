@@ -234,6 +234,11 @@ PERMISSION_KEYS = [
 
 BUILTIN_ROLE_PERMISSIONS = {
     "owner": {k: True for k in PERMISSION_KEYS},
+    # admin mirrors owner: a workspace admin has full authority over the
+    # workspace (manage settings, approve, publish, etc.). If future requirements
+    # need to restrict specific permissions for admin vs owner, update this entry
+    # and add a test asserting the divergence.
+    "admin": {k: True for k in PERMISSION_KEYS},
     # campaign_owner intentionally mirrors owner: within their campaign scope
     # they need full authority to approve, publish, and manage accounts.
     # This is deliberate RBAC design — campaign owners are scoped to a single
