@@ -3,7 +3,7 @@
 import logging
 import tempfile
 
-from background_task import background
+from celery import shared_task
 
 from .models import MediaAsset, MediaAssetVersion
 from .services import (
@@ -18,7 +18,7 @@ from .services import (
 logger = logging.getLogger(__name__)
 
 
-@background(schedule=0)
+@shared_task
 def process_media_asset(asset_id):
     """Process a newly uploaded media asset: extract metadata and generate thumbnail."""
     try:
@@ -77,7 +77,7 @@ def _process_video(asset):
         os.unlink(tmp_path)
 
 
-@background(schedule=0)
+@shared_task
 def process_image_edit(version_id, operations):
     """Apply image edits to create a new version file."""
     try:
@@ -110,7 +110,7 @@ def process_image_edit(version_id, operations):
         logger.exception("Failed to process image edit for version %s", version_id)
 
 
-@background(schedule=0)
+@shared_task
 def process_video_trim(version_id, start_seconds, end_seconds):
     """Trim a video and update the version."""
     try:

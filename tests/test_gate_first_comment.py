@@ -46,7 +46,7 @@ def _published_pp_with_comment(organization, *, gate_id, platform="mock"):
 def test_first_comment_skipped_when_gate_cleared(organization):
     pp = _published_pp_with_comment(organization, gate_id=None)
     with patch("apps.publisher.engine.get_provider") as gp:
-        _post_first_comment_task.now(str(pp.id))
+        _post_first_comment_task(str(pp.id))
         gp.assert_not_called()
 
 
@@ -59,7 +59,7 @@ def test_first_comment_skipped_when_gate_not_passing(organization):
         "apps.publisher.engine.verify_gate",
         return_value={"verdict": "rejected", "content_hash": "x"},
     ), patch("apps.publisher.engine.get_provider") as gp:
-        _post_first_comment_task.now(str(pp.id))
+        _post_first_comment_task(str(pp.id))
         gp.assert_not_called()
 
 
@@ -73,7 +73,7 @@ def test_first_comment_posted_when_gate_passes(organization):
         "apps.publisher.engine.verify_gate",
         return_value={"verdict": "pass", "content_hash": "x"},
     ), patch("apps.publisher.engine.get_provider", return_value=provider):
-        _post_first_comment_task.now(str(pp.id))
+        _post_first_comment_task(str(pp.id))
     provider.publish_comment.assert_called_once()
     _, kwargs = provider.publish_comment.call_args
     assert kwargs["text"] == "hello comment"

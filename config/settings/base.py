@@ -49,7 +49,6 @@ THIRD_PARTY_APPS = [
     "django_htmx",
     "tailwind",
     "csp",
-    "apps.background_task_config.BackgroundTaskConfig",
 ]
 
 LOCAL_APPS = [
@@ -463,6 +462,25 @@ AGENT_SERVICE_TOKEN = env("AGENT_SERVICE_TOKEN", default="")
 # contract), distinct from the HMAC-signed gate-verify path above.
 AGENT_SERVICE_INGEST_URL = env("AGENT_SERVICE_INGEST_URL", default="")
 AGENT_SERVICE_INGEST_KEY = env("AGENT_SERVICE_INGEST_KEY", default="")
+
+# --- Celery -------------------------------------------------------------
+from config.celery import build_broker_url  # noqa: E402
+
+CELERY_BROKER_URL = build_broker_url(REDIS_URL)
+CELERY_RESULT_BACKEND = build_broker_url(REDIS_URL)
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_ACKS_LATE = True
+CELERY_TASK_REJECT_ON_WORKER_LOST = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_TASK_TIME_LIMIT = 600       # hard kill at 10 min
+CELERY_TASK_SOFT_TIME_LIMIT = 540  # SoftTimeLimitExceeded at 9 min
+CELERY_TASK_DEFAULT_RETRY_DELAY = 30
+CELERY_TASK_ALWAYS_EAGER = False
+from jobs.schedules import BEAT_SCHEDULE  # noqa: E402
+
+CELERY_BEAT_SCHEDULE = BEAT_SCHEDULE
 
 INTELLIGENCE_ENABLED = all(
     [

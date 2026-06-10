@@ -811,10 +811,10 @@ def _queue_pending_activation(user, session_id: str):
         session_id=session_id,
         defaults={"status": PendingActivation.Status.PENDING},
     )
-    # ``pending.id`` is a UUID; django-background-tasks JSON-encodes
-    # task args, and UUID is not JSON-serializable. Pass the string form
-    # to avoid a "Object of type UUID is not JSON serializable" 500.
-    provision_intelligence_account_via_session(str(pending.id), schedule=0)
+    # ``pending.id`` is a UUID; Celery JSON-encodes task args, and UUID
+    # is not JSON-serializable. Pass the string form to avoid a "Object
+    # of type UUID is not JSON serializable" error.
+    provision_intelligence_account_via_session.delay(str(pending.id))
 
 
 def _finalize_local_subscription(request, *, attempt, expected_org, commit_resp):

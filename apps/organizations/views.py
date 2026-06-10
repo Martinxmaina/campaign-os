@@ -149,7 +149,7 @@ def _handle_org_deletion(request, org):
     org.deletion_scheduled_for = django_tz.now() + grace
     org.save(update_fields=["deletion_requested_at", "deletion_scheduled_for"])
 
-    execute_scheduled_org_deletion(str(org.id), schedule=grace)
+    execute_scheduled_org_deletion.apply_async(args=[str(org.id)], eta=org.deletion_scheduled_for)
 
     messages.success(request, "Organization scheduled for deletion in 14 days.")
     return redirect("organizations:settings")
@@ -165,13 +165,8 @@ def _handle_immediate_org_deletion(request, org):
     if request.org_membership.org_role != OrgMembership.OrgRole.OWNER:
         raise PermissionDenied
 
-    from background_task.models import Task
-
-    Task.objects.filter(
-        task_name="apps.organizations.tasks.execute_scheduled_org_deletion",
-        task_params__contains=str(org.id),
-    ).delete()
-
+    # No need to revoke the eta'd Celery deletion task: hard_delete removes the
+    # org, so execute_scheduled_org_deletion bails on DoesNotExist when it fires.
     org.hard_delete(requesting_user=request.user)
     logout(request)
     return redirect("account_signup")
@@ -180,18 +175,12 @@ def _handle_immediate_org_deletion(request, org):
 def _handle_cancel_deletion(request, org):
     """Cancel a pending organization deletion (owner only).
 
-    Also removes the queued background-task row so the worker isn't holding
-    a no-op scheduled for 14 days out.
+    The eta'd Celery deletion task is cancellation-safe: it re-reads the org
+    and bails out when ``deletion_requested_at`` is cleared, so clearing the
+    fields below is sufficient — no queued row to revoke.
     """
     if request.org_membership.org_role != OrgMembership.OrgRole.OWNER:
         raise PermissionDenied
-
-    from background_task.models import Task
-
-    Task.objects.filter(
-        task_name="apps.organizations.tasks.execute_scheduled_org_deletion",
-        task_params__contains=str(org.id),
-    ).delete()
 
     org.deletion_requested_at = None
     org.deletion_scheduled_for = None

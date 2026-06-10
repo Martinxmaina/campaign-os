@@ -159,7 +159,7 @@ def upload(request, workspace_id):
                 folder=folder,
             )
             # Enqueue background processing
-            process_media_asset(str(asset.id))
+            process_media_asset.delay(str(asset.id))
             results.append({"id": str(asset.id), "status": "ok"})
         except ValidationError as e:
             results.append(
@@ -327,7 +327,7 @@ def asset_edit(request, workspace_id, asset_id):
                     change_description=description,
                     created_by=request.user,
                 )
-                process_image_edit(str(version.id), operations)
+                process_image_edit.delay(str(version.id), operations)
 
         elif asset.media_type == MediaAsset.MediaType.VIDEO:
             start = request.POST.get("trim_start")
@@ -343,7 +343,7 @@ def asset_edit(request, workspace_id, asset_id):
                     change_description=description,
                     created_by=request.user,
                 )
-                process_video_trim(str(version.id), start_seconds, end_seconds)
+                process_video_trim.delay(str(version.id), start_seconds, end_seconds)
 
         return redirect("media_library:asset_detail", workspace_id=workspace.id, asset_id=asset.id)
 
@@ -855,7 +855,7 @@ def shared_upload(request):
                 uploaded_file=uploaded_file,
                 uploaded_by=request.user,
             )
-            process_media_asset(str(asset.id))
+            process_media_asset.delay(str(asset.id))
             results.append({"id": str(asset.id), "status": "ok"})
         except ValidationError as e:
             results.append(
@@ -984,7 +984,7 @@ def shared_asset_edit(request, asset_id):
                     change_description=description,
                     created_by=request.user,
                 )
-                process_image_edit(str(version.id), operations)
+                process_image_edit.delay(str(version.id), operations)
 
         elif asset.media_type == MediaAsset.MediaType.VIDEO:
             start = request.POST.get("trim_start")
@@ -1000,7 +1000,7 @@ def shared_asset_edit(request, asset_id):
                     change_description=description,
                     created_by=request.user,
                 )
-                process_video_trim(str(version.id), start_seconds, end_seconds)
+                process_video_trim.delay(str(version.id), start_seconds, end_seconds)
 
         return redirect("media_library_org:shared_asset_detail", asset_id=asset.id)
 

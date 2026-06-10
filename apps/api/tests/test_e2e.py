@@ -244,15 +244,9 @@ class TestIdempotencySweepTask:
         )
         IdempotencyRecord.objects.filter(pk=stuck.pk).update(created_at=_tz.now() - dt.timedelta(hours=48))
 
-        # ``@background``-decorated functions still expose their original
-        # callable via ``.task_function``; we call that to bypass the
-        # task queue and run the sweep synchronously in the test.
-        actual = getattr(
-            sweep_stale_idempotency_records,
-            "task_function",
-            sweep_stale_idempotency_records,
-        )
-        actual()
+        # The sweep is a Celery shared_task; calling it directly runs the
+        # body synchronously (tests run eager), bypassing the broker.
+        sweep_stale_idempotency_records()
 
         keys = set(IdempotencyRecord.objects.values_list("key", flat=True))
         assert "old" not in keys

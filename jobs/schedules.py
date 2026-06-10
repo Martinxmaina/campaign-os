@@ -1,0 +1,56 @@
+"""Single source of truth for all Celery beat schedules in Campaign OS.
+
+Every periodic job is declared here — app ``ready()`` hooks must NOT
+register recurring work. Entries are filled in as tasks are migrated
+(Tasks 4-9). ``task`` values are dotted paths to @shared_task functions.
+"""
+from celery.schedules import schedule
+
+BEAT_SCHEDULE: dict = {
+    "sweep-stale-idempotency": {
+        "task": "apps.api.tasks.sweep_stale_idempotency_records",
+        "schedule": schedule(run_every=3600),  # hourly
+    },
+    "social-health-checks": {
+        "task": "apps.social_accounts.tasks.schedule_all_health_checks",
+        "schedule": schedule(run_every=6 * 3600),
+    },
+    "intelligence-reconcile": {
+        "task": "apps.intelligence.tasks.reconcile_intelligence_subscriptions",
+        "schedule": schedule(run_every=6 * 3600),
+    },
+    "analytics-sync": {
+        "task": "apps.analytics.tasks.sync_all_account_analytics",
+        "schedule": schedule(run_every=3600),  # hourly
+    },
+    "publish-cycle": {
+        "task": "apps.publisher.tasks.run_publish_cycle",
+        "schedule": schedule(run_every=15),
+    },
+    "beat-heartbeat": {
+        "task": "jobs.tasks.beat_heartbeat",
+        "schedule": schedule(run_every=60),
+    },
+    "sweep-scheduled-org-deletions": {
+        # Durability net for the 14-day grace-period deletion flow.
+        # The eta-enqueued Celery message lives only in Redis; a broker
+        # restart without persistence would silently strand orgs in
+        # 'pending deletion'.  This daily sweep re-uses the idempotent
+        # execute_scheduled_org_deletion body via a dedicated sweep task
+        # so any missed eta fires are caught within 24 h at most.
+        "task": "apps.organizations.tasks.sweep_scheduled_org_deletions",
+        "schedule": schedule(run_every=86400),  # daily
+    },
+    "sweep-stale-pending-activations": {
+        # Durability net for the paid-activation worker path.
+        # provision_intelligence_account_via_session is enqueued as a
+        # Redis-only Celery message; a broker restart / eviction during
+        # the up-to-1 h countdown window silently strands the
+        # PendingActivation row in PENDING forever.  This hourly sweep
+        # re-enqueues any PENDING/IN_PROGRESS row not updated within 2 h.
+        # The worker is idempotent and status-gated, so double-delivery
+        # is safe.  Consistent with sweep_scheduled_org_deletions pattern.
+        "task": "apps.intelligence.tasks.sweep_stale_pending_activations",
+        "schedule": schedule(run_every=3600),  # hourly
+    },
+}

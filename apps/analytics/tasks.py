@@ -1,6 +1,7 @@
 """Background tasks: on-connect backfill + scheduled incremental sync.
 
-Both run inside the existing ``process_tasks`` worker (no new infra).
+Both run on the Celery worker; the periodic sync is driven by Celery beat
+(see ``jobs/schedules.py``).
 
 Cadence (per the plan's "How new metrics get pulled" section):
   * Account-level metrics            → once per day per account
@@ -23,7 +24,7 @@ import logging
 from datetime import date as dt_date
 from datetime import timedelta
 
-from background_task import background
+from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
@@ -389,7 +390,14 @@ def _sync_account_metrics(account, on_date: dt_date) -> None:
 
     from .models import AccountInsightsSnapshot
 
-    provider = _resolve_provider(account)
+    try:
+        provider = _resolve_provider(account)
+    except ValueError as exc:
+        # No analytics provider registered for this platform — nothing to
+        # sync. Bail gracefully (the platform may be enabled for other
+        # features without an analytics integration).
+        logger.warning("no analytics provider for %s: %s", account.platform, exc)
+        return
     tz = timezone.get_current_timezone()
     # Providers whose stats endpoint returns only lifetime totals (TikTok)
     # must NOT have those totals written into past dates as if they were
@@ -481,7 +489,11 @@ def _sync_youtube_post_analytics(account, provider, on_date: dt_date) -> None:
 def _sync_post_metrics(post, on_date: dt_date) -> None:
     """Fetch this post's current metrics and write today's snapshot rows."""
     account = post.social_account
-    provider = _resolve_provider(account)
+    try:
+        provider = _resolve_provider(account)
+    except ValueError as exc:
+        logger.warning("no analytics provider for %s: %s", account.platform, exc)
+        return
     try:
         metrics = provider.get_post_metrics(account.oauth_access_token, post.platform_post_id)
     except NotImplementedError:
@@ -539,7 +551,7 @@ def _post_cadence_due(post, now=None, *, platform: str | None = None) -> bool:
 # ---------------------------------------------------------------------------
 
 
-@background(schedule=0)
+@shared_task
 def backfill_account_analytics(account_id: str, days: int | None = None) -> None:
     """One-shot backfill on account connect / reconnect.
 
@@ -579,7 +591,7 @@ def backfill_account_analytics(account_id: str, days: int | None = None) -> None
             _sync_post_metrics(post, today)
 
 
-@background(schedule=0)
+@shared_task
 def sync_all_account_analytics() -> None:
     """Hourly cron: refresh enabled accounts on the decay-by-age schedule."""
     from apps.composer.models import PlatformPost

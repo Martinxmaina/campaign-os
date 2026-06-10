@@ -11,11 +11,18 @@
     "worker": {
       "quantity": 1,
       "size": "basic"
+    },
+    "beat": {
+      "quantity": 1,
+      "size": "basic"
     }
   },
   "addons": [
     {
       "plan": "heroku-postgresql:essential-0"
+    },
+    {
+      "plan": "heroku-redis:mini"
     }
   ],
   "env": {

@@ -1,6 +1,9 @@
+from datetime import datetime
+
 from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -8,9 +11,27 @@ from django.views.decorators.http import require_http_methods
 from PIL import Image
 
 
+def _beat_status():
+    raw = cache.get("beat:heartbeat")
+    if not raw:
+        return "unknown"
+    age = (timezone.now() - datetime.fromisoformat(raw)).total_seconds()
+    return "fresh" if age < 180 else "stale"
+
+
 def health_check(request):
-    """Health check endpoint at /health/."""
-    return JsonResponse({"status": "ok"})
+    """Health check endpoint at /health/.
+
+    Returns HTTP 503 when the beat process has not recently written a
+    heartbeat (status 'stale' or 'unknown').  Render uses this path as
+    a rolling-deploy health gate, so a dead beat must surface as unhealthy.
+    """
+    beat = _beat_status()
+    healthy = beat == "fresh"
+    return JsonResponse(
+        {"status": "ok" if healthy else "degraded", "beat": beat},
+        status=200 if healthy else 503,
+    )
 
 
 @login_required

@@ -2,22 +2,29 @@
 
 import logging
 
-from background_task import background
+from celery import shared_task
+
+from jobs.locks import redis_lock, LockNotAcquired
 
 logger = logging.getLogger(__name__)
 
 
-@background(schedule=0)
+@shared_task
 def run_publish_cycle():
     """Poll for due posts and publish them.
 
-    Registered as a recurring task (every 15s) so that
-    ``python manage.py process_tasks`` handles publishing
-    without needing a separate ``run_publisher`` process.
+    Registered as a recurring beat task (every 15s).  A token-checked Redis
+    lock (TTL=600s, covering the 540s soft time limit) ensures two overlapping
+    ticks cannot double-publish: the lock uses a UUID value and a Lua
+    compare-and-delete on release, so a slow cycle's finally-block cannot evict
+    a newer holder's lock after a TTL expiry.
     """
     from apps.publisher.engine import PublishEngine
 
-    engine = PublishEngine()
-    published = engine.poll_and_publish()
-    if published:
-        logger.info("Publish cycle completed - %d post(s) published", published)
+    try:
+        with redis_lock("publish-cycle", ttl=600):
+            published = PublishEngine().poll_and_publish()
+            if published:
+                logger.info("Publish cycle completed - %d post(s) published", published)
+    except LockNotAcquired:
+        logger.debug("publish cycle already running; skipping tick")

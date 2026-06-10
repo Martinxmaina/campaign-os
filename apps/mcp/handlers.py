@@ -684,7 +684,7 @@ def _upload_media(args: dict, context: dict[str, Any]) -> dict:
 
     from apps.media_library.tasks import process_media_asset
 
-    process_media_asset(str(asset.id))
+    process_media_asset.delay(str(asset.id))
 
     return _wrap_text(_serialize_media(asset))
 

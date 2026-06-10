@@ -21,7 +21,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import timedelta
 
-from background_task import background
+from celery import shared_task
 from django.conf import settings
 from django.db import transaction
 from django.db.models.functions import Coalesce
@@ -235,7 +235,7 @@ class PublishEngine:
                 continue
             comment_text = pp.effective_first_comment
             if comment_text:
-                _post_first_comment_task(str(pp.id), schedule=FIRST_COMMENT_DELAY)
+                _post_first_comment_task.apply_async(args=[str(pp.id)], countdown=FIRST_COMMENT_DELAY)
 
     def _gate_failure_reason(self, platform_post) -> str | None:
         """Verify the approval gate for a PlatformPost.
@@ -646,7 +646,12 @@ class PublishEngine:
         )
 
     def _process_retries(self):
-        """Process platform posts that are due for retry."""
+        """Process platform posts that are due for retry.
+
+        Uses an atomic status flip (UPDATE WHERE status=SCHEDULED) before
+        calling the network publisher.  If two cycles race, only one UPDATE
+        will match; the other gets 0 rows and skips, preventing double-publish.
+        """
         now = timezone.now()
         retry_posts = PlatformPost.objects.filter(
             status=PlatformPost.Status.SCHEDULED,
@@ -657,8 +662,20 @@ class PublishEngine:
 
         for pp in retry_posts:
             try:
-                pp.status = PlatformPost.Status.PUBLISHING
-                pp.save(update_fields=["status", "updated_at"])
+                # Atomic claim: only proceed if this cycle wins the race.
+                claimed = PlatformPost.objects.filter(
+                    status=PlatformPost.Status.SCHEDULED,
+                    id=pp.id,
+                ).update(status=PlatformPost.Status.PUBLISHING)
+                if not claimed:
+                    # Another concurrent cycle already claimed this row; skip.
+                    logger.debug(
+                        "PlatformPost %s already claimed by another cycle; skipping",
+                        pp.id,
+                    )
+                    continue
+                # Refresh from DB so pp.status reflects the committed update.
+                pp.refresh_from_db(fields=["status"])
                 result = self._publish_platform_post(pp)
                 if result.get("success"):
                     self._sync_parent_published_at(pp.post)
@@ -701,7 +718,7 @@ class PublishEngine:
 Publisher = PublishEngine
 
 
-@background(schedule=0)
+@shared_task
 def _post_first_comment_task(platform_post_id):
     """Post the first comment as a background task (avoids blocking the publisher thread)."""
     try:

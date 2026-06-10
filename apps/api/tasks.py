@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 
-from background_task import background
+from celery import shared_task
 from django.utils import timezone
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,7 @@ IDEMPOTENCY_RECORD_TTL_HOURS = 24
 SWEEP_INTERVAL_SECONDS = 60 * 60  # 1h
 
 
-@background(schedule=0)
+@shared_task
 def sweep_stale_idempotency_records():
     """Delete ``IdempotencyRecord`` rows older than the TTL.
 

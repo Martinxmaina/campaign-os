@@ -56,7 +56,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.return_value = _profile(follower_count=1500)
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         assert account.connection_status == SocialAccount.ConnectionStatus.CONNECTED
@@ -70,7 +70,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.side_effect = Exception("Token expired")
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         assert account.connection_status == SocialAccount.ConnectionStatus.ERROR
@@ -90,7 +90,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.return_value = _profile(follower_count=100)
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         assert account.oauth_access_token == "new_access"
@@ -107,7 +107,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.return_value = _profile(follower_count=100)
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         # After refresh failure the token_expiring status is set, then profile
@@ -133,7 +133,7 @@ class TestCheckSocialAccountHealth:
         )
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         assert account.avatar_url == "https://new.example/avatar.jpg?x-expires=999"
@@ -151,7 +151,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.return_value = _profile(follower_count=10)
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         assert account.avatar_url == "https://old.example/avatar.jpg"
@@ -169,7 +169,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.side_effect = Exception("Token expired")
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(connected_account.id))
+        check_social_account_health(str(connected_account.id))
 
         account = SocialAccount.objects.get(pk=connected_account.pk)
         assert account.connection_status == SocialAccount.ConnectionStatus.ERROR
@@ -178,7 +178,7 @@ class TestCheckSocialAccountHealth:
         assert account.account_handle == "kept"
 
     def test_nonexistent_account_does_not_raise(self, db):
-        check_social_account_health.now("00000000-0000-0000-0000-000000000000")
+        check_social_account_health("00000000-0000-0000-0000-000000000000")
 
     @patch("providers.get_provider")
     def test_bluesky_bootstrap_refresh_when_expires_at_null(self, mock_get_provider, db, workspace):
@@ -203,7 +203,7 @@ class TestCheckSocialAccountHealth:
         mock_provider.get_profile.return_value = _profile(follower_count=42)
         mock_get_provider.return_value = mock_provider
 
-        check_social_account_health.now(str(account.id))
+        check_social_account_health(str(account.id))
 
         mock_provider.refresh_token.assert_called_once_with("valid_refresh")
         account.refresh_from_db()
