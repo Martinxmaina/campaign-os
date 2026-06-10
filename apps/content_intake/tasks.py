@@ -94,15 +94,24 @@ def run_calendar_gap_scan():
 def request_herald_drafts_for_workspace(workspace_id: str):
     """Ask HERALD to draft every eligible accepted intake item in a workspace."""
     from django.core.cache import cache
+    from django.db.models import Count, Q
     from django.utils import timezone
 
     from apps.content_intake.models import ContentIntake
 
+    # Annotate open-condition count so request_herald_draft -> _is_eligible ->
+    # is_schedulable -> has_open_conditions reads the annotation instead of
+    # issuing an EXISTS query per row (N+1 avoidance documented on the model).
     eligible = ContentIntake.objects.filter(
         workspace_id=workspace_id,
         status=ContentIntake.Status.ACCEPTED,
         sensitivity__in=["public_safe", "partner_only"],
         herald_drafted_at__isnull=True,
+    ).annotate(
+        open_cond_count=Count(
+            "unblock_conditions",
+            filter=Q(unblock_conditions__status="open"),
+        )
     )
     drafted = 0
     for item in eligible:
