@@ -1,6 +1,7 @@
 """Intake board views."""
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import Max
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
@@ -47,12 +48,21 @@ def board(request):
         .values_list("pillar_theme", flat=True)
         .distinct()
     )
+    # Activity badge timestamps: most-recent sheet sync and HERALD draft across
+    # this workspace's intake items. Computed unfiltered so the badge reflects
+    # workspace-wide activity, not the currently filtered subset.
+    activity = ContentIntake.objects.filter(workspace=workspace).aggregate(
+        last_sync_at=Max("last_synced_at"),
+        last_draft_at=Max("herald_drafted_at"),
+    )
     return render(request, "content_intake/board.html", {
         "items": items,
         "statuses": statuses,
         "pillars": pillars,
         "status_filter": status_filter,
         "pillar_filter": pillar_filter,
+        "last_sync_at": activity["last_sync_at"],
+        "last_draft_at": activity["last_draft_at"],
     })
 
 
@@ -99,5 +109,22 @@ def draft_now(request, intake_pk):
     intake = get_object_or_404(ContentIntake, pk=intake_pk, workspace=request.workspace)
     ok = request_herald_draft(intake)
     if request.headers.get("HX-Request"):
-        return render(request, "content_intake/_card.html", {"item": intake})
+        if ok:
+            # Success: re-render the card so the button hides and status flips
+            # to "drafting" (request_herald_draft mutated the item in place).
+            return render(request, "content_intake/_card.html", {"item": intake})
+        # Failure: prepend a visible error banner into the card instead of
+        # silently re-rendering the unchanged card as a 200 no-op. Retarget the
+        # swap so the button stays put and the user gets actionable feedback.
+        #
+        # Stock HTMX (no response-targets extension is loaded) will NOT swap a
+        # non-2xx body, so a raw 409 would be dropped and the user would see
+        # nothing. We therefore return 200 so the banner renders, and signal the
+        # failure to clients/observers via the HX-Trigger error event. The
+        # non-HX branch below still uses 409 for API-style callers.
+        response = render(request, "content_intake/_draft_error.html")
+        response["HX-Retarget"] = f"#intake-card-{intake.pk}"
+        response["HX-Reswap"] = "afterbegin"
+        response["HX-Trigger"] = "heraldDraftFailed"
+        return response
     return HttpResponse(status=204 if ok else 409)

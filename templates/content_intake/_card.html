@@ -1,5 +1,5 @@
 {% load i18n %}
-<div class="border border-stone-200 rounded-lg p-4 bg-white">
+<div id="intake-card-{{ item.pk }}" class="border border-stone-200 rounded-lg p-4 bg-white">
   <div class="flex items-center gap-2 mb-2">
     <span class="text-[11px] uppercase tracking-wider text-stone-500 font-mono">{{ item.external_id }}</span>
     <span class="text-[11px] uppercase tracking-wider text-stone-500">·</span>
@@ -25,12 +25,14 @@
 
   {% include "content_intake/_condition_checklist.html" with intake=item conditions=item.unblock_conditions.all %}
 
-  {% if item.status == "accepted" and item.sensitivity in "public_safe,partner_only" %}
-  <form hx-post="{% url 'console:intake-draft-now' item.pk %}" hx-target="closest .rounded-lg" hx-swap="outerHTML" class="mt-2">
-    {% csrf_token %}
-    <button type="submit" class="rounded bg-indigo-600 text-white px-3 py-1 text-xs font-medium hover:bg-indigo-700">
-      ✨ Draft with HERALD
-    </button>
-  </form>
+  {% if item.status == "accepted" %}
+    {% if item.sensitivity == "public_safe" or item.sensitivity == "partner_only" %}
+    <form hx-post="{% url 'console:intake-draft-now' item.pk %}" hx-target="closest .rounded-lg" hx-swap="outerHTML" class="mt-2">
+      {% csrf_token %}
+      <button type="submit" class="rounded bg-indigo-600 text-white px-3 py-1 text-xs font-medium hover:bg-indigo-700">
+        ✨ Draft with HERALD
+      </button>
+    </form>
+    {% endif %}
   {% endif %}
 </div>
