@@ -1,28 +1,19 @@
-"""Views for the Content Intake board (T9)."""
-
+"""Intake board views."""
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
-from apps.common.decorators import workspace_required
-
-from .models import ContentIntake, UnblockCondition
+from apps.content_intake.models import ContentIntake, UnblockCondition
 
 
 @login_required
-@workspace_required
 def board(request):
-    """Intake board — filterable list of ContentIntake items for the request workspace."""
     workspace = request.workspace
-
-    qs = (
-        ContentIntake.objects.filter(workspace=workspace)
-        .exclude(status=ContentIntake.Status.SKIPPED)
-        .prefetch_related("unblock_conditions")
-        .order_by("-created_at")
-    )
+    qs = ContentIntake.objects.filter(workspace=workspace).exclude(
+        status=ContentIntake.Status.SKIPPED
+    ).prefetch_related("unblock_conditions")
 
     status_filter = request.GET.get("status", "")
     pillar_filter = request.GET.get("pillar", "")
@@ -33,65 +24,40 @@ def board(request):
     if pillar_filter:
         qs = qs.filter(pillar_theme__icontains=pillar_filter)
     if owner_filter:
-        qs = qs.filter(owner_id=owner_filter)
+        qs = qs.filter(owner_raw__icontains=owner_filter)
 
-    status_choices = ContentIntake.Status.choices
-
-    return render(
-        request,
-        "content_intake/board.html",
-        {
-            "workspace": workspace,
-            "items": qs,
-            "status_filter": status_filter,
-            "pillar_filter": pillar_filter,
-            "owner_filter": owner_filter,
-            "status_choices": status_choices,
-        },
+    items = list(qs.order_by("-priority", "-created_at")[:200])
+    statuses = ContentIntake.Status.choices
+    pillars = (
+        ContentIntake.objects.filter(workspace=workspace)
+        .exclude(pillar_theme="")
+        .values_list("pillar_theme", flat=True)
+        .distinct()
     )
+    return render(request, "content_intake/board.html", {
+        "items": items,
+        "statuses": statuses,
+        "pillars": pillars,
+        "status_filter": status_filter,
+        "pillar_filter": pillar_filter,
+    })
 
 
 @login_required
-@workspace_required
 @require_POST
 def close_condition(request, condition_pk):
-    """Mark an UnblockCondition as closed.
-
-    Scoped to the request workspace: the condition's intake must belong to the
-    same workspace as the authenticated user's current workspace.
-
-    HTMX: if the request carries the HX-Request header, return the
-    _condition_checklist.html partial so the checklist updates in-place.
-    Otherwise return a bare 204 (non-HTMX callers can reload).
-    """
-    workspace = request.workspace
-    condition = get_object_or_404(
-        UnblockCondition,
-        id=condition_pk,
-        intake__workspace=workspace,
-    )
-
-    evidence_note = request.POST.get("evidence_note", "").strip()
-
+    condition = get_object_or_404(UnblockCondition, pk=condition_pk,
+                                   intake__workspace=request.workspace)
+    evidence = request.POST.get("evidence_note", "").strip()
     condition.status = UnblockCondition.ConditionStatus.CLOSED
-    condition.evidence_note = evidence_note
+    condition.evidence_note = evidence
     condition.closed_by = request.user
     condition.closed_at = timezone.now()
     condition.save(update_fields=["status", "evidence_note", "closed_by", "closed_at", "updated_at"])
 
     if request.headers.get("HX-Request"):
-        intake = condition.intake
-        # Re-fetch with prefetch so the partial has the full checklist.
-        intake.refresh_from_db()
-        conditions = intake.unblock_conditions.order_by("created_at")
-        return render(
-            request,
-            "content_intake/_condition_checklist.html",
-            {
-                "intake": intake,
-                "conditions": conditions,
-                "workspace": workspace,
-            },
-        )
-
+        return render(request, "content_intake/_condition_checklist.html", {
+            "conditions": condition.intake.unblock_conditions.all(),
+            "intake": condition.intake,
+        })
     return HttpResponse(status=204)

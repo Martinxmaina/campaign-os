@@ -1,30 +1,24 @@
 {% extends "console/base.html" %}
-{% block console %}
-<h1 class="text-xl font-bold mb-4">Intake Board</h1>
-
-<form method="get" class="flex flex-wrap gap-3 mb-5">
-  <select name="status" class="border border-stone-200 rounded-md px-3 py-1 text-sm">
-    <option value="">All statuses</option>
-    {% for value, label in status_choices %}
-    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+{% block content %}
+<div class="p-6">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Content Intake Board</h1>
+    <form method="get" class="flex gap-2">
+      <select name="status" class="rounded border px-2 py-1 text-sm">
+        <option value="">All statuses</option>
+        {% for val, label in statuses %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+      </select>
+      <select name="pillar" class="rounded border px-2 py-1 text-sm">
+        <option value="">All pillars</option>
+        {% for p in pillars %}<option value="{{ p }}" {% if pillar_filter == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+      </select>
+      <button type="submit" class="rounded bg-blue-600 text-white px-3 py-1 text-sm">Filter</button>
+    </form>
+  </div>
+  <div class="grid gap-3">
+    {% for item in items %}{% include "content_intake/_card.html" with item=item %}{% empty %}
+    <p class="text-gray-500">No intake items match your filter.</p>
     {% endfor %}
-  </select>
-  <input
-    type="text"
-    name="pillar"
-    placeholder="Filter by pillar…"
-    value="{{ pillar_filter }}"
-    class="border border-stone-200 rounded-md px-3 py-1 text-sm"
-  >
-  <button type="submit" class="text-sm bg-stone-800 text-white rounded-md px-3 py-1">Filter</button>
-  <a href="{% url 'console:content_intake:board' %}" class="text-sm border rounded-md px-3 py-1 text-stone-600 hover:text-stone-900">Clear</a>
-</form>
-
-<div class="grid gap-3">
-  {% for item in items %}
-    {% include "content_intake/_card.html" with item=item %}
-  {% empty %}
-  <p class="text-stone-500 text-sm">No intake items.</p>
-  {% endfor %}
+  </div>
 </div>
 {% endblock %}
