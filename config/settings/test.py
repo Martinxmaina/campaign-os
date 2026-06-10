@@ -47,3 +47,6 @@ DATABASES = {
         "PORT": env.int("DB_PORT", default=5432),  # noqa: F405
     },
 }
+
+CELERY_TASK_ALWAYS_EAGER = True
+CELERY_TASK_EAGER_PROPAGATES = True
