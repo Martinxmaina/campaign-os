@@ -6,6 +6,42 @@ from apps.members.models import OrgMembership
 from apps.organizations.models import Organization
 
 
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Close DB connections leaked by eager Celery tasks after each test.
+
+    With ``CELERY_TASK_ALWAYS_EAGER=True`` (test settings), Celery's Django
+    fixup intentionally skips its ``task_prerun``/``task_postrun`` connection
+    -closing hooks for eager tasks (see celery/fixups/django.py:
+    ``if not is_eager``). So any DB connection opened while a task runs inline
+    is never closed; it stays attached to the test database and blocks pytest
+    -django from dropping/recreating it between tests and runs ("database is
+    being accessed by other users" / "already exists"), which made the full
+    suite flaky on this branch.
+
+    We yield first so pytest-django's own fixture finalizers (the per-test
+    transaction rollback) run, then close connections — but only when we are
+    NOT inside a Django TestCase class, whose setUpClass wraps the entire
+    class in a long-lived transaction that must outlive individual test
+    teardowns. Closing connections mid-class would orphan that transaction.
+    Production behaviour is untouched; this is a test-harness-only safeguard.
+    """
+    yield
+    # Skip connection closing when the test belongs to a Django TestCase class
+    # (identified by having _pre_setup / _post_teardown Django test methods),
+    # since those classes hold a class-level wrapping transaction across all
+    # tests in the class.
+    import django.test
+
+    if isinstance(getattr(item, "cls", None), type) and issubclass(
+        item.cls, django.test.TransactionTestCase
+    ):
+        return
+    from django.db import connections
+
+    connections.close_all()
+
+
 @pytest.fixture
 def user(db):
     return User.objects.create_user(
