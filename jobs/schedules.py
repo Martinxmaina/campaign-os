@@ -15,4 +15,8 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.social_accounts.tasks.schedule_all_health_checks",
         "schedule": schedule(run_every=6 * 3600),
     },
+    "intelligence-reconcile": {
+        "task": "apps.intelligence.tasks.reconcile_intelligence_subscriptions",
+        "schedule": schedule(run_every=6 * 3600),
+    },
 }

@@ -24,7 +24,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime
 
-from background_task import background
+from celery import shared_task
 from django.core.cache import cache
 from django.db import transaction
 from django.utils import timezone
@@ -44,7 +44,7 @@ WORKER_MAX_ATTEMPTS = 5
 BACKOFF_SECONDS = [5, 30, 120, 600, 3600]  # 5s, 30s, 2m, 10m, 1h
 
 
-@background(schedule=0)
+@shared_task
 def provision_intelligence_account_via_session(pending_id):
     """Worker fallback for sync activation transient failures.
 
@@ -231,7 +231,9 @@ def _reschedule_or_fail(pending: PendingActivation, exc: Exception):
     pending.last_error = f"{type(exc).__name__}: {exc}"
     pending.save(update_fields=["status", "last_error", "updated_at"])
     delay = BACKOFF_SECONDS[min(pending.attempts - 1, len(BACKOFF_SECONDS) - 1)]
-    provision_intelligence_account_via_session(str(pending.id), schedule=delay)
+    provision_intelligence_account_via_session.apply_async(
+        args=[str(pending.id)], countdown=delay
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -239,7 +241,7 @@ def _reschedule_or_fail(pending: PendingActivation, exc: Exception):
 # ---------------------------------------------------------------------------
 
 
-@background(schedule=0)
+@shared_task
 def reconcile_intelligence_subscriptions():
     """Catch drift between Intelligence and local IntelligenceSubscription
     rows that webhook-driven sync may have missed (e.g., a
@@ -247,7 +249,17 @@ def reconcile_intelligence_subscriptions():
 
     For each non-canceled local sub, pulls /internal/v1/accounts/{id}
     and updates the local mirror.
+
+    Beat always schedules this entry; the integration gate lives here so
+    a self-hoster without Intelligence env vars never makes /internal/v1/
+    calls. (Previously the gate was in apps.py ``ready()``.)
     """
+    from django.conf import settings
+
+    if not getattr(settings, "INTELLIGENCE_ENABLED", False):
+        logger.debug("INTELLIGENCE_ENABLED is False; skipping reconcile")
+        return
+
     from .services.client import InternalClient
     from .services.exceptions import IntelligenceClientError
 
@@ -308,17 +320,17 @@ def refresh_subscription_on_visit(org_id: str):
 
     Called at the end of the playground view. The throttle (60s in
     cache) means a busy org with frequent playground hits generates at
-    most one task per minute. NOT decorated with @background, it
-    schedules another task that IS background.
+    most one task per minute. NOT a Celery task itself, it dispatches
+    another function that IS a @shared_task.
     """
     cache_key = f"intel:refresh:{org_id}"
     if cache.get(cache_key):
         return  # Throttled, recent refresh already in flight.
     cache.set(cache_key, "1", timeout=60)
-    _refresh_one_subscription(str(org_id))
+    _refresh_one_subscription.delay(str(org_id))
 
 
-@background(schedule=0)
+@shared_task
 def _refresh_one_subscription(org_id: str):
     """Background worker for refresh_subscription_on_visit."""
     from .services.client import InternalClient
