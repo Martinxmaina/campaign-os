@@ -42,8 +42,13 @@ class OrgMembership(models.Model):
 class WorkspaceMembership(models.Model):
     class WorkspaceRole(models.TextChoices):
         OWNER = "owner", "Owner"
+        ADMIN = "admin", "Admin"
+        CAMPAIGN_OWNER = "campaign_owner", "Campaign Owner"
+        PRINCIPAL = "principal", "Principal"
+        PILLAR_LEAD = "pillar_lead", "Pillar Lead"
         MANAGER = "manager", "Manager"
         EDITOR = "editor", "Editor"
+        MEMBER = "member", "Member"
         CONTRIBUTOR = "contributor", "Contributor"
         CLIENT = "client", "Client"
         VIEWER = "viewer", "Viewer"
@@ -63,6 +68,12 @@ class WorkspaceMembership(models.Model):
         max_length=20,
         choices=WorkspaceRole.choices,
         default=WorkspaceRole.VIEWER,
+    )
+    pillar = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        help_text="Pillar scope for pillar_lead role",
     )
     custom_role = models.ForeignKey(
         "CustomRole",
@@ -182,6 +193,53 @@ PERMISSION_KEYS = [
 
 BUILTIN_ROLE_PERMISSIONS = {
     "owner": {k: True for k in PERMISSION_KEYS},
+    "admin": {k: True for k in PERMISSION_KEYS},
+    "campaign_owner": {k: True for k in PERMISSION_KEYS},
+    "principal": {
+        "create_posts": True,
+        "edit_others_posts": True,
+        "approve_posts": True,
+        "publish_directly": True,
+        "manage_social_accounts": False,
+        "view_analytics": True,
+        "use_inbox": True,
+        "reply_from_inbox": True,
+        "manage_workspace_settings": False,
+        "upload_media": True,
+        "edit_media": True,
+        "delete_media": True,
+        "manage_media": False,
+    },
+    "pillar_lead": {
+        "create_posts": True,
+        "edit_others_posts": True,
+        "approve_posts": True,
+        "publish_directly": False,
+        "manage_social_accounts": False,
+        "view_analytics": True,
+        "use_inbox": False,
+        "reply_from_inbox": False,
+        "manage_workspace_settings": False,
+        "upload_media": True,
+        "edit_media": True,
+        "delete_media": False,
+        "manage_media": False,
+    },
+    "member": {
+        "create_posts": True,
+        "edit_others_posts": False,
+        "approve_posts": False,
+        "publish_directly": False,
+        "manage_social_accounts": False,
+        "view_analytics": False,
+        "use_inbox": False,
+        "reply_from_inbox": False,
+        "manage_workspace_settings": False,
+        "upload_media": True,
+        "edit_media": True,
+        "delete_media": False,
+        "manage_media": False,
+    },
     "manager": {
         "create_posts": True,
         "edit_others_posts": True,
