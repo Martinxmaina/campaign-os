@@ -59,4 +59,9 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.content_intake.tasks.sync_all_intake_sheets",
         "schedule": schedule(run_every=900),  # 15 min
     },
+    "calendar-gap-scan": {
+        # Daily 14-day gap scanner — proposes fill-in dates across all workspaces.
+        "task": "apps.content_intake.tasks.run_calendar_gap_scan",
+        "schedule": schedule(run_every=86400),  # daily
+    },
 }

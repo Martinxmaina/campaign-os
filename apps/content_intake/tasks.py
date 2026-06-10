@@ -53,3 +53,25 @@ def sync_all_intake_sheets():
         count += 1
     return {"queued": count}
 
+
+@shared_task
+def run_calendar_gap_scan():
+    """Run the 14-day calendar gap scanner for every non-archived workspace.
+
+    Returns a dict mapping workspace slug/pk to the list of proposals produced
+    by scan_14day_gaps. Logs a summary line per workspace.
+    """
+    from apps.workspaces.models import Workspace
+    from apps.content_intake.calendar_agent import scan_14day_gaps
+
+    results = {}
+    for ws in Workspace.objects.filter(is_archived=False):
+        proposals = scan_14day_gaps(ws)
+        results[str(ws.pk)] = proposals
+        logger.info(
+            "calendar_gap_scan: workspace=%s proposals=%d",
+            ws.pk,
+            len(proposals),
+        )
+    return results
+
