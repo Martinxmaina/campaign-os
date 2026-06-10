@@ -303,9 +303,9 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 | Platform | Config file | Notes |
 |----------|-------------|-------|
-| **Heroku** | `Procfile` + `app.json` | Deploy-button ready. Must use Basic+ dynos (Eco dynos break the worker). |
-| **Railway** | `railway.toml` | Three services: web, worker, managed PostgreSQL. |
-| **Render** | `render.yaml` | Blueprint with web, worker, PostgreSQL. Must use paid tier. |
+| **Heroku** | `Procfile` + `app.json` | Deploy-button ready. Three dynos: web, worker, beat. Must use Basic+ dynos (Eco dynos break the worker). Redis add-on required for Celery beat. |
+| **Railway** | `railway.toml` | Four services: web, worker, beat, managed PostgreSQL + Redis. |
+| **Render** | `render.yaml` | Blueprint with web, worker, beat, PostgreSQL + Redis. Must use paid tier. |
 
 All platforms with ephemeral filesystems require `STORAGE_BACKEND=s3` - see `.env.example` for S3 configuration.
 
