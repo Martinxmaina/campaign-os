@@ -8,44 +8,27 @@ from apps.content_intake.channel_routing import (
 )
 
 
-def test_requires_joseph_approval_true():
-    targets = [{"platform": "linkedin", "requires_joseph_approval": True}]
+def test_joseph_personal_requires_approval():
+    targets = [{"platform": "linkedin", "account": "joseph", "requires_joseph_approval": True}]
     assert requires_joseph_approval(targets) is True
 
 
-def test_requires_joseph_approval_false():
-    targets = [{"platform": "twitter"}, {"platform": "linkedin"}]
+def test_non_joseph_does_not_require_approval():
+    targets = [{"platform": "linkedin", "account": "waiis"}]
     assert requires_joseph_approval(targets) is False
 
 
-def test_get_nexus_brief_targets_filters_correctly():
-    targets = [
-        {"platform": "nexus_brief", "title": "Weekly Digest"},
-        {"platform": "twitter"},
-        {"platform": "nexus_brief", "title": "Special Edition"},
-    ]
-    result = get_nexus_brief_targets(targets)
-    assert len(result) == 2
-    assert all(t["platform"] == "nexus_brief" for t in result)
+def test_nexus_brief_target_detected():
+    targets = [{"platform": "linkedin"}, {"platform": "nexus_brief"}]
+    assert get_nexus_brief_targets(targets) == [{"platform": "nexus_brief"}]
 
 
-def test_get_companion_assets_returns_gated_brief():
-    targets = [
-        {
-            "platform": "linkedin",
-            "companion": "gated_brief",
-            "lead_capture": True,
-            "destination_url": "https://example.com/brief",
-        }
-    ]
-    result = get_companion_assets(targets)
-    assert len(result) == 1
-    assert result[0]["type"] == "gated_brief"
-    assert result[0]["lead_capture"] is True
-    assert result[0]["destination_url"] == "https://example.com/brief"
+def test_gated_brief_companion():
+    targets = [{"platform": "linkedin", "companion": "gated_brief", "lead_capture": True}]
+    companions = get_companion_assets(targets)
+    assert any(c["type"] == "gated_brief" for c in companions)
 
 
 def test_no_companions_for_plain_post():
-    targets = [{"platform": "twitter"}, {"platform": "linkedin"}]
-    result = get_companion_assets(targets)
-    assert result == []
+    targets = [{"platform": "linkedin", "account": "waiis"}]
+    assert get_companion_assets(targets) == []

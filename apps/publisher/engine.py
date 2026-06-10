@@ -414,13 +414,7 @@ class PublishEngine:
         if _intake_item:
             from apps.content_intake.channel_routing import requires_joseph_approval as _req_joseph
             if _req_joseph(_intake_item.channel_targets):
-                from apps.approvals.models import ApprovalAction
-                joseph_approved = ApprovalAction.objects.filter(
-                    post=platform_post.post,
-                    action=ApprovalAction.ActionType.APPROVED,
-                    user__email__icontains="joseph",
-                ).exists()
-                if not joseph_approved:
+                if not _check_joseph_approval(platform_post):
                     platform_post.transition_to("failed")
                     platform_post.publish_error = "[JOSEPH GATE] Joseph personal channel requires Joseph approval"
                     platform_post.save(update_fields=["status", "publish_error", "updated_at"])
@@ -742,6 +736,18 @@ class PublishEngine:
         if latest and post.published_at != latest:
             post.published_at = latest
             post.save(update_fields=["published_at", "updated_at"])
+
+
+def _check_joseph_approval(platform_post) -> bool:
+    """Return True if the post has an approval action from the user with owner_raw='joseph'."""
+    from apps.approvals.models import ApprovalAction
+    from apps.accounts.models import User
+    joseph_users = User.objects.filter(email__icontains="joseph").values_list("pk", flat=True)
+    return ApprovalAction.objects.filter(
+        post=platform_post.post,
+        action=ApprovalAction.ActionType.APPROVED,
+        user__in=joseph_users,
+    ).exists()
 
 
 # Public alias — the gate hook + slice tests refer to the engine as ``Publisher``.
