@@ -4,6 +4,7 @@ from __future__ import annotations
 from django.db.models import Prefetch
 
 from apps.content_intake.models import ContentIntake, UnblockCondition
+from apps.content_intake.sector_map import map_pillar_to_sector
 
 _PRIORITY_WEIGHTS = {"H": 3, "M": 2, "L": 1}
 _AGENT_VISIBLE_SENSITIVITIES = frozenset([
@@ -51,6 +52,7 @@ def build_intake_context(workspace) -> dict:
         items.append({
             "external_id": intake.external_id,
             "pillar_theme": intake.pillar_theme,
+            "sector": map_pillar_to_sector(intake.pillar_theme),
             "angle": intake.angle,
             "proof_point": intake.proof_point,
             "target_audience": intake.target_audience,

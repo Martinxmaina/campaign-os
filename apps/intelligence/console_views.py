@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 
 from apps.common.agent_client import agent_post
 from apps.common.safe import safe_get
+from apps.content_intake.sector_map import map_pillar_to_sector
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def news(request):
 @login_required
 @require_POST
 def news_draft(request):
-    sector = request.POST.get("sector", "")
+    sector = map_pillar_to_sector(request.POST.get("sector", ""))
     title = request.POST.get("title", "")
     summary = request.POST.get("summary", "")
     link = request.POST.get("link", "")

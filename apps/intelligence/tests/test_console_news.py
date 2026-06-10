@@ -130,3 +130,28 @@ def test_news_draft_posts_and_redirects(logged_client, monkeypatch):
     assert captured["path"] == "/agents/herald/draft"
     assert captured["payload"]["sector"] == "energy"
     assert "AfDB backs Kenya grid expansion" in captured["payload"]["brief"]
+
+
+@pytest.mark.django_db
+def test_news_draft_normalises_freetext_sector(logged_client, monkeypatch):
+    """A non-canonical request-supplied sector must be mapped to a canonical
+    value before hitting the agent-service (which only accepts
+    energy|agribusiness|ai|general)."""
+    from apps.intelligence import console_views
+
+    captured = {}
+
+    def fake_post(path, payload):
+        captured["payload"] = payload
+        return {"ok": True}
+
+    monkeypatch.setattr(console_views, "agent_post", fake_post)
+    resp = logged_client.post(
+        "/console/news/draft",
+        {
+            "sector": "Renewable power transition",  # free-text -> energy
+            "title": "Headline",
+        },
+    )
+    assert resp.status_code == 302
+    assert captured["payload"]["sector"] == "energy"

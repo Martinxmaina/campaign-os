@@ -82,6 +82,42 @@ def test_context_submitted_ideas_get_priority_boost(workspace):
 
 
 @pytest.mark.django_db
+def test_context_includes_canonical_sector(workspace):
+    """Each item must carry a canonical sector derived from its pillar_theme.
+
+    Wires apps.content_intake.sector_map.map_pillar_to_sector into the agent
+    payload so HERALD/ATLAS receive energy|agribusiness|ai|general instead of
+    raw free-text pillars.
+    """
+    ContentIntake.objects.create(
+        workspace=workspace,
+        external_id="ROW-SEC-001",
+        pillar_theme="Solar energy access",
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
+        status=ContentIntake.Status.IDEA,
+    )
+    ContentIntake.objects.create(
+        workspace=workspace,
+        external_id="ROW-SEC-002",
+        pillar_theme="AI for Agriculture",  # cross-cutting: ai must win
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
+        status=ContentIntake.Status.IDEA,
+    )
+    ContentIntake.objects.create(
+        workspace=workspace,
+        external_id="ROW-SEC-003",
+        pillar_theme="Women empowerment",  # must NOT map to energy
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE,
+        status=ContentIntake.Status.IDEA,
+    )
+    ctx = build_intake_context(workspace)
+    sectors = {i["external_id"]: i["sector"] for i in ctx["intake_items"]}
+    assert sectors["ROW-SEC-001"] == "energy"
+    assert sectors["ROW-SEC-002"] == "ai"
+    assert sectors["ROW-SEC-003"] == "general"
+
+
+@pytest.mark.django_db
 def test_context_includes_target_dates(workspace, intake_item_with_date):
     """Items with a target_publish_date must expose it as an ISO-format string."""
     ctx = build_intake_context(workspace)
