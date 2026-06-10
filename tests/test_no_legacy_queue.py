@@ -18,25 +18,34 @@ def test_app_json_has_beat_formation():
 
 
 def test_readme_deploy_table_mentions_beat():
-    """README Other Platforms deploy table rows must each mention beat + Redis."""
+    """README Deployment section must document that the Celery beat scheduler runs.
+
+    Campaign OS deploys on Railway as a single Docker image, role-selected by
+    PROCESS_TYPE (web | worker); the worker role runs beat. This guards against
+    a future edit dropping beat from the deploy docs and silently stranding all
+    periodic jobs (sheet sync, calendar scan, health checks).
+    """
     root = pathlib.Path(__file__).resolve().parent.parent
     readme = (root / "README.md").read_text()
-    # Lines 306-308 are the Other Platforms table: each row starts with
-    # "| **Platform**" and must mention beat (and Redis for Railway/Render).
     errors = []
-    for platform in ("Heroku", "Railway", "Render"):
-        # Find the table row that *starts* with this platform name (bold markup)
-        row = None
-        for line in readme.splitlines():
-            stripped = line.strip()
-            if stripped.startswith(f"| **{platform}**"):
-                row = stripped
-                break
-        if row is None:
-            errors.append(f"README Other Platforms table: no row found for {platform!r}")
-            continue
-        if "beat" not in row.lower():
-            errors.append(f"README Other Platforms table row for {platform!r} does not mention 'beat': {row!r}")
+
+    if "## Deployment" not in readme:
+        errors.append("README has no '## Deployment' section")
+
+    worker_row = None
+    for line in readme.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("| `worker`"):
+            worker_row = stripped
+            break
+    if worker_row is None:
+        errors.append("README Deployment table: no `worker` PROCESS_TYPE row found")
+    elif "beat" not in worker_row.lower():
+        errors.append(f"README `worker` row does not mention 'beat': {worker_row!r}")
+
+    if "redis" not in readme.lower():
+        errors.append("README Deployment section does not mention Redis")
+
     assert not errors, "\n".join(errors)
 
 
