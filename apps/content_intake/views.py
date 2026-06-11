@@ -108,23 +108,43 @@ def move_stage(request, intake_pk):
 
     Pure stage change — NEVER drafts. HERALD only runs via the explicit manual
     "Draft with HERALD" action (draft_now).
+
+    State-integrity rules:
+    - todo  → status ACCEPTED   (only if the item is not already terminal)
+    - in_progress → status DRAFTING (only if the item is not already terminal)
+    - done  → status APPROVED   (only if is_schedulable; blocked/sensitive = no-op)
+    A "terminal" item is one whose status is in ContentIntake._BOARD_DONE
+    (scheduled/published/archived). Such items are NEVER silently demoted back to
+    accepted/drafting by a lane drag — that would revert a published/scheduled
+    item. Re-opening a terminal item is a separate explicit action, not this view.
+
+    NOT-YET-WIRED: no UI currently posts here (the board is a table, not a
+    drag/drop Kanban). See config/console_urls.py for the wiring TODO.
     """
     if request.workspace is None:
         return HttpResponse(status=403)
     item = get_object_or_404(ContentIntake, pk=intake_pk, workspace=request.workspace)
     to_stage = request.POST.get("to_stage", "")
 
-    if to_stage == "in_progress":
+    # Terminal-state guard: an item already in the "done" lane is
+    # scheduled/published/archived (ContentIntake._BOARD_DONE). Dragging it back
+    # to "todo" or "in_progress" must NOT silently revert a published/scheduled
+    # item to accepted/drafting — those demotions are a no-op here. Re-opening a
+    # terminal item is an explicit action handled elsewhere, not a Kanban drag.
+    is_terminal = item.status in ContentIntake._BOARD_DONE
+
+    if to_stage == "in_progress" and not is_terminal:
         item.status = ContentIntake.Status.DRAFTING
         item.save(update_fields=["status", "updated_at"])
-    elif to_stage == "todo":
+    elif to_stage == "todo" and not is_terminal:
         item.status = ContentIntake.Status.ACCEPTED
         item.save(update_fields=["status", "updated_at"])
     elif to_stage == "done" and item.is_schedulable:
         # Mark approved; actual scheduling happens via the add-to-calendar picker.
         item.status = ContentIntake.Status.APPROVED
         item.save(update_fields=["status", "updated_at"])
-    # (blocked/sensitive → done is a no-op; the card stays put.)
+    # No-ops (card stays put): blocked/sensitive → done; and any demote of a
+    # terminal (scheduled/published/archived) item back to todo/in_progress.
 
     request.GET = request.GET.copy()
     request.GET["view"] = "board"
