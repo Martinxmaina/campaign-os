@@ -96,32 +96,62 @@ class GhostProvider(SocialProvider):
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         title = (content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
         excerpt = (content.text or "").strip()[:280]
-        post_obj = {
+        base_obj = {
             "title": title,
             "html": self._to_html(content.text),
             "custom_excerpt": excerpt,
-            "status": "published",
             "tags": [{"name": "AfCEN"}],
         }
         mode = content.extra.get("ghost_publish_as", "post")
-        url = f"{self._base()}/ghost/api/admin/posts/?source=html"
         if mode == "newsletter":
-            slug = self.credentials.get("newsletter_slug")
-            if not slug:
-                raise PublishError("Newsletter publish needs a configured newsletter_slug")
-            url = f"{self._base()}/ghost/api/admin/posts/?newsletter={slug}&source=html"
-            post_obj["email_only"] = True
-        resp = httpx.post(
-            url,
-            headers=self._auth_headers(),
-            json={"posts": [post_obj]},
-            timeout=_TIMEOUT,
-        )
+            return self._publish_newsletter(base_obj, mode)
+        return self._publish_web(base_obj, mode)
+
+    def _publish_web(self, base_obj: dict, mode: str) -> PublishResult:
+        """One-step web Post: create directly as published."""
+        url = f"{self._base()}/ghost/api/admin/posts/?source=html"
+        resp = httpx.post(url, headers=self._auth_headers(),
+                          json={"posts": [{**base_obj, "status": "published"}]}, timeout=_TIMEOUT)
         if resp.status_code not in (200, 201):
             raise PublishError(f"Ghost publish failed ({resp.status_code}): {resp.text[:300]}")
         post = resp.json().get("posts", [{}])[0]
-        return PublishResult(
-            platform_post_id=post.get("id", ""),
-            url=post.get("url"),
-            extra={"ghost_publish_as": mode},
+        return PublishResult(platform_post_id=post.get("id", ""), url=post.get("url"),
+                             extra={"ghost_publish_as": mode})
+
+    def _publish_newsletter(self, base_obj: dict, mode: str) -> PublishResult:
+        """Two-step email-only send (docs/ghost.md §4.1-4.2): the newsletter
+        relation must exist at draft creation, so create the draft WITH the
+        newsletter slug in the URL, then PUT it to published. A one-step publish
+        risks ``500 does not have a newsletter relation`` / no email sent."""
+        slug = self.credentials.get("newsletter_slug")
+        if not slug:
+            raise PublishError("Newsletter publish needs a configured newsletter_slug")
+        base = self._base()
+        nl = f"newsletter={slug}&source=html"
+
+        # Step 1: create draft with the newsletter relation attached.
+        draft_resp = httpx.post(
+            f"{base}/ghost/api/admin/posts/?{nl}",
+            headers=self._auth_headers(),
+            json={"posts": [{**base_obj, "status": "draft", "email_only": True}]},
+            timeout=_TIMEOUT,
         )
+        if draft_resp.status_code not in (200, 201):
+            raise PublishError(f"Ghost draft failed ({draft_resp.status_code}): {draft_resp.text[:300]}")
+        draft = draft_resp.json().get("posts", [{}])[0]
+        post_id, updated_at = draft.get("id", ""), draft.get("updated_at")
+        if not post_id:
+            raise PublishError("Ghost draft returned no post id")
+
+        # Step 2: publish the draft as email-only (Ghost requires the prior updated_at).
+        pub_resp = httpx.put(
+            f"{base}/ghost/api/admin/posts/{post_id}/?{nl}",
+            headers=self._auth_headers(),
+            json={"posts": [{"updated_at": updated_at, "status": "published", "email_only": True}]},
+            timeout=_TIMEOUT,
+        )
+        if pub_resp.status_code not in (200, 201):
+            raise PublishError(f"Ghost email publish failed ({pub_resp.status_code}): {pub_resp.text[:300]}")
+        post = pub_resp.json().get("posts", [{}])[0]
+        return PublishResult(platform_post_id=post.get("id", post_id), url=post.get("url"),
+                             extra={"ghost_publish_as": mode})

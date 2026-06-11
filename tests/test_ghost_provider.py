@@ -45,15 +45,22 @@ def test_get_profile_validates_key(monkeypatch):
     assert prof.name == "Nexus Brief"
 
 
-def test_newsletter_mode_email_only(monkeypatch):
-    captured = {}
+def test_newsletter_mode_is_two_step_draft_then_publish(monkeypatch):
+    """Per docs/ghost.md §4.1-4.2: create a draft WITH the newsletter slug in the
+    URL, then PUT to published (newsletter relation can't be added post-creation)."""
+    posts = []
+    puts = []
 
     def fake_post(url, headers=None, json=None, **kw):
-        captured["url"] = url
-        captured["json"] = json
-        return httpx.Response(201, json={"posts": [{"id": "n1", "url": "https://demo.ghost.io/n1/"}]})
+        posts.append({"url": url, "json": json})
+        return httpx.Response(201, json={"posts": [{"id": "n1", "updated_at": "2026-06-11T00:00:00.000Z"}]})
+
+    def fake_put(url, headers=None, json=None, **kw):
+        puts.append({"url": url, "json": json})
+        return httpx.Response(200, json={"posts": [{"id": "n1", "url": "https://demo.ghost.io/n1/"}]})
 
     monkeypatch.setattr("providers.ghost.httpx.post", fake_post)
+    monkeypatch.setattr("providers.ghost.httpx.put", fake_put)
     creds = dict(CREDS)
     creds["newsletter_slug"] = "weekly"
     res = GhostProvider(credentials=creds).publish_post(
@@ -61,8 +68,17 @@ def test_newsletter_mode_email_only(monkeypatch):
         PublishContent(text="Body", extra={"title": "T", "ghost_publish_as": "newsletter"}),
     )
     assert res.platform_post_id == "n1"
-    assert "newsletter=weekly" in captured["url"]
-    assert captured["json"]["posts"][0]["email_only"] is True
+    # Step 1 — draft with newsletter slug in URL, status=draft
+    assert len(posts) == 1
+    assert "newsletter=weekly" in posts[0]["url"]
+    assert posts[0]["json"]["posts"][0]["status"] == "draft"
+    # Step 2 — publish via PUT, newsletter slug in URL, carries updated_at + email_only
+    assert len(puts) == 1
+    assert "/posts/n1/" in puts[0]["url"]
+    assert "newsletter=weekly" in puts[0]["url"]
+    pub = puts[0]["json"]["posts"][0]
+    assert pub["status"] == "published" and pub["email_only"] is True
+    assert pub["updated_at"] == "2026-06-11T00:00:00.000Z"
 
 
 def test_newsletter_without_slug_fails():
