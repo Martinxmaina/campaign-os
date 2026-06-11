@@ -71,6 +71,53 @@ _COL_REF_LINKS = 15
 
 
 # ---------------------------------------------------------------------------
+# Doc-link extraction helpers
+# ---------------------------------------------------------------------------
+
+
+def _link_type(url: str) -> str:
+    """Classify a URL for icon/label rendering."""
+    u = (url or "").lower()
+    if "docs.google.com/document" in u:
+        return "gdoc"
+    if "docs.google.com/spreadsheets" in u:
+        return "gsheet"
+    if "docs.google.com/presentation" in u:
+        return "gslides"
+    if "drive.google.com" in u:
+        return "gdrive"
+    if u.endswith(".pdf"):
+        return "pdf"
+    return "link"
+
+
+def _extract_cell_links(cell: dict) -> list[dict]:
+    """Return [{title, url, type}] from a grid cell's hyperlink + Drive chips.
+
+    Google Sheets values() API drops these; only the grid (includeGridData)
+    exposes hyperlink + chipRuns. Deduped by URL, order preserved.
+    """
+    out: list[dict] = []
+    seen: set[str] = set()
+
+    def _add(url: str, title: str | None):
+        if not url or url in seen:
+            return
+        seen.add(url)
+        out.append({"title": (title or url), "url": url, "type": _link_type(url)})
+
+    uri = cell.get("hyperlink")
+    if uri:
+        _add(uri, cell.get("formattedValue"))
+
+    for run in cell.get("chipRuns", []) or []:
+        chip = (run.get("chip") or {}).get("richLinkProperties") or {}
+        _add(chip.get("uri", ""), chip.get("label"))
+
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Private helpers
 # ---------------------------------------------------------------------------
 
