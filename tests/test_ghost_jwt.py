@@ -7,8 +7,8 @@ def _b64url_decode(s):
 
 def test_jwt_structure_and_signature():
     from providers.ghost_jwt import ghost_admin_jwt
-    key_id = "***REMOVED_KEYID***"
-    secret_hex = "***REMOVED_SECRET***"
+    key_id = "1111111111111111111111aa"
+    secret_hex = "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"
     token = ghost_admin_jwt(f"{key_id}:{secret_hex}")
     header_b64, payload_b64, sig_b64 = token.split(".")
     header = json.loads(_b64url_decode(header_b64))
