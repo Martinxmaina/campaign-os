@@ -213,6 +213,18 @@ class ContentIntake(models.Model):
             return False
         return True
 
+    _BOARD_IN_PROGRESS = frozenset({"drafting", "in_review", "approved"})
+    _BOARD_DONE = frozenset({"scheduled", "published", "archived"})
+
+    @property
+    def board_stage(self) -> str:
+        """Map the detailed status onto a 3-lane Kanban stage."""
+        if self.status in self._BOARD_DONE:
+            return "done"
+        if self.status in self._BOARD_IN_PROGRESS:
+            return "in_progress"
+        return "todo"  # idea / accepted / held / blocked / anything unmapped
+
 
 class UnblockCondition(models.Model):
     """A gating condition that blocks scheduling until resolved."""
