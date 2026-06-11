@@ -40,14 +40,20 @@ In `apps/credentials/platform_fields.py`, register Ghost fields:
 
 Saved encrypted through the existing `save_credential(request, platform)` flow.
 
-### 3. Connect → SocialAccount
-A "Connect" action (button on the credentials/channels page for Ghost) that:
-1. Reads the saved `PlatformCredential` for `ghost`.
+### 3. Connect → SocialAccount (ONE org-level connection)
+There is a **single shared Ghost connection per org** (the Nexus Brief is one
+publication for the whole org, not per-house). A "Connect" action (on the
+credentials/channels page) that:
+1. Reads the saved org-level `PlatformCredential` for `ghost` (`PlatformCredential`
+   is already org-scoped via `for_org(org_id)`).
 2. Validates by calling `GET {base_url}/ghost/api/admin/site/` with a fresh JWT.
-3. On success, upserts `SocialAccount(workspace, platform="ghost",
+3. On success, upserts **one** `SocialAccount(platform="ghost",
    account_platform_id=<host>, account_name=<Ghost site title>,
-   connection_status=CONNECTED)`. On failure → `ERROR` + the Ghost error message.
-After connect, Ghost appears in channels, composer, and calendar automatically.
+   connection_status=CONNECTED)` for the org — created in the org's primary/default
+   workspace but **surfaced to every workspace in the org** in the composer channel
+   picker and calendar (the channel-list query includes org-level ghost accounts, not
+   only the current workspace's). On failure → `ERROR` + the Ghost error message.
+Re-connecting updates the same single account (idempotent; no duplicates).
 
 ### 4. `providers/ghost.py` — `GhostProvider(SocialProvider)`
 - `auth_type = API_KEY` (no OAuth methods).
@@ -62,10 +68,10 @@ After connect, Ghost appears in channels, composer, and calendar automatically.
     `custom_excerpt` = first 280 chars, `status="published"`, `tags=[{"name":"AfCEN"}]`.
   - **Post vs Newsletter** (from `content.extra["ghost_publish_as"]`, default `"post"`):
     - `"post"` → create at `POST /ghost/api/admin/posts/?source=html`, status published, web-only.
-    - `"newsletter"` → create at `POST .../posts/?newsletter=<slug>&source=html`,
-      then the published post is emailed to members (`email_only` optional — default
-      web+email). Requires `newsletter_slug`; if absent → `PublishResult` failure with a
-      clear message.
+    - `"newsletter"` → **email-only** send to members: create at
+      `POST .../posts/?newsletter=<slug>&source=html` with `status="published"` and
+      `email_only=true` (no public web post). Requires `newsletter_slug`; if absent →
+      `PublishResult` failure with a clear message.
   - Returns `PublishResult(success, post_id, url=<ghost post url>, ...)`. On Ghost API
     error, parse the Ghost error JSON into the failure message; map `INVALID_JWT`/`403`/
     `422 excerpt` to actionable messages.
@@ -127,8 +133,9 @@ engine: gate → `GhostProvider.publish_post` (fresh JWT → Ghost Admin API) �
 
 ## Acceptance
 - [ ] Ghost connectable from the credentials/channels page (paste key → validate → account appears).
-- [ ] A human-composed post publishes to Ghost as a **web post**.
-- [ ] The same flow with "Newsletter" publishes/emails via the configured newsletter slug.
+- [ ] A human-composed post publishes to Ghost as a **web post** (default).
+- [ ] The same flow with "Newsletter" sends an **email-only** newsletter to members via the configured slug.
+- [ ] One shared org-level Ghost connection is selectable from every workspace's composer.
 - [ ] Ghost publish passes through the compliance gate (blocked content does not publish).
 - [ ] Scheduling a Ghost post via the calendar works like other channels.
 - [ ] Leaked keys rotated; `docs/ghost.md` secrets replaced with placeholders; key read
