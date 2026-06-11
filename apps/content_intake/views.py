@@ -149,6 +149,7 @@ def close_condition(request, condition_pk):
 def add_to_calendar(request):
     """Schedule one or many selected intake items. Returns the table partial."""
     from datetime import datetime
+    from django.db.models import Count, Q
     from django.utils import timezone as _tz
     from apps.content_intake.intake_calendar import schedule_intake_item
 
@@ -165,7 +166,24 @@ def add_to_calendar(request):
         when = _tz.now()
 
     if request.workspace is not None:
-        for item in ContentIntake.objects.filter(pk__in=ids, workspace=request.workspace):
+        # Bulk hot path: schedule_intake_item -> is_schedulable ->
+        # has_open_conditions. That property reads an ``open_cond_count``
+        # annotation when present and otherwise falls back to a per-instance
+        # EXISTS query (one per selected item -> O(N)). The model docstring
+        # prescribes prefetch+annotate for list contexts, so annotate the open
+        # condition count (kills the per-item EXISTS) and prefetch the related
+        # set (kills the per-item fetch when the calendar marker / templates read
+        # ``unblock_conditions.all()``). Together this keeps the loop O(1) in
+        # condition queries regardless of how many items are scheduled.
+        items = (
+            ContentIntake.objects.filter(pk__in=ids, workspace=request.workspace)
+            .annotate(open_cond_count=Count(
+                "unblock_conditions",
+                filter=Q(unblock_conditions__status=UnblockCondition.ConditionStatus.OPEN),
+            ))
+            .prefetch_related("unblock_conditions")
+        )
+        for item in items:
             schedule_intake_item(item, when, request.user)
 
     request.GET = request.GET.copy()

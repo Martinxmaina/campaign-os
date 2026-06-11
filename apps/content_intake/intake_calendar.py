@@ -20,14 +20,17 @@ def schedule_intake_item(intake, when, user):
 
     post = intake.post
     if post is None:
+        # Set scheduled_at in the INSERT itself so the create branch is a single
+        # write. Only the reuse branch needs a follow-up UPDATE.
         post = Post.objects.create(
             workspace=intake.workspace,
             title=(intake.angle or intake.pillar_theme or intake.external_id)[:255],
             caption=intake.angle or intake.proof_point or "",
+            scheduled_at=when,
         )
-
-    post.scheduled_at = when
-    post.save(update_fields=["scheduled_at", "updated_at"])
+    else:
+        post.scheduled_at = when
+        post.save(update_fields=["scheduled_at", "updated_at"])
 
     intake.post = post
     intake.status = intake.Status.SCHEDULED
