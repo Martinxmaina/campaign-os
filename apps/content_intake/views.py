@@ -67,6 +67,17 @@ def board(request):
 
 
 @login_required
+def row_panel(request, intake_pk):
+    item = None
+    if request.workspace is not None:
+        item = get_object_or_404(
+            ContentIntake.objects.prefetch_related("unblock_conditions"),
+            pk=intake_pk, workspace=request.workspace,
+        )
+    return render(request, "content_intake/_panel.html", {"item": item})
+
+
+@login_required
 @require_POST
 def close_condition(request, condition_pk):
     # Guard: workspace must be resolved by RBAC middleware before proceeding.

@@ -1,0 +1,11 @@
+{% if links %}
+<div class="flex flex-wrap gap-1.5 mt-1">
+  {% for l in links %}
+  <a href="{{ l.url }}" target="_blank" rel="noopener"
+     class="inline-flex items-center gap-1 rounded border border-stone-200 bg-stone-50 px-2 py-0.5 text-xs text-stone-700 hover:bg-stone-100">
+    <span>{% if l.type == 'gdoc' %}📄{% elif l.type == 'gsheet' %}📊{% elif l.type == 'gslides' %}📽️{% elif l.type == 'pdf' %}📕{% elif l.type == 'gdrive' %}🗂️{% else %}🔗{% endif %}</span>
+    <span class="truncate max-w-[180px]">{{ l.title }}</span>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
