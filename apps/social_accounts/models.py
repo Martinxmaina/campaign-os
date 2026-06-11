@@ -107,6 +107,7 @@ class SocialAccount(models.Model):
         "bluesky": 300,
         "google_business": 1500,
         "mastodon": 500,
+        "ghost": 100000,
     }
 
     @property

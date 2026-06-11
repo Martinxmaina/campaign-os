@@ -35,6 +35,7 @@ class AuthType(enum.Enum):
     OAUTH2 = "oauth2"
     SESSION = "session"
     INSTANCE_OAUTH = "instance_oauth"
+    API_KEY = "api_key"
 
 
 @dataclass(frozen=True)
