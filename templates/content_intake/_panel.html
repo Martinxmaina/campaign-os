@@ -26,6 +26,10 @@
       <button class="rounded bg-indigo-600 text-white px-3 py-1 text-xs font-medium hover:bg-indigo-700">✨ Draft with HERALD</button>
     </form>
     {% endif %}
+    {% if item.post_id %}
+    <a href="{% url 'composer:compose_edit' workspace_id=item.workspace_id post_id=item.post_id %}"
+       class="rounded bg-stone-700 text-white px-3 py-1 text-xs font-medium hover:bg-stone-800">✎ Edit in composer</a>
+    {% endif %}
     {% if add_to_calendar_url %}
     <button type="button"
       @click="$refs.calDialog.showModal()"

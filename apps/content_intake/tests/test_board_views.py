@@ -328,3 +328,16 @@ def test_board_kanban_view_groups_by_stage(authed, workspace):
     assert "kanban-col-todo" in body
     assert "kanban-col-in_progress" in body
     assert "kanban-col-done" in body
+
+
+@pytest.mark.django_db
+def test_panel_shows_edit_link_when_post_exists(authed, workspace):
+    from apps.content_intake.models import ContentIntake
+    from apps.composer.models import Post
+    post = Post.objects.create(workspace=workspace, title="t", caption="c")
+    item = ContentIntake.objects.create(workspace=workspace, external_id="E1", angle="x",
+        sensitivity="public_safe", status="drafting", post=post)
+    from django.urls import reverse
+    resp = authed.get(reverse("console:intake-row-panel", args=[item.pk]))
+    assert resp.status_code == 200
+    assert f"/workspace/{workspace.pk}/compose/{post.pk}/".encode() in resp.content
