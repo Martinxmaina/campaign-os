@@ -34,3 +34,25 @@ def test_extract_falls_back_to_uri_when_no_label():
     cell = {"chipRuns": [{"chip": {"richLinkProperties": {"uri": "https://example.com/x.pdf"}}}]}
     links = _extract_cell_links(cell)
     assert links == [{"title": "https://example.com/x.pdf", "url": "https://example.com/x.pdf", "type": "pdf"}]
+
+
+def test_javascript_hyperlink_is_dropped():
+    """A javascript: scheme cell hyperlink must be sanitised away (XSS guard)."""
+    cell = {
+        "formattedValue": "Click me",
+        "hyperlink": "javascript:alert(document.cookie)",
+    }
+    assert _extract_cell_links(cell) == []
+
+
+def test_dangerous_chip_schemes_are_dropped():
+    """data:/vbscript: chip URIs are dropped; only http(s) survives."""
+    cell = {
+        "chipRuns": [
+            {"chip": {"richLinkProperties": {"uri": "data:text/html,<script>alert(1)</script>", "label": "data chip"}}},
+            {"chip": {"richLinkProperties": {"uri": "vbscript:msgbox(1)", "label": "vb chip"}}},
+            {"chip": {"richLinkProperties": {"uri": "https://example.com/ok", "label": "safe"}}},
+        ],
+    }
+    links = _extract_cell_links(cell)
+    assert links == [{"title": "safe", "url": "https://example.com/ok", "type": "link"}]

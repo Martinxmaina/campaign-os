@@ -91,6 +91,22 @@ def _link_type(url: str) -> str:
     return "link"
 
 
+# Only http(s) links are safe to render as <a href>. Anything else
+# (javascript:, data:, vbscript:, file:, mailto:, relative/scheme-less, …)
+# is dropped at this sanitisation chokepoint so the intake-board template
+# can never emit a dangerous href. Django auto-escaping does NOT neutralise
+# dangerous URL schemes, so the allowlist must live here.
+_SAFE_URL_SCHEMES: frozenset[str] = frozenset({"http", "https"})
+
+
+def _is_safe_url(url: str) -> bool:
+    """Return True only for absolute http/https URLs (scheme allowlist)."""
+    if not url:
+        return False
+    scheme = url.split(":", 1)[0].strip().lower() if ":" in url else ""
+    return scheme in _SAFE_URL_SCHEMES
+
+
 def _extract_cell_links(cell: dict) -> list[dict]:
     """Return [{title, url, type}] from a grid cell's hyperlink + Drive chips.
 
@@ -101,7 +117,10 @@ def _extract_cell_links(cell: dict) -> list[dict]:
     seen: set[str] = set()
 
     def _add(url: str, title: str | None):
-        if not url or url in seen:
+        # Sanitisation chokepoint: drop anything that isn't an http(s) URL
+        # (e.g. javascript:/data:/vbscript: chip URIs) before it can reach
+        # the intake-board template's <a href> — auto-escaping won't save us.
+        if not url or url in seen or not _is_safe_url(url):
             return
         seen.add(url)
         out.append({"title": (title or url), "url": url, "type": _link_type(url)})
