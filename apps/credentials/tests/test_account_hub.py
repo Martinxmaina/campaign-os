@@ -35,12 +35,21 @@ def test_credentials_list_context_has_accounts_and_houses(client, org_owner, org
     from apps.workspaces.models import Workspace
     from apps.social_accounts.models import SocialAccount
     from django.urls import reverse
-    ws = Workspace.objects.create(organization=organization, name="WAIIS")
+    # Use a house name that cannot appear in base.html org chrome (the sidebar
+    # renders the *current* workspace name), so the assertion below genuinely
+    # proves the house badge in the new "Connected accounts" block rendered.
+    ws = Workspace.objects.create(organization=organization, name="Zephyr House")
     SocialAccount.objects.create(workspace=ws, platform="linkedin_personal",
         account_platform_id="li-9", account_name="Martin")
     client.force_login(org_owner)
     resp = client.get(reverse("credentials:list"))
     assert resp.status_code == 200
-    # The page lists the connected account + its house.
-    assert b"Martin" in resp.content
-    assert b"WAIIS" in resp.content
+    body = resp.content.decode()
+    # The new block's heading must render (unique marker, not nav chrome).
+    assert "Connected accounts" in body
+    # The account name (unlikely to appear in nav).
+    assert "Martin" in body
+    # The house label must render inside the badge span, not just anywhere on
+    # the page — scope to the badge markup so chrome can't satisfy it.
+    assert 'class="rounded bg-stone-100 text-stone-600' in body
+    assert "Zephyr House" in body

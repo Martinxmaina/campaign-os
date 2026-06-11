@@ -8,6 +8,7 @@ encrypted (EncryptedJSONField) and immediately unlock the platform's
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -119,4 +120,10 @@ def delete_credential(request, platform):
         return redirect("credentials:list")
     PlatformCredential.objects.for_org(org.id).filter(platform=platform).delete()
     messages.success(request, "Credentials removed.")
+    # HTMX drives the submit (hx-post) so hx-confirm fires; tell the client to
+    # reload so the card state + flash message refresh. Non-HTMX falls back to redirect.
+    if request.headers.get("HX-Request"):
+        resp = HttpResponse(status=204)
+        resp["HX-Refresh"] = "true"
+        return resp
     return redirect("credentials:list")
