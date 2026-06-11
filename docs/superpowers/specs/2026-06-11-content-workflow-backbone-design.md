@@ -21,8 +21,11 @@ Three triaged symptoms share this one root cause:
 
 1. **Kanban view toggle** — keep the table; add a `[ Table | Board ]` toggle. Board view
    shows 3 drag-between columns: To Do / In Progress / Done.
-2. **Auto-draft on move to In Progress** — dragging a card to In Progress accepts the item
-   AND triggers HERALD (DeepSeek). A manual "Draft with HERALD" button stays on cards.
+2. **Manual draft only (no autonomous trigger)** — moving a card between lanes ONLY changes
+   the stage; it never drafts. HERALD drafts **only** when the human explicitly clicks
+   "Draft with HERALD" on the item — that click is the deliberate approval-to-draft. A short
+   confirm ("Let HERALD draft this?") makes the intent explicit. The human owns the idea and
+   decides when the agent writes.
 3. **Edit opens the composer; editable Post created at draft-time** — when HERALD drafts,
    create an editable Django `Post` (draft) pre-loaded with the AI copy; "Edit" opens it in
    the full composer. Approval gates publishing only.
@@ -59,17 +62,22 @@ the stage endpoint. The existing table view is unchanged; a toggle link switches
 
 ### Component 3 — Stage transition (`POST .../intake/<pk>/stage/`)
 
-`move_stage(request, intake_pk)` reads `to_stage` (todo|in_progress|done):
+`move_stage(request, intake_pk)` reads `to_stage` (todo|in_progress|done). It ONLY changes
+status — it never drafts (drafting is the manual action in Component 4a):
 
-- **→ in_progress:** set `status=drafting`; call `request_herald_draft(intake)` (existing
-  bridge — drafts via agent-service, sets `herald_content_id`); then ensure an editable
-  Post exists via `ensure_draft_post(intake)` (Component 4). Returns the refreshed board.
-- **→ done:** if the item has no scheduled Post yet, return a small schedule-picker partial
-  (reuse the add-to-calendar dialog) targeting `add_to_calendar`; once scheduled,
-  `schedule_intake_item` sets `status=scheduled`. If already scheduled, no-op.
-- **→ todo:** set `status=accepted` (or `idea` if never drafted).
+- **→ in_progress:** set `status=drafting` (the "being worked on" state). No HERALD call.
+- **→ done:** if `not is_schedulable`, reject with a message; otherwise set `status=approved`.
+  Actual scheduling onto the calendar happens via the add-to-calendar picker.
+- **→ todo:** set `status=accepted`.
 
-Blocked/sensitive items (`not is_schedulable`) cannot move to done — return a message.
+Blocked/sensitive items (`not is_schedulable`) cannot move to done.
+
+### Component 3a — Manual "Draft with HERALD" (the only draft trigger)
+
+The existing `draft_now` action (button on the card/panel) is the **sole** path that drafts.
+On click (after a confirm), it: calls `request_herald_draft(intake)` (drafts via agent-service
+on DeepSeek, sets `herald_content_id`, `status=drafting`), then `ensure_draft_post(intake)`
+(Component 4) so the editable composer Post exists. No drag or stage change ever drafts.
 
 ### Component 4 — Draft-time editable Post (`ensure_draft_post`)
 
