@@ -148,8 +148,12 @@ def move_stage(request, intake_pk):
     elif to_stage == "todo" and not is_terminal:
         item.status = ContentIntake.Status.ACCEPTED
         item.save(update_fields=["status", "updated_at"])
-    elif to_stage == "done" and item.is_schedulable:
+    elif to_stage == "done" and item.is_schedulable and not is_terminal:
         # Mark approved; actual scheduling happens via the add-to-calendar picker.
+        # `not is_terminal`: a scheduled/published/archived item is already past
+        # "done" — re-asserting APPROVED would silently DEMOTE it (e.g. published →
+        # approved). is_schedulable alone does not exclude terminal items, so the
+        # explicit terminal guard is required here just as on the other branches.
         item.status = ContentIntake.Status.APPROVED
         item.save(update_fields=["status", "updated_at"])
     # No-ops (card stays put): blocked/sensitive → done; and any demote of a

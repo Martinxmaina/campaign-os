@@ -78,13 +78,15 @@ def test_move_blocked_item_to_done_is_rejected(authed, workspace):
         ContentIntake.Status.ARCHIVED,
     ],
 )
-@pytest.mark.parametrize("to_stage", ["todo", "in_progress"])
+@pytest.mark.parametrize("to_stage", ["todo", "in_progress", "done"])
 def test_terminal_item_is_not_demoted_by_lane_drag(authed, workspace, terminal_status, to_stage):
-    """A scheduled/published/archived item dragged back to an earlier lane must
+    """A scheduled/published/archived item dragged onto ANY lane must stay put —
 
-    stay put — never silently reverted to accepted/drafting. Guards the
-    state-integrity hole where the todo/in_progress branches fired from ANY
-    source status.
+    never silently reverted to accepted/drafting (todo/in_progress) or to approved
+    (done). Guards the state-integrity hole where the todo/in_progress branches
+    fired from ANY source status, AND the "done" branch, which gated only on
+    is_schedulable (True for a terminal PUBLIC_SAFE item with no open conditions)
+    and so silently demoted published/scheduled items back to APPROVED.
     """
     item = ContentIntake.objects.create(
         workspace=workspace, external_id=f"T-{terminal_status}-{to_stage}", angle="x",
