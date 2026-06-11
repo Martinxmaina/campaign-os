@@ -246,6 +246,50 @@ def _get_sheet_rows(sheet_id: str, sheet_range: str) -> list[list[str]]:
         return []
 
 
+def _get_sheet_grid(sheet_id: str, sheet_range: str) -> list[list[dict]]:
+    """Fetch the sheet as grid data (cells with hyperlink/chip info).
+
+    Returns rows of cell dicts (each may have formattedValue, hyperlink, chipRuns).
+    Empty list when unconfigured. Auto-corrects the tab name like _get_sheet_rows.
+    """
+    creds = _build_credentials()
+    if creds is None:
+        return []
+    from googleapiclient.discovery import build
+    service = build("sheets", "v4", credentials=creds, cache_discovery=False)
+
+    def _fetch(rng: str) -> list[list[dict]]:
+        resp = service.spreadsheets().get(
+            spreadsheetId=sheet_id, ranges=[rng], includeGridData=True
+        ).execute()
+        sheets = resp.get("sheets", [])
+        if not sheets:
+            return []
+        data = sheets[0].get("data", [])
+        if not data:
+            return []
+        rows = data[0].get("rowData", [])
+        return [r.get("values", []) for r in rows]
+
+    try:
+        return _fetch(sheet_range)
+    except Exception:
+        title = _first_tab_title(service, sheet_id)
+        if title:
+            try:
+                return _fetch(f"'{title}'!{_column_part(sheet_range)}")
+            except Exception:
+                logger.exception("grid fetch retry failed")
+                return []
+        logger.exception("grid fetch failed id=%s range=%s", sheet_id, sheet_range)
+        return []
+
+
+def _cell_text(cell: dict) -> str:
+    """Visible text of a grid cell."""
+    return str(cell.get("formattedValue", "")).strip()
+
+
 def _row_value(row: list[str], idx: int, default: str = "") -> str:
     """Safe column access — returns default when row is shorter than idx."""
     try:
@@ -328,14 +372,15 @@ def sync_sheet_to_intake(
         logger.info("Intake sync disabled for org=%s — skipping", org_id)
         return {"created": 0, "updated": 0, "skipped": 0, "review_queue": 0, "errors": 0}
 
-    rows = _get_sheet_rows(effective_sheet_id, effective_range)
+    grid = _get_sheet_grid(effective_sheet_id, effective_range)
+    # Derive plain-text rows from the grid so existing column parsing is unchanged.
+    rows = [[_cell_text(c) for c in row] for row in grid]
 
     stats = {"created": 0, "updated": 0, "skipped": 0, "review_queue": 0, "errors": 0}
 
-    # Row 0 is the header — skip it
-    data_rows = rows[1:] if rows else []
-
-    for row in data_rows:
+    # Row 0 is the header — skip it. Iterate with row_index so we can also
+    # reach into the parallel ``grid`` to extract per-cell doc links.
+    for row_index, row in enumerate(rows[1:], start=1):
         external_id = _row_value(row, _COL_EXTERNAL_ID)
         pillar_theme = _row_value(row, _COL_PILLAR)
 
@@ -401,6 +446,16 @@ def sync_sheet_to_intake(
             # cannot be scheduled.
             sensitivity = "private_hold"
 
+        # Doc links: scan every cell in this grid row for hyperlinks/chips.
+        grid_row = grid[row_index] if row_index < len(grid) else []
+        doc_links: list[dict] = []
+        _seen_urls: set[str] = set()
+        for cell in grid_row:
+            for link in _extract_cell_links(cell):
+                if link["url"] not in _seen_urls:
+                    _seen_urls.add(link["url"])
+                    doc_links.append(link)
+
         # --- Upsert ContentIntake -----------------------------------------
         try:
             defaults = {
@@ -418,11 +473,7 @@ def sync_sheet_to_intake(
                 "owner_raw": _row_value(row, _COL_OWNER_RAW),
                 "target_publish_date": target_date,
                 "notes_raw": notes_raw,
-                "reference_links": [
-                    lnk.strip()
-                    for lnk in _row_value(row, _COL_REF_LINKS).split(",")
-                    if lnk.strip()
-                ],
+                "reference_links": doc_links,
                 "last_synced_at": timezone.now(),
                 "sync_error": "",
             }

@@ -27,6 +27,7 @@ from unittest.mock import patch
 import pytest
 
 from apps.content_intake.models import ContentIntake, IntakeReviewItem, UnblockCondition
+from apps.content_intake.sheets_sync import sync_sheet_to_intake
 
 # ---------------------------------------------------------------------------
 # Fixtures: shared row data
@@ -60,7 +61,19 @@ BAD_SENSITIVITY_ROW = [
 
 SAMPLE_ROWS = [HEADER_ROW, EXAMPLE_ROW, REAL_ROW_001, BAD_SENSITIVITY_ROW]
 
-MODULE_PATH = "apps.content_intake.sheets_sync._get_sheet_rows"
+
+def _as_grid(rows: list[list[str]]) -> list[list[dict]]:
+    """Convert plain-string rows into Sheets grid cell-dict rows.
+
+    sync_sheet_to_intake now reads the grid (_get_sheet_grid) rather than
+    flat values; tests express rows as strings and wrap them here.
+    """
+    return [[{"formattedValue": cell} for cell in row] for row in rows]
+
+
+# sync_sheet_to_intake reads grid cells; patch the grid seam and feed it
+# cell-dict rows derived from the string fixtures above.
+MODULE_PATH = "apps.content_intake.sheets_sync._get_sheet_grid"
 
 
 # ---------------------------------------------------------------------------
@@ -69,7 +82,7 @@ MODULE_PATH = "apps.content_intake.sheets_sync._get_sheet_rows"
 
 @pytest.mark.django_db
 def test_sync_skips_example_rows(workspace):
-    with patch(MODULE_PATH, return_value=SAMPLE_ROWS):
+    with patch(MODULE_PATH, return_value=_as_grid(SAMPLE_ROWS)):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake
         stats = sync_sheet_to_intake(workspace)
 
@@ -86,7 +99,7 @@ def test_sync_skips_example_rows(workspace):
 @pytest.mark.django_db
 def test_sync_creates_real_row(workspace):
     rows = [HEADER_ROW, REAL_ROW_001]
-    with patch(MODULE_PATH, return_value=rows):
+    with patch(MODULE_PATH, return_value=_as_grid(rows)):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake
         stats = sync_sheet_to_intake(workspace)
 
@@ -107,7 +120,7 @@ def test_sync_creates_real_row(workspace):
 @pytest.mark.django_db
 def test_sync_bad_sensitivity_goes_to_review_queue(workspace):
     rows = [HEADER_ROW, BAD_SENSITIVITY_ROW]
-    with patch(MODULE_PATH, return_value=rows):
+    with patch(MODULE_PATH, return_value=_as_grid(rows)):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake
         stats = sync_sheet_to_intake(workspace)
 
@@ -131,14 +144,14 @@ def test_sync_bad_sensitivity_goes_to_review_queue(workspace):
 @pytest.mark.django_db
 def test_sync_idempotent_same_hash_no_update(workspace):
     rows = [HEADER_ROW, REAL_ROW_001]
-    with patch(MODULE_PATH, return_value=rows):
+    with patch(MODULE_PATH, return_value=_as_grid(rows)):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake
         first = sync_sheet_to_intake(workspace)
 
     assert first["created"] == 1
 
     # Run a second time with identical rows
-    with patch(MODULE_PATH, return_value=rows):
+    with patch(MODULE_PATH, return_value=_as_grid(rows)):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake as sync2
         second = sync2(workspace)
 
@@ -154,7 +167,7 @@ def test_sync_idempotent_same_hash_no_update(workspace):
 @pytest.mark.django_db
 def test_sync_creates_unblock_conditions(workspace):
     rows = [HEADER_ROW, BAD_SENSITIVITY_ROW]
-    with patch(MODULE_PATH, return_value=rows):
+    with patch(MODULE_PATH, return_value=_as_grid(rows)):
         from apps.content_intake.sheets_sync import sync_sheet_to_intake
         sync_sheet_to_intake(workspace)
 
@@ -178,3 +191,34 @@ def test_column_part_extracts_columns():
     assert _column_part("Sheet1!A:P") == "A:P"
     assert _column_part("'My Tab — v2'!A:P") == "A:P"
     assert _column_part("A:P") == "A:P"
+
+
+@pytest.mark.django_db
+def test_sync_captures_doc_links_from_grid(workspace):
+    """Grid rows with hyperlinks/chips populate reference_links as dicts."""
+    from unittest.mock import patch
+    from apps.content_intake.models import ContentIntake
+
+    # Header row + one data row; the Notes/Doc cell carries a chip.
+    grid = [
+        # header (index 0)
+        [{"formattedValue": "ID"}, {"formattedValue": "Date"}, {"formattedValue": "By"},
+         {"formattedValue": "Pillar"}, {"formattedValue": "Angle"}, {"formattedValue": "Proof"},
+         {"formattedValue": "Audience"}, {"formattedValue": "Sensitivity"}, {"formattedValue": "Channel"},
+         {"formattedValue": "Campaign"}, {"formattedValue": "Priority"}, {"formattedValue": "Status"},
+         {"formattedValue": "Owner"}, {"formattedValue": "Date2"}, {"formattedValue": "Notes"},
+         {"formattedValue": "Docs"}],
+        # data row GRID-1
+        [{"formattedValue": "GRID-1"}, {"formattedValue": "2026-06-11"}, {"formattedValue": "Nduta"},
+         {"formattedValue": "Energy"}, {"formattedValue": "Solar"}, {"formattedValue": "IEA"},
+         {"formattedValue": "Policy"}, {"formattedValue": "Public-safe"}, {"formattedValue": "LinkedIn"},
+         {"formattedValue": ""}, {"formattedValue": "H"}, {"formattedValue": "Idea"},
+         {"formattedValue": "Nduta"}, {"formattedValue": ""}, {"formattedValue": "notes"},
+         {"formattedValue": "Brief", "hyperlink": "https://docs.google.com/document/d/zzz/edit"}],
+    ]
+    with patch("apps.content_intake.sheets_sync._get_sheet_grid", return_value=grid):
+        sync_sheet_to_intake(workspace)
+    item = ContentIntake.objects.get(workspace=workspace, external_id="GRID-1")
+    assert item.reference_links == [
+        {"title": "Brief", "url": "https://docs.google.com/document/d/zzz/edit", "type": "gdoc"}
+    ]
