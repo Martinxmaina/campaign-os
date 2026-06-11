@@ -9,6 +9,7 @@ from django.views.decorators.http import require_POST
 
 from apps.content_intake.herald_bridge import request_herald_draft
 from apps.content_intake.models import ContentIntake, UnblockCondition
+from apps.content_intake.sheets_sync import sync_sheet_to_intake
 
 
 @login_required
@@ -81,6 +82,22 @@ def board(request):
     if request.GET.get("partial"):
         return render(request, "content_intake/_table.html", ctx)
     return render(request, "content_intake/board.html", ctx)
+
+
+@login_required
+@require_POST
+def sync_now(request):
+    """Force an immediate sheet pull, then return the refreshed table partial."""
+    if request.workspace is not None:
+        try:
+            sync_sheet_to_intake(request.workspace)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("manual sync_now failed")
+    # Re-run the board query path in partial mode by delegating to board().
+    request.GET = request.GET.copy()
+    request.GET["partial"] = "1"
+    return board(request)
 
 
 @login_required

@@ -113,3 +113,14 @@ def test_draft_now_panel_hx_failure_retargets_panel(authed, workspace):
     assert b"HERALD couldn't draft" in resp.content
     assert resp["HX-Retarget"] == "#intake-panel"
     assert resp["HX-Reswap"] == "afterbegin"
+
+
+@pytest.mark.django_db
+def test_sync_now_triggers_sync_and_returns_table(authed, workspace):
+    from unittest.mock import patch
+    url = reverse("console:intake-sync-now")
+    with patch("apps.content_intake.views.sync_sheet_to_intake", return_value={"created": 0}) as m:
+        resp = authed.post(url)
+    assert resp.status_code == 200
+    assert b"intake-table" in resp.content
+    m.assert_called_once()
