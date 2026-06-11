@@ -34,7 +34,14 @@ def test_empty_org_returns_empty(organization):
 def test_credentials_list_context_has_accounts_and_houses(client, org_owner, organization):
     from apps.workspaces.models import Workspace
     from apps.social_accounts.models import SocialAccount
+    from apps.members.models import OrgMembership
     from django.urls import reverse
+    # Pin the user to exactly this org. The shared fork test DB + the conftest
+    # connection-closing teardown can leak fixture-committed OrgMemberships from
+    # a prior test, leaving the user with >1 membership; RBACMiddleware resolves
+    # request.org via OrgMembership.first(), so a stray membership would point
+    # the credentials view at the wrong org and render no accounts.
+    OrgMembership.objects.filter(user=org_owner).exclude(organization=organization).delete()
     # Use a house name that cannot appear in base.html org chrome (the sidebar
     # renders the *current* workspace name), so the assertion below genuinely
     # proves the house badge in the new "Connected accounts" block rendered.
@@ -53,3 +60,26 @@ def test_credentials_list_context_has_accounts_and_houses(client, org_owner, org
     # the page — scope to the badge markup so chrome can't satisfy it.
     assert 'class="rounded bg-stone-100 text-stone-600' in body
     assert "Zephyr House" in body
+
+
+@pytest.mark.django_db
+def test_hub_renders_two_same_platform_accounts_with_delete_urls(client, org_owner, organization):
+    from apps.workspaces.models import Workspace
+    from apps.social_accounts.models import SocialAccount
+    from apps.members.models import OrgMembership
+    from django.urls import reverse
+    # Pin the user to exactly this org (see note in the test above) so the shared
+    # fork test DB cannot leak a stray OrgMembership that misroutes request.org.
+    OrgMembership.objects.filter(user=org_owner).exclude(organization=organization).delete()
+    ws = Workspace.objects.create(organization=organization, name="WAIIS")
+    a1 = SocialAccount.objects.create(workspace=ws, platform="linkedin_personal",
+        account_platform_id="li-a", account_name="Acct One")
+    a2 = SocialAccount.objects.create(workspace=ws, platform="linkedin_personal",
+        account_platform_id="li-b", account_name="Acct Two")
+    client.force_login(org_owner)
+    resp = client.get(reverse("credentials:list"))
+    body = resp.content.decode()
+    assert "Acct One" in body and "Acct Two" in body          # both accounts shown
+    # each has a disconnect URL targeting its own id
+    assert reverse("social_accounts:disconnect", args=[ws.id, a1.id]) in body
+    assert reverse("social_accounts:disconnect", args=[ws.id, a2.id]) in body
