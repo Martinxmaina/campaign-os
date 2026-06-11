@@ -460,6 +460,16 @@ PLATFORM_CREDENTIALS_FROM_ENV = {
     "twitter": _TWITTER_CREDENTIALS,
 }
 
+# Ghost (Nexus Brief) — single org-level Admin API key (no per-user OAuth).
+# Added conditionally so _get_configured_platforms() doesn't false-positive on
+# empty defaults; the credential store can still hold per-org creds either way.
+if env("GHOST_ADMIN_API_KEY", default=""):
+    PLATFORM_CREDENTIALS_FROM_ENV["ghost"] = {
+        "admin_api_key": env("GHOST_ADMIN_API_KEY"),
+        "base_url": env("GHOST_BASE_URL", default="https://the-nexus-brief.ghost.io"),
+        "newsletter_slug": env("GHOST_NEWSLETTER_SLUG", default=""),
+    }
+
 # Webhook verification
 FACEBOOK_WEBHOOK_VERIFY_TOKEN = env("FACEBOOK_WEBHOOK_VERIFY_TOKEN", default="")
 INSTAGRAM_LOGIN_WEBHOOK_VERIFY_TOKEN = env("INSTAGRAM_LOGIN_WEBHOOK_VERIFY_TOKEN", default="")

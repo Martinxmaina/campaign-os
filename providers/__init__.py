@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .facebook import FacebookProvider
+from .ghost import GhostProvider
 from .instagram import InstagramProvider
 from .instagram_login import InstagramLoginProvider
 from .linkedin_company import LinkedInCompanyProvider
@@ -29,6 +30,7 @@ PROVIDER_REGISTRY: dict[str, type[SocialProvider]] = {
     "youtube": YouTubeProvider,
     "threads": ThreadsProvider,
     "twitter": TwitterProvider,
+    "ghost": GhostProvider,
 }
 
 
