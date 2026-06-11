@@ -72,10 +72,30 @@ PLATFORM_FIELDS: dict[str, dict] = {
             ("app_secret", "App Secret", "password"),
         ],
     },
+    "ghost": {
+        "label": "Ghost (Nexus Brief)",
+        "help": "Ghost Admin → Settings → Integrations → Custom integration. "
+                "Paste the Admin API Key (id:secret) and your site URL.",
+        "fields": [
+            ("admin_api_key", "Admin API Key (id:secret)", "password"),
+            ("base_url", "Site URL (https://your.ghost.io)", "text"),
+            ("newsletter_slug", "Newsletter slug (optional, for email sends)", "text", False),
+        ],
+    },
 }
 
 
 def field_keys(platform: str) -> list[str]:
-    """Return the credential dict keys for a platform."""
+    """Return all credential dict keys for a platform (required + optional)."""
     spec = PLATFORM_FIELDS.get(platform, {})
     return [f[0] for f in spec.get("fields", [])]
+
+
+def required_field_keys(platform: str) -> list[str]:
+    """Return the *required* credential keys for a platform.
+
+    Field tuples are ``(key, label, type)`` (required) or
+    ``(key, label, type, required)``; a 3-tuple is treated as required.
+    """
+    spec = PLATFORM_FIELDS.get(platform, {})
+    return [f[0] for f in spec.get("fields", []) if len(f) < 4 or f[3]]

@@ -14,7 +14,11 @@ from django.views.decorators.http import require_POST
 
 from apps.credentials.account_hub import accounts_by_platform
 from apps.credentials.models import PlatformCredential
-from apps.credentials.platform_fields import PLATFORM_FIELDS, field_keys
+from apps.credentials.platform_fields import (
+    PLATFORM_FIELDS,
+    field_keys,
+    required_field_keys,
+)
 
 
 def _get_org(request):
@@ -55,7 +59,10 @@ def credentials_list(request):
             "platform": platform,
             "label": spec["label"],
             "help": spec["help"],
-            "fields": spec["fields"],
+            # Normalize to (key, label, type) — the template renders all fields
+            # the same way; the optional 4th tuple element (required flag) is
+            # only consumed server-side by required_field_keys().
+            "fields": [tuple(f[:3]) for f in spec["fields"]],
             "is_configured": state.get("is_configured", False),
             "masked": state.get("masked", {}),
             "accounts": accounts.get(platform, []),
@@ -89,12 +96,15 @@ def save_credential(request, platform):
         if val:
             creds[key] = val
 
-    # All declared fields must be present to mark configured.
-    is_configured = all(creds.get(k) for k in keys)
+    # All *required* fields must be present to mark configured; optional
+    # fields (e.g. Ghost's newsletter_slug) are saved when present but never
+    # block configuration.
+    is_configured = all(creds.get(k) for k in required_field_keys(platform))
     if not is_configured:
         messages.error(
             request,
-            f"Both fields are required to configure {PLATFORM_FIELDS[platform]['label']}.",
+            f"All required fields must be filled in to configure "
+            f"{PLATFORM_FIELDS[platform]['label']}.",
         )
         return redirect("credentials:list")
 
