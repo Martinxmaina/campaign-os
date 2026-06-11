@@ -20,7 +20,7 @@
   {% url 'console:intake-add-to-calendar' as add_to_calendar_url %}
   <div class="mt-4 flex gap-2">
     {% if item.status == "accepted" and item.sensitivity in "public_safe,partner_only" %}
-    <form hx-post="{% url 'console:intake-draft-now' item.pk %}" hx-target="#intake-panel" hx-swap="outerHTML">
+    <form hx-post="{% url 'console:intake-draft-now-panel' item.pk %}" hx-target="#intake-panel" hx-swap="outerHTML">
       {% csrf_token %}
       <button class="rounded bg-indigo-600 text-white px-3 py-1 text-xs font-medium hover:bg-indigo-700">✨ Draft with HERALD</button>
     </form>

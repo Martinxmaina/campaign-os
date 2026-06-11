@@ -41,12 +41,15 @@ def board(request):
     if owner_filter:
         qs = qs.filter(owner_raw__icontains=owner_filter)
 
+    # Ascending-only: the table headers emit bare ?sort=<col> links with no
+    # asc/desc toggle, so no descending ("-pillar", etc.) variant is ever
+    # requested. Keep this map in lockstep with the header links in _table.html.
     _SORT_MAP = {
-        "pillar": "pillar_theme", "-pillar": "-pillar_theme",
-        "status": "status", "-status": "-status",
-        "priority": "-priority", "-priority": "priority",
-        "owner": "owner_raw", "-owner": "-owner_raw",
-        "created": "created_at", "-created": "-created_at",
+        "pillar": "pillar_theme",
+        "status": "status",
+        "priority": "-priority",
+        "owner": "owner_raw",
+        "created": "created_at",
     }
     sort = request.GET.get("sort", "")
     order = _SORT_MAP.get(sort, "-priority")
@@ -149,6 +152,47 @@ def draft_now(request, intake_pk):
         # non-HX branch below still uses 409 for API-style callers.
         response = render(request, "content_intake/_draft_error.html")
         response["HX-Retarget"] = f"#intake-card-{intake.pk}"
+        response["HX-Reswap"] = "afterbegin"
+        response["HX-Trigger"] = "heraldDraftFailed"
+        return response
+    return HttpResponse(status=204 if ok else 409)
+
+
+@login_required
+@require_POST
+def draft_now_panel(request, intake_pk):
+    """Manually ask HERALD to draft a single intake item, from the board panel.
+
+    The board's detail panel (``_panel.html``) lives in a ``#intake-panel`` slot
+    that is the swap target for row clicks. The legacy ``draft_now`` view re-renders
+    ``_card.html`` (a ``#intake-card-{pk}`` div) and, on failure, retargets to
+    ``#intake-card-{pk}`` — neither of which exists on the table-based board. Swapping
+    a card fragment into ``#intake-panel`` would destroy the ``#intake-panel`` id and
+    break every subsequent row click, and the failure retarget would silently drop the
+    error banner. This panel-aware variant re-renders ``_panel.html`` in place so the
+    ``#intake-panel`` id is preserved on success and the error banner is surfaced inside
+    the panel on failure.
+    """
+    if request.workspace is None:
+        raise PermissionDenied("No workspace context resolved for this request.")
+
+    intake = get_object_or_404(
+        ContentIntake.objects.prefetch_related("unblock_conditions"),
+        pk=intake_pk, workspace=request.workspace,
+    )
+    ok = request_herald_draft(intake)
+    if request.headers.get("HX-Request"):
+        if ok:
+            # Success: re-render the panel so the button hides and status flips to
+            # "drafting" (request_herald_draft mutated the item in place). The
+            # outer #intake-panel id is preserved for subsequent row clicks.
+            return render(request, "content_intake/_panel.html", {"item": intake})
+        # Failure: surface a visible error banner. Stock HTMX will not swap a
+        # non-2xx body, so return 200 and prepend the banner into the panel via
+        # HX-Reswap (the #intake-panel id is left intact). Signal observers via
+        # the HX-Trigger error event. The non-HX branch below uses 409.
+        response = render(request, "content_intake/_draft_error.html")
+        response["HX-Retarget"] = "#intake-panel"
         response["HX-Reswap"] = "afterbegin"
         response["HX-Trigger"] = "heraldDraftFailed"
         return response
