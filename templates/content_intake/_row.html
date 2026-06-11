@@ -1,6 +1,6 @@
 <tr class="border-b border-stone-100 hover:bg-stone-50 cursor-pointer"
     hx-get="{% url 'console:intake-row-panel' item.pk %}" hx-target="#intake-panel" hx-swap="outerHTML">
-  <td class="px-2 py-2" onclick="event.stopPropagation()">
+  <td class="px-2 py-2" @click.stop>
     <input type="checkbox" name="ids" value="{{ item.pk }}" form="bulk-form" class="row-check">
   </td>
   <td class="px-2 py-2">{{ item.pillar_theme|truncatechars:24 }}</td>

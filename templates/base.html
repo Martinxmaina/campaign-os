@@ -679,7 +679,7 @@
                 {% for channel in sidebar_channels %}
                 <a href="{% url 'social_accounts:list' workspace_id=request.workspace.id %}" class="sidebar-nav-item" title="{{ channel.queued_post_count|default:0 }} upcoming post{{ channel.queued_post_count|default:0|pluralize }} in the queue for {{ channel.account_name|default:channel.account_handle }}">
                     <div class="relative flex-shrink-0">
-                        {% if channel.avatar_url %}
+                        {% if channel.avatar_url and channel.avatar_url|slice:":4" == "http" %}
                         <img src="{{ channel.avatar_url }}" alt="" class="w-7 h-7 rounded-full object-cover">
                         {% else %}
                         <div class="w-7 h-7 rounded-full bg-stone-200 flex items-center justify-center text-[11px] font-semibold text-stone-500">{{ channel.account_name|default:channel.account_handle|make_list|first|upper }}</div>
@@ -697,7 +697,7 @@
                 {% for channel in sidebar_unhealthy_channels %}
                 <div class="sidebar-nav-item flex items-center gap-2">
                     <div class="relative flex-shrink-0 opacity-60">
-                        {% if channel.avatar_url %}
+                        {% if channel.avatar_url and channel.avatar_url|slice:":4" == "http" %}
                         <img src="{{ channel.avatar_url }}" alt="" class="w-7 h-7 rounded-full object-cover grayscale" x-data @error="$el.style.display='none';$el.nextElementSibling.style.display='flex'">
                         <div class="w-7 h-7 rounded-full bg-stone-200 items-center justify-center text-[11px] font-semibold text-stone-500" style="display:none">{{ channel.account_name|default:channel.account_handle|make_list|first|upper }}</div>
                         {% else %}
