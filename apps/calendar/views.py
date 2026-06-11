@@ -514,6 +514,21 @@ def _month_view_data(request, workspace, target_date, context):
         if pp.effective_at:
             posts_by_date[pp.effective_at.astimezone(display_tz).date()].append(pp)
 
+    # Channel-less scheduled Posts (e.g. intake "Add to calendar" before a channel
+    # is connected) aren't represented by any PlatformPost, so render them directly.
+    visible_first, visible_last = weeks[0][0], weeks[-1][6]
+    channelless = (
+        Post.objects.for_workspace(workspace.id)
+        .filter(
+            scheduled_at__date__gte=visible_first,
+            scheduled_at__date__lte=visible_last,
+            platform_posts__isnull=True,
+        )
+        .distinct()
+    )
+    for post in channelless:
+        posts_by_date[post.scheduled_at.astimezone(display_tz).date()].append(post)
+
     # Holiday overlay
     holidays_by_date = {}
     if context.get("show_holidays"):
