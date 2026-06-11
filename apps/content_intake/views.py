@@ -146,6 +146,35 @@ def close_condition(request, condition_pk):
 
 @login_required
 @require_POST
+def add_to_calendar(request):
+    """Schedule one or many selected intake items. Returns the table partial."""
+    from datetime import datetime
+    from django.utils import timezone as _tz
+    from apps.content_intake.intake_calendar import schedule_intake_item
+
+    ids = request.POST.getlist("ids")
+    raw_when = request.POST.get("scheduled_at", "").strip()
+    when = None
+    if raw_when:
+        try:
+            parsed = datetime.fromisoformat(raw_when)
+            when = parsed if parsed.tzinfo else _tz.make_aware(parsed)
+        except ValueError:
+            when = None
+    if when is None:
+        when = _tz.now()
+
+    if request.workspace is not None:
+        for item in ContentIntake.objects.filter(pk__in=ids, workspace=request.workspace):
+            schedule_intake_item(item, when, request.user)
+
+    request.GET = request.GET.copy()
+    request.GET["partial"] = "1"
+    return board(request)
+
+
+@login_required
+@require_POST
 def draft_now(request, intake_pk):
     """Manually ask HERALD to draft a single intake item."""
     if request.workspace is None:
