@@ -1,0 +1,33 @@
+{% extends "console/base.html" %}
+{% block content %}
+<div class="p-6" x-data="{ panelOpen: false }">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Content Intake Board</h1>
+    <div class="flex gap-2 text-sm">
+      <a href="?" class="rounded border px-3 py-1">Table</a>
+      <a href="?view=board" class="rounded bg-stone-700 text-white px-3 py-1">Board</a>
+    </div>
+  </div>
+  <div class="grid grid-cols-3 gap-4">
+    {% for stage, label in lanes_labels %}
+    <div id="kanban-col-{{ stage }}"
+         @dragover.prevent @drop="
+           const id = $event.dataTransfer.getData('text/id');
+           htmx.ajax('POST', '/console/intake/'+id+'/stage/', {values:{to_stage:'{{ stage }}', csrfmiddlewaretoken:'{{ csrf_token }}'}, target:'body', swap:'none'}).then(()=>window.location.reload());"
+         class="rounded-lg bg-stone-50 border border-stone-200 p-3 min-h-[200px]">
+      <h3 class="text-sm font-semibold text-stone-500 mb-2">{{ label }}</h3>
+      {% if stage == 'todo' %}{% for item in lane_todo %}{% include "content_intake/_kanban_card.html" with item=item %}{% endfor %}
+      {% elif stage == 'in_progress' %}{% for item in lane_in_progress %}{% include "content_intake/_kanban_card.html" with item=item %}{% endfor %}
+      {% else %}{% for item in lane_done %}{% include "content_intake/_kanban_card.html" with item=item %}{% endfor %}{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <div x-show="panelOpen" x-cloak @keydown.escape.window="panelOpen=false" class="fixed inset-0 z-40" style="display:none">
+    <div class="absolute inset-0 bg-black/30" @click="panelOpen=false"></div>
+    <div class="absolute inset-y-0 right-0 w-full max-w-md bg-white shadow-xl overflow-y-auto p-4" @click.stop>
+      <button type="button" @click="panelOpen=false" class="float-right text-stone-400 text-lg">✕</button>
+      {% include "content_intake/_panel.html" with item=None %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -38,14 +38,10 @@ urlpatterns = [
     path("intake/conditions/<uuid:condition_pk>/close/", intake_views.close_condition, name="intake-close-condition"),
     path("intake/<uuid:intake_pk>/draft/", intake_views.draft_now, name="intake-draft-now"),
     path("intake/<uuid:intake_pk>/draft-panel/", intake_views.draft_now_panel, name="intake-draft-now-panel"),
-    # NOT-YET-WIRED: move_stage has no client. The intake board is table-based
-    # (_table.html/_row.html), not a drag/drop Kanban — no template posts to this
-    # endpoint and no drag handler exists, so the only callers today are tests. The
-    # route is kept registered (the view's stage transitions are guarded and tested,
-    # ready the moment a client lands) but it is NOT surfaced in any UI. When the
-    # Kanban drag/drop lane UI is built, wire the drop handler to POST
-    # to_stage=todo|in_progress|done here; until then there is no live path that
-    # reaches it from the board.
+    # Kanban drag-to-restage. The Board view (board_kanban.html, reached via
+    # ?view=board) drops POST here with to_stage=todo|in_progress|done. The view
+    # ONLY changes status — it NEVER drafts (drafting is the manual draft_now
+    # action). Stage transitions are guarded against demoting terminal items.
     path("intake/<uuid:intake_pk>/stage/", intake_views.move_stage, name="intake-move-stage"),
     path("intake/<uuid:intake_pk>/panel/", intake_views.row_panel, name="intake-row-panel"),
 ]

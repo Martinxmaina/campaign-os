@@ -80,6 +80,15 @@ def board(request):
         "last_sync_at": activity["last_sync_at"],
         "last_draft_at": activity["last_draft_at"],
     }
+    if request.GET.get("view") == "board":
+        lanes = {"todo": [], "in_progress": [], "done": []}
+        for it in items:
+            lanes[it.board_stage].append(it)
+        ordered = [("todo", "To Do"), ("in_progress", "In Progress"), ("done", "Done")]
+        ctx_board = {**ctx, "lanes_labels": ordered,
+                     "lane_todo": lanes["todo"], "lane_in_progress": lanes["in_progress"],
+                     "lane_done": lanes["done"], "view": "board"}
+        return render(request, "content_intake/board_kanban.html", ctx_board)
     if request.GET.get("partial"):
         return render(request, "content_intake/_table.html", ctx)
     return render(request, "content_intake/board.html", ctx)

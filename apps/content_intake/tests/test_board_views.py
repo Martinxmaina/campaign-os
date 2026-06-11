@@ -310,3 +310,21 @@ def test_add_to_calendar_no_per_item_condition_probe(authed, workspace):
     ]
     for sql in cond_queries:
         assert "limit 1" not in sql.lower(), f"unexpected per-item probe: {sql}"
+
+
+@pytest.mark.django_db
+def test_board_kanban_view_groups_by_stage(authed, workspace):
+    from apps.content_intake.models import ContentIntake
+    ContentIntake.objects.create(workspace=workspace, external_id="K1", pillar_theme="Energy",
+        sensitivity="public_safe", status="idea")          # todo
+    ContentIntake.objects.create(workspace=workspace, external_id="K2", pillar_theme="AI",
+        sensitivity="public_safe", status="drafting")      # in_progress
+    ContentIntake.objects.create(workspace=workspace, external_id="K3", pillar_theme="Agri",
+        sensitivity="public_safe", status="scheduled")     # done
+    from django.urls import reverse
+    resp = authed.get(reverse("console:intake-board") + "?view=board")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "kanban-col-todo" in body
+    assert "kanban-col-in_progress" in body
+    assert "kanban-col-done" in body

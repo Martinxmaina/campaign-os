@@ -13,6 +13,10 @@
       {% include "console/_activity_badge.html" with last_sync_at=last_sync_at last_draft_at=last_draft_at %}
     </div>
     <div class="flex items-center gap-2">
+      <div class="flex gap-1 text-sm">
+        <a href="?" class="rounded bg-stone-700 text-white px-3 py-1">Table</a>
+        <a href="?view=board" class="rounded border px-3 py-1">Board</a>
+      </div>
       <form method="get" class="flex gap-2">
         <select name="status" class="rounded border px-2 py-1 text-sm">
           <option value="">All statuses</option>

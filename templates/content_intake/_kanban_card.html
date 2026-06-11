@@ -1,0 +1,15 @@
+<div draggable="true" @dragstart="$event.dataTransfer.setData('text/id','{{ item.pk }}')"
+     class="rounded-lg border border-stone-200 bg-white p-3 mb-2 shadow-sm cursor-move"
+     hx-get="{% url 'console:intake-row-panel' item.pk %}" hx-target="#intake-panel" hx-swap="outerHTML"
+     @click="panelOpen = true">
+  <div class="text-xs font-mono text-stone-400">{{ item.external_id }}</div>
+  <div class="font-medium text-sm">{{ item.pillar_theme|truncatechars:24 }}</div>
+  <div class="text-xs text-stone-600">{{ item.angle|truncatechars:60 }}</div>
+  <div class="mt-1 flex items-center gap-1">
+    <span class="rounded px-1.5 py-0.5 text-[10px]
+      {% if item.sensitivity == 'public_safe' %}bg-green-100 text-green-800
+      {% elif item.sensitivity == 'partner_only' %}bg-yellow-100 text-yellow-800
+      {% else %}bg-red-100 text-red-800{% endif %}">{{ item.get_sensitivity_display }}</span>
+    {% if item.reference_links %}<span class="text-[10px] text-stone-400">📎 {{ item.reference_links|length }}</span>{% endif %}
+  </div>
+</div>
