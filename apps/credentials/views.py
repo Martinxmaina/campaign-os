@@ -123,6 +123,58 @@ def save_credential(request, platform):
 
 @login_required
 @require_POST
+def connect_ghost(request):
+    """Connect Ghost as a single org-level SocialAccount.
+
+    Ghost auth is one Admin API key (no per-user OAuth), so there is exactly
+    one connection per org. We validate the saved credential by fetching the
+    site profile, then attach the account to the org's oldest workspace.
+    Idempotent: re-running updates the same SocialAccount rather than creating
+    duplicates.
+    """
+    org = _get_org(request)
+    if not _can_manage(request, org):
+        messages.error(request, "You need org owner/admin to connect channels.")
+        return redirect("credentials:list")
+    cred = (
+        PlatformCredential.objects.for_org(org.id)
+        .filter(platform="ghost", is_configured=True)
+        .first()
+    )
+    if not cred:
+        messages.error(request, "Save Ghost credentials first.")
+        return redirect("credentials:list")
+
+    from apps.social_accounts.models import SocialAccount
+    from apps.workspaces.models import Workspace
+    from providers import get_provider
+
+    try:
+        profile = get_provider("ghost", dict(cred.credentials)).get_profile("")
+    except Exception as exc:  # noqa: BLE001
+        messages.error(request, f"Ghost connection failed: {exc}")
+        return redirect("credentials:list")
+
+    ws = Workspace.objects.filter(organization=org).order_by("created_at").first()
+    if ws is None:
+        messages.error(request, "Create a workspace first.")
+        return redirect("credentials:list")
+
+    SocialAccount.objects.update_or_create(
+        workspace=ws,
+        platform="ghost",
+        account_platform_id=profile.platform_id,
+        defaults={
+            "account_name": profile.name,
+            "connection_status": SocialAccount.ConnectionStatus.CONNECTED,
+        },
+    )
+    messages.success(request, f"Connected Ghost: {profile.name}.")
+    return redirect("credentials:list")
+
+
+@login_required
+@require_POST
 def delete_credential(request, platform):
     org = _get_org(request)
     if not _can_manage(request, org):
