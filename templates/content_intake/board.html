@@ -46,9 +46,22 @@
     {% endif %}
   </form>
 
-  <div class="grid grid-cols-3 gap-4">
-    <div class="col-span-2">{% include "content_intake/_table.html" %}</div>
-    <div class="col-span-1">{% include "content_intake/_panel.html" with item=None %}</div>
+  <div x-data="{ panelOpen: false }">
+    {# Full-width, horizontally-scrollable table showing every sheet column. #}
+    {% include "content_intake/_table.html" %}
+
+    {# Slide-over detail drawer — opens on row click, HTMX loads #intake-panel. #}
+    <div x-show="panelOpen" x-cloak
+         @keydown.escape.window="panelOpen = false"
+         class="fixed inset-0 z-40" style="display:none">
+      <div class="absolute inset-0 bg-black/30" @click="panelOpen = false"></div>
+      <div class="absolute inset-y-0 right-0 w-full max-w-md bg-white shadow-xl overflow-y-auto p-4"
+           @click.stop>
+        <button type="button" @click="panelOpen = false"
+                class="float-right text-stone-400 hover:text-stone-600 text-lg leading-none">✕</button>
+        {% include "content_intake/_panel.html" with item=None %}
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
