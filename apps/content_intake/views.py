@@ -195,9 +195,28 @@ def add_to_calendar(request):
 @require_POST
 def draft_selected(request):
     """Draft every eligible selected intake item with HERALD. Returns table partial."""
+    from django.db.models import Count, Q
+
     ids = request.POST.getlist("ids")
     if request.workspace is not None:
-        for item in ContentIntake.objects.filter(pk__in=ids, workspace=request.workspace):
+        # Bulk hot path: request_herald_draft -> _is_eligible -> is_schedulable
+        # -> has_open_conditions. That property reads an ``open_cond_count``
+        # annotation when present and otherwise falls back to a per-instance
+        # EXISTS query (one per selected item -> O(N)). The model docstring
+        # prescribes prefetch+annotate for list contexts, so annotate the open
+        # condition count (kills the per-item EXISTS) and prefetch the related
+        # set (kills the per-item fetch when build_brief / templates read
+        # ``unblock_conditions.all()``). Mirrors the add_to_calendar fix to keep
+        # the loop O(1) in condition queries regardless of selection size.
+        items = (
+            ContentIntake.objects.filter(pk__in=ids, workspace=request.workspace)
+            .annotate(open_cond_count=Count(
+                "unblock_conditions",
+                filter=Q(unblock_conditions__status=UnblockCondition.ConditionStatus.OPEN),
+            ))
+            .prefetch_related("unblock_conditions")
+        )
+        for item in items:
             try:
                 request_herald_draft(item)
             except Exception:
