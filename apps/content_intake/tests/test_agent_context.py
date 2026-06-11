@@ -131,3 +131,17 @@ def test_context_includes_target_dates(workspace, intake_item_with_date):
     assert date_val == intake_item_with_date.target_publish_date.isoformat(), (
         f"date mismatch: got {date_val!r}, expected {intake_item_with_date.target_publish_date.isoformat()!r}"
     )
+
+
+@pytest.mark.django_db
+def test_context_includes_reference_links(workspace):
+    from apps.content_intake.models import ContentIntake
+    from apps.content_intake.agent_context import build_intake_context
+    ContentIntake.objects.create(
+        workspace=workspace, external_id="R-1", angle="x",
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE, status=ContentIntake.Status.ACCEPTED,
+        reference_links=[{"title": "Brief", "url": "https://docs.google.com/document/d/z", "type": "gdoc"}],
+    )
+    ctx = build_intake_context(workspace)
+    item = next(i for i in ctx["intake_items"] if i["external_id"] == "R-1")
+    assert item["reference_links"][0]["url"] == "https://docs.google.com/document/d/z"

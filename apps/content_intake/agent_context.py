@@ -63,6 +63,7 @@ def build_intake_context(workspace) -> dict:
             "target_publish_date": intake.target_publish_date.isoformat() if intake.target_publish_date else None,
             "is_schedulable": intake.is_schedulable,
             "open_conditions": open_conditions,
+            "reference_links": intake.reference_links or [],
             "notes": intake.notes_raw,
         })
     return {"intake_items": items, "total_visible": len(items), "workspace": str(workspace.pk)}
