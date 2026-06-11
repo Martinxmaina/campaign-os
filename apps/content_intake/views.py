@@ -21,6 +21,7 @@ def board(request):
             "pillars": [],
             "status_filter": "",
             "pillar_filter": "",
+            "sort": "",
         })
     qs = ContentIntake.objects.filter(workspace=workspace).exclude(
         status=ContentIntake.Status.SKIPPED
@@ -40,7 +41,16 @@ def board(request):
     if owner_filter:
         qs = qs.filter(owner_raw__icontains=owner_filter)
 
-    items = list(qs.order_by("-priority", "-created_at")[:200])
+    _SORT_MAP = {
+        "pillar": "pillar_theme", "-pillar": "-pillar_theme",
+        "status": "status", "-status": "-status",
+        "priority": "-priority", "-priority": "priority",
+        "owner": "owner_raw", "-owner": "-owner_raw",
+        "created": "created_at", "-created": "-created_at",
+    }
+    sort = request.GET.get("sort", "")
+    order = _SORT_MAP.get(sort, "-priority")
+    items = list(qs.order_by(order, "-created_at")[:200])
     statuses = ContentIntake.Status.choices
     pillars = (
         ContentIntake.objects.filter(workspace=workspace)
@@ -55,15 +65,19 @@ def board(request):
         last_sync_at=Max("last_synced_at"),
         last_draft_at=Max("herald_drafted_at"),
     )
-    return render(request, "content_intake/board.html", {
+    ctx = {
         "items": items,
         "statuses": statuses,
         "pillars": pillars,
         "status_filter": status_filter,
         "pillar_filter": pillar_filter,
+        "sort": sort,
         "last_sync_at": activity["last_sync_at"],
         "last_draft_at": activity["last_draft_at"],
-    })
+    }
+    if request.GET.get("partial"):
+        return render(request, "content_intake/_table.html", ctx)
+    return render(request, "content_intake/board.html", ctx)
 
 
 @login_required

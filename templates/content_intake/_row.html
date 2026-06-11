@@ -1,0 +1,17 @@
+<tr class="border-b border-stone-100 hover:bg-stone-50 cursor-pointer"
+    hx-get="{% url 'console:intake-row-panel' item.pk %}" hx-target="#intake-panel" hx-swap="outerHTML">
+  <td class="px-2 py-2" onclick="event.stopPropagation()">
+    <input type="checkbox" name="ids" value="{{ item.pk }}" form="bulk-form" class="row-check">
+  </td>
+  <td class="px-2 py-2">{{ item.pillar_theme|truncatechars:24 }}</td>
+  <td class="px-2 py-2">{{ item.angle|truncatechars:50 }}</td>
+  <td class="px-2 py-2">{{ item.owner_raw|default:"—" }}</td>
+  <td class="px-2 py-2">{{ item.get_status_display }}</td>
+  <td class="px-2 py-2">
+    <span class="rounded px-1.5 py-0.5 text-[11px]
+      {% if item.sensitivity == 'public_safe' %}bg-green-100 text-green-800
+      {% elif item.sensitivity == 'partner_only' %}bg-yellow-100 text-yellow-800
+      {% else %}bg-red-100 text-red-800{% endif %}">{{ item.get_sensitivity_display }}</span>
+  </td>
+  <td class="px-2 py-2 text-stone-400">{% if item.reference_links %}📎 {{ item.reference_links|length }}{% endif %}</td>
+</tr>

@@ -1,27 +1,54 @@
 {% extends "console/base.html" %}
 {% block content %}
+{# These routes are introduced in later tasks; resolve via the `as` form so the
+   board renders cleanly before those routes exist (matches the _panel.html
+   convention established in Task 3). #}
+{% url 'console:intake-sync-now' as sync_now_url %}
+{% url 'console:intake-draft-selected' as draft_selected_url %}
+{% url 'console:intake-add-to-calendar' as add_to_calendar_url %}
 <div class="p-6">
   <div class="flex items-center justify-between mb-4">
     <div class="flex items-center gap-3">
       <h1 class="text-2xl font-bold">Content Intake Board</h1>
       {% include "console/_activity_badge.html" with last_sync_at=last_sync_at last_draft_at=last_draft_at %}
     </div>
-    <form method="get" class="flex gap-2">
-      <select name="status" class="rounded border px-2 py-1 text-sm">
-        <option value="">All statuses</option>
-        {% for val, label in statuses %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
-      </select>
-      <select name="pillar" class="rounded border px-2 py-1 text-sm">
-        <option value="">All pillars</option>
-        {% for p in pillars %}<option value="{{ p }}" {% if pillar_filter == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
-      </select>
-      <button type="submit" class="rounded bg-blue-600 text-white px-3 py-1 text-sm">Filter</button>
-    </form>
+    <div class="flex items-center gap-2">
+      <form method="get" class="flex gap-2">
+        <select name="status" class="rounded border px-2 py-1 text-sm">
+          <option value="">All statuses</option>
+          {% for val, label in statuses %}<option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>{% endfor %}
+        </select>
+        <select name="pillar" class="rounded border px-2 py-1 text-sm">
+          <option value="">All pillars</option>
+          {% for p in pillars %}<option value="{{ p }}" {% if pillar_filter == p %}selected{% endif %}>{{ p }}</option>{% endfor %}
+        </select>
+        <button type="submit" class="rounded bg-stone-700 text-white px-3 py-1 text-sm">Filter</button>
+      </form>
+      {% if sync_now_url %}
+      <form hx-post="{{ sync_now_url }}" hx-target="#intake-table" hx-swap="outerHTML">
+        {% csrf_token %}
+        <button class="rounded bg-green-600 text-white px-3 py-1 text-sm">🔄 Sync now</button>
+      </form>
+      {% endif %}
+    </div>
   </div>
-  <div class="grid gap-3">
-    {% for item in items %}{% include "content_intake/_card.html" with item=item %}{% empty %}
-    <p class="text-gray-500">No intake items match your filter.</p>
-    {% endfor %}
+
+  <form id="bulk-form" {% if draft_selected_url %}hx-post="{{ draft_selected_url }}" hx-target="#intake-table" hx-swap="outerHTML"{% endif %}
+        class="mb-2 flex items-center gap-2 text-sm">
+    {% csrf_token %}
+    {% if draft_selected_url %}
+    <button type="submit" class="rounded bg-indigo-600 text-white px-3 py-1">✨ Draft selected</button>
+    {% endif %}
+    {% if add_to_calendar_url %}
+    <button type="submit" formaction="{{ add_to_calendar_url }}"
+            formmethod="post" class="rounded bg-blue-600 text-white px-3 py-1"
+            hx-post="{{ add_to_calendar_url }}" hx-include="#bulk-form">📅 Add selected to calendar</button>
+    {% endif %}
+  </form>
+
+  <div class="grid grid-cols-3 gap-4">
+    <div class="col-span-2">{% include "content_intake/_table.html" %}</div>
+    <div class="col-span-1">{% include "content_intake/_panel.html" with item=None %}</div>
   </div>
 </div>
 {% endblock %}

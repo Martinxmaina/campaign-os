@@ -1,0 +1,21 @@
+<div id="intake-table" hx-get="{% url 'console:intake-board' %}?partial=1&sort={{ sort }}&status={{ status_filter }}&pillar={{ pillar_filter }}"
+     hx-trigger="every 45s" hx-swap="outerHTML" hx-target="#intake-table">
+  <table class="w-full text-sm">
+    <thead class="text-left text-stone-500 border-b border-stone-200">
+      <tr>
+        <th class="px-2 py-2"></th>
+        <th class="px-2 py-2"><a href="?sort=pillar">Pillar</a></th>
+        <th class="px-2 py-2">Angle</th>
+        <th class="px-2 py-2"><a href="?sort=owner">Owner</a></th>
+        <th class="px-2 py-2"><a href="?sort=status">Status</a></th>
+        <th class="px-2 py-2">Sensitivity</th>
+        <th class="px-2 py-2">Docs</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in items %}{% include "content_intake/_row.html" with item=item %}{% empty %}
+      <tr><td colspan="7" class="px-2 py-6 text-center text-stone-400">No intake items.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

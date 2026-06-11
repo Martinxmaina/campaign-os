@@ -30,3 +30,27 @@ def test_row_panel_renders_doc_chips(authed, workspace):
     assert resp.status_code == 200
     assert b"Brief" in resp.content
     assert b"docs.google.com/document/d/z" in resp.content
+
+
+@pytest.mark.django_db
+def test_board_sorts_by_param(authed, workspace):
+    ContentIntake.objects.create(workspace=workspace, external_id="A", pillar_theme="Zeta",
+        sensitivity="public_safe", status="idea")
+    ContentIntake.objects.create(workspace=workspace, external_id="B", pillar_theme="Alpha",
+        sensitivity="public_safe", status="idea")
+    url = reverse("console:intake-board") + "?sort=pillar"
+    resp = authed.get(url)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert body.index("Alpha") < body.index("Zeta")
+
+
+@pytest.mark.django_db
+def test_board_partial_returns_table_only(authed, workspace):
+    ContentIntake.objects.create(workspace=workspace, external_id="A", pillar_theme="Energy",
+        sensitivity="public_safe", status="idea")
+    url = reverse("console:intake-board") + "?partial=1"
+    resp = authed.get(url)
+    assert resp.status_code == 200
+    # Partial must NOT include the full page chrome (no <h1 Content Intake)
+    assert b"intake-table" in resp.content
