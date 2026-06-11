@@ -43,3 +43,34 @@ def test_get_profile_validates_key(monkeypatch):
     )
     prof = _provider().get_profile("unused")
     assert prof.name == "Nexus Brief"
+
+
+def test_newsletter_mode_email_only(monkeypatch):
+    captured = {}
+
+    def fake_post(url, headers=None, json=None, **kw):
+        captured["url"] = url
+        captured["json"] = json
+        return httpx.Response(201, json={"posts": [{"id": "n1", "url": "https://demo.ghost.io/n1/"}]})
+
+    monkeypatch.setattr("providers.ghost.httpx.post", fake_post)
+    creds = dict(CREDS)
+    creds["newsletter_slug"] = "weekly"
+    res = GhostProvider(credentials=creds).publish_post(
+        "x",
+        PublishContent(text="Body", extra={"title": "T", "ghost_publish_as": "newsletter"}),
+    )
+    assert res.platform_post_id == "n1"
+    assert "newsletter=weekly" in captured["url"]
+    assert captured["json"]["posts"][0]["email_only"] is True
+
+
+def test_newsletter_without_slug_fails():
+    import pytest
+    from providers.exceptions import PublishError
+
+    with pytest.raises(PublishError):
+        GhostProvider(credentials=dict(CREDS)).publish_post(
+            "x",
+            PublishContent(text="B", extra={"ghost_publish_as": "newsletter"}),
+        )
