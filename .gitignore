@@ -214,3 +214,4 @@ theme/static/css/dist/
 *.sqlite3
 /.claude/worktrees
 .DS_Store
+docs/ghost.md
