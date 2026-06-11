@@ -38,5 +38,6 @@ urlpatterns = [
     path("intake/conditions/<uuid:condition_pk>/close/", intake_views.close_condition, name="intake-close-condition"),
     path("intake/<uuid:intake_pk>/draft/", intake_views.draft_now, name="intake-draft-now"),
     path("intake/<uuid:intake_pk>/draft-panel/", intake_views.draft_now_panel, name="intake-draft-now-panel"),
+    path("intake/<uuid:intake_pk>/stage/", intake_views.move_stage, name="intake-move-stage"),
     path("intake/<uuid:intake_pk>/panel/", intake_views.row_panel, name="intake-row-panel"),
 ]

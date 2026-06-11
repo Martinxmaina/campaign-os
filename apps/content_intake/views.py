@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from apps.content_intake.draft_post import ensure_draft_post
 from apps.content_intake.herald_bridge import request_herald_draft
 from apps.content_intake.models import ContentIntake, UnblockCondition
 from apps.content_intake.sheets_sync import sync_sheet_to_intake
@@ -97,6 +98,36 @@ def sync_now(request):
     # Re-run the board query path in partial mode by delegating to board().
     request.GET = request.GET.copy()
     request.GET["partial"] = "1"
+    return board(request)
+
+
+@login_required
+@require_POST
+def move_stage(request, intake_pk):
+    """Transition an intake item between Kanban lanes (todo|in_progress|done).
+
+    Pure stage change — NEVER drafts. HERALD only runs via the explicit manual
+    "Draft with HERALD" action (draft_now).
+    """
+    if request.workspace is None:
+        return HttpResponse(status=403)
+    item = get_object_or_404(ContentIntake, pk=intake_pk, workspace=request.workspace)
+    to_stage = request.POST.get("to_stage", "")
+
+    if to_stage == "in_progress":
+        item.status = ContentIntake.Status.DRAFTING
+        item.save(update_fields=["status", "updated_at"])
+    elif to_stage == "todo":
+        item.status = ContentIntake.Status.ACCEPTED
+        item.save(update_fields=["status", "updated_at"])
+    elif to_stage == "done" and item.is_schedulable:
+        # Mark approved; actual scheduling happens via the add-to-calendar picker.
+        item.status = ContentIntake.Status.APPROVED
+        item.save(update_fields=["status", "updated_at"])
+    # (blocked/sensitive → done is a no-op; the card stays put.)
+
+    request.GET = request.GET.copy()
+    request.GET["view"] = "board"
     return board(request)
 
 
@@ -236,6 +267,8 @@ def draft_now(request, intake_pk):
 
     intake = get_object_or_404(ContentIntake, pk=intake_pk, workspace=request.workspace)
     ok = request_herald_draft(intake)
+    if ok:
+        ensure_draft_post(intake)
     if request.headers.get("HX-Request"):
         if ok:
             # Success: re-render the card so the button hides and status flips
@@ -281,6 +314,8 @@ def draft_now_panel(request, intake_pk):
         pk=intake_pk, workspace=request.workspace,
     )
     ok = request_herald_draft(intake)
+    if ok:
+        ensure_draft_post(intake)
     if request.headers.get("HX-Request"):
         if ok:
             # Success: re-render the panel so the button hides and status flips to
