@@ -83,3 +83,16 @@ def test_request_draft_failure_leaves_unchanged(workspace):
     assert item.herald_content_id == ""
     assert item.herald_drafted_at is None
     assert item.status == ContentIntake.Status.ACCEPTED
+
+
+@pytest.mark.django_db
+def test_build_brief_includes_doc_sources(workspace):
+    from apps.content_intake.herald_bridge import build_brief
+    item = ContentIntake.objects.create(
+        workspace=workspace, external_id="D-1", angle="Solar growth",
+        sensitivity=ContentIntake.Sensitivity.PUBLIC_SAFE, status=ContentIntake.Status.ACCEPTED,
+        reference_links=[{"title": "IEA Brief", "url": "https://docs.google.com/document/d/z", "type": "gdoc"}],
+    )
+    brief = build_brief(item)
+    assert "IEA Brief" in brief
+    assert "docs.google.com/document/d/z" in brief

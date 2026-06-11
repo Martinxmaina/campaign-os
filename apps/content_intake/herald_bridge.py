@@ -32,6 +32,15 @@ def build_brief(intake: ContentIntake) -> str:
         )
         if chans:
             parts.append(f"Channels: {chans}")
+    if intake.reference_links:
+        srcs = []
+        for l in intake.reference_links:
+            if isinstance(l, dict) and l.get("url"):
+                srcs.append(f"{l.get('title') or l['url']} ({l['url']})")
+            elif isinstance(l, str):  # tolerate legacy bare-string links
+                srcs.append(l)
+        if srcs:
+            parts.append("Sources: " + "; ".join(srcs))
     return ". ".join(p for p in parts if p)
 
 

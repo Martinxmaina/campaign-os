@@ -193,6 +193,23 @@ def add_to_calendar(request):
 
 @login_required
 @require_POST
+def draft_selected(request):
+    """Draft every eligible selected intake item with HERALD. Returns table partial."""
+    ids = request.POST.getlist("ids")
+    if request.workspace is not None:
+        for item in ContentIntake.objects.filter(pk__in=ids, workspace=request.workspace):
+            try:
+                request_herald_draft(item)
+            except Exception:
+                import logging
+                logging.getLogger(__name__).exception("bulk draft failed for %s", item.external_id)
+    request.GET = request.GET.copy()
+    request.GET["partial"] = "1"
+    return board(request)
+
+
+@login_required
+@require_POST
 def draft_now(request, intake_pk):
     """Manually ask HERALD to draft a single intake item."""
     if request.workspace is None:

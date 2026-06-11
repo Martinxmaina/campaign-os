@@ -34,6 +34,7 @@ urlpatterns = [
     path("intake/", intake_views.board, name="intake-board"),
     path("intake/sync-now/", intake_views.sync_now, name="intake-sync-now"),
     path("intake/add-to-calendar/", intake_views.add_to_calendar, name="intake-add-to-calendar"),
+    path("intake/draft-selected/", intake_views.draft_selected, name="intake-draft-selected"),
     path("intake/conditions/<uuid:condition_pk>/close/", intake_views.close_condition, name="intake-close-condition"),
     path("intake/<uuid:intake_pk>/draft/", intake_views.draft_now, name="intake-draft-now"),
     path("intake/<uuid:intake_pk>/draft-panel/", intake_views.draft_now_panel, name="intake-draft-now-panel"),
