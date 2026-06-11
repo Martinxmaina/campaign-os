@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from apps.credentials.account_hub import accounts_by_platform
 from apps.credentials.models import PlatformCredential
 from apps.credentials.platform_fields import PLATFORM_FIELDS, field_keys
 
@@ -43,6 +44,9 @@ def credentials_list(request):
                 "masked": cred.masked_credentials,
             }
 
+    accounts = accounts_by_platform(org) if org else {}
+    houses = list(org.workspaces.filter(is_archived=False)) if org else []
+
     cards = []
     for platform, spec in PLATFORM_FIELDS.items():
         state = existing.get(platform, {})
@@ -53,11 +57,13 @@ def credentials_list(request):
             "fields": spec["fields"],
             "is_configured": state.get("is_configured", False),
             "masked": state.get("masked", {}),
+            "accounts": accounts.get(platform, []),
         })
 
     return render(request, "credentials/list.html", {
         "cards": cards,
         "can_manage": can_manage,
+        "houses": houses,
     })
 
 
