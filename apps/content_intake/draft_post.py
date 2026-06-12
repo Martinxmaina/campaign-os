@@ -14,26 +14,61 @@ from apps.content_intake.owner_routing import resolve_reviewer
 
 
 def _route_for_review(post, intake):
-    """Record a SUBMITTED approval action assigned to the intake's resolved
-    reviewer, so the routing decision has a real, auditable runtime effect.
+    """Assign the intake's resolved reviewer to the draft Post and file the
+    initial SUBMITTED approval action, so the routing decision is both
+    queryable (on the Post) and auditable (in the approval log).
 
-    Idempotent: a draft Post may be opened/ensured many times, so we only file
-    the submission once (when the Post has no approval actions yet). If no
-    reviewer resolves (e.g. an empty workspace), we skip silently rather than
-    block draft creation.
+    Assignment intent lives on ``Post.review_assignee`` / ``Post.review_state``
+    — the authoritative, queryable source of truth — NOT on "does an approval
+    row exist yet". That keeps re-routing decoupled from the approval log: a
+    later resubmission/decision can't suppress assignment, and a post whose
+    owner legitimately changes is re-routed to the new reviewer.
+
+    Idempotency / re-routing:
+      * If the resolved reviewer is unchanged, this is a no-op (no duplicate
+        SUBMITTED action, no redundant write).
+      * If the reviewer changes while the post is still awaiting first review
+        (review_state in {NONE, PENDING}), re-point ``review_assignee`` to the
+        new reviewer.
+      * Once a human has acted (state APPROVED/CHANGES_REQUESTED/REJECTED), the
+        review_state is left alone; we never reopen a decided post here.
+
+    The SUBMITTED ApprovalAction is filed exactly once — on the transition out
+    of NONE — so the submission timeline isn't duplicated across re-ensures.
+
+    If no reviewer resolves (e.g. an empty workspace), we skip silently rather
+    than block draft creation.
     """
     from apps.approvals.models import ApprovalAction
+    from apps.composer.models import Post
 
-    if post.approval_actions.exists():
-        return post
     reviewer = resolve_reviewer(intake)
     if reviewer is None:
         return post
-    ApprovalAction.objects.create(
-        post=post,
-        user=reviewer,
-        action=ApprovalAction.ActionType.SUBMITTED,
-    )
+
+    open_states = (Post.ReviewState.NONE, Post.ReviewState.PENDING)
+    update_fields = []
+
+    # Re-route only while the post is still awaiting first human review.
+    if post.review_state in open_states and post.review_assignee_id != reviewer.id:
+        post.review_assignee = reviewer
+        update_fields.append("review_assignee")
+
+    first_assignment = post.review_state == Post.ReviewState.NONE
+    if first_assignment:
+        post.review_state = Post.ReviewState.PENDING
+        update_fields.append("review_state")
+
+    if update_fields:
+        post.save(update_fields=update_fields)
+
+    # File the SUBMITTED action exactly once — on the first assignment.
+    if first_assignment:
+        ApprovalAction.objects.create(
+            post=post,
+            user=reviewer,
+            action=ApprovalAction.ActionType.SUBMITTED,
+        )
     return post
 
 

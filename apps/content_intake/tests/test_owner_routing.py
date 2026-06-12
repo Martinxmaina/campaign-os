@@ -107,10 +107,12 @@ def test_does_not_match_user_in_other_workspace(workspace):
 @pytest.mark.django_db
 def test_resolve_reviewer_is_wired_into_draft_creation(workspace):
     """resolve_reviewer must have a real runtime effect: drafting an intake
-    files a SUBMITTED ApprovalAction assigned to the resolved reviewer."""
+    assigns the resolved reviewer to the Post's queryable review fields AND
+    files a SUBMITTED ApprovalAction for the audit log."""
     from unittest.mock import patch
     from apps.content_intake.draft_post import ensure_draft_post
     from apps.approvals.models import ApprovalAction
+    from apps.composer.models import Post
 
     dennis = _user("dennis@afcen.org", "Dennis Mwangi", workspace)
     item = ContentIntake.objects.create(workspace=workspace, external_id="O-10",
@@ -119,6 +121,12 @@ def test_resolve_reviewer_is_wired_into_draft_creation(workspace):
     with patch("apps.content_intake.draft_post.safe_get", return_value=None):
         post = ensure_draft_post(item)
 
+    # The named deliverable: assignment intent lives on the Post itself.
+    post.refresh_from_db()
+    assert post.review_assignee == dennis
+    assert post.review_state == Post.ReviewState.PENDING
+
+    # And the audit trail records the submission to the same reviewer.
     action = ApprovalAction.objects.get(post=post)
     assert action.user == dennis
     assert action.action == ApprovalAction.ActionType.SUBMITTED
@@ -127,6 +135,93 @@ def test_resolve_reviewer_is_wired_into_draft_creation(workspace):
     with patch("apps.content_intake.draft_post.safe_get", return_value=None):
         ensure_draft_post(item)
     assert ApprovalAction.objects.filter(post=post).count() == 1
+
+
+@pytest.mark.django_db
+def test_changed_owner_reroutes_assignee_without_duplicating_submission(workspace):
+    """If the intake's owner legitimately changes while the post is still
+    awaiting first review, the queryable assignee must be re-pointed to the new
+    reviewer — and the SUBMITTED action must NOT be duplicated. This proves the
+    routing is driven by Post.review_state, not by 'an approval row exists yet'."""
+    from unittest.mock import patch
+    from apps.content_intake.draft_post import ensure_draft_post
+    from apps.approvals.models import ApprovalAction
+    from apps.composer.models import Post
+
+    carren = _user("carren@afcen.org", "Carren Atieno", workspace)
+    dennis = _user("dennis@afcen.org", "Dennis Mwangi", workspace)
+    item = ContentIntake.objects.create(workspace=workspace, external_id="O-11",
+        pillar_theme="Agribusiness", angle="Maize", owner_raw="Carren",
+        sensitivity="public_safe", status="drafting")
+    with patch("apps.content_intake.draft_post.safe_get", return_value=None):
+        post = ensure_draft_post(item)
+    post.refresh_from_db()
+    assert post.review_assignee == carren
+
+    # Owner reassigned on the sheet → re-ensure must re-route the assignee.
+    item.owner_raw = "Dennis"
+    item.save(update_fields=["owner_raw"])
+    with patch("apps.content_intake.draft_post.safe_get", return_value=None):
+        ensure_draft_post(item)
+
+    post.refresh_from_db()
+    assert post.review_assignee == dennis
+    assert post.review_state == Post.ReviewState.PENDING
+    # Still a single submission — re-routing is not a new submission.
+    assert ApprovalAction.objects.filter(post=post).count() == 1
+
+
+@pytest.mark.django_db
+def test_preexisting_approval_action_does_not_suppress_assignment(workspace):
+    """A pre-existing approval row (e.g. a later resubmission/decision on the
+    shared Post) must NOT suppress assignment. The OLD guard
+    `if post.approval_actions.exists(): return` would have skipped routing
+    entirely; assignment now lives on review_assignee, independent of the log."""
+    from unittest.mock import patch
+    from apps.content_intake.draft_post import ensure_draft_post
+    from apps.approvals.models import ApprovalAction
+    from apps.composer.models import Post
+
+    dennis = _user("dennis@afcen.org", "Dennis Mwangi", workspace)
+    post = Post.objects.create(workspace=workspace, title="t", caption="c")
+    # Simulate an unrelated approval row already on the shared Post.
+    ApprovalAction.objects.create(
+        post=post, user=dennis, action=ApprovalAction.ActionType.RESUBMITTED,
+    )
+    item = ContentIntake.objects.create(workspace=workspace, external_id="O-12",
+        pillar_theme="Energy", angle="Solar", owner_raw="",
+        sensitivity="public_safe", status="drafting", post=post)
+    with patch("apps.content_intake.draft_post.safe_get", return_value=None):
+        ensure_draft_post(item)
+
+    post.refresh_from_db()
+    assert post.review_assignee == dennis
+    assert post.review_state == Post.ReviewState.PENDING
+
+
+@pytest.mark.django_db
+def test_decided_post_is_not_reopened_or_rerouted(workspace):
+    """Once a human has acted (e.g. APPROVED), re-ensuring the draft must leave
+    review_state alone and must not re-route to a different owner."""
+    from unittest.mock import patch
+    from apps.content_intake.draft_post import ensure_draft_post
+    from apps.composer.models import Post
+
+    carren = _user("carren@afcen.org", "Carren Atieno", workspace)
+    _user("dennis@afcen.org", "Dennis Mwangi", workspace)
+    post = Post.objects.create(
+        workspace=workspace, title="t", caption="c",
+        review_assignee=carren, review_state=Post.ReviewState.APPROVED,
+    )
+    item = ContentIntake.objects.create(workspace=workspace, external_id="O-13",
+        pillar_theme="Energy", angle="Solar", owner_raw="Dennis",
+        sensitivity="public_safe", status="drafting", post=post)
+    with patch("apps.content_intake.draft_post.safe_get", return_value=None):
+        ensure_draft_post(item)
+
+    post.refresh_from_db()
+    assert post.review_state == Post.ReviewState.APPROVED
+    assert post.review_assignee == carren  # not re-routed to Dennis
 
 
 @pytest.mark.django_db
