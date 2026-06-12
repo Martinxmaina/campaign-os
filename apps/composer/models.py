@@ -258,6 +258,26 @@ class Post(models.Model):
     scheduled_at = models.DateTimeField(blank=True, null=True, db_index=True)
     published_at = models.DateTimeField(blank=True, null=True)
 
+    # AI-approval routing (set when HERALD drafts the post)
+    class ReviewState(models.TextChoices):
+        NONE = "none", "None"
+        PENDING = "pending", "Pending Review"
+        APPROVED = "approved", "Approved"
+        CHANGES_REQUESTED = "changes_requested", "Changes Requested"
+        REJECTED = "rejected", "Rejected"
+
+    review_assignee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="review_queue",
+        help_text="User responsible for approving this AI-drafted post.",
+    )
+    review_state = models.CharField(
+        max_length=20, choices=ReviewState.choices, default=ReviewState.NONE, db_index=True,
+        help_text="Authoritative AI-approval state, independent of per-platform status.",
+    )
+
     # Metadata
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

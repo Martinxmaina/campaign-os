@@ -127,3 +127,11 @@ def test_resolve_reviewer_is_wired_into_draft_creation(workspace):
     with patch("apps.content_intake.draft_post.safe_get", return_value=None):
         ensure_draft_post(item)
     assert ApprovalAction.objects.filter(post=post).count() == 1
+
+
+@pytest.mark.django_db
+def test_post_review_fields_default(workspace):
+    from apps.composer.models import Post
+    p = Post.objects.create(workspace=workspace, title="t", caption="c")
+    assert p.review_assignee is None
+    assert p.review_state == "none"
