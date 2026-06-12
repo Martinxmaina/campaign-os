@@ -1,5 +1,6 @@
 """AI Approvals — Django-backed queue for HERALD-drafted Posts, routed by owner."""
 from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -8,8 +9,9 @@ from apps.composer.models import Post
 
 
 def _is_ws_admin(request):
-    ws = getattr(request, "workspace", None)
-    m = request.user.workspace_memberships.filter(workspace=ws).first() if ws else None
+    # RBACMiddleware already resolves the WorkspaceMembership (with workspace_role
+    # and custom_role select_related), so reuse it instead of re-querying.
+    m = getattr(request, "workspace_membership", None)
     return bool(m and m.workspace_role in ("owner", "admin"))
 
 
@@ -31,6 +33,14 @@ def approval_decide(request, approval_id):
     """approval_id is a Post UUID (the queue lists Posts)."""
     ws = getattr(request, "workspace", None)
     post = get_object_or_404(Post, id=approval_id, workspace=ws)
+
+    # Authorization: workspace scope alone is not enough. Only the assigned
+    # reviewer or a workspace admin/owner may decide on a post. Without this,
+    # any non-admin member could POST a crafted approval_id to act on a post
+    # not assigned to them.
+    if not (_is_ws_admin(request) or post.review_assignee_id == request.user.id):
+        return HttpResponseForbidden("You are not authorized to decide on this post.")
+
     decision = request.POST.get("decision", "")
 
     if decision == "approve":

@@ -46,3 +46,41 @@ def test_reject_and_changes(client, reviewer, workspace):
     client.post(url, {"decision": "reject"})
     post.refresh_from_db()
     assert post.review_state == "rejected"
+
+
+@pytest.mark.django_db
+def test_non_assignee_member_cannot_decide_others_post(client, organization, workspace):
+    """A non-admin workspace member must not be able to decide on a post that is
+    assigned to someone else, even by POSTing a crafted approval_id."""
+    from django.utils import timezone
+    from apps.accounts.models import User
+    from apps.members.models import OrgMembership, WorkspaceMembership
+    from apps.approvals.models import ApprovalAction
+
+    # The assignee who legitimately owns the review.
+    assignee = User.objects.create_user(
+        email="assignee@example.com", password="x", name="Assignee",
+        tos_accepted_at=timezone.now())
+    WorkspaceMembership.objects.create(user=assignee, workspace=workspace, workspace_role="member")
+
+    # An attacker: ordinary (non-admin) member of the same workspace.
+    attacker = User.objects.create_user(
+        email="attacker@example.com", password="x", name="Attacker",
+        tos_accepted_at=timezone.now())
+    OrgMembership.objects.create(user=attacker, organization=organization,
+                                 org_role=OrgMembership.OrgRole.MEMBER)
+    WorkspaceMembership.objects.create(user=attacker, workspace=workspace, workspace_role="member")
+    attacker.last_workspace_id = workspace.id
+    attacker.save(update_fields=["last_workspace_id"])
+
+    post = Post.objects.create(workspace=workspace, title="NotYours", caption="c",
+        review_assignee=assignee, review_state="pending")
+
+    client.force_login(attacker)
+    url = reverse("console:approval-decide", args=[post.id])
+    resp = client.post(url, {"decision": "approve"})
+
+    assert resp.status_code == 403
+    post.refresh_from_db()
+    assert post.review_state == "pending"
+    assert not ApprovalAction.objects.filter(post=post).exists()
