@@ -12,6 +12,31 @@ def joseph(client, org_owner, workspace):
     return org_owner
 
 
+@pytest.fixture
+def member(client, db, organization, workspace):
+    """An ordinary (non-admin) workspace member — must not manage the brand voice.
+
+    A post_save signal auto-provisions every new user as OWNER of the AfCEN/WAIIS
+    singleton org+workspace, so we first strip those auto-granted memberships,
+    then grant a genuine ``member`` role in the test workspace and point
+    ``last_workspace_id`` there so RBACMiddleware resolves the member membership.
+    """
+    from django.utils import timezone
+    from apps.accounts.models import User
+    from apps.members.models import OrgMembership, WorkspaceMembership
+    u = User.objects.create_user(
+        email="member@example.com", password="x", name="Member", tos_accepted_at=timezone.now())
+    # Strip the singleton-owner memberships the signup signal auto-granted.
+    WorkspaceMembership.objects.filter(user=u).delete()
+    OrgMembership.objects.filter(user=u).delete()
+    OrgMembership.objects.create(user=u, organization=organization, org_role=OrgMembership.OrgRole.MEMBER)
+    WorkspaceMembership.objects.create(user=u, workspace=workspace, workspace_role="member")
+    u.last_workspace_id = workspace.id
+    u.save(update_fields=["last_workspace_id"])
+    client.force_login(u)
+    return u
+
+
 @pytest.mark.django_db
 def test_voice_editor_renders_sections(joseph, client):
     fake = {"user": "joseph", "body": {"tone": "Direct and data-led", "banned_phrases": ["leverage"],
@@ -85,3 +110,71 @@ def test_voice_dismiss_proposal_routes_uuid_id(joseph, client):
         resp = client.post(dismiss_url)
     assert resp.status_code in (200, 302)
     assert f"/voice/joseph/proposals/{pid}/dismiss" in m.call_args[0][0]
+
+
+# --- Authorization: the voice profile is a global, org-wide brand-voice config.
+# Mere authentication is not enough — only owner/admin (or staff) may read/mutate it. ---
+
+
+@pytest.mark.django_db
+def test_voice_editor_forbidden_for_non_admin_member(member, client):
+    """A non-admin member can authenticate but must not read the brand voice,
+    and the agent-service must not be hit at all."""
+    with patch("apps.joseph.views.agent_get") as g:
+        resp = client.get(reverse("joseph:voice"))
+    assert resp.status_code == 403
+    g.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_voice_save_forbidden_for_non_admin_member(member, client):
+    """A non-admin member must not be able to overwrite the brand voice."""
+    with patch("apps.joseph.views.agent_put") as put, patch("apps.joseph.views.agent_get") as g:
+        resp = client.post(reverse("joseph:voice-save"), {"tone": "hijacked"})
+    assert resp.status_code == 403
+    put.assert_not_called()
+    g.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_voice_apply_proposal_forbidden_for_non_admin_member(member, client):
+    with patch("apps.joseph.views.agent_post") as p:
+        resp = client.post(reverse("joseph:voice-apply-proposal", args=[7]))
+    assert resp.status_code == 403
+    p.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_voice_dismiss_proposal_forbidden_for_non_admin_member(member, client):
+    with patch("apps.joseph.views.agent_post") as p:
+        resp = client.post(reverse("joseph:voice-dismiss-proposal", args=[7]))
+    assert resp.status_code == 403
+    p.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_voice_editor_allowed_for_staff(client, db):
+    """Staff (superuser escape hatch) may manage the brand voice even without an
+    owner/admin workspace membership."""
+    from django.utils import timezone
+    from apps.accounts.models import User
+    staff = User.objects.create_user(
+        email="staff@example.com", password="x", name="Staff",
+        tos_accepted_at=timezone.now(), is_staff=True)
+    client.force_login(staff)
+    fake = {"body": {"tone": "t", "banned_phrases": [], "openers": "",
+            "signature_moves": [], "hooks_by_audience": {}, "length_by_channel": {}}}
+    with patch("apps.joseph.views.agent_get", return_value=fake):
+        resp = client.get(reverse("joseph:voice"))
+    assert resp.status_code == 200
+
+
+@pytest.mark.django_db
+def test_voice_save_handles_agent_down_gracefully(joseph, client):
+    """A down/unconfigured agent-service on the PUT must not 500 — it should
+    redirect with an error message, matching the apply/dismiss views."""
+    from apps.common.agent_client import AgentClientError
+    with patch("apps.joseph.views.agent_get", return_value={"body": {}}), \
+         patch("apps.joseph.views.agent_put", side_effect=AgentClientError("down")):
+        resp = client.post(reverse("joseph:voice-save"), {"tone": "t"})
+    assert resp.status_code == 302
