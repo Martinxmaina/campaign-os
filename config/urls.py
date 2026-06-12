@@ -47,6 +47,9 @@ urlpatterns = [
     # Intelligence console (Slice G') — server-rendered operator surfaces
     # backed by agent-service over HTTP. Mounted top-level, login-gated per view.
     path("console/", include("config.console_urls")),
+    # Joseph — voice profile editor (TB.1). Login-gated per view; reads/writes
+    # the voice profile via agent-service over HTTP.
+    path("joseph/", include("apps.joseph.urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]

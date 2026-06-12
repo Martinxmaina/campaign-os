@@ -1,0 +1,49 @@
+{% extends "console/base.html" %}
+{% block console %}
+<div class="p-6 max-w-3xl">
+  <h1 class="text-2xl font-bold mb-4">Joseph — Voice Profile</h1>
+
+  {% if proposals %}
+  <div class="mb-6 space-y-4">
+    {% for p in proposals %}
+    <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-sm font-medium text-amber-800">Pending proposal #{{ p.id }}</span>
+        {% if p.rationale %}<span class="text-xs text-stone-500">{{ p.rationale }}</span>{% endif %}
+      </div>
+      <pre class="text-xs bg-white rounded border p-2 overflow-x-auto whitespace-pre-wrap">{{ p.proposed_body }}</pre>
+      <div class="mt-2 flex gap-2">
+        <form method="post" action="{% url 'joseph:voice-apply-proposal' p.id %}">
+          {% csrf_token %}
+          <button class="rounded bg-green-600 text-white px-3 py-1 text-sm">Apply</button>
+        </form>
+        <form method="post" action="{% url 'joseph:voice-dismiss-proposal' p.id %}">
+          {% csrf_token %}
+          <button class="rounded bg-stone-200 text-stone-700 px-3 py-1 text-sm">Dismiss</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="{% url 'joseph:voice-save' %}" class="space-y-4">
+    {% csrf_token %}
+    <label class="block text-sm font-medium">Tone</label>
+    <textarea name="tone" rows="2" class="w-full rounded border px-3 py-2 text-sm">{{ body.tone }}</textarea>
+    <label class="block text-sm font-medium">Openers</label>
+    <textarea name="openers" rows="2" class="w-full rounded border px-3 py-2 text-sm">{{ body.openers }}</textarea>
+    <label class="block text-sm font-medium">Banned phrases (comma-separated)</label>
+    <input name="banned_phrases" value="{{ body.banned_phrases|join:', ' }}" class="w-full rounded border px-3 py-2 text-sm">
+    <label class="block text-sm font-medium">Signature moves (one per line)</label>
+    <textarea name="signature_moves" rows="3" class="w-full rounded border px-3 py-2 text-sm">{{ body.signature_moves|join:'
+' }}</textarea>
+    <label class="block text-sm font-medium">Length by channel</label>
+    {% for channel, value in channel_lengths %}
+    <div class="flex items-center gap-2"><span class="w-20 text-xs text-stone-500">{{ channel }}</span>
+      <input name="length_by_channel_{{ channel }}" value="{{ value }}" class="flex-1 rounded border px-2 py-1 text-sm"></div>
+    {% endfor %}
+    <button class="rounded bg-blue-600 text-white px-4 py-2 text-sm">Save new version</button>
+  </form>
+</div>
+{% endblock %}

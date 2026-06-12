@@ -42,3 +42,15 @@ def agent_post(path: str, json: dict | None = None) -> dict:
     if resp.status_code // 100 != 2:
         raise AgentClientError(f"status {resp.status_code}")
     return resp.json() if resp.content else {}
+
+
+def agent_put(path: str, json: dict | None = None) -> dict:
+    base, token = _base_and_token()
+    try:
+        with httpx.Client(timeout=REQUEST_TIMEOUT) as c:
+            resp = c.put(base + path, headers=_headers(token), json=json or {})
+    except httpx.HTTPError as exc:
+        raise AgentClientError(f"transport error: {exc}") from exc
+    if resp.status_code // 100 != 2:
+        raise AgentClientError(f"status {resp.status_code}")
+    return resp.json() if resp.content else {}

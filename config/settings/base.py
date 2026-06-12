@@ -87,6 +87,7 @@ LOCAL_APPS = [
     "apps.analytics",
     "apps.content_intake",
     "apps.evals",
+    "apps.joseph",
     "theme",
 ]
 
