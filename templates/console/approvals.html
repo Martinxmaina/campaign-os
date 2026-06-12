@@ -1,24 +1,32 @@
 {% extends "console/base.html" %}
 {% block console %}
-<h1 class="text-xl font-bold mb-4">AI Approvals</h1>
-{% if down %}{% include "console/_unavailable.html" %}{% endif %}
-<div class="grid gap-3 md:grid-cols-2">
-  {% for a in items %}
-  <div class="border border-stone-200 rounded-lg p-4 bg-white">
-    <div class="text-sm">{{ a.target_type }} · {{ a.target_ref|slice:":8" }} · {{ a.status }}</div>
-    {% if a.status == "pending" %}
-    <form method="post" action="/console/approvals/{{ a.id }}/decide" class="mt-2 space-y-2">
-      {% csrf_token %}
-      <input type="hidden" name="target_ref" value="{{ a.target_ref }}">
-      <textarea name="edit_text" placeholder="optional edit" class="w-full border rounded px-2 py-1 text-sm"></textarea>
-      <div class="flex gap-2">
-        <button name="decision" value="approve" class="text-sm bg-emerald-600 text-white rounded px-3 py-1">Approve</button>
-        <button name="decision" value="edit" class="text-sm border rounded px-3 py-1">Approve w/ edit</button>
-        <button name="decision" value="reject" class="text-sm border rounded px-3 py-1">Reject</button>
+<div class="p-6">
+  <h1 class="text-2xl font-bold mb-4">AI Approvals</h1>
+  <div class="space-y-3">
+    {% for post in items %}
+    <div class="rounded-lg border border-stone-200 bg-white p-4">
+      <div class="flex items-start justify-between">
+        <div>
+          <h3 class="font-semibold">{{ post.title|default:"Untitled" }}</h3>
+          <p class="text-sm text-stone-600">{{ post.caption|truncatechars:160 }}</p>
+          <p class="text-xs text-stone-400 mt-1">Assigned: {{ post.review_assignee.name|default:post.review_assignee.email|default:"—" }}</p>
+        </div>
+        <div class="flex gap-2">
+          <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+            <input type="hidden" name="decision" value="approve">
+            <button class="rounded bg-green-600 text-white px-3 py-1 text-xs">Approve</button></form>
+          <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+            <input type="hidden" name="decision" value="changes">
+            <button class="rounded bg-amber-500 text-white px-3 py-1 text-xs">Request changes</button></form>
+          <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+            <input type="hidden" name="decision" value="reject">
+            <button class="rounded bg-red-500 text-white px-3 py-1 text-xs">Reject</button></form>
+        </div>
       </div>
-    </form>
-    {% endif %}
+    </div>
+    {% empty %}
+    <p class="text-stone-400">No posts awaiting your approval.</p>
+    {% endfor %}
   </div>
-  {% empty %}<p class="text-stone-500">Nothing pending.</p>{% endfor %}
 </div>
 {% endblock %}
