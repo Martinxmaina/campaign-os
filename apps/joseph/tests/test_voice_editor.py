@@ -61,3 +61,27 @@ def test_voice_apply_proposal_calls_agent(joseph, client):
     assert resp.status_code in (200, 302)
     m.assert_called_once()
     assert "/voice/joseph/proposals/7/apply" in m.call_args[0][0]
+
+
+@pytest.mark.django_db
+def test_voice_apply_proposal_routes_uuid_id(joseph, client):
+    """agent-service VoiceProposal.id is a UUID string; the apply/dismiss URLs must
+    reverse and route UUID ids end-to-end (an <int:> converter would 404 in prod)."""
+    pid = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    apply_url = reverse("joseph:voice-apply-proposal", args=[pid])
+    assert pid in apply_url
+    with patch("apps.joseph.views.agent_post", return_value={"version": 3}) as m:
+        resp = client.post(apply_url)
+    assert resp.status_code in (200, 302)
+    assert f"/voice/joseph/proposals/{pid}/apply" in m.call_args[0][0]
+
+
+@pytest.mark.django_db
+def test_voice_dismiss_proposal_routes_uuid_id(joseph, client):
+    pid = "7c9e6679-7425-40de-944b-e07fc1f90ae7"
+    dismiss_url = reverse("joseph:voice-dismiss-proposal", args=[pid])
+    assert pid in dismiss_url
+    with patch("apps.joseph.views.agent_post", return_value={"status": "dismissed"}) as m:
+        resp = client.post(dismiss_url)
+    assert resp.status_code in (200, 302)
+    assert f"/voice/joseph/proposals/{pid}/dismiss" in m.call_args[0][0]
