@@ -300,6 +300,9 @@
               @htmx:after-request="onFormSaved($event)"
               class="flex flex-col flex-1 min-h-0">
             <input type="hidden" name="selected_accounts" :value="selectedAccounts.join(',')">
+            {% if herald_original_caption %}
+            <input type="hidden" name="_herald_original_caption" value="{{ herald_original_caption }}">
+            {% endif %}
 
             <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-5 panel-scroll relative" style="z-index: 0;">
 

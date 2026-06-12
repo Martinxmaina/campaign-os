@@ -68,11 +68,15 @@ def request_herald_draft(intake: ContentIntake) -> bool:
     sector = map_pillar_to_sector(intake.pillar_theme)
     brief = build_brief(intake)
 
+    is_joseph = (intake.owner_raw or "").strip().lower().startswith("joseph") or any(
+        (t.get("account") or "").lower() == "joseph" for t in (intake.channel_targets or [])
+    )
+    payload = {"sector": sector, "brief": brief, "count": 1}
+    if is_joseph:
+        payload["voice_user"] = "joseph"
+
     try:
-        result = agent_post(
-            "/agents/herald/draft",
-            {"sector": sector, "brief": brief, "count": 1},
-        )
+        result = agent_post("/agents/herald/draft", payload)
     except Exception:
         logger.exception("HERALD draft request failed for intake=%s", intake.external_id)
         return False

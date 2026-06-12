@@ -402,6 +402,23 @@ def compose(request, workspace_id, post_id=None):
 
         post_comments = get_comments_for_post(post, request.user)
 
+    # HERALD-origin (Joseph) detection: carry the original AI caption so the
+    # save path can record Joseph's edit-delta for voice reflection.
+    herald_original_caption = ""
+    if post is not None:
+        from apps.content_intake.models import ContentIntake
+
+        try:
+            _intake = post.intake_source
+        except ContentIntake.DoesNotExist:
+            _intake = None
+        if (
+            _intake is not None
+            and _intake.herald_content_id
+            and (_intake.owner_raw or "").strip().lower().startswith("joseph")
+        ):
+            herald_original_caption = post.caption or ""
+
     # Workspace tags for the tag dropdown
     all_tags = Tag.objects.for_workspace(workspace.id)
 
@@ -477,6 +494,7 @@ def compose(request, workspace_id, post_id=None):
         "post_comments": post_comments,
         "pending_assets": pending_assets,
         "all_tags": all_tags,
+        "herald_original_caption": herald_original_caption,
     }
     return render(request, "composer/compose.html", context)
 
@@ -756,6 +774,12 @@ def save_post(request, workspace_id, post_id=None):
     # Save version
     _save_version(post, request.user)
 
+    # Capture Joseph's HERALD edit-deltas for voice reflection (never blocks save).
+    try:
+        _capture_voice_delta(request, post)
+    except Exception:
+        logger.exception("voice delta capture failed for post %s", post.id)
+
     # Return appropriate response
     if request.htmx:
         return HttpResponse(
@@ -774,6 +798,26 @@ def save_post(request, workspace_id, post_id=None):
         )
 
     return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+
+
+def _capture_voice_delta(request, post):
+    """If this post came from a HERALD draft for Joseph and a human edited the caption,
+    record the (original → edited) delta in agent-service for voice reflection."""
+    from apps.common.agent_client import agent_post as _ap
+    from apps.content_intake.models import ContentIntake
+
+    try:
+        intake = post.intake_source
+    except ContentIntake.DoesNotExist:
+        intake = None
+    if intake is None or not intake.herald_content_id:
+        return
+    if not (intake.owner_raw or "").strip().lower().startswith("joseph"):
+        return
+    original = request.POST.get("_herald_original_caption", "")
+    edited = post.caption or ""
+    if original and edited and original.strip() != edited.strip():
+        _ap("/voice/joseph/edit-delta", {"original": original, "edited": edited, "channel": "linkedin"})
 
 
 @login_required
