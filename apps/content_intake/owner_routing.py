@@ -7,7 +7,6 @@ owner/admin (fallback). All lookups are scoped to the intake's workspace members
 from __future__ import annotations
 
 from django.contrib.auth import get_user_model
-from django.db.models import Q
 
 from apps.content_intake.sector_map import map_pillar_to_sector
 
@@ -22,17 +21,40 @@ OWNER_BY_PILLAR = {
 
 
 def _find_member(workspace, name_or_email: str):
-    """Return a workspace member matching a name/email fragment, or None."""
+    """Return the workspace member matching a name/email, or None.
+
+    Matching is deterministic and prefers the most specific signal so a bare
+    first name like "Joseph" cannot be silently routed to "Josephine Other":
+
+      1. exact email (case-insensitive) — only when the input looks like an email;
+      2. exact name (case-insensitive);
+      3. name substring (``icontains``) — the loose fallback.
+
+    Each tier is scoped to this workspace's members, de-duplicated, and ordered
+    by ``id`` so the result never depends on arbitrary DB row order. We stop at
+    the first tier that yields a match; the email match is intentionally NOT
+    OR'd into the name lookups, so ``owner_raw="Carren"`` matches a member named
+    Carren and never an unrelated address that merely starts with "carren".
+    """
     q = (name_or_email or "").strip()
     if not q:
         return None
     User = get_user_model()
-    return (
-        User.objects.filter(workspace_memberships__workspace=workspace)
-        .filter(Q(name__icontains=q) | Q(email__istartswith=q.lower()))
-        .distinct()
-        .first()
-    )
+    members = User.objects.filter(workspace_memberships__workspace=workspace)
+
+    # 1) Exact email — only for inputs that actually look like an email address.
+    if "@" in q:
+        user = members.filter(email__iexact=q).order_by("id").first()
+        if user:
+            return user
+
+    # 2) Exact (case-insensitive) name.
+    user = members.filter(name__iexact=q).distinct().order_by("id").first()
+    if user:
+        return user
+
+    # 3) Loose name substring — last resort, deterministically ordered.
+    return members.filter(name__icontains=q).distinct().order_by("id").first()
 
 
 def _workspace_owner(workspace):
