@@ -44,3 +44,36 @@ def test_minimal_fallback_when_content_not_ready(workspace):
     assert "Solar growth" in (post.title + post.caption)
     item.refresh_from_db()
     assert item.post_id == post.pk
+
+
+@pytest.mark.django_db
+def test_ensure_draft_post_assigns_reviewer_and_pending(workspace):
+    from unittest.mock import patch
+    from django.contrib.auth import get_user_model
+    from apps.members.models import WorkspaceMembership
+    from apps.content_intake.models import ContentIntake
+    from apps.content_intake.draft_post import ensure_draft_post
+    dennis = get_user_model().objects.create_user(email="dennis@afcen.org", password="pw12345678", name="Dennis")
+    WorkspaceMembership.objects.create(user=dennis, workspace=workspace, workspace_role="member")
+    item = ContentIntake.objects.create(workspace=workspace, external_id="DR-1",
+        pillar_theme="Energy", angle="Solar", sensitivity="public_safe", status="drafting")
+    with patch("apps.content_intake.draft_post.safe_get", return_value=None):
+        post = ensure_draft_post(item)
+    assert post.review_assignee == dennis
+    assert post.review_state == "pending"
+
+
+@pytest.mark.django_db
+def test_ensure_draft_post_does_not_downgrade_approved(workspace):
+    from unittest.mock import patch
+    from apps.content_intake.models import ContentIntake
+    from apps.content_intake.draft_post import ensure_draft_post
+    from apps.composer.models import Post
+    post = Post.objects.create(workspace=workspace, title="t", caption="c", review_state="approved")
+    item = ContentIntake.objects.create(workspace=workspace, external_id="DR-2", angle="x",
+        sensitivity="public_safe", status="drafting", post=post)
+    with patch("apps.content_intake.draft_post.safe_get", return_value=None):
+        out = ensure_draft_post(item)
+    assert out.pk == post.pk
+    out.refresh_from_db()
+    assert out.review_state == "approved"  # not downgraded
