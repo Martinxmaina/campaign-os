@@ -17,6 +17,18 @@ def _safe_get(path: str) -> dict:
         return {}
 
 
+def _can_access_joseph(request) -> bool:
+    """Gate for Joseph's principal surface (home, brief, pipeline, drawer,
+    knowledge, content). Joseph's platform is for the principal and the people
+    who run it with him — staff (superuser escape hatch) OR an owner/admin/
+    principal workspace role (reusing the membership RBACMiddleware resolved).
+    Every Joseph view added in this spine is gated by this."""
+    if getattr(request.user, "is_staff", False):
+        return True
+    m = getattr(request, "workspace_membership", None)
+    return bool(m and m.workspace_role in ("owner", "admin", "principal"))
+
+
 def _can_manage_voice(request) -> bool:
     """The voice profile is a global, org-wide brand-voice config (not
     workspace-scoped), so mere authentication is not enough to read or mutate
