@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% comment %}
+Lean editorial base for Joseph's MOBILE surface (/joseph/ home + brief).
+
+It still extends base.html so it inherits the real Campaign OS chrome (sidebar,
+workspace switcher, CSP nonce, HTMX/Alpine/Tailwind), but it renders a single
+column of editorial signal inside the main content area plus a sticky bottom nav
+(Home / Pipeline / Brief / Compose). Desktop pages use home_desktop.html which
+extends base.html directly.
+
+Child templates fill {% block joseph %}. The bottom nav is CSP-safe (plain
+anchor links, no inline handlers).
+{% endcomment %}
+
+{% block content %}
+<div class="mx-auto w-full max-w-xl pb-20">
+  {% block joseph %}{% endblock %}
+</div>
+
+<!-- Mobile bottom nav — Home / Pipeline / Brief / Compose -->
+<nav aria-label="Joseph"
+     class="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur border-t border-stone-200
+            grid grid-cols-4 text-[11px] text-center py-2 lg:hidden">
+  <a href="{% url 'joseph:home' %}?view=mobile"
+     class="font-semibold" style="color:var(--brand-700)">
+    <div class="text-lg leading-none">⌂</div>Today
+  </a>
+  <a href="/joseph/pipeline/" class="text-stone-500 hover:text-stone-900">
+    <div class="text-lg leading-none">▦</div>Pipeline
+  </a>
+  <a href="/joseph/brief/" class="text-stone-500 hover:text-stone-900">
+    <div class="text-lg leading-none">▤</div>Brief
+  </a>
+  <a href="/joseph/content/" class="text-stone-500 hover:text-stone-900">
+    <div class="text-lg leading-none">✎</div>Compose
+  </a>
+</nav>
+{% endblock %}

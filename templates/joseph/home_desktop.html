@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Joseph · Today{% endblock %}
+
+{% comment %}
+Desktop operational shell for Joseph. Extends base.html so it inherits the real
+Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. This is
+the minimal shell for the spine — the capital funnel + escalations strip are
+fleshed out in Task 7. CSP-safe: plain links, no inline handlers.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-6">
+
+  <div class="flex items-center justify-between border-b border-stone-200 pb-4">
+    <div>
+      <h1 class="font-display text-2xl">Good day, Joseph</h1>
+      <div class="text-sm text-stone-500">
+        {{ today|date:"l j F" }} · {{ today_events|length }} meeting{{ today_events|length|pluralize }} today ·
+        {{ red_thread_count }} red thread{{ red_thread_count|pluralize }}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+    <div class="lg:col-span-2 space-y-5">
+
+      {# ── Today ──────────────────────────────────────────────── #}
+      <div>
+        <div class="sidebar-section-label" style="padding-left:0">Today</div>
+        {% for ev in today_events %}
+        <div class="card p-4 flex items-start gap-3 mb-2">
+          <span class="inline-block h-2.5 w-2.5 rounded-full mt-1.5"
+                style="background:{% if ev.linked_thread_id %}var(--success){% else %}var(--warning){% endif %}"></span>
+          <div class="flex-1">
+            <div class="font-semibold">{{ ev.start|date:"H:i" }} · {{ ev.title }}</div>
+            <div class="text-sm text-stone-500">
+              {% if ev.linked_thread_id %}linked to a thread{% else %}unlinked — match to a thread?{% endif %}
+            </div>
+          </div>
+          {% if ev.linked_thread_id %}
+          <a href="/joseph/brief/{{ ev.linked_thread_id }}/" class="btn-brand">I'm going in →</a>
+          {% endif %}
+        </div>
+        {% empty %}
+        <div class="card p-4 text-sm text-stone-400">No meetings today.</div>
+        {% endfor %}
+      </div>
+
+      {# ── Red threads ────────────────────────────────────────── #}
+      <div>
+        <div class="sidebar-section-label" style="padding-left:0;color:var(--error)">Red threads</div>
+        <div class="card divide-y mt-1">
+          {% for t in red_threads %}
+          <a href="/joseph/thread/{{ t.id }}/" class="p-3.5 flex items-center justify-between">
+            <div class="min-w-0">
+              <div class="font-medium text-sm truncate">{{ t.org|default:"Thread" }}</div>
+              <div class="text-xs text-stone-500 truncate">{{ t.next_action|default:"needs a touch" }}</div>
+            </div>
+            <span class="text-stone-300">›</span>
+          </a>
+          {% empty %}
+          <div class="p-4 text-sm text-stone-400">No red threads. Everything's warm.</div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+
+    {# ── Action queue ─────────────────────────────────────────── #}
+    <div class="space-y-4">
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-2">
+          <div class="text-[10px] font-bold tracking-wider text-stone-400">Action queue</div>
+          <span class="sidebar-badge">{{ action_count }}</span>
+        </div>
+        <div class="divide-y text-sm">
+          {% for a in actions %}
+          <div class="py-2.5 flex items-center justify-between gap-3">
+            <div class="min-w-0">
+              <div class="{% if a.urgent %}text-red-600 font-semibold{% endif %} truncate">{{ a.title }}</div>
+              <div class="text-stone-500 truncate">{{ a.subtitle }}</div>
+            </div>
+            {% if a.href %}<a href="{{ a.href }}" class="btn-soft flex-shrink-0">Open</a>{% endif %}
+          </div>
+          {% empty %}
+          <div class="py-3 text-stone-400">Nothing in the queue — you're clear.</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

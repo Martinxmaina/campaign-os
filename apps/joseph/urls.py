@@ -5,6 +5,7 @@ from . import views
 app_name = "joseph"
 
 urlpatterns = [
+    path("", views.home, name="home"),
     path("voice/", views.voice_editor, name="voice"),
     path("voice/save/", views.voice_save, name="voice-save"),
     # proposal_id is a UUID string in agent-service (VoiceProposal.id); str (not int)
