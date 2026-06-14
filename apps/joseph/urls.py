@@ -23,6 +23,12 @@ urlpatterns = [
     # Page detail — title + L0/L1/L2 tier toggle (HTMX) + outgoing links + revisions.
     # slug is the agent-service wiki page slug (a string), not a Django pk.
     path("knowledge/<str:slug>/", views.knowledge_detail, name="knowledge-detail"),
+    # Personal content queue — Joseph's own/assigned Posts, newest publish-date
+    # first; flagged posts show gate findings + an audited override. "Draft new"
+    # links to the composer with voice_user=joseph.
+    path("content/", views.content_queue, name="content"),
+    # post_id is a composer Post UUID (a Django pk).
+    path("content/<uuid:post_id>/override/", views.content_override, name="content-override"),
     path("voice/", views.voice_editor, name="voice"),
     path("voice/save/", views.voice_save, name="voice-save"),
     # proposal_id is a UUID string in agent-service (VoiceProposal.id); str (not int)

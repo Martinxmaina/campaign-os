@@ -425,6 +425,106 @@ def knowledge_detail(request, slug):
     return render(request, "joseph/knowledge_detail.html", context)
 
 
+def _gate_findings(post) -> list[dict]:
+    """Gate findings on Joseph's own post, read from its blocked PlatformPosts.
+
+    The publish gate marks a blocked PlatformPost ``failed`` with a
+    ``GATE BLOCK: <reason>`` ``publish_error`` (apps/publisher/engine._block).
+    We surface those as inline findings (platform + reason) so Joseph sees what
+    the gate caught and can override with an audit, rather than silently
+    unblocking. Pure Django read — no agent dependency, never raises.
+    """
+    findings = []
+    try:
+        for pp in post.platform_posts.all():
+            err = (pp.publish_error or "").strip()
+            if not err:
+                continue
+            if err.upper().startswith("GATE BLOCK:") or pp.status == "failed":
+                reason = err.split(":", 1)[1].strip() if ":" in err else err
+                findings.append({"platform": pp.platform, "reason": reason})
+    except Exception:
+        return []
+    return findings
+
+
+@login_required
+def content_queue(request):
+    """Joseph's personal content queue — the posts he owns or must approve.
+
+    Lists Posts assigned to (``review_assignee``) or authored by Joseph, newest
+    publish-date first. Each card surfaces gate findings (from a blocked
+    PlatformPost) with an audited "Override (logged)" action — overriding writes
+    an ``ApprovalAction`` and approves the post (an override is logged, not a
+    silent unblock). "Draft new" links to the composer carrying
+    ``voice_user=joseph`` so HERALD drafts in Joseph's voice.
+
+    Reads only Django data (no agent-service call), so there is nothing to 500
+    on. Gated by ``_can_access_joseph``; CSP-safe (POST forms, no inline handlers).
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    from django.db.models import Q
+
+    from apps.composer.models import Post
+
+    workspace = getattr(request, "workspace", None)
+    qs = Post.objects.filter(Q(review_assignee=request.user) | Q(author=request.user))
+    if workspace is not None:
+        qs = qs.filter(workspace=workspace)
+    posts = list(
+        qs.prefetch_related("platform_posts__social_account")
+        .order_by("-scheduled_at", "-created_at")
+    )
+
+    items = [{"post": p, "findings": _gate_findings(p)} for p in posts]
+
+    return render(request, "joseph/content_queue.html", {
+        "items": items,
+        "flagged_count": sum(1 for i in items if i["findings"]),
+    })
+
+
+@login_required
+@require_POST
+def content_override(request, post_id):
+    """Audited override of a gate finding on one of Joseph's own posts.
+
+    Not a silent unblock: it writes an ``ApprovalAction`` (APPROVED, with an
+    "Override (logged)" comment naming the overridden findings) and moves the
+    post's ``review_state`` to APPROVED. Gated by ``_can_access_joseph``.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    from django.db.models import Q
+    from django.shortcuts import get_object_or_404
+
+    from apps.approvals.models import ApprovalAction
+    from apps.composer.models import Post
+
+    qs = Post.objects.filter(Q(review_assignee=request.user) | Q(author=request.user))
+    workspace = getattr(request, "workspace", None)
+    if workspace is not None:
+        qs = qs.filter(workspace=workspace)
+    post = get_object_or_404(qs, pk=post_id)
+
+    findings = _gate_findings(post)
+    reasons = ", ".join(f["reason"] for f in findings) or "no active findings"
+    ApprovalAction.objects.create(
+        post=post,
+        user=request.user,
+        action=ApprovalAction.ActionType.APPROVED,
+        comment=f"Override (logged): gate finding overridden by principal — {reasons}",
+    )
+    post.review_state = Post.ReviewState.APPROVED
+    post.save(update_fields=["review_state", "updated_at"])
+
+    messages.success(request, "Override logged — the post is approved.")
+    return redirect("joseph:content")
+
+
 @login_required
 def voice_editor(request):
     if not _can_manage_voice(request):
