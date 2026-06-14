@@ -346,9 +346,10 @@ def pipeline(request):
 @login_required
 def briefs(request):
     """Index of threads whose L0 brief Joseph can open — the bottom-nav "Brief"
-    destination (a thread-less /joseph/brief/ has no card to show). Threads come
-    from agent-service, newest first; each row links to its brief card. When the
-    service is down the reader returns ``[]`` → an empty list, never a 500.
+    destination (a thread-less /joseph/brief/ has no card to show). Reads threads
+    over HTTP via ``readers.list_threads`` (the ``/threads`` route), newest first;
+    each row links to its brief card. When the service is down the reader returns
+    ``[]`` → an empty list, never a 500.
     """
     if not _can_access_joseph(request):
         return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
