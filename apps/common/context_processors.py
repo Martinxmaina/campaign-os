@@ -31,6 +31,21 @@ def joseph_access(request):
     return {"can_access_joseph": _can_access_joseph(request)}
 
 
+def crm_access(request):
+    """Expose ``can_manage_crm`` to every template so the left-nav can show the
+    role-gated "CRM" section only to capable users.
+
+    Reuses the single source of truth — ``apps.crm.views_import._can_manage_crm``
+    (staff OR workspace_role in owner/admin/campaign_owner) — so the sidebar gate
+    can never drift from the view gate (the same pattern as ``joseph_access``).
+    """
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        return {"can_manage_crm": False}
+    from apps.crm.views_import import _can_manage_crm
+
+    return {"can_manage_crm": _can_manage_crm(request)}
+
+
 def sidebar_context(request):
     """Inject sidebar data into every template context.
 

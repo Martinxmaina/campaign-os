@@ -128,6 +128,7 @@ TEMPLATES = [
                 "apps.common.context_processors.sidebar_context",
                 "apps.common.context_processors.branding",
                 "apps.common.context_processors.joseph_access",
+                "apps.common.context_processors.crm_access",
                 "apps.intelligence.context_processors.intelligence_flag",
             ],
         },
