@@ -73,6 +73,10 @@ BACKFILL_DAYS_PER_PLATFORM: dict[str, int] = {
     "threads": 90,
     "google_business": 90,
     "tiktok": 60,
+    # Ghost exposes only a lifetime member total (no per-day growth endpoint),
+    # so there is no real history to backfill — sync writes today's snapshot
+    # only (account_metrics_supports_date_range=False).
+    "ghost": 0,
     # Bluesky / Mastodon / LinkedIn-Personal have no analytics surface — skip.
     # LinkedIn only exposes share statistics for Organization URNs, not
     # personal Person URNs, regardless of granted scopes.

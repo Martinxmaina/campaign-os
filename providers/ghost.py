@@ -7,6 +7,7 @@ email-only Newsletter (``extra['ghost_publish_as'] == 'newsletter'``).
 from __future__ import annotations
 
 import html as _html
+from datetime import datetime
 
 import httpx
 
@@ -14,6 +15,7 @@ from .base import SocialProvider
 from .exceptions import PublishError
 from .ghost_jwt import ghost_admin_jwt
 from .types import (
+    AccountMetrics,
     AccountProfile,
     AuthType,
     MediaType,
@@ -27,6 +29,11 @@ _HEADERS_VERSION = "v5.0"
 
 
 class GhostProvider(SocialProvider):
+    # The members endpoint returns a single lifetime total, not a per-day
+    # delta — so the sync layer must write only today's snapshot, never replay
+    # the same total into past dates as fabricated history.
+    account_metrics_supports_date_range = False
+
     @property
     def platform_name(self) -> str:
         return "Ghost (Nexus Brief)"
@@ -91,6 +98,31 @@ class GhostProvider(SocialProvider):
             name=site.get("title", "Ghost"),
             handle=None,
         )
+
+    # -- analytics -----------------------------------------------------
+    def get_account_metrics(
+        self, access_token: str, date_range: tuple[datetime, datetime]
+    ) -> AccountMetrics:
+        """Subscriber (member) count from the Ghost Admin API.
+
+        Ghost exposes the member total via the pagination block of the
+        members list — fetching one row is enough to read
+        ``meta.pagination.total``. There is no per-day member-growth endpoint
+        in the Admin API, so this is a lifetime snapshot (hence
+        ``account_metrics_supports_date_range = False``). We surface it as both
+        ``followers`` (the AccountMetrics shape other providers use) and
+        ``extra['subscribers']`` (the catalog metric the analytics UI queries).
+        """
+        resp = httpx.get(
+            f"{self._base()}/ghost/api/admin/members/?limit=1",
+            headers=self._auth_headers(),
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            raise PublishError(f"Ghost members fetch failed ({resp.status_code}): {resp.text[:200]}")
+        total = (resp.json().get("meta", {}).get("pagination", {}) or {}).get("total")
+        count = int(total) if total is not None else 0
+        return AccountMetrics(followers=count, extra={"subscribers": count})
 
     # -- publish -------------------------------------------------------
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:

@@ -69,6 +69,10 @@ PLATFORM_METRICS: dict[str, list[str]] = {
     "google_business": ["impressions", "clicks"],
     # Mastodon: only favourites/reblogs/replies from the public status record.
     "mastodon": ["likes", "reposts", "replies"],
+    # Ghost (Nexus Brief): the Admin API exposes the member total
+    # (meta.pagination.total) but no per-post or per-day engagement metrics,
+    # so the only surface is the subscriber count (label "Subscribers").
+    "ghost": ["subscribers"],
 }
 
 # The "hero" metric each platform defaults the big chart and table sort to.
@@ -85,6 +89,7 @@ PLATFORM_PRIMARY: dict[str, str] = {
     "pinterest": "impressions",
     "google_business": "impressions",
     "mastodon": "likes",
+    "ghost": "subscribers",
 }
 
 # Brand-orange override for charts; per-platform colors used as a tweak.
@@ -101,6 +106,7 @@ PLATFORM_COLOR: dict[str, str] = {
     "pinterest": "#BD081C",
     "google_business": "#4285F4",
     "mastodon": "#6364FF",
+    "ghost": "#15171A",
 }
 
 # Metrics that contribute to engagement rate (numerator).
