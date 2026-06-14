@@ -18,6 +18,11 @@ urlpatterns = [
     # |tasks|deck|sequence). thread_id is the agent-service thread id (a string).
     path("thread/<str:thread_id>/", views.thread_drawer, name="thread"),
     path("thread/<str:thread_id>/escalate/", views.thread_escalate, name="thread-escalate"),
+    # Knowledge wiki browser — search + entity_type chips; cards link to detail.
+    path("knowledge/", views.knowledge, name="knowledge"),
+    # Page detail — title + L0/L1/L2 tier toggle (HTMX) + outgoing links + revisions.
+    # slug is the agent-service wiki page slug (a string), not a Django pk.
+    path("knowledge/<str:slug>/", views.knowledge_detail, name="knowledge-detail"),
     path("voice/", views.voice_editor, name="voice"),
     path("voice/save/", views.voice_save, name="voice-save"),
     # proposal_id is a UUID string in agent-service (VoiceProposal.id); str (not int)

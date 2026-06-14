@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Joseph · Knowledge{% endblock %}
+
+{% comment %}
+Desktop knowledge browser for Joseph. Extends base.html so it inherits the real
+Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. A free-
+text search (GET form, CSP-safe) + entity_type filter chips (funder / org /
+person / initiative / topic) over the agent-service wiki. Each result card links
+into the page detail. Agent down → readers return [] → an empty state, never a
+500. CSP-safe: plain GET form + anchor chips/cards, no inline handlers.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="border-b border-stone-200 pb-4">
+    <h1 class="font-display text-2xl">Knowledge</h1>
+    <div class="text-sm text-stone-500">What the agents know — read before any conversation</div>
+  </div>
+
+  {# ── Search + entity_type filter chips (CSP-safe GET) ────────────── #}
+  <form method="get" action="{% url 'joseph:knowledge' %}" class="flex flex-wrap items-center gap-2">
+    <input type="search" name="q" value="{{ q }}" placeholder="Search the wiki…"
+           class="flex-1 min-w-[220px] border border-stone-300 rounded-lg px-3 py-2 text-sm" />
+    {% if entity_type %}<input type="hidden" name="entity_type" value="{{ entity_type }}" />{% endif %}
+    <button type="submit" class="btn-brand">Search</button>
+  </form>
+
+  <div class="flex flex-wrap gap-1 text-xs">
+    <a href="?{% if q %}q={{ q|urlencode }}{% endif %}"
+       class="px-3 py-2 rounded-lg font-semibold {% if not entity_type %}text-white{% else %}bg-stone-100{% endif %}"
+       {% if not entity_type %}style="background:var(--primary)"{% endif %}>all</a>
+    {% for et in entity_types %}
+    <a href="?entity_type={{ et }}{% if q %}&q={{ q|urlencode }}{% endif %}"
+       class="px-3 py-2 rounded-lg font-semibold {% if entity_type == et %}text-white{% else %}bg-stone-100{% endif %}"
+       {% if entity_type == et %}style="background:var(--primary)"{% endif %}>{{ et }}</a>
+    {% endfor %}
+  </div>
+
+  {# ── Results grid ───────────────────────────────────────────────── #}
+  {% if pages %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    {% for p in pages %}
+    <a href="{% url 'joseph:knowledge-detail' p.slug %}"
+       class="block card p-3 hover:shadow-sm">
+      <div class="font-semibold text-sm truncate">{{ p.title|default:p.slug }}</div>
+      <div class="text-[11px] text-stone-500 mt-0.5">
+        {{ p.entity_type|default:"page" }}
+        {% if p.status == "verified" %}· <span class="text-emerald-600">✓ verified</span>
+        {% elif p.status %}· <span class="text-amber-600">⚠ {{ p.status }}</span>{% endif %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card p-8 text-center text-sm text-stone-400">
+    {% if q or entity_type %}No pages match your search.{% else %}Search the wiki to read what the agents know.{% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

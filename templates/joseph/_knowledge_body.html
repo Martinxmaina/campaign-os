@@ -1,0 +1,35 @@
+{% comment %}
+Knowledge page body — the tiered wiki content (l0 abstract / l1 overview / l2
+body) + outgoing links rendered as in-app links. Swapped in by the HTMX tier
+toggle. There is no markdown library wired in this repo, so the content is
+rendered as whitespace-preserving text (escaped) — readable and safe.
+
+Context: `page` (with `title`, `content`, `links`, `aliases`), `tier`, `has_page`.
+{% endcomment %}
+{% if not has_page %}
+  <div class="card p-8 text-center text-sm text-stone-400">
+    No wiki page for <span class="font-mono">{{ slug }}</span> yet.
+  </div>
+{% else %}
+  <div class="card p-5" id="knowledge-body-inner">
+    {% if page.content %}
+      <p class="text-stone-600 leading-relaxed whitespace-pre-wrap text-sm">{{ page.content }}</p>
+    {% else %}
+      <p class="text-stone-400 text-sm">The {{ tier|upper }} layer is empty for this page.</p>
+    {% endif %}
+
+    {% if page.links %}
+    <div class="mt-4 text-xs text-stone-400">
+      Outgoing links:
+      {% for link in page.links %}
+      <a href="{% url 'joseph:knowledge-detail' link|slugify %}"
+         class="font-semibold" style="color:var(--brand-700)">[[{{ link }}]]</a>{% if not forloop.last %} · {% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    {% if page.aliases %}
+    <div class="mt-2 text-xs text-stone-400">Also known as: {{ page.aliases|join:", " }}</div>
+    {% endif %}
+  </div>
+{% endif %}

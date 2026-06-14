@@ -356,6 +356,75 @@ def thread_escalate(request, thread_id):
     return redirect("joseph:thread", thread_id=thread_id)
 
 
+# The wiki entity types Joseph filters by (chips in the knowledge browser),
+# matching the agent-service knowledge model's entity_type vocabulary.
+_KNOWLEDGE_ENTITY_TYPES = ["funder", "org", "person", "initiative", "topic"]
+
+
+@login_required
+def knowledge(request):
+    """Joseph's knowledge browser — search the agent-service wiki.
+
+    A free-text query (``?q=``) plus entity_type filter chips
+    (funder/org/person/initiative/topic, ``?entity_type=``) over
+    ``readers.search_pages`` (the fixed ``/knowledge/pages`` route). Each result
+    card links into the page detail. When the agent-service is down the reader
+    returns ``[]`` → the browser renders an empty state, never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    q = (request.GET.get("q") or "").strip()
+    entity_type = (request.GET.get("entity_type") or "").strip().lower()
+    if entity_type and entity_type not in _KNOWLEDGE_ENTITY_TYPES:
+        entity_type = ""
+
+    pages = readers.search_pages(q=q, entity_type=entity_type)
+
+    return render(request, "joseph/knowledge.html", {
+        "q": q,
+        "entity_type": entity_type,
+        "entity_types": _KNOWLEDGE_ENTITY_TYPES,
+        "pages": pages,
+    })
+
+
+@login_required
+def knowledge_detail(request, slug):
+    """A single wiki page — title + tiered body + outgoing links + revisions.
+
+    The L0/L1/L2 tier toggle is an HTMX swap (CSP-safe ``hx-get``/``hx-target``):
+    an ``HX-Request`` returns just the body partial; a full GET renders the page
+    (defaulting to L1, the overview). Outgoing wiki links render as in-app links
+    to other knowledge pages (slugified). Revisions come from the fixed
+    ``/knowledge/pages/{slug}/revisions`` route. Every read degrades to a safe
+    default when the agent-service is down → an empty state, never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    tier = (request.GET.get("tier") or "l1").lower()
+    if tier not in ("l0", "l1", "l2"):
+        tier = "l1"
+
+    page = readers.get_page(slug, tier=tier)
+
+    context = {
+        "slug": slug,
+        "tier": tier,
+        "page": page,
+        "has_page": bool(page),
+    }
+
+    # HTMX tier toggle → swap only the body partial; a full GET renders the page
+    # (with revisions, which don't change between tiers).
+    if getattr(request, "htmx", False):
+        return render(request, "joseph/_knowledge_body.html", context)
+
+    context["revisions"] = readers.page_revisions(slug)
+    return render(request, "joseph/knowledge_detail.html", context)
+
+
 @login_required
 def voice_editor(request):
     if not _can_manage_voice(request):
