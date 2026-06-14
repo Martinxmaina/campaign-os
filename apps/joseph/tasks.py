@@ -22,6 +22,8 @@ from celery import shared_task
 from django.utils import timezone
 
 from apps.joseph import readers
+from apps.publisher.ingest_webhook import post_to_ingest
+from integrations.gmail import build_gmail_service, recent_messages
 from integrations.google_calendar import build_calendar_service, upcoming_events
 
 logger = logging.getLogger(__name__)
@@ -32,9 +34,13 @@ SUGGEST_THRESHOLD = 0.6
 
 __all__ = [
     "sync_google_calendar",
+    "sync_google_gmail",
     "best_thread_match",
     "build_calendar_service",
     "upcoming_events",
+    "build_gmail_service",
+    "recent_messages",
+    "post_to_ingest",
 ]
 
 
@@ -228,3 +234,62 @@ def _parse_dt(node: dict):
     if timezone.is_naive(dt):
         dt = timezone.make_aware(dt, timezone.get_current_timezone())
     return dt
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def sync_google_gmail(self):
+    """Pull recent inbound Gmail messages for every integration and POST each to
+    the agent-service ``/ingest`` endpoint (``source_type="email_inbound"``).
+
+    Self-contained: it feeds the intelligence plane (no Django surface depends
+    on it). Returns a summary dict; no-ops to ``{"skipped": "no-credentials"}``
+    when there are no integrations (safe to run before OAuth re-consent). A
+    failed fetch for one member, or a failed ingest for one message, never
+    aborts the rest.
+    """
+    from apps.joseph.models import GoogleIntegration
+
+    integrations = list(GoogleIntegration.objects.select_related("user").all())
+    if not integrations:
+        return {"skipped": "no-credentials"}
+
+    ingested = 0
+
+    for integration in integrations:
+        since = None
+        if integration.last_synced_at:
+            # Gmail `after:` accepts an epoch-second cursor.
+            since = int(integration.last_synced_at.timestamp())
+        try:
+            service = build_gmail_service(integration)
+            messages = recent_messages(service, since=since)
+        except Exception as exc:  # network / auth / API — keep other users going
+            logger.warning(
+                "sync_google_gmail: fetch failed for user %s: %s",
+                integration.user_id,
+                exc,
+            )
+            continue
+
+        for msg in messages:
+            mid = msg.get("id")
+            if not mid:
+                continue
+            try:
+                post_to_ingest(
+                    source_type="email_inbound",
+                    source_id=str(mid),
+                    payload=msg,
+                    dedupe_key=f"email_inbound:{mid}",
+                )
+            except Exception as exc:  # one bad message must not stall the feed
+                logger.warning(
+                    "sync_google_gmail: ingest failed for message %s: %s", mid, exc
+                )
+                continue
+            ingested += 1
+
+        integration.last_synced_at = timezone.now()
+        integration.save(update_fields=["last_synced_at", "updated_at"])
+
+    return {"ingested": ingested}

@@ -71,4 +71,11 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.joseph.tasks.sync_google_calendar",
         "schedule": schedule(run_every=300),  # 5 min
     },
+    "joseph-gmail-sync": {
+        # Pull each member's recent inbound Gmail every 10 minutes and POST it to
+        # agent-service /ingest (source_type=email_inbound). No-ops when no
+        # GoogleIntegration exists, so it is safe to run before OAuth re-consent.
+        "task": "apps.joseph.tasks.sync_google_gmail",
+        "schedule": schedule(run_every=600),  # 10 min
+    },
 }
