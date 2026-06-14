@@ -46,7 +46,10 @@ PLATFORM_METRICS: dict[str, list[str]] = {
     # FB post insights: impressions, reach (unique), reactions, comments, shares, clicks.
     "facebook": ["impressions", "reach", "reactions", "comments", "shares", "clicks", "follows", "engagement"],
     # LinkedIn share statistics: impressions, reactions, comments, reposts, clicks, engagement.
-    "linkedin_company": ["impressions", "reactions", "comments", "reposts", "clicks", "follows", "engagement"],
+    # ``followers`` (lifetime total) comes from networkSizes.firstDegreeSize —
+    # account-only, same lifetime-snapshot semantics as TikTok (no per-day
+    # delta), so it surfaces the total rather than ``follows`` (new/day).
+    "linkedin_company": ["impressions", "reactions", "comments", "reposts", "clicks", "follows", "followers", "engagement"],
     # LinkedIn Personal: only socialActions counts (no impressions/reach per API).
     "linkedin_personal": ["likes", "comments", "shares"],
     # YouTube Analytics: views, watch_time, avg_view_pct, likes, comments, shares, subscribers gained.
