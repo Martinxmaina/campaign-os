@@ -23,6 +23,7 @@ from django.views.decorators.http import require_POST
 
 from apps.crm.models import Activity, OutreachThread, Task
 from apps.crm.views_import import _can_manage_crm
+from apps.joseph import readers
 
 
 def _activities(thread):
@@ -129,6 +130,58 @@ def thread_task(request, thread_id):
     )
     messages.success(request, "Task added.")
     return _respond(request, thread, redirect_to="tasks")
+
+
+def _thread_context(thread) -> dict:
+    """Build the compile-seam context from a Django ``OutreachThread`` — the
+    entity (= org name, the synthesis target) plus the org / primary contact /
+    track that sharpen the dossier. The CRM is canonical in Django (the strangler
+    step), so this context is what agent-service compiles from (it no longer reads
+    its own thread row)."""
+    org_name = thread.org.name if thread.org_id else ""
+    contact = thread.primary_contact
+    return {
+        "entity": org_name,
+        "org": org_name,
+        "contact": contact.full_name if contact else "",
+        "track": thread.track or "",
+    }
+
+
+@login_required
+@require_POST
+def refresh_dossier(request, thread_id):
+    """Recompile a thread's dossier from the Django thread context (the seam flip).
+
+    Django posts the thread's ``{entity, org, contact, track}`` to the
+    agent-service compile seam (``readers.compile_dossier_with_context`` →
+    ``POST /agents/dossier/compile``) and stores the returned ``dossier_id`` back
+    on the local ``OutreachThread``. Degrades quietly when the agent-service is
+    down (the reader swallows ``AgentClientError`` → ``{}`` → no id written, no
+    500). CSP-safe; HTMX swaps the timeline back, a full POST bounces to it."""
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The CRM is not available for your role.")
+
+    thread = get_object_or_404(OutreachThread, id=thread_id)
+
+    result = readers.compile_dossier_with_context(_thread_context(thread))
+    dossier_id = (result or {}).get("dossier_id")
+    if dossier_id:
+        thread.dossier_id = str(dossier_id)
+        thread.save(update_fields=["dossier_id", "updated_at"])
+        # log the recompile on the append-only timeline so nothing is silent.
+        Activity.objects.create(
+            thread=thread,
+            activity_type="dossier_refreshed",
+            actor_type="human",
+            actor=request.user,
+            content_ref={"dossier_id": thread.dossier_id, "sources": (result or {}).get("sources")},
+        )
+        messages.success(request, "Dossier refreshed — new intelligence compiled.")
+    else:
+        messages.error(request, "Couldn't refresh the dossier — intelligence service unavailable.")
+
+    return _respond(request, thread, redirect_to="timeline")
 
 
 def _respond(request, thread, *, redirect_to):

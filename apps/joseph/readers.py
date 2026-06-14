@@ -53,6 +53,20 @@ def compile_dossier(thread_id: str) -> dict:
         return {}
 
 
+def compile_dossier_with_context(context: dict) -> dict:
+    """POST /agents/dossier/compile (lead) → compile from Django thread context.
+
+    The CRM is canonical in Django (the strangler step), so Django sends the
+    thread's ``{entity, org, contact, track, ...}`` context and agent-service
+    compiles the dossier without reading its own (now non-canonical) thread row.
+    Returns ``{dossier_id, sources}``; degrades to ``{}`` when the agent-service
+    is down so the surface never 500s on an outage."""
+    try:
+        return agent_post("/agents/dossier/compile", context) or {}
+    except AgentClientError:
+        return {}
+
+
 # --- notifications --------------------------------------------------------
 
 

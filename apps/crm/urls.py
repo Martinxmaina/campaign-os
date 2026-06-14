@@ -31,4 +31,6 @@ urlpatterns = [
     path("threads/<uuid:thread_id>/edit/", thread_views.thread_edit, name="thread-edit"),
     path("threads/<uuid:thread_id>/activity/", thread_views.thread_activity, name="thread-activity"),
     path("threads/<uuid:thread_id>/task/", thread_views.thread_task, name="thread-task"),
+    path("threads/<uuid:thread_id>/refresh-dossier/", thread_views.refresh_dossier,
+         name="thread-refresh-dossier"),
 ]
