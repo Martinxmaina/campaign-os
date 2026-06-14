@@ -13,6 +13,16 @@ class OutreachError(Exception):
     """Base class for outreach-engine errors."""
 
 
+class MailboxScopeError(OutreachError):
+    """The mailbox's connected Google grant lacks the ``gmail.send`` scope.
+
+    Raised by ``guarded_send`` *before* the transport is touched, so a mailbox
+    connected with only read scopes (e.g. the calendar/inbox feed grant) fails
+    closed with a clear, catchable error instead of a 403/500 from the Gmail
+    API mid-send. The fix is a one-time re-consent that adds ``gmail.send``.
+    """
+
+
 class AddressSuppressed(OutreachError):
     """The recipient is on the suppression list (unsubscribe / bounce / complaint)."""
 

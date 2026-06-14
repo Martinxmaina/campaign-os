@@ -53,6 +53,9 @@ urlpatterns = [
     # CRM (Phase 2C) — canonical Django CRM: import wizard, orgs/contacts,
     # threads. Login-gated per view, role-gated to owner/admin/campaign_owner.
     path("crm/", include("apps.crm.urls")),
+    # Outreach (Phase 2C — TC.2/TC.3) — per-owner Gmail send engine: mailbox
+    # connect/status, sequences, triage, suppression. Role-gated per view.
+    path("outreach/", include("apps.outreach.urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]

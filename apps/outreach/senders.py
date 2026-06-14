@@ -27,9 +27,9 @@ from django.core import signing
 from django.db.models import F
 from django.utils import timezone
 
-from apps.outreach.exceptions import AddressSuppressed, CapExceeded
+from apps.outreach.exceptions import AddressSuppressed, CapExceeded, MailboxScopeError
 from apps.outreach.models import MailboxSend, SuppressionEntry
-from integrations.gmail import build_gmail_service, send_message
+from integrations.gmail import GMAIL_SEND_SCOPE, build_gmail_service, send_message
 
 # Salt for the unsubscribe token (the public unsubscribe view in Task 8 verifies
 # the same salt). Kept here so the footer/header are forward-compatible.
@@ -106,6 +106,27 @@ def _inject_unsubscribe(body_html: str, to: str) -> tuple[str, dict]:
     return body_html + footer, headers
 
 
+def _assert_send_scope(mailbox) -> None:
+    """Fail closed if the mailbox's connected grant lacks ``gmail.send``.
+
+    Only enforced when a ``google_integration`` is actually attached — an
+    unconnected mailbox (``google_integration is None``) is left to the transport
+    layer (e.g. tests passing a mock sender, or the Instantly stub). When a real
+    Google grant *is* attached it MUST carry the send scope; otherwise the Gmail
+    API would 403 mid-send, so we raise :class:`MailboxScopeError` first, before
+    the body or any transport is touched.
+    """
+    integration = getattr(mailbox, "google_integration", None)
+    if integration is None:
+        return
+    scopes = getattr(integration, "scopes", None) or []
+    if GMAIL_SEND_SCOPE not in scopes:
+        raise MailboxScopeError(
+            f"{mailbox.email}: connected Google grant lacks {GMAIL_SEND_SCOPE} "
+            "(re-consent required before sending)."
+        )
+
+
 def _ramp_week(mailbox) -> int:
     """Warm-up week index from ``ramp_started_at`` (``days // 7``); 0 if unset."""
     if not mailbox.ramp_started_at:
@@ -146,6 +167,10 @@ def guarded_send(
     # 1. suppression — fail closed, before any transport work
     if SuppressionEntry.objects.filter(email__iexact=to).exists():
         raise AddressSuppressed(to)
+
+    # 1b. scope guard — a connected grant must carry gmail.send (re-consent),
+    # else fail closed here rather than 403 mid-send.
+    _assert_send_scope(mailbox)
 
     # 2. cap / ramp
     today = timezone.localdate()

@@ -24,6 +24,10 @@ SCOPES = [
     # one-time re-consent; until that refresh token is minted the feeds no-op.
     "https://www.googleapis.com/auth/calendar.readonly",
     "https://www.googleapis.com/auth/gmail.readonly",
+    # Outreach engine (TC.2/TC.3) — per-owner Gmail SEND. This is what turns a
+    # mailbox "send-ready" in /outreach/mailbox/; without it guarded_send fails
+    # closed (MailboxScopeError). Adding it requires a one-time re-consent.
+    "https://www.googleapis.com/auth/gmail.send",
 ]
 
 print("""
