@@ -69,13 +69,13 @@ nonce-bearing <script>.
      class="font-semibold" style="color:var(--brand-700)">
     <div class="text-lg leading-none">⌂</div>Today
   </a>
-  <a href="/joseph/pipeline/" class="text-stone-500 hover:text-stone-900">
+  <a href="{% url 'joseph:pipeline' %}" class="text-stone-500 hover:text-stone-900">
     <div class="text-lg leading-none">▦</div>Pipeline
   </a>
-  <a href="/joseph/brief/" class="text-stone-500 hover:text-stone-900">
+  <a href="{% url 'joseph:briefs' %}" class="text-stone-500 hover:text-stone-900">
     <div class="text-lg leading-none">▤</div>Brief
   </a>
-  <a href="/joseph/content/" class="text-stone-500 hover:text-stone-900">
+  <a href="{% url 'joseph:content' %}" class="text-stone-500 hover:text-stone-900">
     <div class="text-lg leading-none">✎</div>Compose
   </a>
 </nav>

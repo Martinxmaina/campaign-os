@@ -48,9 +48,9 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
         {% endfor %}
       </div>
 
-      {# ── Capital funnel ─────────────────────────────────────── #}
+      {# ── Pipeline by track + content pipeline ───────────────── #}
       <div>
-        <div class="sidebar-section-label" style="padding-left:0">Capital funnel</div>
+        <div class="sidebar-section-label" style="padding-left:0">Content pipeline</div>
         <div class="grid grid-cols-3 gap-3">
           {% for stage in funnel %}
           <div class="card p-4">
@@ -60,20 +60,22 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
           {% endfor %}
         </div>
         <div class="card p-5 mt-3">
-          <div class="text-sm font-bold mb-3">Content by stage</div>
+          <div class="text-sm font-bold mb-3">Pipeline by track</div>
           <div class="space-y-2.5 text-sm">
-            {% for stage in funnel %}
+            {% for row in by_track %}
             <div>
               <div class="flex justify-between mb-1">
-                <span>{{ stage.label }}</span>
-                <span class="text-stone-500">{{ stage.count }}</span>
+                <span>{{ row.label }}</span>
+                <span class="text-stone-500">{{ row.count }}</span>
               </div>
               <div class="h-2 rounded-full bg-stone-100">
-                {% if stage.count %}
-                <div class="h-2 rounded-full" style="width:{% widthratio stage.count funnel.0.count|add:funnel.1.count|add:funnel.2.count|default:1 100 %}%;background:var(--primary)"></div>
+                {% if row.count %}
+                <div class="h-2 rounded-full" style="width:{{ row.pct }}%;background:var(--primary)"></div>
                 {% endif %}
               </div>
             </div>
+            {% empty %}
+            <div class="text-stone-400">No active threads.</div>
             {% endfor %}
           </div>
         </div>

@@ -84,7 +84,7 @@ def test_desktop_home_shows_capital_funnel_counts(joseph, client):
         resp = _desktop(client)
     assert resp.status_code == 200
     body = resp.content
-    assert b"Capital funnel" in body
+    assert b"Content pipeline" in body
     # the funnel labels are present
     for label in (b"Draft", b"Scheduled", b"Published"):
         assert label in body
@@ -92,6 +92,26 @@ def test_desktop_home_shows_capital_funnel_counts(joseph, client):
     assert b">3<" in body or b"3" in body
     assert b">2<" in body or b"2" in body
     assert b">4<" in body or b"4" in body
+
+
+@pytest.mark.django_db
+def test_desktop_home_shows_pipeline_by_track(joseph, client):
+    """The desktop home shows a "Pipeline by track" panel grouping threads by
+    track (real counts from /threads, not a fabricated dollar funnel)."""
+    threads = [
+        {"id": "a", "org": "GEAPP", "track": "ai10bn", "stage": "discover"},
+        {"id": "b", "org": "AI-x", "track": "ai10bn", "stage": "qualify"},
+        {"id": "c", "org": "GIZ", "track": "core", "stage": "qualify"},
+    ]
+    with patch("apps.joseph.views.readers.list_threads", return_value=threads), \
+         patch("apps.joseph.views.readers.list_content", return_value=[]), \
+         patch("apps.joseph.intelligence.readers.list_notifications", return_value=[]):
+        resp = _desktop(client)
+    assert resp.status_code == 200
+    body = resp.content
+    assert b"Pipeline by track" in body
+    assert b"AI 10Bn" in body and b"Core programs" in body
+    assert b">2<" in body  # ai10bn count
 
 
 @pytest.mark.django_db
@@ -179,7 +199,8 @@ def test_desktop_home_agent_down_renders_empty_state_no_500(joseph, client):
         resp = _desktop(client)
     assert resp.status_code == 200
     body = resp.content
-    assert b"Capital funnel" in body
+    assert b"Content pipeline" in body
+    assert b"Pipeline by track" in body
     assert b"Escalations" in body or b"ESCALATIONS" in body
     assert b"Action queue" in body or b"ACTION QUEUE" in body
 

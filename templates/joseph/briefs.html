@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Joseph · Briefs{% endblock %}
+
+{% comment %}
+Briefs index — the bottom-nav "Brief" destination. Extends base.html so it
+inherits the real Campaign OS sidebar/chrome. Lists threads (newest first) from
+agent-service; each row links to that thread's L0 brief card. CSP-safe: plain
+anchor links, no inline handlers. Agent-down → empty list, never a 500.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="border-b border-stone-200 pb-4">
+    <h1 class="font-display text-2xl">Briefs</h1>
+    <div class="text-sm text-stone-500">Pick a thread to open its pre-meeting brief</div>
+  </div>
+
+  <div class="card divide-y">
+    {% for t in threads %}
+    <a href="{% url 'joseph:brief' t.id %}" class="flex items-center justify-between gap-3 p-4 hover:bg-stone-50">
+      <div class="min-w-0">
+        <div class="font-semibold truncate">{{ t.org|default:"Thread" }}</div>
+        <div class="text-xs text-stone-500 truncate">
+          {% if t.stage %}{{ t.stage|title }}{% endif %}
+          {% if t.track %} · {{ t.track }}{% endif %}
+          {% if t.days_since_touch is not None %} · {{ t.days_since_touch }}d since touch{% endif %}
+        </div>
+      </div>
+      <span class="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
+            style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
+    </a>
+    {% empty %}
+    <div class="p-6 text-sm text-stone-400">No threads yet.</div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

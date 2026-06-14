@@ -80,6 +80,24 @@ def test_pipeline_card_shows_org_quintile_next_action(joseph, client):
 
 
 @pytest.mark.django_db
+def test_pipeline_card_shows_days_since_touch_and_quintile_dots(joseph, client):
+    """A card surfaces the days-since-touch chip (from last_touch_at) and the
+    quintile dot-row (●●●●○) — matching the approved mockup."""
+    from datetime import timedelta
+    from django.utils import timezone
+    threads = [{
+        "id": "t-x", "org": "GEAPP", "stage": "discover", "traffic_light": "amber",
+        "quintile": 4, "next_action": "deck —", "track": "AI 10Bn",
+        "last_touch_at": (timezone.now() - timedelta(days=9, hours=2)).isoformat(),
+    }]
+    with patch("apps.joseph.views.readers.list_threads", return_value=threads):
+        resp = client.get(reverse("joseph:pipeline"))
+    body = resp.content
+    assert b"9d" in body                       # days-since-touch chip
+    assert "●●●●○".encode() in body            # quintile-4 dot row
+
+
+@pytest.mark.django_db
 def test_pipeline_card_links_to_thread_drawer(joseph, client):
     """Each card links to the thread drawer at /joseph/thread/<id>/ (Task 6)."""
     with patch("apps.joseph.views.readers.list_threads", return_value=THREADS):

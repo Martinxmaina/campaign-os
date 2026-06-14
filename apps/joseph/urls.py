@@ -16,6 +16,9 @@ urlpatterns = [
     # Deal-flow kanban — threads grouped into stage columns; cards link to the
     # thread drawer (/joseph/thread/<id>/).
     path("pipeline/", views.pipeline, name="pipeline"),
+    # Briefs index — the bottom-nav "Brief" destination: threads to pick from,
+    # each linking to its L0 brief card (a thread-less /joseph/brief/ 404s).
+    path("briefs/", views.briefs, name="briefs"),
     # Thread drawer — full operational view of one deal thread: header (org +
     # stage + score) + actions + six HTMX tabs (?tab=brief|timeline|intelligence
     # |tasks|deck|sequence). thread_id is the agent-service thread id (a string).

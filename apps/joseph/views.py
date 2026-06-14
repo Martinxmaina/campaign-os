@@ -104,6 +104,7 @@ def home(request):
     # agent-service is down (the readers swallow AgentClientError) — never a 500.
     if not is_mobile:
         context["funnel"] = _capital_funnel()
+        context["by_track"] = _pipeline_by_track()
         context["escalations"] = [a for a in actions if a.get("urgent")]
 
     template = "joseph/home_mobile.html" if is_mobile else "joseph/home_desktop.html"
@@ -129,6 +130,65 @@ def _capital_funnel() -> list[dict]:
         {"key": key, "label": label, "count": len(readers.list_content(status=key))}
         for key, label in _FUNNEL_STATUSES
     ]
+
+
+# Capital tracks in display order; a thread outside these falls into "Other".
+_TRACKS = [
+    ("ai10bn", "AI 10Bn"),
+    ("core", "Core programs"),
+    ("waiis", "WAIIS"),
+    ("energy", "Energy access"),
+]
+
+
+def _pipeline_by_track() -> list[dict]:
+    """Thread counts grouped by track for the desktop "Pipeline by track" bars.
+
+    Uses the (now track-bearing) ``/threads`` list. The API does not expose
+    capital $ amounts, so this is an honest count-by-track rather than a
+    fabricated dollar funnel. Agent-down → ``[]`` → all-zero bars, never a 500.
+    """
+    counts: dict[str, int] = {}
+    for t in readers.list_threads():
+        counts[(t.get("track") or "other").lower()] = counts.get((t.get("track") or "other").lower(), 0) + 1
+    known = dict(_TRACKS)
+    rows = [{"key": k, "label": lbl, "count": counts.get(k, 0)} for k, lbl in _TRACKS]
+    other = sum(v for k, v in counts.items() if k not in known)
+    if other:
+        rows.append({"key": "other", "label": "Other", "count": other})
+    top = max((r["count"] for r in rows), default=0)
+    for r in rows:
+        r["pct"] = round(100 * r["count"] / top) if top else 0
+    return rows
+
+
+def _thread_days_since_touch(last_touch_at):
+    """Whole days since a thread's last touch, from the ISO timestamp the
+    ``/threads`` serializer returns. ``None`` when absent/unparseable."""
+    if not last_touch_at:
+        return None
+    try:
+        from datetime import datetime
+        ts = datetime.fromisoformat(str(last_touch_at).replace("Z", "+00:00"))
+    except (ValueError, AttributeError):
+        return None
+    return max((timezone.now() - ts).days, 0)
+
+
+def _quintile_dots(quintile) -> str:
+    """Filled/empty dot row for a 1–5 quintile (4 → '●●●●○'); '' for 0/None/out-of-range."""
+    try:
+        q = int(quintile or 0)
+    except (TypeError, ValueError):
+        return ""
+    return "●" * q + "○" * (5 - q) if 1 <= q <= 5 else ""
+
+
+def _annotate_thread(t: dict) -> dict:
+    """Add UI-derived fields (days_since_touch, quintile_dots) to a thread dict in place."""
+    t["days_since_touch"] = _thread_days_since_touch(t.get("last_touch_at"))
+    t["quintile_dots"] = _quintile_dots(t.get("quintile"))
+    return t
 
 
 def _today_events(workspace):
@@ -266,6 +326,7 @@ def pipeline(request):
     buckets[_CATCH_ALL[0]] = []
     known = set(buckets)
     for t in threads:
+        _annotate_thread(t)
         stage = (t.get("stage") or "").lower()
         buckets[stage if stage in known and stage != _CATCH_ALL[0] else _CATCH_ALL[0]].append(t)
 
@@ -280,6 +341,19 @@ def pipeline(request):
         })
 
     return render(request, "joseph/pipeline.html", {"columns": columns})
+
+
+@login_required
+def briefs(request):
+    """Index of threads whose L0 brief Joseph can open — the bottom-nav "Brief"
+    destination (a thread-less /joseph/brief/ has no card to show). Threads come
+    from agent-service, newest first; each row links to its brief card. When the
+    service is down the reader returns ``[]`` → an empty list, never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+    threads = [_annotate_thread(t) for t in readers.list_threads()]
+    return render(request, "joseph/briefs.html", {"threads": threads})
 
 
 _DRAWER_TABS = [

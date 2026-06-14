@@ -34,17 +34,20 @@ CSP-safe: plain anchor links, no inline handlers.
             <span class="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
                   style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
           </div>
-          {% if t.track %}
-          <div class="text-[11px] text-stone-500 mt-0.5 truncate">{{ t.track }}</div>
-          {% endif %}
+          <div class="flex items-center justify-between gap-2 mt-0.5">
+            {% if t.track %}<span class="text-[11px] text-stone-500 truncate">{{ t.track }}</span>{% endif %}
+            {% if t.days_since_touch is not None %}
+            <span class="text-[11px] flex-shrink-0
+                         {% if t.traffic_light == 'red' %}text-red-600
+                         {% elif t.traffic_light == 'green' %}text-emerald-600
+                         {% else %}text-amber-600{% endif %}">{{ t.days_since_touch }}d</span>
+            {% endif %}
+          </div>
           {% if t.next_action %}
-          <div class="text-[11px] mt-1 truncate
-                      {% if t.traffic_light == 'red' %}text-red-600
-                      {% elif t.traffic_light == 'green' %}text-emerald-600
-                      {% else %}text-amber-600{% endif %}">{{ t.next_action }}</div>
+          <div class="text-[11px] mt-1 truncate text-stone-600">{{ t.next_action }}</div>
           {% endif %}
-          {% if t.quintile %}
-          <div class="text-[11px] mt-1 text-stone-400">Q{{ t.quintile }}</div>
+          {% if t.quintile_dots %}
+          <div class="text-[11px] mt-1 text-stone-400">Q{{ t.quintile }} <span class="tracking-[1px]">{{ t.quintile_dots }}</span></div>
           {% endif %}
         </a>
         {% empty %}
