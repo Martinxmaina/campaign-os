@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Joseph · Pipeline{% endblock %}
+
+{% comment %}
+Desktop deal-flow kanban for Joseph. Extends base.html so it inherits the real
+Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. Threads
+are grouped server-side into the ordered stage columns (Discover → Committed +
+a catch-all "Other"). Each card shows the org, a traffic-light dot, the track,
+the next action and the quintile, and links into the thread drawer (Task 6).
+CSP-safe: plain anchor links, no inline handlers.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="border-b border-stone-200 pb-4">
+    <h1 class="font-display text-2xl">Pipeline</h1>
+    <div class="text-sm text-stone-500">Deal-flow · traffic-light by days since last touch</div>
+  </div>
+
+  <div class="overflow-x-auto pb-2">
+    <div class="grid grid-flow-col auto-cols-[minmax(180px,1fr)] gap-3 min-w-[940px] text-sm">
+      {% for col in columns %}
+      <div class="space-y-2">
+        <div class="sidebar-section-label" style="padding-left:2px">{{ col.label }} · {{ col.count }}</div>
+
+        {% for t in col.threads %}
+        <a href="/joseph/thread/{{ t.id }}/"
+           class="block w-full text-left card p-3 hover:shadow-sm
+                  {% if t.traffic_light == 'red' %}ring-1 ring-red-100 border-red-200
+                  {% elif t.traffic_light == 'green' and col.key == 'committed' %}border-emerald-200 bg-emerald-50/40{% endif %}">
+          <div class="flex items-center justify-between gap-2">
+            <span class="font-semibold truncate">{{ t.org|default:"Thread" }}</span>
+            <span class="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
+                  style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
+          </div>
+          {% if t.track %}
+          <div class="text-[11px] text-stone-500 mt-0.5 truncate">{{ t.track }}</div>
+          {% endif %}
+          {% if t.next_action %}
+          <div class="text-[11px] mt-1 truncate
+                      {% if t.traffic_light == 'red' %}text-red-600
+                      {% elif t.traffic_light == 'green' %}text-emerald-600
+                      {% else %}text-amber-600{% endif %}">{{ t.next_action }}</div>
+          {% endif %}
+          {% if t.quintile %}
+          <div class="text-[11px] mt-1 text-stone-400">Q{{ t.quintile }}</div>
+          {% endif %}
+        </a>
+        {% empty %}
+        <div class="text-[11px] text-stone-300 px-1 pt-1">—</div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

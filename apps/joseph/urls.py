@@ -10,6 +10,9 @@ urlpatterns = [
     # thread_id is the agent-service thread id (a string), not a Django pk.
     path("brief/<str:thread_id>/", views.brief, name="brief"),
     path("brief/<str:thread_id>/refresh/", views.brief_refresh, name="brief-refresh"),
+    # Deal-flow kanban — threads grouped into stage columns; cards link to the
+    # thread drawer (/joseph/thread/<id>/, added in Task 6).
+    path("pipeline/", views.pipeline, name="pipeline"),
     path("voice/", views.voice_editor, name="voice"),
     path("voice/save/", views.voice_save, name="voice-save"),
     # proposal_id is a UUID string in agent-service (VoiceProposal.id); str (not int)

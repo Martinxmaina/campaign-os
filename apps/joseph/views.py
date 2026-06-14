@@ -188,6 +188,53 @@ def brief_refresh(request, thread_id):
     return redirect("joseph:brief", thread_id=thread_id)
 
 
+_PIPELINE_STAGES = [
+    ("discover", "Discover"),
+    ("qualify", "Qualify"),
+    ("proposal", "Proposal"),
+    ("diligence", "Diligence"),
+    ("committed", "Committed"),
+]
+_CATCH_ALL = ("_other", "Other")
+
+
+@login_required
+def pipeline(request):
+    """Joseph's deal-flow board — a traffic-light kanban grouped by stage.
+
+    Threads from agent-service are bucketed into the five ordered stage columns
+    (Discover → Committed) with a catch-all so an unrecognised stage is never
+    silently dropped. Each card shows the org, a traffic-light dot, the quintile
+    and the next action, and links into the thread drawer (Task 6). When the
+    agent-service is down the reader returns ``[]`` → the columns render empty,
+    never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    threads = readers.list_threads()
+
+    # Bucket by stage, preserving the canonical column order + a catch-all tail.
+    buckets: dict[str, list] = {key: [] for key, _ in _PIPELINE_STAGES}
+    buckets[_CATCH_ALL[0]] = []
+    known = set(buckets)
+    for t in threads:
+        stage = (t.get("stage") or "").lower()
+        buckets[stage if stage in known and stage != _CATCH_ALL[0] else _CATCH_ALL[0]].append(t)
+
+    columns = [
+        {"key": key, "label": label, "threads": buckets[key], "count": len(buckets[key])}
+        for key, label in _PIPELINE_STAGES
+    ]
+    if buckets[_CATCH_ALL[0]]:
+        columns.append({
+            "key": _CATCH_ALL[0], "label": _CATCH_ALL[1],
+            "threads": buckets[_CATCH_ALL[0]], "count": len(buckets[_CATCH_ALL[0]]),
+        })
+
+    return render(request, "joseph/pipeline.html", {"columns": columns})
+
+
 @login_required
 def voice_editor(request):
     if not _can_manage_voice(request):
