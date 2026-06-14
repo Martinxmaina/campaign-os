@@ -37,6 +37,11 @@ httpx>=0.27,<1.0
 google-api-python-client>=2.197.0,<3.0
 google-auth>=2.53.0,<3.0
 
+# Office files — .xlsx parsing for the CRM import wizard.
+# Imported LAZILY inside apps/crm/import_wizard.py (mirrors the Google
+# Sheets lazy-import pattern) so Celery autodiscover never needs it.
+openpyxl>=3.1,<4.0
+
 # Date utilities
 python-dateutil>=2.9,<3.0
 

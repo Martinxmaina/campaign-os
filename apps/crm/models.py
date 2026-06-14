@@ -123,6 +123,40 @@ class Activity(TimestampedUUID):
         ordering = ["-created_at"]
 
 
+class CrmImportJob(TimestampedUUID):
+    """A single run of the 4-step CRM import wizard (upload → map → preview → commit).
+
+    Holds the source (file or Google Sheet), the chosen header→CRM-field
+    mapping, a status as the wizard advances, and the per-row commit results
+    (so a failed row is reported, never silently dropped).
+    """
+
+    class Source(models.TextChoices):
+        FILE = "file"
+        SHEET = "sheet"
+
+    class Status(models.TextChoices):
+        UPLOADED = "uploaded"
+        MAPPED = "mapped"
+        PREVIEWED = "previewed"
+        COMMITTED = "committed"
+        FAILED = "failed"
+
+    workspace = models.ForeignKey(
+        "workspaces.Workspace", on_delete=models.CASCADE, related_name="crm_import_jobs"
+    )
+    source = models.CharField(max_length=8, choices=Source.choices, default=Source.FILE)
+    filename = models.CharField(max_length=255, blank=True, default="")
+    sheet_url = models.URLField(blank=True, default="")
+    mapping = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.UPLOADED)
+    results = models.JSONField(default=list, blank=True)
+    row_count = models.IntegerField(default=0)
+
+    def __str__(self):
+        return f"CrmImportJob {self.id} ({self.source}/{self.status})"
+
+
 class Task(TimestampedUUID):
     class Status(models.TextChoices):
         OPEN = "open"
