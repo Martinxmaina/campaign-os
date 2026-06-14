@@ -1,15 +1,18 @@
-"""Tests for Joseph's thread drawer at /joseph/thread/<id>/.
+"""Tests for Joseph's thread drawer at /joseph/thread/<pk>/.
 
-The drawer is the full operational view of a single deal thread: a header
-(org + stage + score + traffic-light) with actions (Request deck / Capture →
-stubs, Escalate → creates a notification), and six HTMX-swappable tabs
-(Brief / Timeline / Intelligence / Tasks / Deck / Sequence). The Brief tab
-reuses the L0 card; the Intelligence tab pulls the wiki page for the org plus
-org-filtered news; Deck/Sequence are present-but-stubbed ("coming in …").
+The CRM is now canonical in Django (the strangler step), so the drawer resolves a
+local ``apps.crm.OutreachThread`` by its Django pk. The drawer is the full
+operational view of a single deal thread: a header (org + stage + score +
+traffic-light) with actions (Request deck / Capture → stubs, Escalate → creates a
+notification), and six HTMX-swappable tabs (Brief / Timeline / Intelligence /
+Tasks / Deck / Sequence). The Brief tab maps the Django thread + its dossier
+(``readers.get_dossier(dossier_id)``) onto the L0 card; the Intelligence tab pulls
+the wiki page for the org plus org-filtered news; the Timeline/Tasks tabs read the
+CRM Activity/Task log; Deck/Sequence are present-but-stubbed.
 
 The view is gated by ``_can_access_joseph`` and degrades gracefully when the
-agent-service is down (empty states / stubs, never a 500). CSP-safe: tab
-switching is HTMX (hx-get), no inline onclick/onsubmit.
+agent-service is down (the dossier/wiki reads return safe defaults — never a 500).
+CSP-safe: tab switching is HTMX (hx-get), no inline onclick/onsubmit.
 """
 from unittest.mock import patch
 
@@ -17,25 +20,6 @@ import pytest
 from django.urls import reverse
 
 
-THREAD = {
-    "id": "t1",
-    "org": "Rockefeller Foundation",
-    "track": "climate",
-    "stage": "proposal",
-    "traffic_light": "red",
-    "quintile": 4,
-    "score": 0.71,
-    "next_action": "deck opened",
-    "dossier_id": "d1",
-    "state": {
-        "contact_name": "Dr. Rajiv Shah",
-        "contact_role": "President",
-        "timeline": [
-            {"at": "2026-06-10T09:00:00Z", "label": "Intro email sent"},
-            {"at": "2026-06-12T14:00:00Z", "label": "Deck opened"},
-        ],
-    },
-}
 DOSSIER = {
     "id": "d1",
     "entity": "Rockefeller Foundation",
@@ -47,8 +31,29 @@ DOSSIER = {
     "meta": {"warm_path": "Intro via Dr. Shah's chief of staff."},
     "updated_at": "2026-06-14T10:00:00Z",
     "status": "ready",
-    "thread_id": "t1",
+    "thread_id": "d1",
 }
+
+
+@pytest.fixture
+def crm_thread(db):
+    """A local CRM thread (org + contact + dossier_id + a logged activity)."""
+    from apps.crm.models import Activity, Contact, Organization, OutreachThread
+
+    org = Organization.objects.create(name="Rockefeller Foundation")
+    contact = Contact.objects.create(
+        org=org, full_name="Dr. Rajiv Shah", role="President",
+    )
+    t = OutreachThread.objects.create(
+        org=org, primary_contact=contact, track="climate",
+        stage=OutreachThread.Stage.PROPOSAL, traffic_light="red",
+        quintile=4, score=0.71, next_action="deck opened", dossier_id="d1",
+    )
+    Activity.objects.create(
+        thread=t, activity_type="note", actor_type="human",
+        content_ref={"body": "Deck opened by the President's office."},
+    )
+    return t
 
 
 @pytest.fixture
@@ -81,25 +86,16 @@ def viewer(client, db, organization, workspace):
     return u
 
 
-def _patch_intel(thread=THREAD, dossier=DOSSIER):
-    """Patch the readers JosephIntelligence/views use to compose the drawer."""
-    return [
-        patch("apps.joseph.views.readers.get_thread", return_value=thread),
-        patch("apps.joseph.intelligence.readers.get_thread", return_value=thread),
-        patch("apps.joseph.intelligence.readers.get_dossier", return_value=dossier),
-    ]
-
-
 # --------------------------------------------------------------------------
 # header / shell
 # --------------------------------------------------------------------------
 
 
 @pytest.mark.django_db
-def test_drawer_header_shows_org_stage_score(joseph, client):
+def test_drawer_header_shows_org_stage_score(joseph, client, crm_thread):
     """The drawer header surfaces org + stage + score."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(reverse("joseph:thread", args=["t1"]))
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER):
+        resp = client.get(reverse("joseph:thread", args=[crm_thread.id]))
     assert resp.status_code == 200
     body = resp.content
     assert b"Rockefeller Foundation" in body
@@ -108,20 +104,20 @@ def test_drawer_header_shows_org_stage_score(joseph, client):
 
 
 @pytest.mark.django_db
-def test_drawer_renders_all_six_tabs(joseph, client):
+def test_drawer_renders_all_six_tabs(joseph, client, crm_thread):
     """The drawer shell exposes all six tabs."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(reverse("joseph:thread", args=["t1"]))
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER):
+        resp = client.get(reverse("joseph:thread", args=[crm_thread.id]))
     body = resp.content
     for tab in (b"Brief", b"Timeline", b"Intelligence", b"Tasks", b"Deck", b"Sequence"):
         assert tab in body
 
 
 @pytest.mark.django_db
-def test_drawer_header_has_actions(joseph, client):
+def test_drawer_header_has_actions(joseph, client, crm_thread):
     """Header actions: Request deck / Capture (stubs) + Escalate."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(reverse("joseph:thread", args=["t1"]))
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER):
+        resp = client.get(reverse("joseph:thread", args=[crm_thread.id]))
     body = resp.content
     assert b"Request deck" in body
     assert b"Capture" in body
@@ -129,30 +125,27 @@ def test_drawer_header_has_actions(joseph, client):
 
 
 @pytest.mark.django_db
-def test_drawer_forbidden_for_viewer(viewer, client):
-    """A non-owner/admin/principal member must not reach the drawer; the
-    agent-service must not be hit at all."""
-    with patch("apps.joseph.views.readers.get_thread") as gt:
-        resp = client.get(reverse("joseph:thread", args=["t1"]))
+def test_drawer_forbidden_for_viewer(viewer, client, crm_thread):
+    """A non-owner/admin/principal member must not reach the drawer."""
+    resp = client.get(reverse("joseph:thread", args=[crm_thread.id]))
     assert resp.status_code in (403, 302)
-    gt.assert_not_called()
 
 
 @pytest.mark.django_db
-def test_drawer_agent_down_renders_no_500(joseph, client):
-    """Agent-service down → readers swallow AgentClientError → safe defaults →
-    a 200 page (empty header), never a 500."""
+def test_drawer_agent_down_renders_no_500(joseph, client, crm_thread):
+    """Agent-service down → the dossier read swallows AgentClientError → safe
+    defaults → a 200 page, never a 500. (The thread itself is local Django.)"""
     from apps.common.agent_client import AgentClientError
     with patch("apps.joseph.readers.agent_get", side_effect=AgentClientError("down")):
-        resp = client.get(reverse("joseph:thread", args=["t1"]))
+        resp = client.get(reverse("joseph:thread", args=[crm_thread.id]))
     assert resp.status_code == 200
 
 
 @pytest.mark.django_db
-def test_drawer_csp_safe_no_inline_handlers(joseph, client):
+def test_drawer_csp_safe_no_inline_handlers(joseph, client, crm_thread):
     """The drawer is CSP-safe: HTMX tab switching, no inline onclick/onsubmit."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(reverse("joseph:thread", args=["t1"]))
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER):
+        resp = client.get(reverse("joseph:thread", args=[crm_thread.id]))
     body = resp.content
     assert b"hx-get" in body
     assert b"onclick=" not in body
@@ -166,16 +159,13 @@ def test_drawer_csp_safe_no_inline_handlers(joseph, client):
 
 @pytest.mark.django_db
 @pytest.mark.parametrize("tab", ["brief", "timeline", "intelligence", "tasks", "deck", "sequence"])
-def test_drawer_tab_returns_200(joseph, client, tab):
+def test_drawer_tab_returns_200(joseph, client, crm_thread, tab):
     """Every tab param returns 200 as an HTMX partial."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD), \
-         patch("apps.joseph.intelligence.readers.get_thread", return_value=THREAD), \
-         patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER), \
-         patch("apps.joseph.views.readers.search_pages", return_value=[]), \
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER), \
          patch("apps.joseph.views.readers.get_page", return_value={}), \
          patch("apps.joseph.views.readers.news_about", return_value=[]):
         resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + f"?tab={tab}",
+            reverse("joseph:thread", args=[crm_thread.id]) + f"?tab={tab}",
             HTTP_HX_REQUEST="true",
         )
     assert resp.status_code == 200
@@ -184,12 +174,11 @@ def test_drawer_tab_returns_200(joseph, client, tab):
 
 
 @pytest.mark.django_db
-def test_drawer_brief_tab_reuses_l0_card(joseph, client):
+def test_drawer_brief_tab_reuses_l0_card(joseph, client, crm_thread):
     """The Brief tab reuses the L0 card (the six editorial fields)."""
-    patches = _patch_intel()
-    with patches[0], patches[1], patches[2]:
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER):
         resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + "?tab=brief",
+            reverse("joseph:thread", args=[crm_thread.id]) + "?tab=brief",
             HTTP_HX_REQUEST="true",
         )
     body = resp.content
@@ -200,16 +189,15 @@ def test_drawer_brief_tab_reuses_l0_card(joseph, client):
 
 
 @pytest.mark.django_db
-def test_drawer_intelligence_tab_pulls_wiki_and_news(joseph, client):
+def test_drawer_intelligence_tab_pulls_wiki_and_news(joseph, client, crm_thread):
     """The Intelligence tab pulls the wiki page for the org + news_about(org)."""
     page = {"slug": "rockefeller-foundation", "title": "Rockefeller Foundation",
             "tier": "l1", "content": "WIKI OVERVIEW BODY"}
     news = [{"title": "Rockefeller launches climate fund", "summary": "..."}]
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD), \
-         patch("apps.joseph.views.readers.get_page", return_value=page) as gp, \
+    with patch("apps.joseph.views.readers.get_page", return_value=page) as gp, \
          patch("apps.joseph.views.readers.news_about", return_value=news) as na:
         resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + "?tab=intelligence",
+            reverse("joseph:thread", args=[crm_thread.id]) + "?tab=intelligence",
             HTTP_HX_REQUEST="true",
         )
     assert resp.status_code == 200
@@ -221,48 +209,44 @@ def test_drawer_intelligence_tab_pulls_wiki_and_news(joseph, client):
 
 
 @pytest.mark.django_db
-def test_drawer_deck_tab_is_stubbed(joseph, client):
+def test_drawer_deck_tab_is_stubbed(joseph, client, crm_thread):
     """The Deck tab is present-but-stubbed (coming in a later phase)."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + "?tab=deck",
-            HTTP_HX_REQUEST="true",
-        )
+    resp = client.get(
+        reverse("joseph:thread", args=[crm_thread.id]) + "?tab=deck",
+        HTTP_HX_REQUEST="true",
+    )
     assert resp.status_code == 200
     assert b"coming" in resp.content.lower()
 
 
 @pytest.mark.django_db
-def test_drawer_sequence_tab_is_stubbed(joseph, client):
+def test_drawer_sequence_tab_is_stubbed(joseph, client, crm_thread):
     """The Sequence tab is present-but-stubbed (coming in a later phase)."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + "?tab=sequence",
-            HTTP_HX_REQUEST="true",
-        )
+    resp = client.get(
+        reverse("joseph:thread", args=[crm_thread.id]) + "?tab=sequence",
+        HTTP_HX_REQUEST="true",
+    )
     assert resp.status_code == 200
     assert b"coming" in resp.content.lower()
 
 
 @pytest.mark.django_db
-def test_drawer_timeline_tab_shows_activity(joseph, client):
-    """The Timeline tab renders activity from thread.state."""
-    with patch("apps.joseph.views.readers.get_thread", return_value=THREAD):
-        resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + "?tab=timeline",
-            HTTP_HX_REQUEST="true",
-        )
+def test_drawer_timeline_tab_shows_activity(joseph, client, crm_thread):
+    """The Timeline tab renders the CRM Activity log for the thread."""
+    resp = client.get(
+        reverse("joseph:thread", args=[crm_thread.id]) + "?tab=timeline",
+        HTTP_HX_REQUEST="true",
+    )
     assert resp.status_code == 200
-    assert b"Deck opened" in resp.content
+    assert b"Deck opened by the President" in resp.content
 
 
 @pytest.mark.django_db
-def test_drawer_unknown_tab_falls_back_to_brief(joseph, client):
+def test_drawer_unknown_tab_falls_back_to_brief(joseph, client, crm_thread):
     """An unrecognised ?tab= never 500s — it falls back to the Brief tab."""
-    patches = _patch_intel()
-    with patches[0], patches[1], patches[2]:
+    with patch("apps.joseph.intelligence.readers.get_dossier", return_value=DOSSIER):
         resp = client.get(
-            reverse("joseph:thread", args=["t1"]) + "?tab=bogus",
+            reverse("joseph:thread", args=[crm_thread.id]) + "?tab=bogus",
             HTTP_HX_REQUEST="true",
         )
     assert resp.status_code == 200
@@ -275,30 +259,30 @@ def test_drawer_unknown_tab_falls_back_to_brief(joseph, client):
 
 
 @pytest.mark.django_db
-def test_escalate_creates_notification(joseph, client):
+def test_escalate_creates_notification(joseph, client, crm_thread):
     """POST .../escalate/ creates a notification via readers and returns ok."""
     with patch("apps.joseph.views.readers.create_notification",
                return_value={"id": "n1"}) as cn:
-        resp = client.post(reverse("joseph:thread-escalate", args=["t1"]))
+        resp = client.post(reverse("joseph:thread-escalate", args=[crm_thread.id]))
     assert resp.status_code in (200, 302, 303)
     cn.assert_called_once()
     # the thread id is carried into the notification create call
-    assert "t1" in str(cn.call_args)
+    assert str(crm_thread.id) in str(cn.call_args)
 
 
 @pytest.mark.django_db
-def test_escalate_forbidden_for_viewer(viewer, client):
+def test_escalate_forbidden_for_viewer(viewer, client, crm_thread):
     """A viewer cannot escalate; the agent-service must not be hit."""
     with patch("apps.joseph.views.readers.create_notification") as cn:
-        resp = client.post(reverse("joseph:thread-escalate", args=["t1"]))
+        resp = client.post(reverse("joseph:thread-escalate", args=[crm_thread.id]))
     assert resp.status_code in (403, 302)
     cn.assert_not_called()
 
 
 @pytest.mark.django_db
-def test_escalate_agent_down_no_500(joseph, client):
+def test_escalate_agent_down_no_500(joseph, client, crm_thread):
     """Agent-service down → create_notification swallows the error → no 500."""
     from apps.common.agent_client import AgentClientError
     with patch("apps.joseph.readers.agent_post", side_effect=AgentClientError("down")):
-        resp = client.post(reverse("joseph:thread-escalate", args=["t1"]))
+        resp = client.post(reverse("joseph:thread-escalate", args=[crm_thread.id]))
     assert resp.status_code in (200, 302, 303)

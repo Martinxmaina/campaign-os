@@ -96,15 +96,13 @@ def test_desktop_home_shows_capital_funnel_counts(joseph, client):
 
 @pytest.mark.django_db
 def test_desktop_home_shows_pipeline_by_track(joseph, client):
-    """The desktop home shows a "Pipeline by track" panel grouping threads by
-    track (real counts from /threads, not a fabricated dollar funnel)."""
-    threads = [
-        {"id": "a", "org": "GEAPP", "track": "ai10bn", "stage": "discover"},
-        {"id": "b", "org": "AI-x", "track": "ai10bn", "stage": "qualify"},
-        {"id": "c", "org": "GIZ", "track": "core", "stage": "qualify"},
-    ]
-    with patch("apps.joseph.views.readers.list_threads", return_value=threads), \
-         patch("apps.joseph.views.readers.list_content", return_value=[]), \
+    """The desktop home shows a "Pipeline by track" panel grouping local CRM
+    threads by track (real counts, not a fabricated dollar funnel)."""
+    from apps.crm.models import Organization, OutreachThread
+    for org_name, track in [("GEAPP", "ai10bn"), ("AI-x", "ai10bn"), ("GIZ", "core")]:
+        org = Organization.objects.create(name=org_name)
+        OutreachThread.objects.create(org=org, track=track)
+    with patch("apps.joseph.views.readers.list_content", return_value=[]), \
          patch("apps.joseph.intelligence.readers.list_notifications", return_value=[]):
         resp = _desktop(client)
     assert resp.status_code == 200

@@ -1,15 +1,30 @@
 {% comment %}
-Drawer · Tasks tab — next actions on this thread. Lightweight in this spine: the
-thread's single next_action surfaces here; full task management arrives later.
-Context: `thread`.
+Drawer · Tasks tab — the CRM Task list for this thread (open first). A CSP-safe
+"Add task" form posts to crm:thread-task and swaps the fresh list in place
+(HTMX). Context: `crm_thread`, `tasks`, `thread` (for the next_action hint).
 {% endcomment %}
-{% if thread.next_action %}
-  <div class="card p-4 flex items-center justify-between text-sm">
-    <div>
-      <div class="text-[10px] font-bold tracking-wider text-stone-400">NEXT ACTION</div>
-      <div class="mt-1 font-medium">{{ thread.next_action }}</div>
-    </div>
+<div class="space-y-4">
+  {% if thread.next_action %}
+  <div class="card p-4 text-sm">
+    <div class="text-[10px] font-bold tracking-wider text-stone-400">NEXT ACTION</div>
+    <div class="mt-1 font-medium">{{ thread.next_action }}</div>
   </div>
-{% else %}
-  <div class="card p-6 text-center text-sm text-stone-400">No open tasks on this thread.</div>
-{% endif %}
+  {% endif %}
+
+  {% if crm_thread %}
+  <form class="card p-4 space-y-2 text-sm"
+        hx-post="{% url 'crm:thread-task' crm_thread.id %}"
+        hx-target="#crm-task-list" hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="flex gap-2">
+      <input type="text" name="type" placeholder="Task (e.g. send_email)"
+             class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm" />
+      <input type="date" name="due"
+             class="rounded-lg border border-stone-300 px-2 py-1.5 text-sm" />
+      <button type="submit" class="btn-soft">Add</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% include "crm/_task_list.html" %}
+</div>

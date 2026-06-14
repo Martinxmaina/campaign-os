@@ -77,8 +77,8 @@ def home(request):
     # Action queue — merged notifications + Joseph's pending posts + unlinked events.
     actions = intel.proposals(workspace=workspace, user=request.user)
 
-    # Red threads — agent-service threads flagged red, owned by Joseph.
-    red_threads = readers.list_threads(traffic_light="red", owner="joseph")
+    # Red threads — local CRM threads flagged red (the canonical source).
+    red_threads = [_crm_thread_card(t) for t in _crm_threads(traffic_light="red")]
 
     # Today's calendar events (linked + unlinked) for this workspace.
     today_events = _today_events(workspace)
@@ -144,13 +144,14 @@ _TRACKS = [
 def _pipeline_by_track() -> list[dict]:
     """Thread counts grouped by track for the desktop "Pipeline by track" bars.
 
-    Uses the (now track-bearing) ``/threads`` list. The API does not expose
-    capital $ amounts, so this is an honest count-by-track rather than a
-    fabricated dollar funnel. Agent-down → ``[]`` → all-zero bars, never a 500.
+    Counts local CRM threads by track (the canonical source). This is an honest
+    count-by-track rather than a fabricated dollar funnel. An empty DB → all-zero
+    bars, never a 500.
     """
     counts: dict[str, int] = {}
-    for t in readers.list_threads():
-        counts[(t.get("track") or "other").lower()] = counts.get((t.get("track") or "other").lower(), 0) + 1
+    for t in _crm_threads():
+        key = (t.track or "other").lower()
+        counts[key] = counts.get(key, 0) + 1
     known = dict(_TRACKS)
     rows = [{"key": k, "label": lbl, "count": counts.get(k, 0)} for k, lbl in _TRACKS]
     other = sum(v for k, v in counts.items() if k not in known)
@@ -189,6 +190,80 @@ def _annotate_thread(t: dict) -> dict:
     t["days_since_touch"] = _thread_days_since_touch(t.get("last_touch_at"))
     t["quintile_dots"] = _quintile_dots(t.get("quintile"))
     return t
+
+
+# CRM OutreachThread.Stage → the pipeline's display column key. Stages outside
+# this map (targeted/contracted/closed/...) fall into the catch-all "Other"
+# column so nothing silently disappears from the board.
+_CRM_STAGE_TO_COLUMN = {
+    "engaged": "qualify",
+    "proposal_sent": "proposal",
+    "in_discussion": "diligence",
+    "committed": "committed",
+}
+
+
+def _crm_thread_card(thread) -> dict:
+    """Adapt a local ``apps.crm.OutreachThread`` into the dict shape the Joseph
+    pipeline/briefs/home templates already render — the CRM is now canonical
+    (the strangler step), so the surface reads Django querysets, not the
+    agent-service ``/threads`` route. ``id`` is the Django pk; ``org`` is the
+    org name; ``state`` carries the primary contact for the L0 "WHO" line and
+    the activity timeline. The card is then annotated (days_since_touch,
+    quintile_dots) exactly like the old agent-service dicts."""
+    contact = thread.primary_contact
+    # Map the CRM stage onto the pipeline column key when one applies (else keep
+    # the raw stage so a literal column-key stage still buckets correctly).
+    column = _CRM_STAGE_TO_COLUMN.get(thread.stage, thread.stage)
+    card = {
+        "id": str(thread.id),
+        "org": thread.org.name if thread.org_id else "",
+        "stage": column,
+        "stage_raw": thread.stage,
+        "track": thread.track,
+        "traffic_light": thread.traffic_light,
+        "quintile": thread.quintile,
+        "score": thread.score,
+        "next_action": thread.next_action,
+        "dossier_id": thread.dossier_id,
+        "last_touch_at": thread.last_touch.isoformat() if thread.last_touch else None,
+        "state": {
+            "contact_name": contact.full_name if contact else "",
+            "contact_role": contact.role if contact else "",
+        },
+    }
+    return _annotate_thread(card)
+
+
+def _crm_threads(*, owner=None, traffic_light=None):
+    """Local CRM OutreachThread queryset (the canonical source), newest first,
+    with its org + primary contact pre-fetched. Optional owner/traffic_light
+    filters mirror the old ``readers.list_threads`` filters."""
+    from apps.crm.models import OutreachThread
+
+    qs = OutreachThread.objects.select_related("org", "primary_contact").order_by("-updated_at")
+    if traffic_light:
+        qs = qs.filter(traffic_light=traffic_light)
+    if owner is not None:
+        qs = qs.filter(owner=owner)
+    return qs
+
+
+def _crm_thread_by_id(thread_id):
+    """Resolve a single CRM OutreachThread by its Django (UUID) pk, tolerating a
+    non-UUID id (e.g. a legacy agent thread id) → ``None`` rather than a 500."""
+    from django.core.exceptions import ValidationError
+
+    from apps.crm.models import OutreachThread
+
+    try:
+        return (
+            OutreachThread.objects.select_related("org", "primary_contact")
+            .filter(pk=thread_id)
+            .first()
+        )
+    except (ValueError, ValidationError):
+        return None
 
 
 def _today_events(workspace):
@@ -309,24 +384,23 @@ _CATCH_ALL = ("_other", "Other")
 def pipeline(request):
     """Joseph's deal-flow board — a traffic-light kanban grouped by stage.
 
-    Threads from agent-service are bucketed into the five ordered stage columns
+    Threads are local ``apps.crm.OutreachThread`` rows (the CRM is canonical —
+    the strangler step), bucketed into the five ordered stage columns
     (Discover → Committed) with a catch-all so an unrecognised stage is never
     silently dropped. Each card shows the org, a traffic-light dot, the quintile
-    and the next action, and links into the thread drawer (Task 6). When the
-    agent-service is down the reader returns ``[]`` → the columns render empty,
-    never a 500.
+    and the next action, and links into the thread drawer. No agent-service read —
+    an empty DB just renders empty columns, never a 500.
     """
     if not _can_access_joseph(request):
         return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
 
-    threads = readers.list_threads()
+    threads = [_crm_thread_card(t) for t in _crm_threads()]
 
     # Bucket by stage, preserving the canonical column order + a catch-all tail.
     buckets: dict[str, list] = {key: [] for key, _ in _PIPELINE_STAGES}
     buckets[_CATCH_ALL[0]] = []
     known = set(buckets)
     for t in threads:
-        _annotate_thread(t)
         stage = (t.get("stage") or "").lower()
         buckets[stage if stage in known and stage != _CATCH_ALL[0] else _CATCH_ALL[0]].append(t)
 
@@ -346,14 +420,13 @@ def pipeline(request):
 @login_required
 def briefs(request):
     """Index of threads whose L0 brief Joseph can open — the bottom-nav "Brief"
-    destination (a thread-less /joseph/brief/ has no card to show). Reads threads
-    over HTTP via ``readers.list_threads`` (the ``/threads`` route), newest first;
-    each row links to its brief card. When the service is down the reader returns
-    ``[]`` → an empty list, never a 500.
+    destination (a thread-less /joseph/brief/ has no card to show). Reads local
+    CRM threads (the canonical source), newest first; each row links to its brief
+    card. An empty DB → an empty list, never a 500.
     """
     if not _can_access_joseph(request):
         return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
-    threads = [_annotate_thread(t) for t in readers.list_threads()]
+    threads = [_crm_thread_card(t) for t in _crm_threads()]
     return render(request, "joseph/briefs.html", {"threads": threads})
 
 
@@ -372,17 +445,19 @@ _DRAWER_TAB_KEYS = {key for key, _ in _DRAWER_TABS}
 def thread_drawer(request, thread_id):
     """Joseph's thread drawer — the full operational view of one deal thread.
 
-    A header (org + stage + score + traffic-light) with actions (Request deck /
-    Capture → stubs for later phases, Escalate → creates a notification) over
-    six HTMX-swappable tabs: Brief / Timeline / Intelligence / Tasks / Deck /
-    Sequence. Brief reuses the L0 card; Intelligence pulls the org's wiki page +
-    org-filtered news; Deck/Sequence are present-but-stubbed so later phases drop
-    in without a re-layout.
+    The thread is a local ``apps.crm.OutreachThread`` (the CRM is canonical — the
+    strangler step), resolved by its Django pk. A header (org + stage + score +
+    traffic-light) with actions (Request deck / Capture → stubs, Escalate →
+    creates a notification) over six HTMX-swappable tabs: Brief / Timeline /
+    Intelligence / Tasks / Deck / Sequence. Brief reuses the L0 card mapped from
+    the Django thread + its dossier (``readers.get_dossier(dossier_id)``);
+    Intelligence pulls the org's wiki page + org-filtered news; Tasks/Timeline
+    read the CRM Activity/Task log; Deck/Sequence are present-but-stubbed.
 
     A full GET renders the shell (defaulting to the Brief tab); an ``HX-Request``
-    with ``?tab=`` returns only that tab's partial (CSP-safe ``hx-get``). Every
-    agent-service read degrades to a safe default when the service is down —
-    the drawer renders an empty state, never a 500.
+    with ``?tab=`` returns only that tab's partial (CSP-safe ``hx-get``). The
+    dossier/wiki/news reads still degrade to a safe default when the agent-service
+    is down — the drawer renders an empty state, never a 500.
     """
     if not _can_access_joseph(request):
         return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
@@ -391,14 +466,18 @@ def thread_drawer(request, thread_id):
     if tab not in _DRAWER_TAB_KEYS:
         tab = "brief"
 
-    thread = readers.get_thread(thread_id)
+    crm_thread = _crm_thread_by_id(thread_id)
+    # Adapt the CRM row into the dict shape the drawer template renders (a missing
+    # thread degrades to an empty header rather than a 404 — never a 500).
+    thread = _crm_thread_card(crm_thread) if crm_thread else {}
     context = {
         "thread_id": thread_id,
         "thread": thread,
+        "crm_thread": crm_thread,
         "tab": tab,
         "tabs": _DRAWER_TABS,
     }
-    context.update(_drawer_tab_context(tab, thread_id, thread))
+    context.update(_drawer_tab_context(tab, thread_id, thread, crm_thread))
 
     # HTMX tab switch → swap only the tab partial; a full GET renders the shell.
     if getattr(request, "htmx", False):
@@ -406,20 +485,27 @@ def thread_drawer(request, thread_id):
     return render(request, "joseph/thread_drawer.html", context)
 
 
-def _drawer_tab_context(tab: str, thread_id: str, thread: dict) -> dict:
+def _drawer_tab_context(tab: str, thread_id: str, thread: dict, crm_thread=None) -> dict:
     """Compose the per-tab context (only the active tab does any work)."""
     if tab == "brief":
-        return {"card": JosephIntelligence().brief(thread_id, "l0")}
+        return {"card": JosephIntelligence().brief(crm_thread or thread_id, "l0")}
     if tab == "timeline":
-        state = thread.get("state") or {}
-        return {"timeline": state.get("timeline") or []}
+        # The append-only CRM Activity log (newest first via Meta.ordering).
+        activities = list(crm_thread.activities.select_related("actor").all()) if crm_thread else []
+        return {"activities": activities}
+    if tab == "tasks":
+        tasks = (
+            list(crm_thread.tasks.select_related("owner").order_by("status", "-created_at"))
+            if crm_thread else []
+        )
+        return {"tasks": tasks}
     if tab == "intelligence":
         org = thread.get("org") or ""
         from django.utils.text import slugify
 
         page = readers.get_page(slugify(org), tier="l1") if org else {}
         return {"org": org, "page": page, "news": readers.news_about(org) if org else []}
-    # tasks / deck / sequence carry no extra context (stubbed surfaces).
+    # deck / sequence carry no extra context (stubbed surfaces).
     return {}
 
 
@@ -431,8 +517,8 @@ def thread_escalate(request, thread_id):
     down (the reader swallows AgentClientError → empty dict)."""
     if not _can_access_joseph(request):
         return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
-    thread = readers.get_thread(thread_id)
-    org = (thread or {}).get("org") or thread_id
+    crm_thread = _crm_thread_by_id(thread_id)
+    org = (crm_thread.org.name if crm_thread and crm_thread.org_id else None) or thread_id
     result = readers.create_notification(
         kind="escalation",
         body=f"Escalated: {org} needs your attention.",

@@ -1,7 +1,7 @@
 """Tests for the briefs index at /joseph/briefs/ — the bottom-nav "Brief"
-destination (a thread-less /joseph/brief/ 404s). Lists agent-service threads,
-each linking to its L0 brief card. Gated by ``_can_access_joseph`` and graceful
-when the agent-service is down (empty list, never a 500).
+destination (a thread-less /joseph/brief/ 404s). Lists local CRM threads (the
+canonical source after the strangler step), each linking to its L0 brief card.
+Gated by ``_can_access_joseph``; an empty DB renders an empty list, never a 500.
 """
 from unittest.mock import patch
 
@@ -9,12 +9,21 @@ import pytest
 from django.urls import reverse
 
 
-THREADS = [
-    {"id": "t-prop", "org": "Rockefeller", "stage": "proposal", "traffic_light": "red",
-     "quintile": 4, "track": "catalytic capital"},
-    {"id": "t-comm", "org": "Mission 300", "stage": "committed", "traffic_light": "green",
-     "quintile": 5, "track": "energy access"},
-]
+def _make_thread(*, org_name, stage, traffic_light="green", quintile=0, track=""):
+    from apps.crm.models import Organization, OutreachThread
+    org, _ = Organization.objects.get_or_create(name=org_name)
+    return OutreachThread.objects.create(
+        org=org, stage=stage, traffic_light=traffic_light, quintile=quintile, track=track,
+    )
+
+
+@pytest.fixture
+def seed_threads(db):
+    t1 = _make_thread(org_name="Rockefeller", stage="proposal_sent", traffic_light="red",
+                      quintile=4, track="catalytic capital")
+    t2 = _make_thread(org_name="Mission 300", stage="committed", traffic_light="green",
+                      quintile=5, track="energy access")
+    return {"prop": t1, "comm": t2}
 
 
 @pytest.fixture
@@ -46,34 +55,28 @@ def viewer(client, db, organization, workspace):
 
 
 @pytest.mark.django_db
-def test_briefs_lists_threads_linking_to_brief(joseph, client):
-    with patch("apps.joseph.views.readers.list_threads", return_value=THREADS):
-        resp = client.get(reverse("joseph:briefs"))
+def test_briefs_lists_threads_linking_to_brief(joseph, client, seed_threads):
+    resp = client.get(reverse("joseph:briefs"))
     assert resp.status_code == 200
     assert b"Rockefeller" in resp.content
-    # each row links to that thread's L0 brief card
-    assert reverse("joseph:brief", args=["t-prop"]).encode() in resp.content
+    # each row links to that thread's L0 brief card (by Django pk)
+    assert reverse("joseph:brief", args=[str(seed_threads["prop"].id)]).encode() in resp.content
 
 
 @pytest.mark.django_db
 def test_briefs_forbidden_for_viewer(viewer, client):
-    with patch("apps.joseph.views.readers.list_threads") as lt:
-        resp = client.get(reverse("joseph:briefs"))
+    resp = client.get(reverse("joseph:briefs"))
     assert resp.status_code in (403, 302)
-    lt.assert_not_called()
 
 
 @pytest.mark.django_db
-def test_briefs_agent_down_renders_empty_no_500(joseph, client):
-    from apps.common.agent_client import AgentClientError
-    with patch("apps.joseph.readers.agent_get", side_effect=AgentClientError("down")):
-        resp = client.get(reverse("joseph:briefs"))
+def test_briefs_empty_renders_empty_no_500(joseph, client):
+    resp = client.get(reverse("joseph:briefs"))
     assert resp.status_code == 200
     assert b"No threads yet." in resp.content
 
 
 @pytest.mark.django_db
-def test_briefs_csp_safe(joseph, client):
-    with patch("apps.joseph.views.readers.list_threads", return_value=THREADS):
-        resp = client.get(reverse("joseph:briefs"))
+def test_briefs_csp_safe(joseph, client, seed_threads):
+    resp = client.get(reverse("joseph:briefs"))
     assert b"onclick=" not in resp.content and b"onsubmit=" not in resp.content

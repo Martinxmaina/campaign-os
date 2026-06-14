@@ -1,0 +1,27 @@
+{% comment %}
+CRM · Activity timeline partial — the append-only log of a thread's activities,
+newest first. Rendered inside the Joseph drawer Timeline tab and swapped in place
+(HTMX) after a "Log activity" POST. Context: `thread`, `activities`. CSP-safe.
+{% endcomment %}
+<div id="crm-activity-timeline">
+  {% if activities %}
+  <ol class="relative border-l border-stone-200 ml-2 space-y-4 text-sm">
+    {% for a in activities %}
+    <li class="ml-4">
+      <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full" style="background:var(--primary)"></span>
+      <div class="font-medium text-stone-800">
+        {{ a.get_activity_type_display|default:a.activity_type }}
+        {% if a.content_ref.body %}<span class="font-normal text-stone-600">· {{ a.content_ref.body }}</span>{% endif %}
+      </div>
+      <div class="text-xs text-stone-400">
+        {{ a.created_at|date:"M j, Y H:i" }}
+        {% if a.actor %} · {{ a.actor.name|default:a.actor.email }}
+        {% elif a.actor_type == "agent" and a.agent_name %} · {{ a.agent_name }}{% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="card p-6 text-center text-sm text-stone-400">No activity recorded yet for this thread.</div>
+  {% endif %}
+</div>

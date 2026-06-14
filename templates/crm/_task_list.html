@@ -1,0 +1,28 @@
+{% comment %}
+CRM · Task list partial — the tasks on a thread (open first, newest first).
+Rendered inside the Joseph drawer Tasks tab and swapped in place (HTMX) after an
+"Add task" POST. Context: `thread`, `tasks`. CSP-safe.
+{% endcomment %}
+<div id="crm-task-list">
+  {% if tasks %}
+  <div class="card divide-y text-sm">
+    {% for t in tasks %}
+    <div class="p-3.5 flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <div class="font-medium text-stone-800 truncate">{{ t.type }}</div>
+        <div class="text-xs text-stone-400">
+          {% if t.due %}Due {{ t.due|date:"M j, Y" }}{% else %}No due date{% endif %}
+          {% if t.owner %} · {{ t.owner.name|default:t.owner.email }}{% endif %}
+        </div>
+      </div>
+      <span class="text-[11px] rounded-full px-2 py-0.5
+                   {% if t.status == 'open' %}bg-amber-50 text-amber-700
+                   {% elif t.status == 'completed' %}bg-emerald-50 text-emerald-700
+                   {% else %}bg-stone-100 text-stone-500{% endif %}">{{ t.get_status_display }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card p-6 text-center text-sm text-stone-400">No open tasks on this thread.</div>
+  {% endif %}
+</div>

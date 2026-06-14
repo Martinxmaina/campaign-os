@@ -9,6 +9,7 @@ behind THIS class only — views and templates never change.
 Everything degrades gracefully when the agent-service is down (readers already
 return safe defaults), so the surface shows empty states rather than 500s.
 """
+from django.core.exceptions import ValidationError
 from django.utils.text import slugify
 
 from apps.joseph import readers
@@ -21,8 +22,12 @@ class JosephIntelligence:
     # brief(thread_id, tier) — L0 editorial card / L1 / L2 bodies
     # ------------------------------------------------------------------
 
-    def brief(self, thread_id: str, tier: str = "l0") -> dict:
-        thread = readers.get_thread(thread_id) or {}
+    def brief(self, thread, tier: str = "l0") -> dict:
+        """Compose the brief for ``thread`` — a Django ``apps.crm.OutreachThread``
+        (the canonical source after the strangler step), its pk/id, or a legacy
+        thread dict. The thread context is resolved locally; only the dossier is
+        still fetched from agent-service (``readers.get_dossier(dossier_id)``)."""
+        thread = self._resolve_thread(thread)
         dossier_id = thread.get("dossier_id")
         dossier = readers.get_dossier(dossier_id) if dossier_id else {}
 
@@ -44,6 +49,52 @@ class JosephIntelligence:
             "has_dossier": bool(dossier),
             "body_md": body,
             "page": page or {},
+        }
+
+    @staticmethod
+    def _resolve_thread(thread) -> dict:
+        """Normalise the ``brief`` arg into the thread dict the mapping expects.
+
+        Accepts (a) a Django ``apps.crm.OutreachThread`` instance → adapt its
+        org/contact/track/dossier_id; (b) an already-built thread dict → pass
+        through; (c) a pk/id string → resolve the local CRM row, else fall back
+        to the legacy agent-service ``readers.get_thread`` (back-compat for any
+        agent-id caller). A missing thread degrades to ``{}``."""
+        if thread is None:
+            return {}
+        if isinstance(thread, dict):
+            return thread
+
+        from apps.crm.models import OutreachThread
+
+        if isinstance(thread, OutreachThread):
+            row = thread
+        else:
+            # treat as a pk/id; local CRM lookup first, agent-service fallback.
+            # A non-UUID id (legacy agent thread id) can't match the UUID pk —
+            # tolerate the lookup error and fall through to the agent-service read.
+            row = None
+            try:
+                row = (
+                    OutreachThread.objects.select_related("org", "primary_contact")
+                    .filter(pk=thread)
+                    .first()
+                )
+            except (ValueError, ValidationError):
+                row = None
+            if row is None:
+                return readers.get_thread(str(thread)) or {}
+
+        contact = row.primary_contact
+        return {
+            "id": str(row.id),
+            "org": row.org.name if row.org_id else "",
+            "track": row.track,
+            "dossier_id": row.dossier_id,
+            "state": {
+                "contact_name": contact.full_name if contact else "",
+                "contact_role": contact.role if contact else "",
+            },
         }
 
     @staticmethod

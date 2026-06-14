@@ -6,7 +6,7 @@ CRUD and final nav routes.
 """
 from django.urls import path
 
-from apps.crm import views, views_import
+from apps.crm import thread_views, views, views_import
 
 app_name = "crm"
 
@@ -27,4 +27,8 @@ urlpatterns = [
     path("contacts/new/", views.contact_new, name="contact-new"),
     path("contacts/<uuid:contact_id>/", views.contact_detail, name="contact-detail"),
     path("contacts/<uuid:contact_id>/edit/", views.contact_edit, name="contact-edit"),
+    # Team thread CRUD — the Joseph drawer posts these (edit / log activity / add task).
+    path("threads/<uuid:thread_id>/edit/", thread_views.thread_edit, name="thread-edit"),
+    path("threads/<uuid:thread_id>/activity/", thread_views.thread_activity, name="thread-activity"),
+    path("threads/<uuid:thread_id>/task/", thread_views.thread_task, name="thread-task"),
 ]

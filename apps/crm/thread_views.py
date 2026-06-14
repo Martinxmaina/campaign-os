@@ -1,0 +1,142 @@
+"""Team thread CRUD — edit / log activity / add task on an ``OutreachThread``.
+
+The CRM is canonical in Django (the first strangler step), so a thread is a local
+``apps.crm.OutreachThread`` row. The team operates on it here:
+
+  POST /crm/threads/<id>/edit/      → ``thread_edit``     : stage / owner / next_action
+  POST /crm/threads/<id>/activity/  → ``thread_activity`` : append an Activity (append-only)
+  POST /crm/threads/<id>/task/      → ``thread_task``     : create a Task
+
+Every view is gated by ``_can_manage_crm`` (staff or an owner/admin/campaign_owner
+workspace role), reused from the import wizard. These are pure Django writes — the
+dossier is the only thing fetched from agent-service (by id, elsewhere). The
+``_activity_timeline``/``_task_list`` partials render an HTMX swap-back of the
+fresh log so the Joseph drawer's Timeline/Tasks tabs update in place. CSP-safe.
+"""
+from __future__ import annotations
+
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseForbidden
+from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
+
+from apps.crm.models import Activity, OutreachThread, Task
+from apps.crm.views_import import _can_manage_crm
+
+
+def _activities(thread):
+    """Append-only Activity log for a thread (newest first via Meta.ordering)."""
+    return thread.activities.select_related("actor").all()
+
+
+def _tasks(thread):
+    """Open-then-rest Task list for a thread (open first, newest first)."""
+    return thread.tasks.select_related("owner").order_by("status", "-created_at")
+
+
+@login_required
+@require_POST
+def thread_edit(request, thread_id):
+    """Update a thread's stage / owner / next_action (the team's quick edit).
+
+    Only the supplied fields are written (a blank field is treated as "no
+    change" except next_action which can be cleared). The owner must be a valid
+    user pk; anything else is ignored so a bad form never 500s.
+    """
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The CRM is not available for your role.")
+
+    thread = get_object_or_404(OutreachThread, id=thread_id)
+
+    updated = []
+    stage = (request.POST.get("stage") or "").strip()
+    if stage and stage in OutreachThread.Stage.values:
+        thread.stage = stage
+        updated.append("stage")
+
+    if "next_action" in request.POST:
+        thread.next_action = (request.POST.get("next_action") or "").strip()
+        updated.append("next_action")
+
+    owner_id = (request.POST.get("owner") or "").strip()
+    if owner_id:
+        from apps.accounts.models import User
+
+        owner = User.objects.filter(pk=owner_id).first()
+        if owner is not None:
+            thread.owner = owner
+            updated.append("owner")
+
+    if updated:
+        thread.save(update_fields=[*updated, "updated_at"])
+        # log the change on the append-only timeline so nothing is silent.
+        Activity.objects.create(
+            thread=thread,
+            activity_type="thread_updated",
+            actor_type="human",
+            actor=request.user,
+            content_ref={"updated": updated, "stage": thread.stage},
+        )
+        messages.success(request, "Thread updated.")
+
+    return _respond(request, thread, redirect_to="timeline")
+
+
+@login_required
+@require_POST
+def thread_activity(request, thread_id):
+    """Append an Activity to the thread's append-only log."""
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The CRM is not available for your role.")
+
+    thread = get_object_or_404(OutreachThread, id=thread_id)
+
+    activity_type = (request.POST.get("activity_type") or "note").strip() or "note"
+    body = (request.POST.get("body") or "").strip()
+    Activity.objects.create(
+        thread=thread,
+        activity_type=activity_type,
+        actor_type="human",
+        actor=request.user,
+        content_ref={"body": body} if body else {},
+    )
+    # a logged touch updates the thread's last_touch (drives the no-reply flag).
+    from django.utils import timezone
+
+    thread.last_touch = timezone.now()
+    thread.save(update_fields=["last_touch", "updated_at"])
+
+    messages.success(request, "Activity logged.")
+    return _respond(request, thread, redirect_to="timeline")
+
+
+@login_required
+@require_POST
+def thread_task(request, thread_id):
+    """Create a Task on the thread, owned by the acting user."""
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The CRM is not available for your role.")
+
+    thread = get_object_or_404(OutreachThread, id=thread_id)
+
+    Task.objects.create(
+        thread=thread,
+        owner=request.user,
+        type=(request.POST.get("type") or "follow_up").strip() or "follow_up",
+        due=(request.POST.get("due") or None) or None,
+        status=Task.Status.OPEN,
+    )
+    messages.success(request, "Task added.")
+    return _respond(request, thread, redirect_to="tasks")
+
+
+def _respond(request, thread, *, redirect_to):
+    """HTMX → swap the fresh partial; full POST → bounce back to the drawer tab."""
+    if getattr(request, "htmx", False):
+        if redirect_to == "tasks":
+            return render(request, "crm/_task_list.html",
+                          {"thread": thread, "tasks": _tasks(thread)})
+        return render(request, "crm/_activity_timeline.html",
+                      {"thread": thread, "activities": _activities(thread)})
+    return redirect(f"/joseph/thread/{thread.id}/?tab={redirect_to}")

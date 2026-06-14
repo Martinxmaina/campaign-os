@@ -1,17 +1,28 @@
 {% comment %}
-Drawer · Timeline tab — activity from thread.state (a list of {at,label} events,
-newest last). Context: `timeline`. Read-only; degrades to an empty state.
+Drawer · Timeline tab — the append-only CRM Activity log for this thread (newest
+first). A CSP-safe "Log activity" form posts to crm:thread-activity and swaps the
+fresh timeline in place (HTMX). Context: `crm_thread`, `activities`.
 {% endcomment %}
-{% if timeline %}
-  <ol class="relative border-l border-stone-200 ml-2 space-y-4 text-sm">
-    {% for ev in timeline %}
-    <li class="ml-4">
-      <span class="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full" style="background:var(--primary)"></span>
-      <div class="font-medium text-stone-800">{{ ev.label|default:ev }}</div>
-      {% if ev.at %}<div class="text-xs text-stone-400">{{ ev.at }}</div>{% endif %}
-    </li>
-    {% endfor %}
-  </ol>
-{% else %}
-  <div class="card p-6 text-center text-sm text-stone-400">No activity recorded yet for this thread.</div>
-{% endif %}
+<div class="space-y-4">
+  {% if crm_thread %}
+  <form class="card p-4 space-y-2 text-sm"
+        hx-post="{% url 'crm:thread-activity' crm_thread.id %}"
+        hx-target="#crm-activity-timeline" hx-swap="outerHTML">
+    {% csrf_token %}
+    <div class="flex gap-2">
+      <select name="activity_type" class="rounded-lg border border-stone-300 px-2 py-1.5 text-sm">
+        <option value="note">Note</option>
+        <option value="call">Call</option>
+        <option value="meeting">Meeting</option>
+        <option value="email_sent">Email sent</option>
+        <option value="email_reply">Email reply</option>
+      </select>
+      <input type="text" name="body" placeholder="What happened?"
+             class="flex-1 rounded-lg border border-stone-300 px-3 py-1.5 text-sm" />
+      <button type="submit" class="btn-soft">Log</button>
+    </div>
+  </form>
+  {% endif %}
+
+  {% include "crm/_activity_timeline.html" %}
+</div>

@@ -111,14 +111,17 @@ def test_home_view_desktop_renders_desktop_template(joseph, client):
 
 @pytest.mark.django_db
 def test_home_surfaces_red_threads_and_actions(joseph, client):
-    """Red threads come from readers.list_threads(traffic_light='red'); the
-    action queue comes from JosephIntelligence.proposals()."""
-    red = [{"id": "t-red", "org": "Mission 300", "stage": "committed",
-            "traffic_light": "red", "next_action": "18d no touch"}]
+    """Red threads come from the local CRM (traffic_light='red'); the action
+    queue comes from JosephIntelligence.proposals()."""
+    from apps.crm.models import Organization, OutreachThread
+    org = Organization.objects.create(name="Mission 300")
+    OutreachThread.objects.create(
+        org=org, stage=OutreachThread.Stage.COMMITTED, traffic_light="red",
+        next_action="18d no touch",
+    )
     notif = {"id": "n1", "kind": "gate_flag", "body": "Gate block on AfDB post",
              "urgent": True, "action": {"href": "/x"}}
-    with patch("apps.joseph.views.readers.list_threads", return_value=red), \
-         patch("apps.joseph.intelligence.readers.list_notifications", return_value=[notif]):
+    with patch("apps.joseph.intelligence.readers.list_notifications", return_value=[notif]):
         resp = client.get(reverse("joseph:home") + "?view=mobile")
     assert resp.status_code == 200
     assert b"Mission 300" in resp.content
