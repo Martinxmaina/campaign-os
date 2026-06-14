@@ -252,6 +252,12 @@ def _resolve_provider(account):
         env_creds = getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {})
         credentials = env_creds.get(account.platform, {})
 
+    if account.platform == "linkedin_company":
+        # The org-level PlatformCredential carries app creds (client_id/secret);
+        # the org URN to query follower analytics for is the connected account's
+        # native id, so inject it for LinkedInCompanyProvider.get_account_metrics.
+        credentials = {**credentials, "account_platform_id": account.account_platform_id}
+
     if account.platform == "mastodon" and account.instance_url:
         from apps.social_accounts.models import MastodonAppRegistration
 
