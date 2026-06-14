@@ -33,6 +33,38 @@ def test_save_requires_both_fields(admin_client, organization):
 
 
 @pytest.mark.django_db
+def test_ghost_configured_via_env_shows_connect_button(admin_client, settings):
+    """An env-provided Ghost key (GHOST_ADMIN_API_KEY) makes the card show as
+    configured so the 'Connect Ghost' button appears — no DB row / re-entry needed."""
+    settings.PLATFORM_CREDENTIALS_FROM_ENV = {
+        "ghost": {"admin_api_key": "id:secret", "base_url": "https://x.ghost.io"}
+    }
+    resp = admin_client.get(reverse("credentials:list"))
+    assert resp.status_code == 200
+    assert b"Connect Ghost" in resp.content
+
+
+@pytest.mark.django_db
+def test_resolve_credentials_prefers_db_then_env(organization, settings):
+    """_resolve_credentials returns the DB row when present, else the env fallback."""
+    from apps.credentials.views import _resolve_credentials
+
+    settings.PLATFORM_CREDENTIALS_FROM_ENV = {
+        "ghost": {"admin_api_key": "env-id:envsecret", "base_url": "https://env.ghost.io"}
+    }
+    # No DB row → env fallback
+    assert _resolve_credentials(organization, "ghost")["admin_api_key"] == "env-id:envsecret"
+
+    # DB row wins over env
+    PlatformCredential.objects.create(
+        organization=organization, platform="ghost",
+        credentials={"admin_api_key": "db-id:dbsecret", "base_url": "https://db.ghost.io"},
+        is_configured=True,
+    )
+    assert _resolve_credentials(organization, "ghost")["admin_api_key"] == "db-id:dbsecret"
+
+
+@pytest.mark.django_db
 def test_non_admin_cannot_save(client, user, organization):
     from apps.members.models import OrgMembership
     OrgMembership.objects.create(user=user, organization=organization, org_role="member")

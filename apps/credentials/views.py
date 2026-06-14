@@ -6,6 +6,7 @@ encrypted (EncryptedJSONField) and immediately unlock the platform's
 "Connect a channel" card — no env-var / redeploy needed.
 """
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
@@ -19,6 +20,33 @@ from apps.credentials.platform_fields import (
     field_keys,
     required_field_keys,
 )
+
+
+def _env_credentials(platform):
+    """Credentials supplied via environment (settings.PLATFORM_CREDENTIALS_FROM_ENV).
+
+    These are set as Railway env vars (e.g. GHOST_ADMIN_API_KEY) and are the
+    permanent, not-in-git way to configure a platform. The publish path already
+    falls back to them; the UI must too, so an env-configured platform shows as
+    connected + connectable without re-entering the key.
+    """
+    return dict((getattr(settings, "PLATFORM_CREDENTIALS_FROM_ENV", {}) or {}).get(platform, {}) or {})
+
+
+def _resolve_credentials(org, platform):
+    """Resolve a platform's credentials: saved DB row first, else env fallback.
+
+    Returns the credentials dict (empty if neither configured).
+    """
+    if org:
+        cred = (
+            PlatformCredential.objects.for_org(org.id)
+            .filter(platform=platform, is_configured=True)
+            .first()
+        )
+        if cred and cred.credentials:
+            return dict(cred.credentials)
+    return _env_credentials(platform)
 
 
 def _get_org(request):
@@ -55,6 +83,9 @@ def credentials_list(request):
     cards = []
     for platform, spec in PLATFORM_FIELDS.items():
         state = existing.get(platform, {})
+        # An env-provided key (e.g. GHOST_ADMIN_API_KEY) counts as configured even
+        # with no DB row, so the card shows connected + the Connect button appears.
+        env_configured = bool(_env_credentials(platform))
         cards.append({
             "platform": platform,
             "label": spec["label"],
@@ -63,7 +94,8 @@ def credentials_list(request):
             # the same way; the optional 4th tuple element (required flag) is
             # only consumed server-side by required_field_keys().
             "fields": [tuple(f[:3]) for f in spec["fields"]],
-            "is_configured": state.get("is_configured", False),
+            "is_configured": state.get("is_configured", False) or env_configured,
+            "configured_via_env": env_configured and not state.get("is_configured", False),
             "masked": state.get("masked", {}),
             "accounts": accounts.get(platform, []),
         })
@@ -136,13 +168,11 @@ def connect_ghost(request):
     if not _can_manage(request, org):
         messages.error(request, "You need org owner/admin to connect channels.")
         return redirect("credentials:list")
-    cred = (
-        PlatformCredential.objects.for_org(org.id)
-        .filter(platform="ghost", is_configured=True)
-        .first()
-    )
-    if not cred:
-        messages.error(request, "Save Ghost credentials first.")
+    # DB credential row first, else the env key (GHOST_ADMIN_API_KEY) — the same
+    # fallback the publish path uses, so an env-configured Ghost connects from the UI.
+    creds = _resolve_credentials(org, "ghost")
+    if not creds.get("admin_api_key"):
+        messages.error(request, "Save Ghost credentials first (or set GHOST_ADMIN_API_KEY).")
         return redirect("credentials:list")
 
     from apps.social_accounts.models import SocialAccount
@@ -150,7 +180,7 @@ def connect_ghost(request):
     from providers import get_provider
 
     try:
-        profile = get_provider("ghost", dict(cred.credentials)).get_profile("")
+        profile = get_provider("ghost", dict(creds)).get_profile("")
     except Exception as exc:  # noqa: BLE001
         messages.error(request, f"Ghost connection failed: {exc}")
         return redirect("credentials:list")
