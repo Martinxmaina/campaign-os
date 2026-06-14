@@ -12,6 +12,29 @@ class GateError(Exception):
     pass
 
 
+def check_gate(content: str, *, track: str | None = None, author: str | None = None,
+               content_type: str = "email") -> dict:
+    """Submit ``content`` to agent-service ``POST /gate/check`` and return its
+    verdict dict ``{verdict, findings, gate_id, content_hash}``.
+
+    This is the *issuing* side of the gate (verify_gate is the read-back side).
+    It reuses the bearer-token agent-service client so the single gate path in
+    the service stays authoritative; ``track``/``author`` are forwarded as the
+    spec contract metadata. Raises ``GateError`` on any transport/config error
+    so the caller fails closed."""
+    from apps.common.agent_client import AgentClientError, agent_post
+
+    payload = {"content": content, "content_type": content_type}
+    if track:
+        payload["track"] = track
+    if author:
+        payload["author"] = author
+    try:
+        return agent_post("/gate/check", payload)
+    except AgentClientError as exc:
+        raise GateError(f"gate check error: {exc}") from exc
+
+
 def verify_gate(gate_id: str) -> dict:
     """Call agent-service GET /gate/verify/{id} with HMAC signing. Returns
     {gate_id, verdict, content_hash} or raises GateError."""
