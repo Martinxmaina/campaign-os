@@ -92,3 +92,85 @@ class SuppressionEntry(TimestampedUUID):
 
     def __str__(self):
         return f"{self.email} ({self.reason})"
+
+
+# Step ``kind`` values that are *human* channels — never auto-sent. ``advance``
+# turns a due human step into a ``crm.Task`` for the thread owner. Everything
+# else (``email``) flows through the gated ``send_email`` orchestrator.
+HUMAN_CHANNELS = ("linkedin", "whatsapp", "call")
+
+
+class SequenceTemplate(TimestampedUUID):
+    """A reusable multi-step outreach plan.
+
+    ``steps`` is an ordered list of dicts, each
+    ``{"kind": "email"|"linkedin"|"whatsapp"|"call", "delay_days": int,
+    "subject": str, "body": str}``. ``enroll`` materialises a :class:`Sequence`
+    per thread from this plan, computing ``scheduled_for`` as the running sum of
+    ``delay_days``.
+    """
+
+    name = models.CharField(max_length=120, db_index=True)
+    description = models.TextField(blank=True, default="")
+    steps = models.JSONField(default=list, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class Sequence(TimestampedUUID):
+    """A template enrolled against one thread — its live, advancing instance."""
+
+    class Status(models.TextChoices):
+        ACTIVE = "active"
+        PAUSED = "paused"
+        COMPLETED = "completed"
+
+    template = models.ForeignKey(
+        SequenceTemplate, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="sequences",
+    )
+    thread = models.ForeignKey(
+        "crm.OutreachThread", on_delete=models.CASCADE, related_name="sequences"
+    )
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.ACTIVE, db_index=True
+    )
+
+    def __str__(self):
+        return f"Sequence {self.id} ({self.status})"
+
+
+class SequenceStep(TimestampedUUID):
+    """One materialised step of a :class:`Sequence` — email or human-channel."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending"
+        SENT = "sent"
+        TASK_OPEN = "task_open"
+        SKIPPED = "skipped"
+
+    sequence = models.ForeignKey(
+        Sequence, on_delete=models.CASCADE, related_name="steps"
+    )
+    position = models.PositiveIntegerField(default=1)
+    kind = models.CharField(max_length=16, default="email")
+    subject = models.CharField(max_length=255, blank=True, default="")
+    body = models.TextField(blank=True, default="")
+    delay_days = models.PositiveIntegerField(default=0)
+    scheduled_for = models.DateTimeField(db_index=True)
+    status = models.CharField(
+        max_length=12, choices=Status.choices, default=Status.PENDING, db_index=True
+    )
+    # Provider message id (email) once sent — audit trail back to the transport.
+    message_id = models.CharField(max_length=128, blank=True, default="")
+
+    class Meta:
+        ordering = ["position"]
+
+    @property
+    def is_human_channel(self) -> bool:
+        return self.kind in HUMAN_CHANNELS
+
+    def __str__(self):
+        return f"step {self.position} {self.kind} ({self.status})"

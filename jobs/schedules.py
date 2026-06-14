@@ -90,4 +90,11 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.crm.tasks.flag_no_reply",
         "schedule": schedule(run_every=86400),  # daily
     },
+    "outreach-advance": {
+        # Advance multi-step outreach sequences: gate+send due email steps and
+        # open owner tasks for due human-channel steps (linkedin/whatsapp/call).
+        # Every outbound email goes through the gate inside send_email. Daily.
+        "task": "apps.outreach.tasks.advance_sequences",
+        "schedule": schedule(run_every=86400),  # daily
+    },
 }
