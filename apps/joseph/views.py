@@ -86,6 +86,8 @@ def home(request):
     # Joseph's personal content queue (a teaser strip; full surface is Task 9).
     content = _joseph_content(workspace, request.user)
 
+    is_mobile = _is_mobile(request)
+
     context = {
         "today": timezone.localdate(),
         "today_events": today_events,
@@ -94,10 +96,39 @@ def home(request):
         "red_threads": red_threads,
         "red_thread_count": len(red_threads),
         "content": content,
-        "is_mobile": _is_mobile(request),
+        "is_mobile": is_mobile,
     }
-    template = "joseph/home_mobile.html" if context["is_mobile"] else "joseph/home_desktop.html"
+
+    # The desktop operational surface adds a capital funnel + an escalations
+    # strip on top of the shared home data. Both degrade to empty/zero when the
+    # agent-service is down (the readers swallow AgentClientError) — never a 500.
+    if not is_mobile:
+        context["funnel"] = _capital_funnel()
+        context["escalations"] = [a for a in actions if a.get("urgent")]
+
+    template = "joseph/home_mobile.html" if is_mobile else "joseph/home_desktop.html"
     return render(request, template, context)
+
+
+# The pipeline statuses that make up Joseph's capital funnel, in flow order.
+_FUNNEL_STATUSES = [
+    ("draft", "Draft"),
+    ("scheduled", "Scheduled"),
+    ("published", "Published"),
+]
+
+
+def _capital_funnel() -> list[dict]:
+    """Draft → Scheduled → Published content counts for the desktop funnel.
+
+    Each count comes from ``readers.list_content(status=...)`` (the fixed
+    agent-service ``/content/items`` route). The reader returns ``[]`` when the
+    service is down, so a funnel stage degrades to a zero count rather than a 500.
+    """
+    return [
+        {"key": key, "label": label, "count": len(readers.list_content(status=key))}
+        for key, label in _FUNNEL_STATUSES
+    ]
 
 
 def _today_events(workspace):

@@ -3,9 +3,11 @@
 
 {% comment %}
 Desktop operational shell for Joseph. Extends base.html so it inherits the real
-Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. This is
-the minimal shell for the spine — the capital funnel + escalations strip are
-fleshed out in Task 7. CSP-safe: plain links, no inline handlers.
+Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. On top
+of the shared home data (Today / Red threads) it adds the three operational
+surfaces from Task 7: a capital funnel (draft/scheduled/published counts), an
+escalations strip (the urgent slice of the action queue), and the full action
+queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
 {% endcomment %}
 
 {% block content %}
@@ -46,6 +48,37 @@ fleshed out in Task 7. CSP-safe: plain links, no inline handlers.
         {% endfor %}
       </div>
 
+      {# ── Capital funnel ─────────────────────────────────────── #}
+      <div>
+        <div class="sidebar-section-label" style="padding-left:0">Capital funnel</div>
+        <div class="grid grid-cols-3 gap-3">
+          {% for stage in funnel %}
+          <div class="card p-4">
+            <div class="font-display text-2xl">{{ stage.count }}</div>
+            <div class="text-xs text-stone-500 mt-1">{{ stage.label }}</div>
+          </div>
+          {% endfor %}
+        </div>
+        <div class="card p-5 mt-3">
+          <div class="text-sm font-bold mb-3">Content by stage</div>
+          <div class="space-y-2.5 text-sm">
+            {% for stage in funnel %}
+            <div>
+              <div class="flex justify-between mb-1">
+                <span>{{ stage.label }}</span>
+                <span class="text-stone-500">{{ stage.count }}</span>
+              </div>
+              <div class="h-2 rounded-full bg-stone-100">
+                {% if stage.count %}
+                <div class="h-2 rounded-full" style="width:{% widthratio stage.count funnel.0.count|add:funnel.1.count|add:funnel.2.count|default:1 100 %}%;background:var(--primary)"></div>
+                {% endif %}
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
       {# ── Red threads ────────────────────────────────────────── #}
       <div>
         <div class="sidebar-section-label" style="padding-left:0;color:var(--error)">Red threads</div>
@@ -66,8 +99,21 @@ fleshed out in Task 7. CSP-safe: plain links, no inline handlers.
 
     </div>
 
-    {# ── Action queue ─────────────────────────────────────────── #}
+    {# ── Escalations strip + Action queue ─────────────────────── #}
     <div class="space-y-4">
+
+      <div class="rounded-xl border border-red-200 bg-red-50 p-4">
+        <div class="text-[10px] font-bold tracking-wider text-red-600 mb-2">Escalations</div>
+        {% for a in escalations %}
+        <div class="text-sm text-red-800 {% if not forloop.first %}mt-1.5{% endif %} flex items-center justify-between gap-3">
+          <span class="min-w-0 truncate">{{ a.subtitle|default:a.title }}</span>
+          {% if a.href %}<a href="{{ a.href }}" class="text-xs font-semibold text-red-700 flex-shrink-0">Open →</a>{% endif %}
+        </div>
+        {% empty %}
+        <div class="text-sm text-red-800/70">Nothing escalated — you're on top of it.</div>
+        {% endfor %}
+      </div>
+
       <div class="card p-4">
         <div class="flex items-center justify-between mb-2">
           <div class="text-[10px] font-bold tracking-wider text-stone-400">Action queue</div>
