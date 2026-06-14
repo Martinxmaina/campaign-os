@@ -271,6 +271,21 @@ def sync_google_gmail(self):
             )
             continue
 
+        # Reply-triage: match these inbound messages to CRM threads, record
+        # email_reply Activities, pause active sequences, notify owners. Lazy
+        # import (avoids a heavy import at autodiscover) + best-effort so a
+        # triage hiccup never stalls the intelligence-plane ingest below.
+        try:
+            from apps.outreach.triage import triage_inbound
+
+            triage_inbound(messages)
+        except Exception as exc:  # triage must never abort the ingest feed
+            logger.warning(
+                "sync_google_gmail: triage failed for user %s: %s",
+                integration.user_id,
+                exc,
+            )
+
         for msg in messages:
             mid = msg.get("id")
             if not mid:

@@ -97,4 +97,11 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.outreach.tasks.advance_sequences",
         "schedule": schedule(run_every=86400),  # daily
     },
+    "outreach-no-reply": {
+        # Draft follow-ups for sent outreach email steps that have gone
+        # unanswered: open an owner Task + flip traffic_light amber (>=14d) /
+        # red (>=28d). Never auto-sends — the owner sends through the gate. Daily.
+        "task": "apps.outreach.tasks.run_no_reply_followups",
+        "schedule": schedule(run_every=86400),  # daily
+    },
 }
