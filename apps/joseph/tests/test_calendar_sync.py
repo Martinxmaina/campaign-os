@@ -203,8 +203,11 @@ def test_build_calendar_service_uses_refresh_token():
         def __init__(self, **kw):
             captured.update(kw)
 
-    with patch.object(google_calendar, "Credentials", _Creds), patch.object(
-        google_calendar, "build", return_value="svc"
+    # google libs are imported lazily inside build_calendar_service (so the
+    # Celery worker can autodiscover the task without google installed), so patch
+    # the real import sources, not module-level names.
+    with patch("google.oauth2.credentials.Credentials", _Creds), patch(
+        "googleapiclient.discovery.build", return_value="svc"
     ) as build:
         svc = google_calendar.build_calendar_service(
             type("GI", (), {"refresh_token": "1//rt", "scopes": ["s"]})()

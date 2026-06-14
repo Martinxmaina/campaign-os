@@ -224,8 +224,11 @@ def test_build_gmail_service_uses_refresh_token():
         def __init__(self, **kw):
             captured.update(kw)
 
-    with patch.object(gmail, "Credentials", _Creds), patch.object(
-        gmail, "build", return_value="svc"
+    # google libs are imported lazily inside build_gmail_service (so the Celery
+    # worker can autodiscover the task without google installed), so patch the
+    # real import sources, not module-level names.
+    with patch("google.oauth2.credentials.Credentials", _Creds), patch(
+        "googleapiclient.discovery.build", return_value="svc"
     ) as build:
         svc = gmail.build_gmail_service(
             type("GI", (), {"refresh_token": "1//rt", "scopes": ["s"]})()

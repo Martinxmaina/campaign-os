@@ -31,6 +31,12 @@ whitenoise>=6.7,<7.0
 # HTTP client (provider API calls)
 httpx>=0.27,<1.0
 
+# Google APIs — Sheets (content intake), Calendar + Gmail (Joseph feeds).
+# Imported lazily in apps/content_intake/sheets_sync.py + integrations/*.py;
+# pip resolves the transitive google-api-core / httplib2 / uritemplate deps.
+google-api-python-client>=2.197.0,<3.0
+google-auth>=2.53.0,<3.0
+
 # Date utilities
 python-dateutil>=2.9,<3.0
 

@@ -17,8 +17,6 @@ from datetime import timedelta
 
 from django.conf import settings
 from django.utils import timezone
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
 
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.readonly"
@@ -29,7 +27,16 @@ def build_calendar_service(integration):
 
     Reuses the Sheets OAuth client id/secret (one Google Cloud OAuth client for
     the workspace); the per-user refresh token comes from the integration.
+
+    The google client libs are imported lazily here (mirroring
+    ``apps/content_intake/sheets_sync.py``) so merely importing this module — and
+    the Celery task that does, during autodiscover — never requires ``google``.
+    The sync tasks no-op without a ``GoogleIntegration`` row, so this is only
+    reached once a mailbox/calendar is actually connected.
     """
+    from google.oauth2.credentials import Credentials
+    from googleapiclient.discovery import build
+
     creds = Credentials(
         token=None,
         refresh_token=integration.refresh_token,
