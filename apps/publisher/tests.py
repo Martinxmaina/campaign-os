@@ -127,6 +127,9 @@ def _build_dispatch_mocks(platform: str, account_platform_id: str, platform_extr
     mock_provider = MagicMock()
     mock_provider.auth_type = AuthType.OAUTH2
     mock_provider.supported_post_types = [PostType.TEXT]
+    # The publish-time caption-limit guard compares len(caption) against this,
+    # so it must be a real int (a bare MagicMock makes the comparison raise).
+    mock_provider.max_caption_length = 3000
     mock_provider.publish_post.return_value = PublishResult(
         platform_post_id="post-1",
         url="https://example.com/p/1",

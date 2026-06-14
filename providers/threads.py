@@ -371,7 +371,7 @@ class ThreadsProvider(SocialProvider):
             access_token=access_token,
             data={
                 "media_type": "TEXT",
-                "text": text[: self.max_caption_length],
+                "text": text,
                 "reply_to_id": post_id,
             },
         )
