@@ -88,6 +88,7 @@ LOCAL_APPS = [
     "apps.content_intake",
     "apps.evals",
     "apps.joseph",
+    "apps.crm",
     "theme",
 ]
 
