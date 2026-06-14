@@ -41,6 +41,30 @@ logger = logging.getLogger(__name__)
 # Retry backoff schedule (in seconds)
 RETRY_BACKOFF = [60, 300, 1800]  # 1min, 5min, 30min
 
+# HTTP statuses that mean "the access token is no longer valid" — refresh the
+# token and retry once rather than replaying the dead token through the normal
+# exponential-backoff loop. 401 = unauthenticated, 403 = the token is valid but
+# the platform rejected it as expired/revoked (LinkedIn returns 403 for some
+# token states).
+_AUTH_FAILURE_STATUSES = {401, 403}
+
+
+def _is_auth_failure(exc: Exception) -> bool:
+    """True when ``exc`` indicates the access token must be refreshed.
+
+    Covers the two shapes the providers raise: an ``APIError`` carrying a
+    401/403 ``status_code`` (the base ``_request`` helper), and the explicit
+    ``TokenExpiredError`` type. Anything else (500s, rate limits, validation
+    errors) is NOT an auth failure and must flow through the normal loop.
+    """
+    from providers.exceptions import APIError, TokenExpiredError
+
+    if isinstance(exc, TokenExpiredError):
+        return True
+    if isinstance(exc, APIError):
+        return exc.status_code in _AUTH_FAILURE_STATUSES
+    return False
+
 
 class GateBlockError(Exception):
     """Raised at the provider dispatch chokepoint when a PlatformPost is not
@@ -613,7 +637,7 @@ class PublishEngine:
                 post_type.value,
                 len(media_files),
             )
-            result = provider.publish_post(access_token, content)
+            result = self._publish_with_auth_retry(provider, account, access_token, content)
             return {
                 "success": True,
                 "platform_post_id": result.platform_post_id,
@@ -625,6 +649,88 @@ class PublishEngine:
             for path in temp_files:
                 with contextlib.suppress(OSError):
                     os.unlink(path)
+
+    def _publish_with_auth_retry(self, provider, account, access_token, content):
+        """Call ``provider.publish_post`` with a single token-refresh retry on 401.
+
+        The pre-publish expiry check above refreshes tokens that are *known* to
+        be expiring, but a token can still die between that check and the
+        provider call (clock skew, early server-side revocation). When the
+        publish itself comes back as an auth failure (401/403) and the account
+        is an OAuth2 account with a refresh token, refresh + persist + retry the
+        publish exactly ONCE. This is deliberately OUTSIDE the engine's
+        exponential-backoff loop: a dead token will never recover by waiting, so
+        replaying it with backoff just burns the retry budget. If there is no
+        refresh token, or the single retry still fails auth, mark the account
+        needs-reconnect (connection_status=ERROR) and re-raise so the caller
+        logs the failure exactly as it does today.
+        """
+        try:
+            return provider.publish_post(access_token, content)
+        except Exception as exc:
+            if not _is_auth_failure(exc):
+                raise
+
+            can_refresh = (
+                provider.auth_type == AuthType.OAUTH2
+                and bool(account.oauth_refresh_token)
+            )
+            if not can_refresh:
+                self._mark_needs_reconnect(account, exc)
+                raise
+
+            logger.info("Publish 401 for %s — refreshing token and retrying once", account)
+            try:
+                new_access_token = self._refresh_account_token(provider, account)
+            except Exception:
+                logger.exception("Token refresh after 401 failed for %s", account)
+                self._mark_needs_reconnect(account, exc)
+                raise exc from None
+
+            try:
+                return provider.publish_post(new_access_token, content)
+            except Exception as retry_exc:
+                if _is_auth_failure(retry_exc):
+                    self._mark_needs_reconnect(account, retry_exc)
+                raise
+
+    @staticmethod
+    def _refresh_account_token(provider, account) -> str:
+        """Refresh + persist OAuth tokens for ``account``; return the new access token.
+
+        Mirrors the refresh+persist logic in the health-check task
+        (``apps.social_accounts.tasks.check_social_account_health``) so a
+        refresh triggered by a publish 401 leaves the account in the exact same
+        shape a scheduled health check would.
+        """
+        new_tokens = provider.refresh_token(account.oauth_refresh_token)
+        account.oauth_access_token = new_tokens.access_token
+        if new_tokens.refresh_token:
+            account.oauth_refresh_token = new_tokens.refresh_token
+        if new_tokens.expires_in:
+            account.token_expires_at = timezone.now() + timedelta(seconds=new_tokens.expires_in)
+        account.connection_status = account.ConnectionStatus.CONNECTED
+        account.last_error = ""
+        account.save(
+            update_fields=[
+                "oauth_access_token",
+                "oauth_refresh_token",
+                "token_expires_at",
+                "connection_status",
+                "last_error",
+                "updated_at",
+            ]
+        )
+        logger.info("Refreshed token for %s after publish 401", account)
+        return new_tokens.access_token
+
+    @staticmethod
+    def _mark_needs_reconnect(account, exc: Exception) -> None:
+        """Flag the account ERROR (``needs_reconnect``) on a terminal auth failure."""
+        account.connection_status = account.ConnectionStatus.ERROR
+        account.last_error = str(exc)[:500]
+        account.save(update_fields=["connection_status", "last_error", "updated_at"])
+        logger.warning("Marked %s needs-reconnect after publish auth failure: %s", account, exc)
 
     @staticmethod
     def _resolve_post_type(
