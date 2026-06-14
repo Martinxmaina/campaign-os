@@ -1,0 +1,15 @@
+{% comment %}
+Drawer · Tasks tab — next actions on this thread. Lightweight in this spine: the
+thread's single next_action surfaces here; full task management arrives later.
+Context: `thread`.
+{% endcomment %}
+{% if thread.next_action %}
+  <div class="card p-4 flex items-center justify-between text-sm">
+    <div>
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">NEXT ACTION</div>
+      <div class="mt-1 font-medium">{{ thread.next_action }}</div>
+    </div>
+  </div>
+{% else %}
+  <div class="card p-6 text-center text-sm text-stone-400">No open tasks on this thread.</div>
+{% endif %}

@@ -11,8 +11,13 @@ urlpatterns = [
     path("brief/<str:thread_id>/", views.brief, name="brief"),
     path("brief/<str:thread_id>/refresh/", views.brief_refresh, name="brief-refresh"),
     # Deal-flow kanban — threads grouped into stage columns; cards link to the
-    # thread drawer (/joseph/thread/<id>/, added in Task 6).
+    # thread drawer (/joseph/thread/<id>/).
     path("pipeline/", views.pipeline, name="pipeline"),
+    # Thread drawer — full operational view of one deal thread: header (org +
+    # stage + score) + actions + six HTMX tabs (?tab=brief|timeline|intelligence
+    # |tasks|deck|sequence). thread_id is the agent-service thread id (a string).
+    path("thread/<str:thread_id>/", views.thread_drawer, name="thread"),
+    path("thread/<str:thread_id>/escalate/", views.thread_escalate, name="thread-escalate"),
     path("voice/", views.voice_editor, name="voice"),
     path("voice/save/", views.voice_save, name="voice-save"),
     # proposal_id is a UUID string in agent-service (VoiceProposal.id); str (not int)

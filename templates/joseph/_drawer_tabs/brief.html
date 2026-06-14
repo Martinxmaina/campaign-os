@@ -1,0 +1,46 @@
+{% comment %}
+Drawer · Brief tab — reuses the L0 editorial card (WHO / WHY NOW / HOOK /
+RED FLAGS / WARM PATH / FRESHNESS). Context: `card`, `thread_id`. Swapped in by
+the HTMX tab switch; also the default tab in the drawer shell.
+{% endcomment %}
+<div class="grid md:grid-cols-2 gap-3 text-sm">
+  {% if not card.has_dossier %}
+    <div class="card p-6 text-center md:col-span-2">
+      <div class="text-sm text-stone-500">No dossier yet — compile the intelligence for this thread.</div>
+      <a href="{% url 'joseph:brief' thread_id %}" class="btn-brand mt-4">Open brief →</a>
+    </div>
+  {% else %}
+    <div class="bg-stone-50 rounded-lg p-4">
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">WHO</div>
+      <div class="mt-1">{{ card.who|default:"—" }}</div>
+    </div>
+    <div class="bg-stone-50 rounded-lg p-4">
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">WHY NOW</div>
+      <div class="mt-1">{{ card.why_now|default:"No summary yet." }}</div>
+    </div>
+    <div class="bg-stone-50 rounded-lg p-4">
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">HOOK</div>
+      <div class="mt-1">{{ card.hook|default:"—" }}</div>
+    </div>
+    <div class="bg-emerald-50 rounded-lg p-4">
+      <div class="text-[10px] font-bold tracking-wider text-emerald-600">WARM PATH</div>
+      <div class="mt-1">{{ card.warm_path }}</div>
+    </div>
+    <div class="bg-red-50 rounded-lg p-4 md:col-span-2">
+      <div class="text-[10px] font-bold tracking-wider text-red-500">RED FLAGS</div>
+      {% if card.red_flags %}
+      <ul class="mt-1 space-y-1 list-disc list-inside text-stone-600">
+        {% for flag in card.red_flags %}<li>{{ flag }}</li>{% endfor %}
+      </ul>
+      {% else %}
+      <div class="mt-1 text-stone-400">None flagged.</div>
+      {% endif %}
+    </div>
+    <div class="md:col-span-2 text-xs text-stone-400">
+      Dossier ·
+      {% if card.freshness.updated_at %}{{ card.freshness.updated_at }}{% else %}not yet compiled{% endif %}
+      · {{ card.freshness.sources }} source{{ card.freshness.sources|pluralize }} ·
+      <a href="{% url 'joseph:brief' thread_id %}" class="font-semibold" style="color:var(--brand-700)">Full intelligence → L2</a>
+    </div>
+  {% endif %}
+</div>

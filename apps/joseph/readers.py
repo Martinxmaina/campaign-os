@@ -74,6 +74,24 @@ def mark_read(notification_id: str) -> bool:
         return False
 
 
+def create_notification(kind: str, body: str, *, thread_id: str = "", urgent: bool = False,
+                        action: dict | None = None) -> dict:
+    """POST /notifications → create a notification (e.g. an Escalate from the
+    thread drawer). Degrades to ``{}`` when the agent-service is down so the
+    surface never 500s on an outage."""
+    payload = {
+        "kind": kind,
+        "body": body,
+        "urgent": urgent,
+        "thread_id": thread_id,
+        "action": action or {},
+    }
+    try:
+        return agent_post("/notifications", payload) or {}
+    except AgentClientError:
+        return {}
+
+
 # --- knowledge wiki -------------------------------------------------------
 
 

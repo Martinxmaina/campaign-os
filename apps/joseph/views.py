@@ -235,6 +235,96 @@ def pipeline(request):
     return render(request, "joseph/pipeline.html", {"columns": columns})
 
 
+_DRAWER_TABS = [
+    ("brief", "Brief"),
+    ("timeline", "Timeline"),
+    ("intelligence", "Intelligence"),
+    ("tasks", "Tasks"),
+    ("deck", "Deck"),
+    ("sequence", "Sequence"),
+]
+_DRAWER_TAB_KEYS = {key for key, _ in _DRAWER_TABS}
+
+
+@login_required
+def thread_drawer(request, thread_id):
+    """Joseph's thread drawer — the full operational view of one deal thread.
+
+    A header (org + stage + score + traffic-light) with actions (Request deck /
+    Capture → stubs for later phases, Escalate → creates a notification) over
+    six HTMX-swappable tabs: Brief / Timeline / Intelligence / Tasks / Deck /
+    Sequence. Brief reuses the L0 card; Intelligence pulls the org's wiki page +
+    org-filtered news; Deck/Sequence are present-but-stubbed so later phases drop
+    in without a re-layout.
+
+    A full GET renders the shell (defaulting to the Brief tab); an ``HX-Request``
+    with ``?tab=`` returns only that tab's partial (CSP-safe ``hx-get``). Every
+    agent-service read degrades to a safe default when the service is down —
+    the drawer renders an empty state, never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    tab = (request.GET.get("tab") or "brief").lower()
+    if tab not in _DRAWER_TAB_KEYS:
+        tab = "brief"
+
+    thread = readers.get_thread(thread_id)
+    context = {
+        "thread_id": thread_id,
+        "thread": thread,
+        "tab": tab,
+        "tabs": _DRAWER_TABS,
+    }
+    context.update(_drawer_tab_context(tab, thread_id, thread))
+
+    # HTMX tab switch → swap only the tab partial; a full GET renders the shell.
+    if getattr(request, "htmx", False):
+        return render(request, f"joseph/_drawer_tabs/{tab}.html", context)
+    return render(request, "joseph/thread_drawer.html", context)
+
+
+def _drawer_tab_context(tab: str, thread_id: str, thread: dict) -> dict:
+    """Compose the per-tab context (only the active tab does any work)."""
+    if tab == "brief":
+        return {"card": JosephIntelligence().brief(thread_id, "l0")}
+    if tab == "timeline":
+        state = thread.get("state") or {}
+        return {"timeline": state.get("timeline") or []}
+    if tab == "intelligence":
+        org = thread.get("org") or ""
+        from django.utils.text import slugify
+
+        page = readers.get_page(slugify(org), tier="l1") if org else {}
+        return {"org": org, "page": page, "news": readers.news_about(org) if org else []}
+    # tasks / deck / sequence carry no extra context (stubbed surfaces).
+    return {}
+
+
+@login_required
+@require_POST
+def thread_escalate(request, thread_id):
+    """Escalate a thread to Joseph's attention by creating an (urgent)
+    notification on the intelligence plane. Degrades quietly when the service is
+    down (the reader swallows AgentClientError → empty dict)."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+    thread = readers.get_thread(thread_id)
+    org = (thread or {}).get("org") or thread_id
+    result = readers.create_notification(
+        kind="escalation",
+        body=f"Escalated: {org} needs your attention.",
+        thread_id=thread_id,
+        urgent=True,
+        action={"href": f"/joseph/thread/{thread_id}/"},
+    )
+    if result:
+        messages.success(request, "Escalated — flagged for your attention.")
+    else:
+        messages.error(request, "Couldn't escalate — intelligence service unavailable.")
+    return redirect("joseph:thread", thread_id=thread_id)
+
+
 @login_required
 def voice_editor(request):
     if not _can_manage_voice(request):

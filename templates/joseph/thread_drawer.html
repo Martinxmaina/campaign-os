@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Joseph · {{ thread.org|default:"Thread" }}{% endblock %}
+
+{% comment %}
+Desktop thread drawer for Joseph. Extends base.html so it inherits the real
+Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. The
+header surfaces org + traffic-light + stage + days + score + quintile, plus
+actions (Request deck / Capture → stubs, Escalate → POST that creates a
+notification). Below, six tabs swap their body via HTMX (CSP-safe hx-get into
+#drawer-body, no inline handlers): Brief / Timeline / Intelligence / Tasks /
+Deck / Sequence. The Brief tab is the default (rendered server-side here).
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1">
+  <div class="card shadow-sm overflow-hidden max-w-3xl" id="drawer-root">
+
+    {# ── Header: org · traffic-light · stage · score + actions ─────── #}
+    <div class="px-6 py-4 border-b border-stone-200">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <div class="font-display text-xl">{{ thread.org|default:thread_id }}</div>
+          <div class="text-sm text-stone-500 flex items-center gap-2 mt-1 flex-wrap">
+            <span class="inline-block h-2.5 w-2.5 rounded-full"
+                  style="background:{% if thread.traffic_light == 'red' %}var(--error){% elif thread.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
+            {% if thread.stage %}<span class="capitalize">{{ thread.stage }}</span>{% endif %}
+            {% if thread.score is not None %}<span>· Score {{ thread.score }}</span>{% endif %}
+            {% if thread.quintile %}<span>· Q{{ thread.quintile }}</span>{% endif %}
+          </div>
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <button type="button" class="btn-soft" disabled title="Coming in TB.5">Request deck</button>
+          <button type="button" class="btn-soft" disabled title="Coming in TB.4">Capture</button>
+          <form method="post" action="{% url 'joseph:thread-escalate' thread_id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn-soft">Escalate</button>
+          </form>
+        </div>
+      </div>
+
+      {# ── Tab nav (CSP-safe HTMX hx-get) ──────────────────────────── #}
+      <nav class="flex gap-5 mt-4 text-sm text-stone-500 flex-wrap" role="tablist" aria-label="Thread sections">
+        {% for key, label in tabs %}
+        <button type="button" role="tab"
+                hx-get="{% url 'joseph:thread' thread_id %}?tab={{ key }}"
+                hx-target="#drawer-body" hx-swap="innerHTML"
+                aria-selected="{% if key == tab %}true{% else %}false{% endif %}"
+                class="pb-2 -mb-[1px] {% if key == tab %}text-stone-900 font-semibold border-b-2 border-brand-500{% endif %}">
+          {{ label }}
+        </button>
+        {% endfor %}
+      </nav>
+    </div>
+
+    {# ── Tab body (HTMX swap target) ───────────────────────────────── #}
+    <div class="p-6" id="drawer-body">
+      {% include "joseph/_drawer_tabs/"|add:tab|add:".html" %}
+    </div>
+
+  </div>
+</div>
+{% endblock %}

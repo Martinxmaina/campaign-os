@@ -1,0 +1,36 @@
+{% comment %}
+Drawer · Intelligence tab — what the agents know about the org: the wiki page
+overview (L1) + org-filtered news. Context: `org`, `page`, `news`. Degrades to
+empty states (agent down or no page/news) — never a 500.
+{% endcomment %}
+<div class="space-y-4 text-sm">
+  <div class="card p-5">
+    <div class="flex items-center justify-between">
+      <div class="font-display text-lg">{{ page.title|default:org|default:"Knowledge" }}</div>
+      {% if page.slug %}
+      <a href="/joseph/knowledge/{{ page.slug }}/" class="text-xs font-semibold" style="color:var(--brand-700)">Open page →</a>
+      {% endif %}
+    </div>
+    {% if page.content %}
+      <p class="text-stone-600 mt-3 leading-relaxed whitespace-pre-wrap">{{ page.content }}</p>
+    {% else %}
+      <p class="text-stone-400 mt-3">No wiki page yet for this org.</p>
+    {% endif %}
+  </div>
+
+  <div>
+    <div class="sidebar-section-label" style="padding-left:0">Recent news · {{ org }}</div>
+    {% if news %}
+    <div class="card divide-y mt-1">
+      {% for item in news %}
+      <div class="p-3.5">
+        <div class="font-medium">{{ item.title }}</div>
+        {% if item.summary %}<div class="text-xs text-stone-500 mt-0.5">{{ item.summary }}</div>{% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="card p-4 mt-1 text-stone-400">No recent news mentioning {{ org|default:"this org" }}.</div>
+    {% endif %}
+  </div>
+</div>
