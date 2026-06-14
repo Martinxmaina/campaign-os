@@ -78,4 +78,16 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.joseph.tasks.sync_google_gmail",
         "schedule": schedule(run_every=600),  # 10 min
     },
+    "crm-score-threads": {
+        # DEAL-ENGINE scoring ported to Django (CRM is now canonical). Recompute
+        # score/quintile/traffic_light for every open thread, once a day.
+        "task": "apps.crm.tasks.score_all_threads",
+        "schedule": schedule(run_every=86400),  # daily
+    },
+    "crm-no-reply": {
+        # Flip traffic_light amber (>14d) / red (>28d) since last_touch on open
+        # threads and stamp a follow-up next_action. Daily.
+        "task": "apps.crm.tasks.flag_no_reply",
+        "schedule": schedule(run_every=86400),  # daily
+    },
 }
