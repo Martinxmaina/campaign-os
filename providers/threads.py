@@ -224,9 +224,11 @@ class ThreadsProvider(SocialProvider):
         content: PublishContent,
     ) -> PublishResult:
         """Create and publish a single-item thread (TEXT, IMAGE, or VIDEO)."""
-        # Step 1: Create container
+        # Step 1: Create container. The caption is NOT truncated here — the
+        # publish engine's caption-limit guard rejects over-limit text before
+        # dispatch, so silently slicing it would only mask a bug.
         container_payload: dict = {
-            "text": (content.text or "")[: self.max_caption_length],
+            "text": content.text or "",
         }
 
         if content.post_type == PostType.IMAGE and content.media_urls:
@@ -321,7 +323,8 @@ class ThreadsProvider(SocialProvider):
             data={
                 "media_type": "CAROUSEL",
                 "children": ",".join(children_ids),
-                "text": (content.text or "")[: self.max_caption_length],
+                # Caption not truncated — the engine guard rejects over-limit text.
+                "text": content.text or "",
             },
         )
         carousel_body = carousel_resp.json()

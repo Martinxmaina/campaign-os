@@ -95,6 +95,7 @@ def create_post(
 
     from apps.composer.models import PlatformPost, Post, PostMedia
     from apps.media_library.models import MediaAsset
+    from apps.social_accounts.limits import validate_caption_length
 
     if status not in _INITIAL_STATUSES:
         raise ValueError(
@@ -105,6 +106,20 @@ def create_post(
         raise ValueError("status='scheduled' requires scheduled_at.")
     if social_account.workspace_id != workspace.id:
         raise ValueError(f"SocialAccount {social_account.id} is not in workspace {workspace.id}.")
+
+    # Enforce the per-platform caption limit BEFORE any DB write. The override
+    # caption is what actually publishes when present, so validate whichever
+    # text this account will send. Raises CaptionTooLongError (a ValueError),
+    # so the API's ``except ValueError`` → 422 handler catches it unchanged.
+    override = (platform_overrides or {}).get(social_account.id) or {}
+    effective_caption = override.get("caption")
+    if effective_caption is None:
+        effective_caption = caption
+    validate_caption_length(
+        effective_caption,
+        limit=social_account.char_limit,
+        platform=social_account.platform,
+    )
 
     # Refuse to queue work against a connection the platform itself has
     # rejected. ``failed`` rows still count against the platform quota
@@ -131,8 +146,6 @@ def create_post(
         missing = [mid for mid in media_ids if mid not in asset_map]
         if missing:
             raise ValueError(f"Media asset(s) not found in workspace {workspace.id}: {missing}")
-
-    override = (platform_overrides or {}).get(social_account.id) or {}
 
     with transaction.atomic():
         post = Post.objects.create(
@@ -167,6 +180,53 @@ def create_post(
     # PlatformPost directly so this is just for listings/UI, but the
     # composer view code relies on it.
     sync_post_scheduled_at(post)
+    return post
+
+
+def update_post(
+    *,
+    post,
+    caption: str | None = None,
+    title: str | None = None,
+    first_comment: str | None = None,
+):
+    """Update editable text fields on an existing ``Post``, with caption-limit
+    enforcement.
+
+    A thin service used by the composer/API edit paths. Only the caption is
+    length-checked here — against EVERY target account's ``char_limit`` (a
+    multi-platform post must fit the strictest platform). The override caption,
+    when present on a child, is the one that publishes, so it is validated too.
+
+    Raises ``CaptionTooLongError`` (a ``ValueError``) before persisting, so a
+    rejected edit leaves the post untouched.
+    """
+    from apps.social_accounts.limits import validate_caption_length
+
+    if caption is not None:
+        for pp in post.platform_posts.select_related("social_account").all():
+            account = pp.social_account
+            effective = pp.platform_specific_caption
+            if effective is None:
+                effective = caption
+            validate_caption_length(
+                effective,
+                limit=account.char_limit,
+                platform=account.platform,
+            )
+
+    update_fields: list[str] = []
+    if caption is not None:
+        post.caption = caption
+        update_fields.append("caption")
+    if title is not None:
+        post.title = title
+        update_fields.append("title")
+    if first_comment is not None:
+        post.first_comment = first_comment
+        update_fields.append("first_comment")
+    if update_fields:
+        post.save(update_fields=[*update_fields, "updated_at"])
     return post
 
 

@@ -221,7 +221,9 @@ class YouTubeProvider(SocialProvider):
         metadata = {
             "snippet": {
                 "title": title[:100],
-                "description": description[: self.max_caption_length],
+                # Description not truncated — the publish engine's caption-limit
+                # guard rejects over-limit text before dispatch.
+                "description": description,
                 "tags": tags,
                 "categoryId": category_id,
             },

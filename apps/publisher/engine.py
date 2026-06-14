@@ -447,6 +447,24 @@ class PublishEngine:
         credentials = _resolve_publish_credentials(account)
         provider = get_provider(platform, credentials)
 
+        # Publish-time caption-limit guard. Some adapters (Threads, YouTube)
+        # used to silently truncate over-limit text; instead reject loudly so
+        # the post is never published mangled. This is the authoritative
+        # backstop behind the compose-time service/API checks — it catches
+        # content that was edited on the platform side, imported, or otherwise
+        # reached here over-limit. A length failure is a content problem, not a
+        # transient one, so it surfaces as a PublishError (logged, retried by
+        # the normal loop until it exhausts and is marked FAILED).
+        effective_caption = platform_post.effective_caption or ""
+        if len(effective_caption) > provider.max_caption_length:
+            from providers.exceptions import PublishError
+
+            raise PublishError(
+                f"Caption is {len(effective_caption)} characters but {platform} allows "
+                f"at most {provider.max_caption_length}.",
+                platform=platform,
+            )
+
         # Refresh token if expired or expiring soon (OAuth2 providers only)
         access_token = account.oauth_access_token
         if account.token_expires_at and account.is_token_expiring_soon and provider.auth_type == AuthType.OAUTH2:

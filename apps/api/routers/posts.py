@@ -352,6 +352,24 @@ def update(request, post_id: uuid.UUID, payload: UpdatePostRequest):
         if missing:
             raise HttpError(422, f"Media asset(s) not in workspace: {missing}")
 
+    # Enforce the per-platform caption limit before any mutation. The post
+    # may target multiple accounts; the new caption must fit each platform's
+    # limit (or the child's override caption, which is what actually
+    # publishes). Validate-everything-first, like the media check above —
+    # a 422 here must not leave a partial commit.
+    if payload.caption is not None:
+        from apps.social_accounts.limits import CaptionTooLongError, validate_caption_length
+
+        for pp in post.platform_posts.select_related("social_account").all():
+            account = pp.social_account
+            effective = pp.platform_specific_caption
+            if effective is None:
+                effective = payload.caption
+            try:
+                validate_caption_length(effective, limit=account.char_limit, platform=account.platform)
+            except CaptionTooLongError as exc:
+                raise HttpError(422, str(exc)) from exc
+
     # Mutating gated content (caption / media / first_comment) invalidates any
     # prior approval — the approver signed off on the *old* text. Clearing the
     # gate (gate_id=None, content_hash="") forces re-approval: the publish
