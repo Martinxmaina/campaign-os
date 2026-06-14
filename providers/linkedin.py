@@ -501,6 +501,36 @@ class LinkedInProvider(SocialProvider):
         return CommentResult(platform_comment_id=comment_urn, extra=data)
 
     # ------------------------------------------------------------------
+    # Delete (LinkedIn has no edit; "edit" is delete-recreate, orchestrated
+    # by apps/publisher/operations.py)
+    # ------------------------------------------------------------------
+
+    def delete_post(self, access_token: str, post_id: str) -> bool:
+        """Delete a published LinkedIn post via the versioned REST Posts API.
+
+        ``post_id`` is the post URN (``urn:li:share:...`` or ``urn:li:ugcPost:...``),
+        percent-encoded into the path exactly as the Posts API requires. Uses the
+        same versioned REST headers as the publish path. LinkedIn returns 204 No
+        Content on success; any 4xx/5xx surfaces as ``PublishError`` so callers
+        (operations / composer view) handle delete failures uniformly with the
+        rest of the publishing path.
+        """
+        try:
+            self._request(
+                "DELETE",
+                f"{API_BASE}/rest/posts/{_encode_urn(post_id)}",
+                access_token=access_token,
+                headers=LINKEDIN_HEADERS,
+            )
+        except APIError as exc:
+            raise PublishError(
+                f"Failed to delete LinkedIn post {post_id}: {exc}",
+                platform=self.platform_name,
+                raw_response=getattr(exc, "raw_response", {}),
+            ) from exc
+        return True
+
+    # ------------------------------------------------------------------
     # Inbox
     # ------------------------------------------------------------------
 

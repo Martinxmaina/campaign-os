@@ -14,6 +14,7 @@ Shows all published/partially_published platform posts. Loaded via HTMX into #ta
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Caption</th>
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Platform</th>
                 <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider">Author</th>
+                <th class="px-4 py-3 text-xs font-semibold text-stone-400 uppercase tracking-wider"></th>
             </tr>
         </thead>
         <tbody>
@@ -78,6 +79,24 @@ Shows all published/partially_published platform posts. Loaded via HTMX into #ta
                 </td>
                 <td class="px-4 py-3 text-xs text-stone-500">
                     {{ pp.post.author.display_name|default:"-" }}
+                </td>
+                <td class="px-4 py-3 text-right">
+                    {% comment %}
+                    LinkedIn exposes a delete endpoint (and "edit" = delete-recreate).
+                    Only offer the action where the platform supports it AND the post
+                    is live (has a platform_post_id). CSP-safe: Alpine @click.stop to
+                    avoid the row navigation, hx-post + hx-confirm (no inline onclick).
+                    {% endcomment %}
+                    {% if pp.status == 'published' and pp.platform_post_id and pp.social_account.platform in 'linkedin,linkedin_company' %}
+                    <button type="button"
+                            class="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded transition-colors"
+                            @click.stop
+                            hx-post="{% url 'composer:platform_post_operation' workspace_id=workspace.id post_id=pp.post_id platform_post_id=pp.id %}"
+                            hx-vals='{"action": "delete"}'
+                            hx-confirm="Delete this post on {{ pp.social_account.platform }}? This removes it from the platform.">
+                        Delete
+                    </button>
+                    {% endif %}
                 </td>
             </tr>
             {% endfor %}

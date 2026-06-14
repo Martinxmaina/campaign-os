@@ -861,6 +861,61 @@ def transition_platform_post(request, workspace_id, post_id, platform_post_id):
 
 
 @login_required
+@require_POST
+def platform_post_operation(request, workspace_id, post_id, platform_post_id):
+    """Delete or edit (delete-recreate) an already-published PlatformPost.
+
+    ``action=delete`` removes the live post on the platform and returns the
+    PlatformPost to draft. ``action=edit`` deletes the live post and re-publishes
+    with the new caption (LinkedIn has no edit API). Requires ``publish_directly``
+    since both touch the live platform. Provider failures surface as JSON 502 so
+    the operator sees the platform's error rather than a silent no-op.
+    """
+    from providers.exceptions import ProviderError
+
+    from apps.publisher.operations import delete_published_post, edit_published_post
+
+    workspace = _get_workspace(request, workspace_id)
+    pp = get_object_or_404(
+        PlatformPost.objects.select_related("post", "social_account"),
+        id=platform_post_id,
+        post_id=post_id,
+        post__workspace=workspace,
+    )
+
+    membership = request.workspace_membership
+    perms = membership.effective_permissions if membership else {}
+    if not perms.get("publish_directly", False):
+        raise PermissionDenied("You do not have permission to modify published posts.")
+
+    if pp.status != PlatformPost.Status.PUBLISHED or not pp.platform_post_id:
+        return JsonResponse({"error": "Post is not published on the platform."}, status=400)
+
+    action = (request.POST.get("action") or "").strip()
+    try:
+        if action == "delete":
+            delete_published_post(pp)
+        elif action == "edit":
+            new_caption = request.POST.get("caption", "")
+            edit_published_post(pp, new_caption)
+        else:
+            return JsonResponse({"error": "action must be 'delete' or 'edit'"}, status=400)
+    except ProviderError as exc:
+        logger.warning("Platform op %s failed for PlatformPost %s: %s", action, pp.id, exc)
+        return JsonResponse({"error": str(exc)}, status=502)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "action": action,
+            "status": pp.status,
+            "platform_post_id": pp.platform_post_id,
+        },
+        headers={"HX-Trigger": "postChanged"},
+    )
+
+
+@login_required
 @require_permission("create_posts")
 @require_POST
 def autosave(request, workspace_id, post_id=None):

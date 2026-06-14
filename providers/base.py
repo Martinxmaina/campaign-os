@@ -141,6 +141,17 @@ class SocialProvider(ABC):
         """Post a comment on an existing post (e.g. first comment)."""
         raise NotImplementedError(f"{self.platform_name} does not support comments")
 
+    def delete_post(self, access_token: str, post_id: str) -> bool:
+        """Delete an already-published post on the platform.
+
+        ``post_id`` is the platform-side identifier returned at publish time
+        (e.g. a LinkedIn URN). Returns True on success. Providers that expose a
+        delete endpoint override this; the default fails loudly so callers can
+        surface "this platform does not support delete" rather than silently
+        believing the post was removed.
+        """
+        raise NotImplementedError(f"{self.platform_name} does not support deleting posts")
+
     # ------------------------------------------------------------------
     # Analytics (optional - override per provider)
     # ------------------------------------------------------------------
