@@ -132,6 +132,63 @@ def _joseph_content(workspace, user):
 
 
 @login_required
+def brief(request, thread_id):
+    """Joseph's dossier brief — the screen he opens before a conversation.
+
+    L0 (default) is the editorial card: WHO / WHY NOW / HOOK / RED FLAGS /
+    WARM PATH / FRESHNESS mapped onto the existing Dossier by
+    ``JosephIntelligence`` (no agent-service change). ``?tier=l1`` returns the
+    dossier ``body_md``; ``?tier=l2`` the linked wiki page body (else body_md).
+
+    The tier toggle is an HTMX swap (CSP-safe ``hx-get``/``hx-target``): an
+    ``HX-Request`` returns just the body partial; a full GET renders the page.
+    When the agent-service is down (or the thread has no dossier) the readers
+    degrade to empty defaults and the card shows a "Compile" CTA — never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    tier = (request.GET.get("tier") or "l0").lower()
+    if tier not in ("l0", "l1", "l2"):
+        tier = "l0"
+
+    intel = JosephIntelligence()
+    card = intel.brief(thread_id, tier)
+
+    context = {
+        "thread_id": thread_id,
+        "tier": tier,
+        "card": card,
+        "has_dossier": card.get("has_dossier", False),
+        "is_mobile": _is_mobile(request),
+    }
+
+    # HTMX tier toggle → swap only the body partial (l1/l2). l0 is the card.
+    if getattr(request, "htmx", False):
+        if tier == "l0":
+            return render(request, "joseph/_l0_card.html", context)
+        return render(request, "joseph/_brief_body.html", context)
+
+    return render(request, "joseph/brief.html", context)
+
+
+@login_required
+@require_POST
+def brief_refresh(request, thread_id):
+    """Recompile the dossier for a thread (POST /threads/{id}/dossier via lead
+    token), then bounce back to the brief. Degrades quietly if the service is
+    down (the reader swallows AgentClientError → empty dict)."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+    result = readers.compile_dossier(thread_id)
+    if result:
+        messages.success(request, "Refreshing the dossier — new intelligence is compiling.")
+    else:
+        messages.error(request, "Couldn't refresh the dossier — intelligence service unavailable.")
+    return redirect("joseph:brief", thread_id=thread_id)
+
+
+@login_required
 def voice_editor(request):
     if not _can_manage_voice(request):
         return HttpResponseForbidden("You are not authorized to manage the brand voice.")

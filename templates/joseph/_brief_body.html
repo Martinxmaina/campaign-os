@@ -1,0 +1,25 @@
+{% comment %}
+L1 / L2 brief body — the dossier long-form (l1 = dossier body_md, l2 = linked
+wiki page body, else body_md). Swapped in by the HTMX tier toggle. There is no
+markdown library wired in this repo, so the markdown source is rendered as
+whitespace-preserving text (escaped) — readable and safe.
+
+Context: `card` (with `body_md`, `tier`, `has_dossier`).
+{% endcomment %}
+{% if not has_dossier %}
+  <div class="card p-6 text-center">
+    <div class="text-sm text-stone-500">No dossier yet — compile the intelligence for this thread.</div>
+    <form method="post" action="{% url 'joseph:brief-refresh' thread_id %}" class="mt-4">
+      {% csrf_token %}
+      <button type="submit" class="btn-brand">⟳ Compile dossier</button>
+    </form>
+  </div>
+{% elif card.body_md %}
+  <div class="card p-5">
+    <div class="prose prose-stone max-w-none whitespace-pre-wrap text-sm text-stone-700 leading-relaxed">{{ card.body_md }}</div>
+  </div>
+{% else %}
+  <div class="card p-6 text-sm text-stone-400 text-center">
+    The {{ tier|upper }} layer is empty for this dossier.
+  </div>
+{% endif %}

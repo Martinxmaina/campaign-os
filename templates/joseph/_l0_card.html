@@ -1,0 +1,60 @@
+{% comment %}
+L0 editorial brief card — the six-field signal Joseph reads before a conversation.
+WHO / WHY NOW / HOOK / RED FLAGS / WARM PATH / FRESHNESS, mapped onto the existing
+Dossier by JosephIntelligence. Rendered standalone (HTMX swap back to L0) and as
+the body of brief.html. ≤300 words, cached offline for before the meeting.
+
+Context: `card` (the L0 dict), `thread_id`. CSP-safe — no inline handlers; the
+Refresh control is a CSP-safe form POST to joseph:brief-refresh.
+{% endcomment %}
+{% if not has_dossier %}
+  <div class="card p-6 text-center">
+    <div class="text-sm text-stone-500">No dossier yet — compile the intelligence for this thread.</div>
+    <form method="post" action="{% url 'joseph:brief-refresh' thread_id %}" class="mt-4">
+      {% csrf_token %}
+      <button type="submit" class="btn-brand">⟳ Compile dossier</button>
+    </form>
+  </div>
+{% else %}
+  <div class="card divide-y">
+    <div class="p-4">
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">WHO</div>
+      <div class="mt-1 font-semibold">{{ card.who|default:"—" }}</div>
+    </div>
+    <div class="p-4">
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">WHY NOW</div>
+      <div class="mt-1 text-sm">{{ card.why_now|default:"No summary yet." }}</div>
+    </div>
+    <div class="p-4">
+      <div class="text-[10px] font-bold tracking-wider text-stone-400">HOOK</div>
+      <div class="mt-1 text-sm">{{ card.hook|default:"—" }}</div>
+    </div>
+    <div class="p-4">
+      <div class="text-[10px] font-bold tracking-wider text-red-500">RED FLAGS</div>
+      {% if card.red_flags %}
+      <ul class="mt-1 text-sm space-y-1 list-disc list-inside text-stone-600">
+        {% for flag in card.red_flags %}<li>{{ flag }}</li>{% endfor %}
+      </ul>
+      {% else %}
+      <div class="mt-1 text-sm text-stone-400">None flagged.</div>
+      {% endif %}
+    </div>
+    <div class="p-4">
+      <div class="text-[10px] font-bold tracking-wider text-emerald-600">WARM PATH</div>
+      <div class="mt-1 text-sm">{{ card.warm_path }}</div>
+    </div>
+    <div class="p-4 flex items-center justify-between gap-3">
+      <div>
+        <div class="text-[10px] font-bold tracking-wider text-stone-400">FRESHNESS</div>
+        <div class="mt-1 text-xs text-stone-500">
+          {% if card.freshness.updated_at %}Compiled {{ card.freshness.updated_at }}{% else %}Not yet compiled{% endif %}
+          · {{ card.freshness.sources }} source{{ card.freshness.sources|pluralize }}
+        </div>
+      </div>
+      <form method="post" action="{% url 'joseph:brief-refresh' thread_id %}">
+        {% csrf_token %}
+        <button type="submit" class="btn-soft">⟳ Refresh</button>
+      </form>
+    </div>
+  </div>
+{% endif %}

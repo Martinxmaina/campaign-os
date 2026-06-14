@@ -1,0 +1,63 @@
+{% extends "joseph/_base.html" %}
+{% block title %}Joseph · Brief{% endblock %}
+
+{% comment %}
+Dossier brief page — the editorial card Joseph opens before a conversation.
+Extends the lean mobile editorial _base.html (Today/Brief live on that surface).
+Header = back + org + the L0/L1/L2 tier toggle (CSP-safe HTMX hx-get/hx-target,
+no inline handlers). The body region (#brief-body) is swapped by the toggle: L0
+renders _l0_card.html, L1/L2 render _brief_body.html. Refresh is a form POST.
+{% endcomment %}
+
+{% block joseph %}
+<div class="space-y-3" id="brief-root">
+
+  {# ── Header: back · org · tier toggle ──────────────────────────── #}
+  <div class="flex items-center gap-3">
+    <a href="{% url 'joseph:home' %}" class="text-stone-500" aria-label="Back">←</a>
+    <div class="font-display text-lg flex-1 truncate">
+      {{ card.who|default:thread_id }}
+    </div>
+    <div class="flex gap-1 text-xs" role="tablist" aria-label="Detail tier">
+      <button type="button"
+              hx-get="{% url 'joseph:brief' thread_id %}?tier=l0"
+              hx-target="#brief-body" hx-swap="innerHTML"
+              class="px-2 py-1 rounded font-semibold {% if tier == 'l0' %}text-white{% else %}bg-stone-100{% endif %}"
+              {% if tier == 'l0' %}style="background:var(--primary)"{% endif %}>L0</button>
+      <button type="button"
+              hx-get="{% url 'joseph:brief' thread_id %}?tier=l1"
+              hx-target="#brief-body" hx-swap="innerHTML"
+              class="px-2 py-1 rounded font-semibold {% if tier == 'l1' %}text-white{% else %}bg-stone-100{% endif %}"
+              {% if tier == 'l1' %}style="background:var(--primary)"{% endif %}>L1</button>
+      <button type="button"
+              hx-get="{% url 'joseph:brief' thread_id %}?tier=l2"
+              hx-target="#brief-body" hx-swap="innerHTML"
+              class="px-2 py-1 rounded font-semibold {% if tier == 'l2' %}text-white{% else %}bg-stone-100{% endif %}"
+              {% if tier == 'l2' %}style="background:var(--primary)"{% endif %}>L2</button>
+    </div>
+  </div>
+
+  {# ── Body: L0 card or L1/L2 long-form (HTMX swap target) ────────── #}
+  <div id="brief-body">
+    {% if tier == "l0" %}
+      {% include "joseph/_l0_card.html" %}
+    {% else %}
+      {% include "joseph/_brief_body.html" %}
+    {% endif %}
+  </div>
+
+  {% if tier == "l0" and has_dossier %}
+  <div class="text-center">
+    <button type="button"
+            hx-get="{% url 'joseph:brief' thread_id %}?tier=l2"
+            hx-target="#brief-body" hx-swap="innerHTML"
+            class="text-sm font-semibold" style="color:var(--brand-700)">
+      Full intelligence → L2
+    </button>
+  </div>
+  {% endif %}
+
+  <div class="text-center text-xs text-stone-400">≤300 words · cached offline for before the meeting</div>
+
+</div>
+{% endblock %}
