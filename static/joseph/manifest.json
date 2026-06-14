@@ -1,0 +1,25 @@
+{
+  "name": "Joseph — Principal Intelligence",
+  "short_name": "Joseph",
+  "description": "Joseph's principal surface: the one place to open before every conversation.",
+  "start_url": "/joseph/?view=mobile",
+  "scope": "/joseph/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#F97316",
+  "background_color": "#ffffff",
+  "icons": [
+    {
+      "src": "/static/favicon/web-app-manifest-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/favicon/web-app-manifest-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

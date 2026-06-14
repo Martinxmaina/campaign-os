@@ -1,6 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -160,6 +160,22 @@ def _joseph_content(workspace, user):
         return list(qs.order_by("-scheduled_at", "-created_at")[:5])
     except Exception:
         return []
+
+
+@login_required
+def notifications_json(request):
+    """The notification bell's poll endpoint — unread count + the items.
+
+    Joseph's surface (and its installed PWA) polls this every ~30s to keep the
+    bell badge live. It reads the same agent-service ``/notifications?unread``
+    route through ``readers.list_notifications``, which swallows
+    ``AgentClientError`` → an agent outage yields ``{"count": 0, "items": []}``
+    (a 200 empty payload), never a 500. Gated by ``_can_access_joseph`` so we
+    never query the intelligence plane for a non-capable user."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+    items = readers.list_notifications(unread=True)
+    return JsonResponse({"count": len(items), "items": items})
 
 
 @login_required

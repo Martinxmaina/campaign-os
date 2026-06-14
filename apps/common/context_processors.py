@@ -16,6 +16,21 @@ def branding(request):
     }
 
 
+def joseph_access(request):
+    """Expose ``can_access_joseph`` to every template so the left-nav can show
+    the role-gated "Joseph · Principal" section only to capable users.
+
+    Reuses the single source of truth — ``apps.joseph.views._can_access_joseph``
+    (staff OR workspace_role in owner/admin/principal) — so the sidebar gate can
+    never drift from the view gate.
+    """
+    if not hasattr(request, "user") or not request.user.is_authenticated:
+        return {"can_access_joseph": False}
+    from apps.joseph.views import _can_access_joseph
+
+    return {"can_access_joseph": _can_access_joseph(request)}
+
+
 def sidebar_context(request):
     """Inject sidebar data into every template context.
 

@@ -6,6 +6,9 @@ app_name = "joseph"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    # Notification bell poll — {count, items[]} from the unread notifications
+    # feed; polled by the home/PWA bell every ~30s. JSON, gated, agent-down safe.
+    path("notifications.json", views.notifications_json, name="notifications-json"),
     # Dossier brief card — L0 editorial card + L1/L2 HTMX tier toggle + refresh.
     # thread_id is the agent-service thread id (a string), not a Django pk.
     path("brief/<str:thread_id>/", views.brief, name="brief"),

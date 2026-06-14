@@ -126,6 +126,7 @@ TEMPLATES = [
                 "apps.notifications.context_processors.unread_notification_count",
                 "apps.common.context_processors.sidebar_context",
                 "apps.common.context_processors.branding",
+                "apps.common.context_processors.joseph_access",
                 "apps.intelligence.context_processors.intelligence_flag",
             ],
         },
