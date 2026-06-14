@@ -64,4 +64,11 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.content_intake.tasks.run_calendar_gap_scan",
         "schedule": schedule(run_every=86400),  # daily
     },
+    "joseph-calendar-sync": {
+        # Pull each member's upcoming Google Calendar events every 5 minutes and
+        # fuzzy-link them to threads. No-ops when no GoogleIntegration exists, so
+        # it is safe to run before Joseph's OAuth re-consent.
+        "task": "apps.joseph.tasks.sync_google_calendar",
+        "schedule": schedule(run_every=300),  # 5 min
+    },
 }

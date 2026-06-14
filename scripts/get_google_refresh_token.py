@@ -18,7 +18,13 @@ except ImportError:
     print("Run: pip install google-auth-oauthlib")
     sys.exit(1)
 
-SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    # Joseph spine (TB.0) — calendar + inbox feeds. Adding these requires a
+    # one-time re-consent; until that refresh token is minted the feeds no-op.
+    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/gmail.readonly",
+]
 
 print("""
 =============================================================
