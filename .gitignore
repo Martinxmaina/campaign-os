@@ -215,3 +215,6 @@ theme/static/css/dist/
 /.claude/worktrees
 .DS_Store
 docs/ghost.md
+
+# local UI mockup (throwaway)
+joseph-ui-preview.html
