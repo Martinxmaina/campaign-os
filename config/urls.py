@@ -50,6 +50,9 @@ urlpatterns = [
     # Joseph — voice profile editor (TB.1). Login-gated per view; reads/writes
     # the voice profile via agent-service over HTTP.
     path("joseph/", include("apps.joseph.urls")),
+    # CRM (Phase 2C) — canonical Django CRM: import wizard, orgs/contacts,
+    # threads. Login-gated per view, role-gated to owner/admin/campaign_owner.
+    path("crm/", include("apps.crm.urls")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]

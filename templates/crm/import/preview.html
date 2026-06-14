@@ -1,0 +1,73 @@
+{% comment %}
+Step 3 — Preview. New vs already-known (matched) rows. Only the new rows are
+committed; matched rows (same org name + contact email already in the CRM) are
+shown for transparency and skipped. CSP-safe HTMX swap into #crm-import-wizard.
+{% endcomment %}
+<div class="max-w-3xl space-y-6" id="crm-import-wizard">
+
+  <div>
+    <h2 class="text-xl font-semibold text-gray-900">Preview</h2>
+    <p class="mt-1 text-sm text-gray-500">
+      <strong>{{ new_count }}</strong> new row{{ new_count|pluralize }} will be created.
+      <strong>{{ matched_count }}</strong> already exist{{ matched_count|pluralize:"s," }} and will be skipped.
+    </p>
+  </div>
+
+  <ol class="flex items-center gap-2 text-xs font-medium text-gray-400">
+    <li class="rounded-full bg-gray-100 px-2.5 py-1">1 · Upload</li>
+    <li class="rounded-full bg-gray-100 px-2.5 py-1">2 · Map</li>
+    <li class="rounded-full bg-stone-800 text-white px-2.5 py-1">3 · Preview</li>
+    <li class="rounded-full bg-gray-100 px-2.5 py-1">4 · Commit</li>
+  </ol>
+
+  <div class="rounded-xl border border-green-200 bg-white shadow-sm">
+    <div class="border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+      <h3 class="font-semibold text-gray-900">New</h3>
+      <span class="rounded-full bg-green-100 text-green-800 px-2 py-0.5 text-xs font-medium">{{ new_count }}</span>
+    </div>
+    <ul class="divide-y divide-gray-50">
+      {% for row in new_rows %}
+      <li class="px-5 py-2 text-sm text-gray-700 flex justify-between">
+        <span class="font-medium">{{ row.org_name|default:"—" }}</span>
+        <span class="text-gray-400">{{ row.contact_name }} {% if row.contact_email %}· {{ row.contact_email }}{% endif %}</span>
+      </li>
+      {% empty %}
+      <li class="px-5 py-3 text-sm text-gray-400">No new rows.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  {% if matched_rows %}
+  <div class="rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div class="border-b border-gray-100 px-5 py-3 flex items-center gap-2">
+      <h3 class="font-semibold text-gray-900">Already in CRM (skipped)</h3>
+      <span class="rounded-full bg-gray-100 text-gray-500 px-2 py-0.5 text-xs font-medium">{{ matched_count }}</span>
+    </div>
+    <ul class="divide-y divide-gray-50">
+      {% for row in matched_rows %}
+      <li class="px-5 py-2 text-sm text-gray-500 flex justify-between">
+        <span class="font-medium">{{ row.org_name|default:"—" }}</span>
+        <span class="text-gray-400">{{ row.contact_email }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <form hx-post="{% url 'crm:import-commit' %}"
+        hx-target="#crm-import-wizard"
+        hx-swap="outerHTML"
+        class="flex justify-end gap-2">
+    {% csrf_token %}
+    <input type="hidden" name="job_id" value="{{ job.id }}" />
+    <a href="{% url 'crm:import-home' %}"
+       class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50">
+      Start over
+    </a>
+    <button type="submit"
+            class="rounded-md bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+      Commit {{ new_count }} row{{ new_count|pluralize }}
+    </button>
+  </form>
+
+</div>
