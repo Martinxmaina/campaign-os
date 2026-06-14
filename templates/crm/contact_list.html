@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Contacts · CRM{% endblock %}
+
+{% comment %}
+Contacts list — people across the CRM orgs. Search by name/email (?q), filter by
+org (?org) and seniority (?seniority). Pure Django; matches the org-list styling.
+CSP-safe: GET filter form + plain anchor links, no inline handlers.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="flex items-end justify-between gap-3 border-b border-stone-200 pb-4">
+    <div>
+      <h1 class="font-display text-2xl">Contacts</h1>
+      <div class="text-sm text-stone-500">People across CRM organizations</div>
+    </div>
+    <a href="{% url 'crm:contact-new' %}"
+       class="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+      New contact
+    </a>
+  </div>
+
+  <form method="get" class="flex flex-wrap items-end gap-3">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
+      <input type="search" name="q" value="{{ q }}" placeholder="Name or email…"
+             class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Organization</label>
+      <select name="org"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:ring-stone-500">
+        <option value="">All organizations</option>
+        {% for o in orgs %}
+        <option value="{{ o.id }}" {% if o.id|stringformat:'s' == org %}selected{% endif %}>{{ o.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Seniority</label>
+      <select name="seniority"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:ring-stone-500">
+        <option value="">All</option>
+        {% for value, label in seniority_choices %}
+        <option value="{{ value }}" {% if value == seniority %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit"
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+      Filter
+    </button>
+  </form>
+
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-100 text-sm">
+      <thead class="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+        <tr>
+          <th class="px-4 py-2.5 text-left">Name</th>
+          <th class="px-4 py-2.5 text-left">Organization</th>
+          <th class="px-4 py-2.5 text-left">Role</th>
+          <th class="px-4 py-2.5 text-left">Seniority</th>
+          <th class="px-4 py-2.5 text-left">Email</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for c in contacts %}
+        <tr class="hover:bg-stone-50">
+          <td class="px-4 py-2.5">
+            <a href="{% url 'crm:contact-detail' c.id %}" class="font-medium text-stone-800 hover:text-stone-950">{{ c.full_name }}</a>
+          </td>
+          <td class="px-4 py-2.5 text-gray-600"><a href="{% url 'crm:org-detail' c.org.id %}" class="hover:text-stone-800">{{ c.org.name }}</a></td>
+          <td class="px-4 py-2.5 text-gray-600">{{ c.role|default:"—" }}</td>
+          <td class="px-4 py-2.5 text-gray-600">{{ c.get_seniority_display|default:"" }}</td>
+          <td class="px-4 py-2.5 text-gray-600">{{ c.email|default:"" }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400">No contacts match.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

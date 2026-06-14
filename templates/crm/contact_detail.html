@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}{{ contact.full_name }} · CRM{% endblock %}
+
+{% comment %}
+Contact detail — header (name/role/org + edit) + a panel of its outreach threads.
+Pure Django (no agent-service). CSP-safe: anchor links only.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5 max-w-4xl">
+
+  <div class="flex items-start justify-between gap-3 border-b border-stone-200 pb-4">
+    <div>
+      <div class="text-xs text-stone-400"><a href="{% url 'crm:contact-list' %}" class="hover:text-stone-600">Contacts</a></div>
+      <h1 class="font-display text-2xl">{{ contact.full_name }}</h1>
+      <div class="mt-1 text-sm text-stone-500">
+        {% if contact.role %}{{ contact.role }} · {% endif %}<a href="{% url 'crm:org-detail' contact.org.id %}" class="hover:text-stone-800">{{ contact.org.name }}</a>
+      </div>
+    </div>
+    <a href="{% url 'crm:contact-edit' contact.id %}"
+       class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Edit</a>
+  </div>
+
+  <div class="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-4 space-y-2 text-sm">
+    {% if contact.seniority %}<div><span class="text-gray-400">Seniority</span> · {{ contact.get_seniority_display }}</div>{% endif %}
+    {% if contact.email %}<div><span class="text-gray-400">Email</span> · <a href="mailto:{{ contact.email }}" class="text-blue-600 hover:text-blue-800">{{ contact.email }}</a></div>{% endif %}
+    {% if contact.phone %}<div><span class="text-gray-400">Phone</span> · {{ contact.phone }}</div>{% endif %}
+    {% if contact.linkedin_url %}<div><span class="text-gray-400">LinkedIn</span> · <a href="{{ contact.linkedin_url }}" class="text-blue-600 hover:text-blue-800" rel="noopener noreferrer" target="_blank">{{ contact.linkedin_url }}</a></div>{% endif %}
+    {% if contact.warmth_source %}<div><span class="text-gray-400">Warmth</span> · {{ contact.warmth_source }}</div>{% endif %}
+  </div>
+
+  <div>
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">Outreach threads</h2>
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <table class="min-w-full divide-y divide-gray-100 text-sm">
+        <tbody class="divide-y divide-gray-50">
+          {% for t in threads %}
+          <tr class="hover:bg-stone-50">
+            <td class="px-4 py-2.5 text-gray-700">{{ t.org.name }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ t.get_stage_display }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ t.track|default:"" }}</td>
+            <td class="px-4 py-2.5 text-gray-600">Q{{ t.quintile }}</td>
+          </tr>
+          {% empty %}
+          <tr><td class="px-4 py-6 text-center text-sm text-gray-400">No threads yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

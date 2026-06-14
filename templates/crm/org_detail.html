@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}{{ org.name }} · CRM{% endblock %}
+
+{% comment %}
+Organization detail — header (name/type/tier + edit) and two panels: its contacts
+and its outreach threads. Pure Django (no agent-service). CSP-safe: anchor links.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5 max-w-4xl">
+
+  <div class="flex items-start justify-between gap-3 border-b border-stone-200 pb-4">
+    <div>
+      <div class="text-xs text-stone-400"><a href="{% url 'crm:org-list' %}" class="hover:text-stone-600">Organizations</a></div>
+      <h1 class="font-display text-2xl">{{ org.name }}</h1>
+      <div class="mt-1 flex flex-wrap items-center gap-2 text-xs">
+        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-gray-600">{{ org.get_type_display }}</span>
+        {% if org.tier %}<span class="rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">{{ org.get_tier_display }}</span>{% endif %}
+        {% for tag in org.track_tags %}<span class="rounded-full bg-blue-50 px-2 py-0.5 text-blue-700">{{ tag }}</span>{% endfor %}
+      </div>
+    </div>
+    <a href="{% url 'crm:org-edit' org.id %}"
+       class="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Edit</a>
+  </div>
+
+  {% if org.website or org.linkedin_url or org.notes %}
+  <div class="rounded-xl border border-gray-200 bg-white shadow-sm px-5 py-4 space-y-2 text-sm">
+    {% if org.website %}<div><span class="text-gray-400">Website</span> · <a href="{{ org.website }}" class="text-blue-600 hover:text-blue-800" rel="noopener noreferrer" target="_blank">{{ org.website }}</a></div>{% endif %}
+    {% if org.linkedin_url %}<div><span class="text-gray-400">LinkedIn</span> · <a href="{{ org.linkedin_url }}" class="text-blue-600 hover:text-blue-800" rel="noopener noreferrer" target="_blank">{{ org.linkedin_url }}</a></div>{% endif %}
+    {% if org.notes %}<div class="text-gray-700 whitespace-pre-line">{{ org.notes }}</div>{% endif %}
+  </div>
+  {% endif %}
+
+  <div>
+    <div class="flex items-center justify-between mb-2">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500">Contacts</h2>
+      <a href="{% url 'crm:contact-new' %}?org={{ org.id }}" class="text-sm text-blue-600 hover:text-blue-800">Add contact</a>
+    </div>
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <table class="min-w-full divide-y divide-gray-100 text-sm">
+        <tbody class="divide-y divide-gray-50">
+          {% for c in contacts %}
+          <tr class="hover:bg-stone-50">
+            <td class="px-4 py-2.5"><a href="{% url 'crm:contact-detail' c.id %}" class="font-medium text-stone-800 hover:text-stone-950">{{ c.full_name }}</a></td>
+            <td class="px-4 py-2.5 text-gray-600">{{ c.role|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ c.get_seniority_display|default:"" }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ c.email|default:"" }}</td>
+          </tr>
+          {% empty %}
+          <tr><td class="px-4 py-6 text-center text-sm text-gray-400">No contacts yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div>
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-2">Outreach threads</h2>
+    <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+      <table class="min-w-full divide-y divide-gray-100 text-sm">
+        <tbody class="divide-y divide-gray-50">
+          {% for t in threads %}
+          <tr class="hover:bg-stone-50">
+            <td class="px-4 py-2.5 text-gray-700">{{ t.get_stage_display }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ t.primary_contact.full_name|default:"—" }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ t.track|default:"" }}</td>
+            <td class="px-4 py-2.5 text-gray-600">Q{{ t.quintile }}</td>
+          </tr>
+          {% empty %}
+          <tr><td class="px-4 py-6 text-center text-sm text-gray-400">No threads yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

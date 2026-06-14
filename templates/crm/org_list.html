@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Organizations · CRM{% endblock %}
+
+{% comment %}
+Organizations list — funder/DFI/partner orgs in the canonical Django CRM. Search
+by name (?q), filter by tier (?tier) and type (?type). Extends base.html for the
+real Campaign OS sidebar + chrome; matches the credentials/console list styling.
+CSP-safe: a GET filter form + plain anchor links, no inline handlers.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="flex items-end justify-between gap-3 border-b border-stone-200 pb-4">
+    <div>
+      <h1 class="font-display text-2xl">Organizations</h1>
+      <div class="text-sm text-stone-500">Funders, DFIs and partners in the CRM</div>
+    </div>
+    <a href="{% url 'crm:org-new' %}"
+       class="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+      New organization
+    </a>
+  </div>
+
+  <form method="get" class="flex flex-wrap items-end gap-3">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Search</label>
+      <input type="search" name="q" value="{{ q }}" placeholder="Name…"
+             class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:outline-none focus:ring-1 focus:ring-stone-500" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Tier</label>
+      <select name="tier"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:ring-stone-500">
+        <option value="">All tiers</option>
+        {% for value, label in tier_choices %}
+        <option value="{{ value }}" {% if value == tier %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Type</label>
+      <select name="type"
+              class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:ring-stone-500">
+        <option value="">All types</option>
+        {% for value, label in type_choices %}
+        <option value="{{ value }}" {% if value == type %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit"
+            class="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+      Filter
+    </button>
+  </form>
+
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-100 text-sm">
+      <thead class="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+        <tr>
+          <th class="px-4 py-2.5 text-left">Name</th>
+          <th class="px-4 py-2.5 text-left">Type</th>
+          <th class="px-4 py-2.5 text-left">Tier</th>
+          <th class="px-4 py-2.5 text-right">Contacts</th>
+          <th class="px-4 py-2.5 text-right">Threads</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for org in orgs %}
+        <tr class="hover:bg-stone-50">
+          <td class="px-4 py-2.5">
+            <a href="{% url 'crm:org-detail' org.id %}" class="font-medium text-stone-800 hover:text-stone-950">{{ org.name }}</a>
+          </td>
+          <td class="px-4 py-2.5 text-gray-600">{{ org.get_type_display }}</td>
+          <td class="px-4 py-2.5 text-gray-600">{{ org.get_tier_display|default:"—" }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-600">{{ org.contact_count }}</td>
+          <td class="px-4 py-2.5 text-right text-gray-600">{{ org.thread_count }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400">No organizations match.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}
