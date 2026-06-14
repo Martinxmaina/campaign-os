@@ -15,10 +15,13 @@ credential pattern already used by ``integrations/google_calendar.py`` /
 """
 from __future__ import annotations
 
+import base64
+
 from django.conf import settings
 
 _TOKEN_URI = "https://oauth2.googleapis.com/token"
 GMAIL_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 
 # How many recent inbox messages to consider per sync pass.
 _MAX_MESSAGES = 25
@@ -103,3 +106,47 @@ def recent_messages(service, since=None) -> list[dict]:
             }
         )
     return out
+
+
+def send_message(
+    service,
+    *,
+    to: str,
+    subject: str,
+    body_html: str,
+    sender: str | None = None,
+    headers: dict | None = None,
+) -> str:
+    """Send an HTML email through the Gmail API; return the sent message id.
+
+    Builds a MIME message with stdlib ``email.mime`` (no google libs needed here —
+    only the already-built ``service`` and the standard library), base64url-encodes
+    the serialized bytes, and calls
+    ``service.users().messages().send(userId="me", body={"raw": ...})``.
+
+    ``sender`` sets the ``From`` header (the mailbox identity); Gmail sends as the
+    authenticated user regardless, but a friendly ``From`` is set when supplied.
+    ``headers`` carries optional extra MIME headers — notably ``In-Reply-To`` and
+    ``References`` for threading replies — and is applied verbatim when present.
+    The transport is deliberately dumb: deliverability (suppression, cap/ramp,
+    unsubscribe header + footer) is enforced upstream in the adapter, never here.
+    """
+    from email.mime.text import MIMEText
+
+    message = MIMEText(body_html, "html")
+    message["To"] = to
+    message["Subject"] = subject
+    if sender:
+        message["From"] = sender
+    for name, value in (headers or {}).items():
+        if value:
+            message[name] = value
+
+    raw = base64.urlsafe_b64encode(message.as_bytes()).decode("ascii")
+    sent = (
+        service.users()
+        .messages()
+        .send(userId="me", body={"raw": raw})
+        .execute()
+    ) or {}
+    return sent.get("id", "")
