@@ -34,6 +34,12 @@ urlpatterns = [
     path("diffs/<str:proposal_id>/", intel_console.diff_detail, name="diff-detail"),
     path("diffs/<str:proposal_id>/apply", intel_console.diff_apply, name="diff-apply"),
     path("diffs/<str:proposal_id>/reject", intel_console.diff_reject, name="diff-reject"),
+    # Agent-brain fleet + breakers + healing (Slice 2). Reads owner/admin-gated;
+    # breaker Reset mirrors the lead-gated agent-service /breakers/<id>/reset.
+    path("agents/", intel_console.agents_fleet, name="agents-fleet"),
+    path("breakers/", intel_console.breakers, name="breakers"),
+    path("breakers/<str:breaker_id>/reset", intel_console.breaker_reset, name="breaker-reset"),
+    path("healing/", intel_console.healing, name="healing"),
     path("news", intel_console.news, name="news"),
     path("news/draft", intel_console.news_draft, name="news-draft"),
     path("graph.json", intel_console.graph_json, name="graph-json"),

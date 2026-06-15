@@ -1,0 +1,60 @@
+{% extends "console/base.html" %}
+{% block console %}
+<div class="p-6 max-w-4xl">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Self-healing incidents</h1>
+    <a href="{% url 'console:agents-fleet' %}"
+       class="text-sm text-stone-600 hover:text-stone-900 transition-colors">&larr; Agents fleet</a>
+  </div>
+  <p class="text-sm text-stone-500 mb-5">
+    When a breaker trips, the maintenance loop runs an RCA over the failure-window
+    traces. A fix is only ever <em>proposed</em> (config / prompt reflections or a PR
+    note — never auto-merged, never to main). With no trace evidence it stops at
+    <span class="font-mono">insufficient_evidence</span> — no guessing.
+  </p>
+
+  {% if down %}
+    {% include "console/_unavailable.html" %}
+  {% elif not incidents %}
+    <div class="p-6 text-stone-500 border border-stone-200 bg-stone-50 rounded-lg">
+      No healing incidents recorded.
+    </div>
+  {% else %}
+    <div class="space-y-3">
+      {% for i in incidents %}
+      <div class="rounded border px-4 py-3
+        {% if i.status == 'insufficient_evidence' %}border-stone-200 bg-stone-50{% else %}border-amber-300 bg-amber-50{% endif %}">
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-stone-800">{{ i.agent_name }}</span>
+            {% if i.breaker_scope %}<span class="text-xs text-stone-500 font-mono">{{ i.breaker_scope }}</span>{% endif %}
+            {% if i.fix_type %}<span class="text-xs rounded-full bg-white border border-amber-300 px-2 py-0.5 text-amber-800">{{ i.fix_type }}</span>{% endif %}
+          </div>
+          <span class="text-xs rounded-full px-2 py-0.5
+            {% if i.status == 'insufficient_evidence' %}bg-stone-100 text-stone-600
+            {% elif i.status == 'fix_proposed' %}bg-amber-100 text-amber-800
+            {% else %}bg-stone-100 text-stone-600{% endif %}">
+            {{ i.status }}
+          </span>
+        </div>
+        {% if i.root_cause_md %}
+        <p class="text-sm text-stone-700 whitespace-pre-wrap">{{ i.root_cause_md }}</p>
+        {% else %}
+        <p class="text-sm text-stone-500 italic">No root cause — stopped for lack of trace evidence.</p>
+        {% endif %}
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-stone-500">
+          {% if i.trace_ids %}
+            <span>traces:</span>
+            {% for tr in i.trace_ids %}
+            <span class="font-mono bg-stone-100 border border-stone-200 rounded px-1.5 py-0.5 text-stone-700">{{ tr }}</span>
+            {% endfor %}
+          {% endif %}
+          {% if i.pr_url %}<span>· <a href="{{ i.pr_url }}" class="text-blue-600 hover:underline">proposed PR</a></span>{% endif %}
+          {% if i.created_at %}<span>· {{ i.created_at }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

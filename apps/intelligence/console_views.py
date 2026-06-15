@@ -158,6 +158,67 @@ def diff_reject(request, proposal_id):
     return redirect("console:diff-list")
 
 
+# --- Agent-brain fleet + breakers + healing (Slice 2, Task 5) -------------------
+#
+# The agent-service brain (Slice 2 Tasks 1-4) exposes per-agent autonomy tiers,
+# circuit breakers, and self-healing incidents. This console reads them over the
+# same lead-gated ``/brain`` + ``/breakers`` API the rest of the brain uses and
+# renders an operator fleet view. NO code path here promotes a tier, applies a fix,
+# or touches a constitution/rubric — those are the engine's job and stay frozen; the
+# console only displays what the brain produced and lets a lead Reset a tripped
+# breaker. Protected-class action_classes are shown capped at T2 (the engine enforces
+# the cap; the console never renders a promotion past it). Healing incidents with no
+# trace evidence surface as ``insufficient_evidence`` (no-trace-no-fix). Reads degrade
+# to an empty state when agent-service is down (never 500); the Reset mutation mirrors
+# the agent-service ``require_role('lead')`` and is owner/admin gated.
+
+
+@login_required
+def agents_fleet(request):
+    """Per-agent fleet: status, tier per action_class, open breakers, 7d KPIs."""
+    if not _can_review_brain(request):
+        return HttpResponseForbidden("The agents fleet is not available for your role.")
+    raw = safe_get("/brain/fleet", default=None)
+    agents = (raw or {}).get("agents", []) if isinstance(raw, dict) else []
+    return render(request, "console/agents_fleet.html",
+                  {"agents": agents, "down": raw is None})
+
+
+@login_required
+def breakers(request):
+    """Circuit breakers across the fleet, with a lead Reset action."""
+    if not _can_review_brain(request):
+        return HttpResponseForbidden("Breakers are not available for your role.")
+    raw = safe_get("/breakers", default=None)
+    items = (raw or {}).get("items", []) if isinstance(raw, dict) else []
+    return render(request, "console/breakers.html",
+                  {"breakers": items, "down": raw is None})
+
+
+@login_required
+@require_POST
+def breaker_reset(request, breaker_id):
+    """Reset a tripped breaker (lead-gated; agent-down → graceful redirect)."""
+    if not _can_review_brain(request):
+        return HttpResponseForbidden("You are not authorized to reset breakers.")
+    try:
+        agent_post(f"/breakers/{breaker_id}/reset", {})
+    except Exception:
+        logger.warning("breaker_reset: agent_post failed", exc_info=True)
+    return redirect("console:breakers")
+
+
+@login_required
+def healing(request):
+    """Self-healing incidents: trace-cited RCA + fix routing (no-trace-no-fix)."""
+    if not _can_review_brain(request):
+        return HttpResponseForbidden("Healing incidents are not available for your role.")
+    raw = safe_get("/brain/healing", default=None)
+    incidents = (raw or {}).get("incidents", []) if isinstance(raw, dict) else []
+    return render(request, "console/healing.html",
+                  {"incidents": incidents, "down": raw is None})
+
+
 _NEWS_DEFAULT = {"items": [], "counts": {}, "generated_at": None}
 
 
