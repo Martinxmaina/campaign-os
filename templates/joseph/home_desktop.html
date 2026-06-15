@@ -49,22 +49,22 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
   {# ── Today charts (Chart.js) ──────────────────────────────── #}
   <div>
     <div class="sidebar-section-label" style="padding-left:0">Deal flow at a glance</div>
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
       <div class="card p-4">
         <div class="text-sm font-bold mb-3">By track</div>
-        <div style="position:relative;height:200px;">
+        <div style="position:relative;height:clamp(180px,26vw,240px);">
           <canvas id="joseph-chart-track"></canvas>
         </div>
       </div>
       <div class="card p-4">
         <div class="text-sm font-bold mb-3">By stage</div>
-        <div style="position:relative;height:200px;">
+        <div style="position:relative;height:clamp(180px,26vw,240px);">
           <canvas id="joseph-chart-stage"></canvas>
         </div>
       </div>
-      <div class="card p-4">
+      <div class="card p-4 sm:col-span-2 xl:col-span-1">
         <div class="text-sm font-bold mb-3">By quintile</div>
-        <div style="position:relative;height:200px;">
+        <div style="position:relative;height:clamp(180px,26vw,240px);">
           <canvas id="joseph-chart-quintile"></canvas>
         </div>
       </div>
