@@ -1,9 +1,18 @@
 {% comment %}
-Drawer · Sequence tab — present-but-stubbed. Outreach sequencing arrives in a
-later phase (Phase 2C); the shell is here so it drops in without a re-layout.
+Drawer · Sequence tab (Phase 2C — live). Two outreach surfaces for this thread:
+the gate-checked send form and the sequence panel (enroll + step timeline). Both
+are role-gated server-side at the outreach views and post via CSRF/hx-post. When
+the thread can't be resolved we fall back to the stub message.
 {% endcomment %}
+{% if crm_thread %}
+<div class="space-y-4">
+  {% include "outreach/_send_form.html" %}
+  {% include "outreach/_sequence_panel.html" %}
+</div>
+{% else %}
 <div class="card p-8 text-center">
   <div class="text-2xl">↗</div>
-  <div class="mt-2 font-semibold text-stone-700">Sequences coming in Phase 2C</div>
-  <div class="mt-1 text-sm text-stone-400">Multi-step outreach cadences for this thread land here.</div>
+  <div class="mt-2 font-semibold text-stone-700">No thread to sequence</div>
+  <div class="mt-1 text-sm text-stone-400">This thread couldn't be resolved.</div>
 </div>
+{% endif %}

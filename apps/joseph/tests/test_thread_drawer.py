@@ -220,14 +220,21 @@ def test_drawer_deck_tab_is_stubbed(joseph, client, crm_thread):
 
 
 @pytest.mark.django_db
-def test_drawer_sequence_tab_is_stubbed(joseph, client, crm_thread):
-    """The Sequence tab is present-but-stubbed (coming in a later phase)."""
+def test_drawer_sequence_tab_shows_outreach_surfaces(joseph, client, crm_thread):
+    """The Sequence tab is live (Phase 2C): the gate-checked send form + the
+    sequence enroll/timeline panel mount here, posting to the outreach views."""
     resp = client.get(
         reverse("joseph:thread", args=[crm_thread.id]) + "?tab=sequence",
         HTTP_HX_REQUEST="true",
     )
     assert resp.status_code == 200
-    assert b"coming" in resp.content.lower()
+    body = resp.content.decode()
+    # The send form posts to the gated thread-send endpoint, the panel to enroll.
+    assert f"/outreach/threads/{crm_thread.id}/send/" in body
+    assert f"/outreach/threads/{crm_thread.id}/enroll/" in body
+    # CSP-safe — no inline handlers.
+    assert "onclick=" not in body
+    assert "onsubmit=" not in body
 
 
 @pytest.mark.django_db

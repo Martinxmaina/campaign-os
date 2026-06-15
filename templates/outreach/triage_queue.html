@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Reply triage · Outreach{% endblock %}
+
+{% comment %}
+Reply-triage queue — threads with an inbound reply to action. One row per deal
+(the most-recent email_reply Activity), with a link into the Joseph drawer to
+respond. triage_inbound pauses the active sequence on a reply, so the owner picks
+up the conversation manually here. Pure Django read; CSP-safe (plain anchors, no
+inline handlers).
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="flex items-end justify-between gap-3 border-b border-stone-200 pb-4">
+    <div>
+      <h1 class="font-display text-2xl">Reply triage</h1>
+      <div class="text-sm text-stone-500">Inbound replies waiting for a human — sequences are paused on reply</div>
+    </div>
+  </div>
+
+  <div class="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <table class="min-w-full divide-y divide-gray-100 text-sm">
+      <thead class="bg-gray-50 text-xs font-medium uppercase tracking-wide text-gray-500">
+        <tr>
+          <th class="px-4 py-2.5 text-left">Organization</th>
+          <th class="px-4 py-2.5 text-left">From</th>
+          <th class="px-4 py-2.5 text-left">Subject</th>
+          <th class="px-4 py-2.5 text-right">Received</th>
+          <th class="px-4 py-2.5 text-right">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for act in items %}
+        <tr class="hover:bg-stone-50">
+          <td class="px-4 py-2.5 font-medium text-stone-800">{{ act.thread.org.name }}</td>
+          <td class="px-4 py-2.5 text-stone-600">{{ act.content_ref.from|default:"—" }}</td>
+          <td class="px-4 py-2.5 text-stone-600">{{ act.content_ref.subject|default:"(no subject)" }}</td>
+          <td class="px-4 py-2.5 text-right text-stone-500">{{ act.created_at|date:"M j, H:i" }}</td>
+          <td class="px-4 py-2.5 text-right">
+            <a href="/joseph/thread/{{ act.thread_id }}/"
+               class="rounded-lg border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50">
+              Open thread
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400">No replies waiting — inbox is clear.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

@@ -56,6 +56,10 @@ urlpatterns = [
     # Outreach (Phase 2C — TC.2/TC.3) — per-owner Gmail send engine: mailbox
     # connect/status, sequences, triage, suppression. Role-gated per view.
     path("outreach/", include("apps.outreach.urls")),
+    # Public unsubscribe — no auth (a recipient opts out without an account).
+    # Mounted top-level at /unsubscribe/<token>/ to match the URL the sender
+    # mints into the email footer + List-Unsubscribe header.
+    path("", include("apps.outreach.urls_public")),
     path("organizations/media/", include("apps.media_library.urls_org")),
     path("", include("apps.accounts.urls_root")),
 ]

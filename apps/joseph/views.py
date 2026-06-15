@@ -505,7 +505,32 @@ def _drawer_tab_context(tab: str, thread_id: str, thread: dict, crm_thread=None)
 
         page = readers.get_page(slugify(org), tier="l1") if org else {}
         return {"org": org, "page": page, "news": readers.news_about(org) if org else []}
-    # deck / sequence carry no extra context (stubbed surfaces).
+    if tab == "sequence":
+        # Outreach send form + sequence panel (Phase 2C). Provide the enrolled
+        # sequences (+ steps), the available templates, and whether the thread
+        # owner has an active mailbox so the send button can disable cleanly.
+        if not crm_thread:
+            return {"sequences": [], "sequence_templates": [], "mailbox_ready": False}
+        from apps.outreach.models import Mailbox, Sequence, SequenceTemplate
+
+        sequences = list(
+            Sequence.objects.filter(thread=crm_thread)
+            .select_related("template")
+            .prefetch_related("steps")
+            .order_by("-created_at")
+        )
+        mailbox_ready = bool(
+            crm_thread.owner_id
+            and Mailbox.objects.filter(
+                user_id=crm_thread.owner_id, status=Mailbox.Status.ACTIVE
+            ).exists()
+        )
+        return {
+            "sequences": sequences,
+            "sequence_templates": list(SequenceTemplate.objects.order_by("name")),
+            "mailbox_ready": mailbox_ready,
+        }
+    # deck carries no extra context (stubbed surface).
     return {}
 
 

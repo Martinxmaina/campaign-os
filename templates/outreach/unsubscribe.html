@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+{% comment %}
+Public unsubscribe confirmation — standalone (NO base.html, no auth, no sidebar):
+a recipient hits /unsubscribe/<token>/ straight from the email footer or the
+List-Unsubscribe header. A valid token suppresses the encoded address; a tampered
+or expired token shows a graceful message and changes nothing. CSP-safe: no
+inline scripts/handlers, inline styles only (a self-contained public page).
+{% endcomment %}
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex, nofollow" />
+  <title>Unsubscribe · AfCEN / WAIIS</title>
+  <style nonce="{{ request.csp_nonce }}">
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           background: #faf9f7; color: #292524; margin: 0;
+           display: flex; min-height: 100vh; align-items: center; justify-content: center; }
+    .card { background: #fff; border: 1px solid #e7e5e4; border-radius: 16px;
+            padding: 40px 36px; max-width: 460px; width: 90%; text-align: center;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    h1 { font-size: 1.4rem; margin: 0 0 12px; }
+    p { color: #57534e; line-height: 1.55; margin: 0 0 8px; }
+    .email { font-weight: 600; color: #292524; }
+    .muted { color: #a8a29e; font-size: 0.85rem; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if suppressed %}
+    <h1>You're unsubscribed</h1>
+    <p>We've removed <span class="email">{{ email }}</span> from our outreach list.</p>
+    <p>You will no longer receive emails from AfCEN / WAIIS at this address.</p>
+    {% else %}
+    <h1>Link not valid</h1>
+    <p>This unsubscribe link is invalid or has expired.</p>
+    <p>If you'd still like to opt out, reply to any of our emails and we'll remove you.</p>
+    {% endif %}
+    <p class="muted">AfCEN / WAIIS</p>
+  </div>
+</body>
+</html>

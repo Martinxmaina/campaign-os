@@ -1,0 +1,73 @@
+{% comment %}
+Drawer partial · sequence panel. Enroll the thread into a SequenceTemplate (posts
+to outreach:thread-enroll → creates a Sequence + steps) and show the live step
+timeline of each enrolled sequence. CSP-safe: plain CSRF POST (hx-post); no inline
+handlers. Expects ``crm_thread``, ``sequence_templates`` and ``sequences`` in context.
+{% endcomment %}
+<div class="card p-5 space-y-4">
+  <div class="flex items-center justify-between">
+    <h3 class="font-semibold text-stone-700">Sequences</h3>
+  </div>
+
+  <form method="post" action="{% url 'outreach:thread-enroll' crm_thread.id %}"
+        hx-post="{% url 'outreach:thread-enroll' crm_thread.id %}"
+        class="flex flex-wrap items-end gap-3">
+    {% csrf_token %}
+    <div class="flex-1 min-w-[12rem]">
+      <label class="block text-xs font-medium text-gray-500 mb-1">Template</label>
+      <select name="template" required
+              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-stone-500 focus:ring-stone-500">
+        <option value="">Pick a sequence…</option>
+        {% for t in sequence_templates %}
+        <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit"
+            class="rounded-lg bg-stone-800 px-4 py-2 text-sm font-medium text-white hover:bg-stone-700">
+      Enroll
+    </button>
+  </form>
+
+  {% for seq in sequences %}
+  <div class="rounded-lg border border-gray-200">
+    <div class="flex items-center justify-between border-b border-gray-100 px-4 py-2.5">
+      <div class="text-sm font-medium text-stone-700">
+        {{ seq.template.name|default:"Sequence" }}
+      </div>
+      {% if seq.status == "active" %}
+      <span class="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700">Active</span>
+      {% elif seq.status == "paused" %}
+      <span class="inline-flex rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">Paused</span>
+      {% else %}
+      <span class="inline-flex rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">{{ seq.get_status_display }}</span>
+      {% endif %}
+    </div>
+    <ol class="divide-y divide-gray-50">
+      {% for step in seq.steps.all %}
+      <li class="flex items-center justify-between px-4 py-2 text-sm">
+        <span class="flex items-center gap-2">
+          <span class="text-xs font-mono text-stone-400">{{ step.position }}</span>
+          <span class="font-medium text-stone-700">{{ step.kind }}</span>
+          {% if step.subject %}<span class="text-stone-500">· {{ step.subject }}</span>{% endif %}
+        </span>
+        <span class="flex items-center gap-3 text-xs">
+          <span class="text-stone-400">{{ step.scheduled_for|date:"M j" }}</span>
+          {% if step.status == "sent" %}
+          <span class="rounded-full bg-emerald-50 px-2 py-0.5 font-medium text-emerald-700">Sent</span>
+          {% elif step.status == "task_open" %}
+          <span class="rounded-full bg-sky-50 px-2 py-0.5 font-medium text-sky-700">Task</span>
+          {% elif step.status == "skipped" %}
+          <span class="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-500">Skipped</span>
+          {% else %}
+          <span class="rounded-full bg-stone-100 px-2 py-0.5 font-medium text-stone-500">Pending</span>
+          {% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ol>
+  </div>
+  {% empty %}
+  <div class="text-sm text-stone-400">No sequences enrolled yet.</div>
+  {% endfor %}
+</div>
