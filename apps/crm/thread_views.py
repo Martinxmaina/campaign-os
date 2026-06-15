@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.http import HttpResponseForbidden
+from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -82,6 +82,47 @@ def thread_edit(request, thread_id):
         messages.success(request, "Thread updated.")
 
     return _respond(request, thread, redirect_to="timeline")
+
+
+@login_required
+@require_POST
+def set_stage(request, thread_id):
+    """Move a thread to a new pipeline stage — the drag-and-drop write.
+
+    Both pipelines (Joseph + console) POST here when a card is dropped in a new
+    stage column. The single canonical endpoint validates the target against
+    ``OutreachThread.Stage`` (an unknown/missing stage → 400, no change), is
+    role-gated by ``_can_manage_crm`` (staff or owner/admin/campaign_owner), and
+    appends an ``Activity(activity_type="stage_advanced")`` so a drag is never a
+    silent mutation. Dropping a card back in its own column is a harmless no-op
+    (no Activity). Returns 204 (the drop already updated the DOM optimistically);
+    a full POST bounces back to the pipeline.
+    """
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The CRM is not available for your role.")
+
+    stage = (request.POST.get("stage") or "").strip()
+    if not stage or stage not in OutreachThread.Stage.values:
+        return HttpResponseBadRequest("Unknown stage.")
+
+    thread = get_object_or_404(OutreachThread, id=thread_id)
+
+    previous = thread.stage
+    if stage != previous:
+        thread.stage = stage
+        thread.save(update_fields=["stage", "updated_at"])
+        # log the move on the append-only timeline so nothing is silent.
+        Activity.objects.create(
+            thread=thread,
+            activity_type="stage_advanced",
+            actor_type="human",
+            actor=request.user,
+            content_ref={"from": previous, "to": stage},
+        )
+
+    if getattr(request, "htmx", False):
+        return HttpResponse(status=204)
+    return redirect("/joseph/pipeline/")
 
 
 @login_required

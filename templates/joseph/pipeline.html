@@ -7,7 +7,12 @@ Campaign OS sidebar (incl. the "Joseph · Principal" section) and chrome. Thread
 are grouped server-side into the ordered stage columns (Discover → Committed +
 a catch-all "Other"). Each card shows the org, a traffic-light dot, the track,
 the next action and the quintile, and links into the thread drawer (Task 6).
-CSP-safe: plain anchor links, no inline handlers.
+
+Cards are draggable between stage columns (Task 2): SortableJS (jsdelivr, the
+already-allowed CSP origin) makes each column a sortable list with a distinct
+drag handle (so the card body stays a normal link). On drop into a new column we
+fetch-POST {stage=<column's stage>} to crm:thread-set-stage with the CSRF header;
+a non-2xx reverts the move. CSP-safe: no inline handlers; nonce'd init script.
 {% endcomment %}
 
 {% block content %}
@@ -15,7 +20,7 @@ CSP-safe: plain anchor links, no inline handlers.
 
   <div class="border-b border-stone-200 pb-4">
     <h1 class="font-display text-2xl">Pipeline</h1>
-    <div class="text-sm text-stone-500">Deal-flow · traffic-light by days since last touch</div>
+    <div class="text-sm text-stone-500">Deal-flow · drag a card to move its stage · traffic-light by days since last touch</div>
   </div>
 
   <div class="overflow-x-auto pb-2">
@@ -24,39 +29,103 @@ CSP-safe: plain anchor links, no inline handlers.
       <div class="space-y-2">
         <div class="sidebar-section-label" style="padding-left:2px">{{ col.label }} · {{ col.count }}</div>
 
+        <div class="pipeline-col space-y-2 min-h-[2.5rem]" data-stage="{{ col.key }}">
         {% for t in col.threads %}
-        <a href="/joseph/thread/{{ t.id }}/"
-           class="block w-full text-left card p-3 hover:shadow-sm
-                  {% if t.traffic_light == 'red' %}ring-1 ring-red-100 border-red-200
-                  {% elif t.traffic_light == 'green' and col.key == 'committed' %}border-emerald-200 bg-emerald-50/40{% endif %}">
-          <div class="flex items-center justify-between gap-2">
-            <span class="font-semibold truncate">{{ t.org|default:"Thread" }}</span>
-            <span class="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
-                  style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
-          </div>
-          <div class="flex items-center justify-between gap-2 mt-0.5">
-            {% if t.track %}<span class="text-[11px] text-stone-500 truncate">{{ t.track }}</span>{% endif %}
-            {% if t.days_since_touch is not None %}
-            <span class="text-[11px] flex-shrink-0
-                         {% if t.traffic_light == 'red' %}text-red-600
-                         {% elif t.traffic_light == 'green' %}text-emerald-600
-                         {% else %}text-amber-600{% endif %}">{{ t.days_since_touch }}d</span>
+        <div class="pipeline-card relative card p-3 hover:shadow-sm
+                    {% if t.traffic_light == 'red' %}ring-1 ring-red-100 border-red-200
+                    {% elif t.traffic_light == 'green' and col.key == 'committed' %}border-emerald-200 bg-emerald-50/40{% endif %}"
+             data-thread-id="{{ t.id }}">
+          <span class="pipeline-drag-handle absolute top-2 right-2 text-stone-300 hover:text-stone-500 cursor-grab select-none"
+                title="Drag to move stage" aria-label="Drag to move stage">⠿</span>
+          <a href="/joseph/thread/{{ t.id }}/" class="block w-full text-left pr-4">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-semibold truncate">{{ t.org|default:"Thread" }}</span>
+              <span class="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
+                    style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
+            </div>
+            <div class="flex items-center justify-between gap-2 mt-0.5">
+              {% if t.track %}<span class="text-[11px] text-stone-500 truncate">{{ t.track }}</span>{% endif %}
+              {% if t.days_since_touch is not None %}
+              <span class="text-[11px] flex-shrink-0
+                           {% if t.traffic_light == 'red' %}text-red-600
+                           {% elif t.traffic_light == 'green' %}text-emerald-600
+                           {% else %}text-amber-600{% endif %}">{{ t.days_since_touch }}d</span>
+              {% endif %}
+            </div>
+            {% if t.next_action %}
+            <div class="text-[11px] mt-1 truncate text-stone-600">{{ t.next_action }}</div>
             {% endif %}
-          </div>
-          {% if t.next_action %}
-          <div class="text-[11px] mt-1 truncate text-stone-600">{{ t.next_action }}</div>
-          {% endif %}
-          {% if t.quintile_dots %}
-          <div class="text-[11px] mt-1 text-stone-400">Q{{ t.quintile }} <span class="tracking-[1px]">{{ t.quintile_dots }}</span></div>
-          {% endif %}
-        </a>
+            {% if t.quintile_dots %}
+            <div class="text-[11px] mt-1 text-stone-400">Q{{ t.quintile }} <span class="tracking-[1px]">{{ t.quintile_dots }}</span></div>
+            {% endif %}
+          </a>
+        </div>
         {% empty %}
         <div class="text-[11px] text-stone-300 px-1 pt-1">—</div>
         {% endfor %}
+        </div>
       </div>
       {% endfor %}
     </div>
   </div>
 
 </div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script nonce="{{ request.csp_nonce }}">
+  /* Drag-and-drop → stage update. SortableJS (loaded synchronously above) turns
+     each .pipeline-col into a sortable list sharing one group, so cards move
+     between stage columns. On drop into a different column we POST the card's
+     thread id + the destination column's data-stage to set_stage with the CSRF
+     header; a non-2xx response reverts the DOM. CSP-safe (no inline handlers). */
+  (function () {
+    if (typeof Sortable === "undefined") return;  // CDN offline → no drag, no crash.
+
+    var setStageUrl = function (id) {
+      return "/crm/threads/" + encodeURIComponent(id) + "/stage/";
+    };
+    var csrfEl = document.querySelector("[name=csrfmiddlewaretoken]");
+    var csrf = csrfEl ? csrfEl.value : "";
+
+    document.querySelectorAll(".pipeline-col").forEach(function (col) {
+      new Sortable(col, {
+        group: "pipeline",
+        handle: ".pipeline-drag-handle",
+        animation: 150,
+        ghostClass: "opacity-40",
+        onEnd: function (evt) {
+          var dest = evt.to;
+          var src = evt.from;
+          if (dest === src) return;  // reorder within same column → nothing to persist.
+
+          var card = evt.item;
+          var threadId = card.getAttribute("data-thread-id");
+          var stage = dest.getAttribute("data-stage");
+          if (!threadId || !stage) return;
+
+          var body = new URLSearchParams();
+          body.append("stage", stage);
+          fetch(setStageUrl(threadId), {
+            method: "POST",
+            headers: {
+              "X-CSRFToken": csrf,
+              "Content-Type": "application/x-www-form-urlencoded",
+              "X-Requested-With": "XMLHttpRequest",
+            },
+            body: body.toString(),
+          })
+            .then(function (resp) {
+              if (!resp.ok) {
+                // revert: put the card back where it came from.
+                src.insertBefore(card, src.children[evt.oldIndex] || null);
+              }
+            })
+            .catch(function () {
+              src.insertBefore(card, src.children[evt.oldIndex] || null);
+            });
+        },
+      });
+    });
+  })();
+</script>
 {% endblock %}
