@@ -36,6 +36,35 @@
     {% endfor %}
   </section>
 
+  {# ── This week + compact chart ─────────────────────────────────── #}
+  <section>
+    <div class="sidebar-section-label" style="padding-left:0">This week</div>
+    <div class="grid grid-cols-2 gap-2">
+      <div class="card p-3">
+        <div class="font-display text-xl">{{ week_stats.meetings_this_week }}</div>
+        <div class="text-[11px] text-stone-500">Meetings</div>
+      </div>
+      <div class="card p-3">
+        <div class="font-display text-xl">{{ week_stats.threads_advanced }}</div>
+        <div class="text-[11px] text-stone-500">Threads advanced</div>
+      </div>
+      <div class="card p-3">
+        <div class="font-display text-xl">{{ week_stats.replies }}</div>
+        <div class="text-[11px] text-stone-500">Replies</div>
+      </div>
+      <div class="card p-3">
+        <div class="font-display text-xl">{{ week_stats.drafts }}</div>
+        <div class="text-[11px] text-stone-500">Drafts</div>
+      </div>
+    </div>
+    <div class="card p-4 mt-2">
+      <div class="text-sm font-bold mb-2">Deal flow by stage</div>
+      <div style="position:relative;height:180px;">
+        <canvas id="joseph-chart-stage"></canvas>
+      </div>
+    </div>
+  </section>
+
   {# ── Action queue ──────────────────────────────────────────────── #}
   <section>
     <div class="flex items-center justify-between">
@@ -100,4 +129,40 @@
   </section>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ chart_by_stage|json_script:"joseph-chart-stage-data" }}
+<script nonce="{{ request.csp_nonce }}">
+/* Mobile compact "deal flow by stage" chart — mirrors the analytics-hero
+   pattern in base.html (Chart.js loaded synchronously above this block; capped
+   retry covers an offline/adblocked CDN). The dataset is a valid {labels:[],
+   data:[]} on an empty DB, so the chart never crashes. */
+function josephInitMobileChart(retries) {
+    if (typeof Chart === 'undefined') {
+        if ((retries || 0) > 30) return;
+        setTimeout(function () { josephInitMobileChart((retries || 0) + 1); }, 30);
+        return;
+    }
+    var canvas = document.getElementById('joseph-chart-stage');
+    if (!canvas) return;
+    var d;
+    try { d = JSON.parse(document.getElementById('joseph-chart-stage-data').textContent) || { labels: [], data: [] }; }
+    catch (e) { d = { labels: [], data: [] }; }
+    if (canvas._jChart) { canvas._jChart.destroy(); }
+    canvas._jChart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: { labels: d.labels, datasets: [{ data: d.data, backgroundColor: '#F97316', borderRadius: 6, maxBarThickness: 36 }] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, tooltip: { intersect: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { color: '#78716C' } },
+                y: { beginAtZero: true, grid: { color: '#F5F5F4' }, ticks: { precision: 0, color: '#78716C' } },
+            },
+        },
+    });
+}
+document.addEventListener('DOMContentLoaded', function () { josephInitMobileChart(); });
+</script>
 {% endblock %}

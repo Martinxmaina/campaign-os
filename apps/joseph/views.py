@@ -97,15 +97,24 @@ def home(request):
         "red_thread_count": len(red_threads),
         "content": content,
         "is_mobile": is_mobile,
+        # The "This week" stat strip + a compact by-stage chart are shared by BOTH
+        # surfaces (mobile shows the one compact chart; desktop the full trio).
+        # Computed from the CANONICAL Django sources (CRM threads + Activity log +
+        # CalendarEvent), never the agent-service, so they survive an outage.
+        "week_stats": _week_stats(workspace, request.user),
+        "chart_by_stage": _chart_by_stage(),
     }
 
     # The desktop operational surface adds a capital funnel + an escalations
-    # strip on top of the shared home data. Both degrade to empty/zero when the
-    # agent-service is down (the readers swallow AgentClientError) — never a 500.
+    # strip + the full Today chart trio on top of the shared home data. Both
+    # degrade to empty/zero when the agent-service is down (the readers swallow
+    # AgentClientError) — never a 500.
     if not is_mobile:
         context["funnel"] = _capital_funnel()
         context["by_track"] = _pipeline_by_track()
         context["escalations"] = [a for a in actions if a.get("urgent")]
+        context["chart_by_track"] = _chart_by_track()
+        context["chart_quintile"] = _chart_quintile()
 
     template = "joseph/home_mobile.html" if is_mobile else "joseph/home_desktop.html"
     return render(request, template, context)
@@ -161,6 +170,129 @@ def _pipeline_by_track() -> list[dict]:
     for r in rows:
         r["pct"] = round(100 * r["count"] / top) if top else 0
     return rows
+
+
+# ── Today charts (Chart.js datasets) ─────────────────────────────────────────
+# Each builder returns a ``{"labels": [...], "data": [...]}`` dict — the exact
+# shape the template ships to Chart.js via ``json_script``. All three read the
+# canonical Django CRM (no agent-service), bucket by an in-memory tally so an
+# empty DB yields a valid empty/zero dataset (Chart.js never crashes on it).
+
+
+def _chart_by_track() -> dict:
+    """Thread count per capital track, in the canonical track display order,
+    dropping tracks with zero threads (an empty DB → empty dataset)."""
+    counts: dict[str, int] = {}
+    for t in _crm_threads():
+        key = (t.track or "other").lower()
+        counts[key] = counts.get(key, 0) + 1
+    labels, data = [], []
+    for key, label in _TRACKS:
+        if counts.get(key):
+            labels.append(label)
+            data.append(counts[key])
+    other = sum(v for k, v in counts.items() if k not in dict(_TRACKS))
+    if other:
+        labels.append("Other")
+        data.append(other)
+    return {"labels": labels, "data": data}
+
+
+def _chart_by_stage() -> dict:
+    """Thread count per pipeline stage, in ``OutreachThread.Stage`` order,
+    dropping stages with zero threads (an empty DB → empty dataset)."""
+    from apps.crm.models import OutreachThread
+
+    counts: dict[str, int] = {}
+    for t in _crm_threads():
+        counts[t.stage] = counts.get(t.stage, 0) + 1
+    labels, data = [], []
+    for value, label in OutreachThread.Stage.choices:
+        if counts.get(value):
+            labels.append(label)
+            data.append(counts[value])
+    return {"labels": labels, "data": data}
+
+
+def _chart_quintile() -> dict:
+    """Thread count per 1–5 quintile — always five buckets (Q1..Q5) so the
+    doughnut renders consistently; a quintile of 0/None/out-of-range is ignored
+    (it has no bucket). An empty DB → five zero buckets, never a crash."""
+    buckets = [0, 0, 0, 0, 0]
+    for t in _crm_threads():
+        try:
+            q = int(t.quintile or 0)
+        except (TypeError, ValueError):
+            continue
+        if 1 <= q <= 5:
+            buckets[q - 1] += 1
+    return {"labels": ["Q1", "Q2", "Q3", "Q4", "Q5"], "data": buckets}
+
+
+def _week_start():
+    """Monday 00:00 (local) of the current week, as an aware datetime."""
+    today = timezone.localdate()
+    monday = today - timezone.timedelta(days=today.weekday())
+    return timezone.make_aware(
+        timezone.datetime(monday.year, monday.month, monday.day)
+    )
+
+
+def _week_stats(workspace, user) -> dict:
+    """The "This week" strip: meetings booked, threads advanced, replies logged
+    and content drafts — all from canonical Django sources (CalendarEvent +
+    Activity + Post). Every count degrades to 0 on an empty DB / bad data, never
+    a 500."""
+    from apps.crm.models import Activity
+
+    start = _week_start()
+
+    advanced = Activity.objects.filter(
+        activity_type="stage_advanced", created_at__gte=start
+    ).count()
+    replies = Activity.objects.filter(
+        activity_type="email_reply", created_at__gte=start
+    ).count()
+
+    meetings = 0
+    try:
+        from apps.joseph.models import CalendarEvent
+
+        cq = CalendarEvent.objects.filter(start__gte=start)
+        if workspace is not None:
+            cq = cq.filter(workspace=workspace)
+        meetings = cq.count()
+    except Exception:
+        meetings = 0
+
+    drafts = 0
+    try:
+        from django.db.models import Q
+
+        from apps.composer.models import Post
+
+        # Posts Joseph owns/must approve that haven't cleared review yet — the
+        # work-in-progress slice (pending / freshly-drafted / changes-requested),
+        # i.e. everything short of APPROVED or REJECTED.
+        pq = Post.objects.filter(Q(review_assignee=user) | Q(author=user)).filter(
+            review_state__in=[
+                Post.ReviewState.NONE,
+                Post.ReviewState.PENDING,
+                Post.ReviewState.CHANGES_REQUESTED,
+            ]
+        )
+        if workspace is not None:
+            pq = pq.filter(workspace=workspace)
+        drafts = pq.count()
+    except Exception:
+        drafts = 0
+
+    return {
+        "meetings_this_week": meetings,
+        "threads_advanced": advanced,
+        "replies": replies,
+        "drafts": drafts,
+    }
 
 
 def _thread_days_since_touch(last_touch_at):

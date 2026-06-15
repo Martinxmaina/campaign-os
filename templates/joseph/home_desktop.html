@@ -23,6 +23,54 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
     </div>
   </div>
 
+  {# ── This week (context strip) ────────────────────────────── #}
+  <div>
+    <div class="sidebar-section-label" style="padding-left:0">This week</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div class="card p-4">
+        <div class="font-display text-2xl">{{ week_stats.meetings_this_week }}</div>
+        <div class="text-xs text-stone-500 mt-1">Meetings</div>
+      </div>
+      <div class="card p-4">
+        <div class="font-display text-2xl">{{ week_stats.threads_advanced }}</div>
+        <div class="text-xs text-stone-500 mt-1">Threads advanced</div>
+      </div>
+      <div class="card p-4">
+        <div class="font-display text-2xl">{{ week_stats.replies }}</div>
+        <div class="text-xs text-stone-500 mt-1">Replies</div>
+      </div>
+      <div class="card p-4">
+        <div class="font-display text-2xl">{{ week_stats.drafts }}</div>
+        <div class="text-xs text-stone-500 mt-1">Drafts</div>
+      </div>
+    </div>
+  </div>
+
+  {# ── Today charts (Chart.js) ──────────────────────────────── #}
+  <div>
+    <div class="sidebar-section-label" style="padding-left:0">Deal flow at a glance</div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-3">
+      <div class="card p-4">
+        <div class="text-sm font-bold mb-3">By track</div>
+        <div style="position:relative;height:200px;">
+          <canvas id="joseph-chart-track"></canvas>
+        </div>
+      </div>
+      <div class="card p-4">
+        <div class="text-sm font-bold mb-3">By stage</div>
+        <div style="position:relative;height:200px;">
+          <canvas id="joseph-chart-stage"></canvas>
+        </div>
+      </div>
+      <div class="card p-4">
+        <div class="text-sm font-bold mb-3">By quintile</div>
+        <div style="position:relative;height:200px;">
+          <canvas id="joseph-chart-quintile"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
     <div class="lg:col-span-2 space-y-5">
 
@@ -139,4 +187,86 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
   </div>
 
 </div>
+{% endblock %}
+
+{% block extra_js %}
+{{ chart_by_track|json_script:"joseph-chart-track-data" }}
+{{ chart_by_stage|json_script:"joseph-chart-stage-data" }}
+{{ chart_quintile|json_script:"joseph-chart-quintile-data" }}
+<script nonce="{{ request.csp_nonce }}">
+/* Joseph Today charts — read each json_script payload and (re)create the
+   Chart.js charts. Mirrors the analytics-hero pattern in base.html: Chart.js
+   is loaded synchronously in base.html above the extra_js block, so a short
+   capped retry covers an adblocked/offline CDN without burning CPU. Every
+   dataset is a {labels:[], data:[]} dict that is valid (empty/zero) on an empty
+   DB, so the charts never crash. */
+function josephInitCharts(retries) {
+    if (typeof Chart === 'undefined') {
+        if ((retries || 0) > 30) return;
+        setTimeout(function () { josephInitCharts((retries || 0) + 1); }, 30);
+        return;
+    }
+    var PALETTE = ['#F97316', '#0EA5E9', '#22C55E', '#A855F7', '#EAB308', '#EF4444'];
+    function readData(id) {
+        var el = document.getElementById(id);
+        if (!el) return { labels: [], data: [] };
+        try { return JSON.parse(el.textContent) || { labels: [], data: [] }; }
+        catch (e) { return { labels: [], data: [] }; }
+    }
+    function makeBar(canvasId, dataId) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var d = readData(dataId);
+        if (canvas._jChart) { canvas._jChart.destroy(); }
+        canvas._jChart = new Chart(canvas.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: d.labels,
+                datasets: [{
+                    data: d.data,
+                    backgroundColor: (d.labels || []).map(function (_, i) { return PALETTE[i % PALETTE.length]; }),
+                    borderRadius: 6,
+                    maxBarThickness: 42,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { intersect: false } },
+                scales: {
+                    x: { grid: { display: false }, ticks: { color: '#78716C' } },
+                    y: { beginAtZero: true, grid: { color: '#F5F5F4' }, ticks: { precision: 0, color: '#78716C' } },
+                },
+            },
+        });
+    }
+    function makeDoughnut(canvasId, dataId) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var d = readData(dataId);
+        if (canvas._jChart) { canvas._jChart.destroy(); }
+        canvas._jChart = new Chart(canvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: d.labels,
+                datasets: [{
+                    data: d.data,
+                    backgroundColor: (d.labels || []).map(function (_, i) { return PALETTE[i % PALETTE.length]; }),
+                    borderWidth: 0,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: { legend: { position: 'bottom', labels: { color: '#78716C', boxWidth: 12 } } },
+            },
+        });
+    }
+    makeBar('joseph-chart-track', 'joseph-chart-track-data');
+    makeBar('joseph-chart-stage', 'joseph-chart-stage-data');
+    makeDoughnut('joseph-chart-quintile', 'joseph-chart-quintile-data');
+}
+document.addEventListener('DOMContentLoaded', function () { josephInitCharts(); });
+</script>
 {% endblock %}
