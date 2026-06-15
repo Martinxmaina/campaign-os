@@ -90,18 +90,28 @@ def set_stage(request, thread_id):
     """Move a thread to a new pipeline stage — the drag-and-drop write.
 
     Both pipelines (Joseph + console) POST here when a card is dropped in a new
-    stage column. The single canonical endpoint validates the target against
-    ``OutreachThread.Stage`` (an unknown/missing stage → 400, no change), is
-    role-gated by ``_can_manage_crm`` (staff or owner/admin/campaign_owner), and
-    appends an ``Activity(activity_type="stage_advanced")`` so a drag is never a
-    silent mutation. Dropping a card back in its own column is a harmless no-op
-    (no Activity). Returns 204 (the drop already updated the DOM optimistically);
-    a full POST bounces back to the pipeline.
+    stage column. The posted value may be a raw ``OutreachThread.Stage`` OR a
+    pipeline DISPLAY column key (discover/qualify/proposal/diligence/committed —
+    what the board template emits in ``data-stage``); the column key is resolved
+    to its canonical Stage via ``_COLUMN_TO_CRM_STAGE`` first so a drop onto ANY
+    column advances the stage, not just "Committed" (the others would otherwise
+    400 and the JS onEnd handler would revert the card). The single canonical
+    endpoint validates the resolved target against ``OutreachThread.Stage`` (an
+    unknown/missing stage → 400, no change), is role-gated by ``_can_manage_crm``
+    (staff or owner/admin/campaign_owner), and appends an
+    ``Activity(activity_type="stage_advanced")`` so a drag is never a silent
+    mutation. Dropping a card back in its own column is a harmless no-op (no
+    Activity). Returns 204 (the drop already updated the DOM optimistically); a
+    full POST bounces back to the pipeline.
     """
     if not _can_manage_crm(request):
         return HttpResponseForbidden("The CRM is not available for your role.")
 
-    stage = (request.POST.get("stage") or "").strip()
+    from apps.joseph.views import _COLUMN_TO_CRM_STAGE
+
+    posted = (request.POST.get("stage") or "").strip()
+    # Accept either a raw Stage or a pipeline column key (mapped to its Stage).
+    stage = _COLUMN_TO_CRM_STAGE.get(posted, posted)
     if not stage or stage not in OutreachThread.Stage.values:
         return HttpResponseBadRequest("Unknown stage.")
 

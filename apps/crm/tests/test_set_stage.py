@@ -158,3 +158,50 @@ def test_set_stage_same_stage_no_activity(manager, client, thread):
     thread.refresh_from_db()
     assert thread.stage == "engaged"
     assert not Activity.objects.filter(thread=thread, activity_type="stage_advanced").exists()
+
+
+# ---------------------------------------------------------------------------
+# End-to-end: the keys the pipeline TEMPLATE actually emits (data-stage) must
+# move the stage. The board's columns are DISPLAY keys (discover/qualify/
+# proposal/diligence/committed), not raw Stage values — every drop onto one of
+# them must resolve to a real Stage, not 400 + a reverted card. This is the
+# regression the raw-Stage tests above missed.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    ("column_key", "expected_stage"),
+    [
+        ("discover", "targeted"),
+        ("qualify", "engaged"),
+        ("proposal", "proposal_sent"),
+        ("diligence", "in_discussion"),
+        ("committed", "committed"),
+    ],
+)
+def test_set_stage_accepts_pipeline_column_keys(
+    manager, client, thread, column_key, expected_stage
+):
+    """Posting a ``_PIPELINE_STAGES`` column key (what the template emits in
+    ``data-stage``) resolves to the canonical Stage and advances the thread —
+    not a 400 that the JS onEnd handler would revert."""
+    from apps.crm.models import Activity
+
+    # Start from a stage distinct from each target so every drop is a real move.
+    thread.stage = "closed"
+    thread.save(update_fields=["stage"])
+
+    resp = client.post(
+        reverse("crm:thread-set-stage", args=[thread.id]),
+        {"stage": column_key},
+    )
+    assert resp.status_code in (200, 204, 302), (
+        f"column key {column_key!r} should be accepted, got {resp.status_code}"
+    )
+    thread.refresh_from_db()
+    assert thread.stage == expected_stage
+
+    a = Activity.objects.filter(thread=thread, activity_type="stage_advanced").first()
+    assert a is not None
+    assert a.content_ref.get("to") == expected_stage

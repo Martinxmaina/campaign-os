@@ -202,6 +202,20 @@ _CRM_STAGE_TO_COLUMN = {
     "committed": "committed",
 }
 
+# Pipeline display column key → the canonical CRM Stage a drop onto that column
+# should set. This is the inverse of ``_CRM_STAGE_TO_COLUMN`` plus the "discover"
+# column (the earliest, no-source-stage bucket) → ``targeted``. ``set_stage``
+# resolves a posted column key through this map so dragging a card to ANY column
+# (not just "Committed") advances the stage — the template emits these keys in
+# ``data-stage``, so without this 5 of 6 columns would 400 and the drop reverts.
+_COLUMN_TO_CRM_STAGE = {
+    "discover": "targeted",
+    "qualify": "engaged",
+    "proposal": "proposal_sent",
+    "diligence": "in_discussion",
+    "committed": "committed",
+}
+
 
 def _crm_thread_card(thread) -> dict:
     """Adapt a local ``apps.crm.OutreachThread`` into the dict shape the Joseph
