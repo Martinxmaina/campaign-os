@@ -27,6 +27,13 @@ urlpatterns = [
     path("notifications", intel_console.notifications, name="notifications"),
     path("notifications/<str:notification_id>/read", intel_console.notification_read, name="notification-read"),
     path("brain", intel_console.brain, name="brain"),
+    # Agent-brain Learning Log + diff-review (Loop 2). Reads owner/admin-gated;
+    # apply/reject mirror the lead-gated agent-service /brain/* mutations.
+    path("learning/", intel_console.learning_log, name="learning-log"),
+    path("diffs/", intel_console.diff_list, name="diff-list"),
+    path("diffs/<str:proposal_id>/", intel_console.diff_detail, name="diff-detail"),
+    path("diffs/<str:proposal_id>/apply", intel_console.diff_apply, name="diff-apply"),
+    path("diffs/<str:proposal_id>/reject", intel_console.diff_reject, name="diff-reject"),
     path("news", intel_console.news, name="news"),
     path("news/draft", intel_console.news_draft, name="news-draft"),
     path("graph.json", intel_console.graph_json, name="graph-json"),

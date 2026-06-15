@@ -1,0 +1,49 @@
+{% extends "console/base.html" %}
+{% block console %}
+<div class="p-6 max-w-4xl">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-2xl font-bold">Learning Log</h1>
+    <a href="{% url 'console:diff-list' %}"
+       class="text-sm rounded bg-blue-600 text-white px-3 py-1.5 hover:bg-blue-700 transition-colors">
+      Review proposed diffs
+    </a>
+  </div>
+  <p class="text-sm text-stone-500 mb-5">
+    Weekly Evaluator reflections — what each agent learned from its episodes, and how
+    many evidence-backed playbook diffs it proposed (constitutions are never changed).
+  </p>
+
+  {% if down %}
+    {% include "console/_unavailable.html" %}
+  {% elif not learnings %}
+    <div class="p-6 text-stone-500 border border-stone-200 bg-stone-50 rounded-lg">
+      No learning memos yet — the weekly Evaluator runs on Fridays.
+    </div>
+  {% else %}
+    <div class="space-y-3">
+      {% for l in learnings %}
+      <div class="rounded border border-stone-200 bg-white px-4 py-3">
+        <div class="flex items-center justify-between gap-3 mb-1">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-semibold text-stone-800">{{ l.meta.agent_name|default:"agent" }}</span>
+            {% if l.meta.week %}<span class="text-xs text-stone-500">{{ l.meta.week }}</span>{% endif %}
+          </div>
+          <span class="text-xs rounded-full px-2 py-0.5
+            {% if l.meta.diffs_proposed %}bg-amber-100 text-amber-800{% else %}bg-stone-100 text-stone-500{% endif %}">
+            {{ l.meta.diffs_proposed|default:0 }} diff{{ l.meta.diffs_proposed|default:0|pluralize }} proposed
+          </span>
+        </div>
+        <p class="text-sm text-stone-700">{{ l.summary }}</p>
+        <div class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
+          {% if l.meta.episodes_considered is not None %}<span>episodes: {{ l.meta.episodes_considered }}</span>{% endif %}
+          {% if l.meta.dropped_low_evidence %}<span>dropped (low evidence): {{ l.meta.dropped_low_evidence }}</span>{% endif %}
+          {% if l.meta.eval_rejected %}<span>eval-rejected: {{ l.meta.eval_rejected }}</span>{% endif %}
+          {% if l.meta.refused_frozen %}<span>refused frozen: {{ l.meta.refused_frozen }}</span>{% endif %}
+          {% if l.created_at %}<span>{{ l.created_at }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
