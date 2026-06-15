@@ -9,6 +9,9 @@ echo "[entrypoint] PROCESS_TYPE=${PROCESS_TYPE} settings=${DJANGO_SETTINGS_MODUL
 case "$PROCESS_TYPE" in
   web)
     python manage.py migrate --noinput
+    # Auto-connect Ghost from GHOST_ADMIN_API_KEY (idempotent; no-op if unset).
+    # || true so a Ghost hiccup never blocks the web boot.
+    python manage.py ensure_ghost_connected || true
     exec gunicorn config.wsgi:application --bind 0.0.0.0:"${PORT:-8000}" --workers 2 --threads 2
     ;;
   worker)
