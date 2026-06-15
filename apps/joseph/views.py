@@ -394,23 +394,17 @@ _PIPELINE_STAGES = [
 _CATCH_ALL = ("_other", "Other")
 
 
-@login_required
-def pipeline(request):
-    """Joseph's deal-flow board — a traffic-light kanban grouped by stage.
+def _build_pipeline_columns(threads: list[dict]) -> list[dict]:
+    """Bucket annotated thread cards into the ordered stage columns + a catch-all.
 
-    Threads are local ``apps.crm.OutreachThread`` rows (the CRM is canonical —
-    the strangler step), bucketed into the five ordered stage columns
-    (Discover → Committed) with a catch-all so an unrecognised stage is never
-    silently dropped. Each card shows the org, a traffic-light dot, the quintile
-    and the next action, and links into the thread drawer. No agent-service read —
-    an empty DB just renders empty columns, never a 500.
+    The single source of truth for the kanban column structure, shared by BOTH
+    the Joseph board and the operator console board so they render identical
+    columns. Threads are bucketed by their display ``stage`` (already mapped from
+    the CRM Stage by ``_crm_thread_card``) into the five canonical columns
+    (Discover → Committed) in order; an unrecognised stage falls into the
+    catch-all "Other" tail (appended only when it has cards) so nothing silently
+    disappears. Returns ``[{key, label, threads, count}, ...]``.
     """
-    if not _can_access_joseph(request):
-        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
-
-    threads = [_crm_thread_card(t) for t in _crm_threads()]
-
-    # Bucket by stage, preserving the canonical column order + a catch-all tail.
     buckets: dict[str, list] = {key: [] for key, _ in _PIPELINE_STAGES}
     buckets[_CATCH_ALL[0]] = []
     known = set(buckets)
@@ -427,7 +421,25 @@ def pipeline(request):
             "key": _CATCH_ALL[0], "label": _CATCH_ALL[1],
             "threads": buckets[_CATCH_ALL[0]], "count": len(buckets[_CATCH_ALL[0]]),
         })
+    return columns
 
+
+@login_required
+def pipeline(request):
+    """Joseph's deal-flow board — a traffic-light kanban grouped by stage.
+
+    Threads are local ``apps.crm.OutreachThread`` rows (the CRM is canonical —
+    the strangler step), bucketed into the five ordered stage columns
+    (Discover → Committed) with a catch-all so an unrecognised stage is never
+    silently dropped. Each card shows the org, a traffic-light dot, the quintile
+    and the next action, and links into the thread drawer. No agent-service read —
+    an empty DB just renders empty columns, never a 500.
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    threads = [_crm_thread_card(t) for t in _crm_threads()]
+    columns = _build_pipeline_columns(threads)
     return render(request, "joseph/pipeline.html", {"columns": columns})
 
 

@@ -2,7 +2,7 @@
 import logging
 
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -12,15 +12,30 @@ from apps.content_intake.sector_map import map_pillar_to_sector
 
 logger = logging.getLogger(__name__)
 
-_LIGHTS = ["green", "amber", "red"]
-
 
 @login_required
 def pipeline(request):
-    data = safe_get("/threads", default={"items": []})
-    items = (data or {}).get("items", [])
-    cols = {l: [t for t in items if (t.get("traffic_light") or "green") == l] for l in _LIGHTS}
-    return render(request, "console/pipeline.html", {"cols": cols, "lights": _LIGHTS, "down": data is None})
+    """Operator deal-flow board — canonical Django threads, drag-to-restage.
+
+    Repointed off the stale agent-service ``/threads`` read: the console now
+    queries ``apps.crm.OutreachThread`` (the canonical CRM, the strangler step)
+    and buckets the cards into the SAME ordered stage columns Joseph's board uses
+    (Discover → Committed + a catch-all "Other"), so both pipelines render one
+    source of truth. Cards drag between columns and POST the move to the single
+    shared ``crm:thread-set-stage`` endpoint (Task 2). Role-gated by
+    ``_can_manage_crm`` (the CRM gate ``set_stage`` itself enforces — a viewer who
+    can't restage shouldn't see the board). No agent-service call; an empty DB
+    renders empty columns, never a 500.
+    """
+    from apps.crm.views_import import _can_manage_crm
+    from apps.joseph.views import _build_pipeline_columns, _crm_thread_card, _crm_threads
+
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The pipeline is not available for your role.")
+
+    threads = [_crm_thread_card(t) for t in _crm_threads()]
+    columns = _build_pipeline_columns(threads)
+    return render(request, "console/pipeline.html", {"columns": columns})
 
 
 @login_required
