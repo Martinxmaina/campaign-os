@@ -46,6 +46,12 @@ def derive(values_by_day: list[float], days: int, kind: str) -> DerivedMetric:
     if kind in ("percent", "minutes"):
         cur_val = sum(cur) / len(cur) if cur else 0.0
         prev_val = sum(prev) / len(prev) if prev else 0.0
+    elif kind == "total":
+        # Cumulative lifetime total (followers / subscribers): each daily value is
+        # the running total, so the window value is the LATEST snapshot — summing
+        # would multiply by the number of days. Delta = net growth vs the prior window.
+        cur_val = float(cur[-1]) if cur else 0.0
+        prev_val = float(prev[-1]) if prev else 0.0
     else:
         cur_val = float(sum(cur))
         prev_val = float(sum(prev))

@@ -24,8 +24,11 @@ METRICS: dict[str, dict[str, str]] = {
     "outbound": {"label": "Outbound clicks", "kind": "count"},
     "profile_visits": {"label": "Profile visits", "kind": "count"},
     "follows": {"label": "New follows", "kind": "count"},
-    "followers": {"label": "Followers", "kind": "count"},
-    "subscribers": {"label": "Subscribers", "kind": "count"},
+    # Cumulative lifetime totals: each daily snapshot is the running audience
+    # size, NOT a per-day increment — so the card value is the LATEST snapshot,
+    # never the SUM over the window (summing showed Ghost 2622 = 2 × 1311).
+    "followers": {"label": "Followers", "kind": "total"},
+    "subscribers": {"label": "Subscribers", "kind": "total"},
     "watch_time": {"label": "Watch time", "kind": "minutes"},
     "avg_view_pct": {"label": "Avg view %", "kind": "percent"},
     "engagement": {"label": "Engagement rate", "kind": "percent"},
