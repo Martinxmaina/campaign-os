@@ -23,6 +23,10 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.analytics.tasks.sync_all_account_analytics",
         "schedule": schedule(run_every=3600),  # hourly
     },
+    "crm-sheet-mirror": {
+        "task": "apps.crm.tasks.mirror_crm_tracker",
+        "schedule": schedule(run_every=24 * 3600),  # daily — mirror CRM pipeline → tracker sheet
+    },
     "publish-cycle": {
         "task": "apps.publisher.tasks.run_publish_cycle",
         "schedule": schedule(run_every=15),

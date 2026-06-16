@@ -119,3 +119,16 @@ def flag_no_reply() -> dict:
             amber += 1
     logger.info("crm.flag_no_reply amber=%s red=%s", amber, red)
     return {"amber": amber, "red": red}
+
+
+@shared_task
+def mirror_crm_tracker() -> dict:
+    """Daily: mirror the live CRM pipeline into the configured Google Sheet tab.
+
+    No-ops cleanly when CRM_TRACKER_SHEET_ID is unset or the Google token lacks the
+    read-write ``spreadsheets`` scope (a re-consent is required to write)."""
+    from apps.crm.sheet_mirror import mirror_pipeline_to_sheet
+
+    result = mirror_pipeline_to_sheet()
+    logger.info("crm.mirror_crm_tracker %s", result)
+    return result

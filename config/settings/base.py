@@ -258,6 +258,11 @@ GOOGLE_SHEETS_REFRESH_TOKEN = env.str("GOOGLE_SHEETS_REFRESH_TOKEN", default="")
 GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = env.str("GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON", default="")
 CONTENT_INTAKE_SHEET_ID = env.str("CONTENT_INTAKE_SHEET_ID", default="")
 CONTENT_INTAKE_SHEET_RANGE = env.str("CONTENT_INTAKE_SHEET_RANGE", default="Sheet1!A:P")
+# CRM tracker mirror (read-WRITE): daily mirror of the live pipeline into a
+# DEDICATED tab of the team's Google Sheet. Writing requires the GOOGLE_SHEETS_*
+# token to carry the `spreadsheets` (read-write) scope — a re-consent.
+CRM_TRACKER_SHEET_ID = env.str("CRM_TRACKER_SHEET_ID", default="")
+CRM_TRACKER_TAB = env.str("CRM_TRACKER_TAB", default="Campaign OS — Pipeline")
 # DEFERRED: write-back support (updating the sheet's Status column after a
 # ContentIntake row is promoted / published) is not yet implemented.
 # This flag is declared here and in .env.example so the feature can be

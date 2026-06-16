@@ -19,7 +19,9 @@ except ImportError:
     sys.exit(1)
 
 SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets.readonly",
+    # Read-WRITE spreadsheets: read the intake sheet AND write the daily CRM
+    # pipeline mirror to the tracker sheet (supersedes the read-only scope).
+    "https://www.googleapis.com/auth/spreadsheets",
     # Joseph spine (TB.0) — calendar + inbox feeds. Adding these requires a
     # one-time re-consent; until that refresh token is minted the feeds no-op.
     "https://www.googleapis.com/auth/calendar.readonly",
