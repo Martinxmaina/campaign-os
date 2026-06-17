@@ -210,12 +210,20 @@ class Command(BaseCommand):
             return 0
 
         # One shared demo social account so the pending_review PlatformPosts have a
-        # channel (get_or_create keeps it idempotent across re-runs).
-        account, _ = SocialAccount.objects.get_or_create(
+        # channel. Use bulk_create on first insert to BYPASS the post_save signal
+        # that enqueues check_social_account_health.delay() — that Celery enqueue
+        # fails when this command runs via `railway run` (internal Redis is
+        # unreachable from local). Idempotent: only insert when absent.
+        account = SocialAccount.objects.filter(
             workspace=ws, platform="linkedin", account_platform_id="demo-afcen-li",
-            defaults=dict(account_name="AfCEN (demo)",
-                          connection_status=SocialAccount.ConnectionStatus.CONNECTED),
-        )
+        ).first()
+        if account is None:
+            account = SocialAccount(
+                workspace=ws, platform="linkedin", account_platform_id="demo-afcen-li",
+                account_name="AfCEN (demo)",
+                connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+            )
+            SocialAccount.objects.bulk_create([account])
 
         n = 0
         for title, caption, first_comment in DRAFT_POSTS:
