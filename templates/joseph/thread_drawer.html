@@ -13,7 +13,11 @@ Deck / Sequence. The Brief tab is the default (rendered server-side here).
 
 {% block content %}
 <div class="px-1 py-1">
-  <div class="card shadow-sm overflow-hidden max-w-3xl" id="drawer-root">
+  <div class="card shadow-sm overflow-hidden max-w-3xl relative" id="drawer-root">
+
+    {# left traffic-light accent border #}
+    <span class="absolute inset-y-0 left-0 w-1.5 z-10" aria-hidden="true"
+          style="background:{% if thread.traffic_light == 'red' %}var(--error){% elif thread.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
 
     {# ── Header: org · traffic-light · stage · score + actions ─────── #}
     <div class="px-6 py-4 border-b border-stone-200">

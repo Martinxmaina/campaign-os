@@ -40,7 +40,9 @@ drafts in Joseph's voice. CSP-safe: POST forms (no inline onclick/onsubmit).
   <div class="space-y-3">
     {% for item in items %}
     {% with post=item.post %}
-    <div class="card p-4">
+    <div class="card card-hover-lift relative p-4 pl-5 overflow-hidden">
+      <span class="absolute inset-y-0 left-0 w-1" aria-hidden="true"
+            style="background:{% if item.findings %}var(--warning){% elif post.review_state == 'approved' %}var(--success){% else %}var(--border){% endif %}"></span>
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <div class="font-semibold text-sm truncate">{{ post.title|default:post.caption_snippet|default:"(untitled)" }}</div>

@@ -212,3 +212,26 @@ def test_desktop_home_csp_safe_no_inline_handlers(joseph, client):
         resp = _desktop(client)
     assert b"onclick=" not in resp.content
     assert b"onsubmit=" not in resp.content
+
+
+@pytest.mark.django_db
+def test_desktop_home_renders_branded_hero_header(joseph, client):
+    """T3 uplift: the desktop home opens with a branded hero band (the approved
+    preview's editorial header) — a distinct ``joseph-hero`` wrapper carrying the
+    Georgia greeting + the headline stat row — not the old plain ``h1``. Existing
+    operational surfaces (This week, Content pipeline, Action queue) stay intact."""
+    with patch("apps.joseph.views.readers.list_threads", return_value=[]), \
+         patch("apps.joseph.views.readers.list_content", return_value=[]), \
+         patch("apps.joseph.intelligence.readers.list_notifications", return_value=[]):
+        resp = _desktop(client)
+    assert resp.status_code == 200
+    body = resp.content
+    # the new hero wrapper marker
+    assert b"joseph-hero" in body
+    # the editorial greeting still lives inside it (Georgia font-display)
+    assert b"font-display" in body
+    assert b"Good day, Joseph" in body
+    # operational surfaces untouched by the styling pass
+    assert b"This week" in body
+    assert b"Content pipeline" in body
+    assert b"Action queue" in body or b"ACTION QUEUE" in body

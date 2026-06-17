@@ -16,37 +16,39 @@ Refresh control is a CSP-safe form POST to joseph:brief-refresh.
     </form>
   </div>
 {% else %}
-  <div class="card divide-y">
-    <div class="p-4">
-      <div class="text-[10px] font-bold tracking-wider text-stone-400">WHO</div>
-      <div class="mt-1 font-semibold">{{ card.who|default:"—" }}</div>
+  <div class="card divide-y overflow-hidden">
+    <div class="p-5">
+      <div class="font-display text-[11px] font-bold tracking-[0.12em] text-stone-400">WHO</div>
+      <div class="mt-1.5 font-semibold leading-snug">{{ card.who|default:"—" }}</div>
     </div>
-    <div class="p-4">
-      <div class="text-[10px] font-bold tracking-wider text-stone-400">WHY NOW</div>
-      <div class="mt-1 text-sm">{{ card.why_now|default:"No summary yet." }}</div>
+    <div class="p-5">
+      <div class="font-display text-[11px] font-bold tracking-[0.12em] text-stone-400">WHY NOW</div>
+      <div class="mt-1.5 text-sm leading-relaxed text-stone-700">{{ card.why_now|default:"No summary yet." }}</div>
     </div>
-    <div class="p-4">
-      <div class="text-[10px] font-bold tracking-wider text-stone-400">HOOK</div>
-      <div class="mt-1 text-sm">{{ card.hook|default:"—" }}</div>
+    <div class="p-5">
+      <div class="font-display text-[11px] font-bold tracking-[0.12em] text-stone-400">HOOK</div>
+      <div class="mt-1.5 text-sm leading-relaxed text-stone-700">{{ card.hook|default:"—" }}</div>
     </div>
-    <div class="p-4">
-      <div class="text-[10px] font-bold tracking-wider text-red-500">RED FLAGS</div>
+    <div class="relative p-5 pl-6" style="background:#FEF2F2">
+      <span class="absolute inset-y-0 left-0 w-1" style="background:var(--error)" aria-hidden="true"></span>
+      <div class="font-display text-[11px] font-bold tracking-[0.12em] text-red-600">RED FLAGS</div>
       {% if card.red_flags %}
-      <ul class="mt-1 text-sm space-y-1 list-disc list-inside text-stone-600">
+      <ul class="mt-1.5 text-sm space-y-1 list-disc list-inside text-red-900/80 leading-relaxed">
         {% for flag in card.red_flags %}<li>{{ flag }}</li>{% endfor %}
       </ul>
       {% else %}
-      <div class="mt-1 text-sm text-stone-400">None flagged.</div>
+      <div class="mt-1.5 text-sm text-stone-400">None flagged.</div>
       {% endif %}
     </div>
-    <div class="p-4">
-      <div class="text-[10px] font-bold tracking-wider text-emerald-600">WARM PATH</div>
-      <div class="mt-1 text-sm">{{ card.warm_path }}</div>
+    <div class="relative p-5 pl-6" style="background:#ECFDF5">
+      <span class="absolute inset-y-0 left-0 w-1" style="background:var(--success)" aria-hidden="true"></span>
+      <div class="font-display text-[11px] font-bold tracking-[0.12em] text-emerald-600">WARM PATH</div>
+      <div class="mt-1.5 text-sm leading-relaxed text-emerald-900/80">{{ card.warm_path|default:"—" }}</div>
     </div>
-    <div class="p-4 flex items-center justify-between gap-3">
+    <div class="p-5 flex items-center justify-between gap-3 bg-stone-50/60">
       <div>
-        <div class="text-[10px] font-bold tracking-wider text-stone-400">FRESHNESS</div>
-        <div class="mt-1 text-xs text-stone-500">
+        <div class="font-display text-[11px] font-bold tracking-[0.12em] text-stone-400">FRESHNESS</div>
+        <div class="mt-1.5 text-xs text-stone-500">
           {% if card.freshness.updated_at %}Compiled {{ card.freshness.updated_at }}{% else %}Not yet compiled{% endif %}
           · {{ card.freshness.sources }} source{{ card.freshness.sources|pluralize }}
         </div>

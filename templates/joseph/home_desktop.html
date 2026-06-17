@@ -13,12 +13,38 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
 {% block content %}
 <div class="px-1 py-1 space-y-6">
 
-  <div class="flex items-center justify-between border-b border-stone-200 pb-4">
-    <div>
-      <h1 class="font-display text-2xl">Good day, Joseph</h1>
-      <div class="text-sm text-stone-500">
-        {{ today|date:"l j F" }} · {{ today_events|length }} meeting{{ today_events|length|pluralize }} today ·
-        {{ red_thread_count }} red thread{{ red_thread_count|pluralize }}
+  {# ── Hero band (T3) — editorial, orange-accented principal header ─────── #}
+  <div class="joseph-hero relative overflow-hidden rounded-2xl border border-stone-200 bg-white"
+       style="background-image:linear-gradient(110deg, var(--primary-soft) 0%, var(--surface-0) 52%);">
+    <span class="absolute inset-y-0 left-0 w-1.5" style="background:var(--primary)" aria-hidden="true"></span>
+    <div class="px-7 py-6">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <div class="min-w-0">
+          <div class="text-[11px] font-bold tracking-[0.14em] uppercase" style="color:var(--brand-700)">
+            Principal · Today
+          </div>
+          <h1 class="font-display text-3xl leading-tight mt-1">Good day, Joseph</h1>
+          <div class="text-sm text-stone-500 mt-1">
+            {{ today|date:"l j F" }} · {{ today_events|length }} meeting{{ today_events|length|pluralize }} today ·
+            {{ red_thread_count }} red thread{{ red_thread_count|pluralize }}
+          </div>
+        </div>
+        {# headline stat row — at-a-glance pulse, reuses existing context #}
+        <div class="flex flex-wrap items-stretch gap-3 text-center">
+          <div class="rounded-xl bg-white/70 border border-stone-200/70 px-4 py-2.5 min-w-[88px]">
+            <div class="font-display text-2xl leading-none">{{ today_events|length }}</div>
+            <div class="text-[11px] text-stone-500 mt-1">Meetings</div>
+          </div>
+          <div class="rounded-xl bg-white/70 border border-stone-200/70 px-4 py-2.5 min-w-[88px]">
+            <div class="font-display text-2xl leading-none">{{ action_count }}</div>
+            <div class="text-[11px] text-stone-500 mt-1">In queue</div>
+          </div>
+          <div class="rounded-xl border px-4 py-2.5 min-w-[88px]"
+               style="background:var(--primary-soft);border-color:var(--primary-muted)">
+            <div class="font-display text-2xl leading-none" style="color:var(--error)">{{ red_thread_count }}</div>
+            <div class="text-[11px] mt-1" style="color:var(--error)">Red threads</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -78,7 +104,9 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
       <div>
         <div class="sidebar-section-label" style="padding-left:0">Today</div>
         {% for ev in today_events %}
-        <div class="card p-4 flex items-start gap-3 mb-2">
+        <div class="card card-hover-lift relative p-4 pl-5 flex items-start gap-3 mb-2 overflow-hidden">
+          <span class="absolute inset-y-0 left-0 w-1" aria-hidden="true"
+                style="background:{% if ev.linked_thread_id %}var(--success){% else %}var(--warning){% endif %}"></span>
           <span class="inline-block h-2.5 w-2.5 rounded-full mt-1.5"
                 style="background:{% if ev.linked_thread_id %}var(--success){% else %}var(--warning){% endif %}"></span>
           <div class="flex-1">
@@ -132,9 +160,11 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
       {# ── Red threads ────────────────────────────────────────── #}
       <div>
         <div class="sidebar-section-label" style="padding-left:0;color:var(--error)">Red threads</div>
-        <div class="card divide-y mt-1">
+        <div class="card divide-y mt-1 overflow-hidden">
           {% for t in red_threads %}
-          <a href="/joseph/thread/{{ t.id }}/" class="p-3.5 flex items-center justify-between">
+          <a href="/joseph/thread/{{ t.id }}/"
+             class="relative p-3.5 pl-5 flex items-center justify-between hover:bg-stone-50 transition-colors">
+            <span class="absolute inset-y-0 left-0 w-1" style="background:var(--error)" aria-hidden="true"></span>
             <div class="min-w-0">
               <div class="font-medium text-sm truncate">{{ t.org|default:"Thread" }}</div>
               <div class="text-xs text-stone-500 truncate">{{ t.next_action|default:"needs a touch" }}</div>
@@ -142,7 +172,7 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
             <span class="text-stone-300">›</span>
           </a>
           {% empty %}
-          <div class="p-4 text-sm text-stone-400">No red threads. Everything's warm.</div>
+          <div class="p-6 text-sm text-stone-400 text-center">No red threads. Everything's warm.</div>
           {% endfor %}
         </div>
       </div>

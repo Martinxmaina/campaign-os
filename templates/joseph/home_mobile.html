@@ -4,16 +4,24 @@
 {% block joseph %}
 <div class="space-y-6">
 
-  <div class="flex items-center justify-between">
-    <h1 class="font-display text-2xl">Joseph</h1>
-    <div class="text-xs text-stone-400">{{ today|date:"D j M" }}</div>
+  {# ── Hero greeting (T3) — editorial, orange-accented ─────────────── #}
+  <div class="joseph-hero relative overflow-hidden rounded-2xl border border-stone-200 p-4 pl-5"
+       style="background-image:linear-gradient(110deg, var(--primary-soft) 0%, var(--surface-0) 60%);">
+    <span class="absolute inset-y-0 left-0 w-1.5" style="background:var(--primary)" aria-hidden="true"></span>
+    <div class="text-[10px] font-bold tracking-[0.14em] uppercase" style="color:var(--brand-700)">Principal · Today</div>
+    <div class="flex items-end justify-between gap-2 mt-0.5">
+      <h1 class="font-display text-2xl leading-tight">Good day, Joseph</h1>
+      <div class="text-xs text-stone-400 pb-0.5">{{ today|date:"D j M" }}</div>
+    </div>
   </div>
 
   {# ── Today strip ───────────────────────────────────────────────── #}
   <section>
     <div class="sidebar-section-label" style="padding-left:0">Today</div>
     {% for ev in today_events %}
-    <div class="card p-4 flex items-start gap-3 mb-2">
+    <div class="card relative p-4 pl-5 flex items-start gap-3 mb-2 overflow-hidden">
+      <span class="absolute inset-y-0 left-0 w-1" aria-hidden="true"
+            style="background:{% if ev.linked_thread_id %}var(--success){% else %}var(--warning){% endif %}"></span>
       <span class="tl mt-1.5 inline-block h-2.5 w-2.5 rounded-full"
             style="background:{% if ev.linked_thread_id %}var(--success){% else %}var(--warning){% endif %}"></span>
       <div class="flex-1">
@@ -92,9 +100,11 @@
       <div class="sidebar-section-label" style="padding-left:0;color:var(--error)">🔴 Red threads</div>
       <span class="sidebar-badge">{{ red_thread_count }}</span>
     </div>
-    <div class="card divide-y mt-1">
+    <div class="card divide-y mt-1 overflow-hidden">
       {% for t in red_threads %}
-      <a href="/joseph/thread/{{ t.id }}/" class="w-full text-left p-3.5 flex items-center justify-between">
+      <a href="/joseph/thread/{{ t.id }}/"
+         class="relative w-full text-left p-3.5 pl-5 flex items-center justify-between active:bg-stone-50">
+        <span class="absolute inset-y-0 left-0 w-1" style="background:var(--error)" aria-hidden="true"></span>
         <div class="min-w-0">
           <div class="font-medium text-sm truncate">{{ t.org|default:"Thread" }}</div>
           <div class="text-xs text-stone-500 truncate">{{ t.next_action|default:"needs a touch" }}</div>
@@ -102,7 +112,7 @@
         <span class="text-stone-300">›</span>
       </a>
       {% empty %}
-      <div class="p-4 text-sm text-stone-400">No red threads. Everything's warm.</div>
+      <div class="p-6 text-sm text-stone-400 text-center">No red threads. Everything's warm.</div>
       {% endfor %}
     </div>
   </section>

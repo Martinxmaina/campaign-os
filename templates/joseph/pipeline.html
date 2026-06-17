@@ -31,29 +31,32 @@ a non-2xx reverts the move. CSP-safe: no inline handlers; nonce'd init script.
 
         <div class="pipeline-col space-y-2 min-h-[2.5rem]" data-stage="{{ col.key }}">
         {% for t in col.threads %}
-        <div class="pipeline-card relative card p-3 hover:shadow-sm
+        <div class="pipeline-card card card-hover-lift relative p-3 pl-4 overflow-hidden
                     {% if t.traffic_light == 'red' %}ring-1 ring-red-100 border-red-200
                     {% elif t.traffic_light == 'green' and col.key == 'committed' %}border-emerald-200 bg-emerald-50/40{% endif %}"
              data-thread-id="{{ t.id }}">
+          {# left traffic-light accent border #}
+          <span class="absolute inset-y-0 left-0 w-1" aria-hidden="true"
+                style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
           <span class="pipeline-drag-handle absolute top-2 right-2 text-stone-300 hover:text-stone-500 cursor-grab select-none"
                 title="Drag to move stage" aria-label="Drag to move stage">⠿</span>
           <a href="/joseph/thread/{{ t.id }}/" class="block w-full text-left pr-4">
             <div class="flex items-center justify-between gap-2">
-              <span class="font-semibold truncate">{{ t.org|default:"Thread" }}</span>
+              <span class="font-semibold text-stone-900 truncate">{{ t.org|default:"Thread" }}</span>
               <span class="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
                     style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
             </div>
             <div class="flex items-center justify-between gap-2 mt-0.5">
-              {% if t.track %}<span class="text-[11px] text-stone-500 truncate">{{ t.track }}</span>{% endif %}
+              {% if t.track %}<span class="text-[11px] text-stone-400 truncate">{{ t.track }}</span>{% endif %}
               {% if t.days_since_touch is not None %}
-              <span class="text-[11px] flex-shrink-0
+              <span class="text-[11px] font-medium flex-shrink-0
                            {% if t.traffic_light == 'red' %}text-red-600
                            {% elif t.traffic_light == 'green' %}text-emerald-600
                            {% else %}text-amber-600{% endif %}">{{ t.days_since_touch }}d</span>
               {% endif %}
             </div>
             {% if t.next_action %}
-            <div class="text-[11px] mt-1 truncate text-stone-600">{{ t.next_action }}</div>
+            <div class="text-[11px] mt-1 truncate text-stone-500">{{ t.next_action }}</div>
             {% endif %}
             {% if t.quintile_dots %}
             <div class="text-[11px] mt-1 text-stone-400">Q{{ t.quintile }} <span class="tracking-[1px]">{{ t.quintile_dots }}</span></div>
