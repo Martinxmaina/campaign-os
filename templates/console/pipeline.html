@@ -17,10 +17,42 @@ The CSRF token comes from base.html (it renders {% templatetag openblock %} csrf
 {% block console %}
 <div class="flex items-center justify-between mb-4">
   <div>
-    <h1 class="text-xl font-bold">Pipeline</h1>
-    <div class="text-sm text-stone-500">Deal-flow · drag a card to move its stage</div>
+    <h1 class="text-xl font-bold">Team pipeline</h1>
+    <div class="text-sm text-stone-500">Every owner's deal-flow · drag a card to move its stage</div>
   </div>
 </div>
+
+{% comment %}
+Owner + track filter chips (Team board). Each chip is an in-app link that sets
+(or clears) the ?owner= / ?track= querystring — pure GET navigation, CSP-safe
+(no inline handlers). The active chip is highlighted; "All" clears that axis.
+{% endcomment %}
+{% if owner_chips or track_chips %}
+<div class="space-y-2 mb-4 text-sm">
+  {% if owner_chips %}
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="text-[11px] uppercase tracking-wider text-stone-400">Owner</span>
+    <a href="?{% if track_filter %}track={{ track_filter }}{% endif %}"
+       class="px-2.5 py-1 rounded-full border text-xs {% if not owner_filter %}border-stone-800 bg-stone-800 text-white{% else %}border-stone-200 text-stone-600 hover:border-stone-400{% endif %}">All</a>
+    {% for o in owner_chips %}
+    <a href="?owner={{ o.id }}{% if track_filter %}&track={{ track_filter }}{% endif %}"
+       class="px-2.5 py-1 rounded-full border text-xs {% if owner_filter == o.id %}border-stone-800 bg-stone-800 text-white{% else %}border-stone-200 text-stone-600 hover:border-stone-400{% endif %}">{{ o.name }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if track_chips %}
+  <div class="flex flex-wrap items-center gap-2">
+    <span class="text-[11px] uppercase tracking-wider text-stone-400">Track</span>
+    <a href="?{% if owner_filter %}owner={{ owner_filter }}{% endif %}"
+       class="px-2.5 py-1 rounded-full border text-xs {% if not track_filter %}border-stone-800 bg-stone-800 text-white{% else %}border-stone-200 text-stone-600 hover:border-stone-400{% endif %}">All</a>
+    {% for tr in track_chips %}
+    <a href="?track={{ tr }}{% if owner_filter %}&owner={{ owner_filter }}{% endif %}"
+       class="px-2.5 py-1 rounded-full border text-xs {% if track_filter == tr %}border-stone-800 bg-stone-800 text-white{% else %}border-stone-200 text-stone-600 hover:border-stone-400{% endif %}">{{ tr }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 
 <div class="overflow-x-auto pb-2">
   <div class="grid grid-flow-col auto-cols-[minmax(200px,1fr)] gap-4 min-w-[1040px] text-sm">
@@ -48,6 +80,13 @@ The CSRF token comes from base.html (it renders {% templatetag openblock %} csrf
                     style="background:{% if t.traffic_light == 'red' %}var(--error){% elif t.traffic_light == 'green' %}var(--success){% else %}var(--warning){% endif %}"></span>
             </div>
             {% if t.track %}<div class="text-[11px] text-stone-500 mt-0.5 truncate">{{ t.track }}</div>{% endif %}
+            <div class="mt-1">
+              <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-stone-100 text-[10px] text-stone-600"
+                    title="Owner">
+                <span class="text-stone-400">Owner</span>
+                <span class="font-medium truncate">{{ t.owner_name|default:"Unassigned" }}</span>
+              </span>
+            </div>
             {% if t.next_action %}<div class="text-[11px] mt-1 truncate text-stone-600">Next: {{ t.next_action }}</div>{% endif %}
             {% if t.quintile_dots %}
             <div class="text-[11px] mt-1 text-stone-400 tracking-[1px]">{{ t.quintile_dots }}</div>

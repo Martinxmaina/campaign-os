@@ -165,6 +165,20 @@ def test_pipeline_unknown_stage_falls_into_catch_all(joseph, client):
 
 
 @pytest.mark.django_db
+def test_pipeline_is_the_principal_board(joseph, client, seed_threads):
+    """/joseph/pipeline is the principal board: a 'My pipeline' header (his lens),
+    NOT the console's 'Team pipeline', and the cards carry NO Owner badge (it's
+    all his)."""
+    resp = client.get(reverse("joseph:pipeline"))
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "My pipeline" in body
+    assert "Team pipeline" not in body
+    # No per-card Owner badge on the principal lens.
+    assert "Owner" not in body
+
+
+@pytest.mark.django_db
 def test_pipeline_csp_safe_no_inline_handlers(joseph, client, seed_threads):
     """The board is CSP-safe — no inline onclick/onsubmit handlers."""
     resp = client.get(reverse("joseph:pipeline"))

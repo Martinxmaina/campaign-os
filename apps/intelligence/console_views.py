@@ -15,16 +15,18 @@ logger = logging.getLogger(__name__)
 
 @login_required
 def pipeline(request):
-    """Operator deal-flow board — canonical Django threads, drag-to-restage.
+    """Team deal-flow board — canonical Django threads across ALL owners.
 
-    Repointed off the stale agent-service ``/threads`` read: the console now
-    queries ``apps.crm.OutreachThread`` (the canonical CRM, the strangler step)
-    and buckets the cards into the SAME ordered stage columns Joseph's board uses
-    (Discover → Committed + a catch-all "Other"), so both pipelines render one
-    source of truth. Cards drag between columns and POST the move to the single
-    shared ``crm:thread-set-stage`` endpoint (Task 2). Role-gated by
-    ``_can_manage_crm`` (the CRM gate ``set_stage`` itself enforces — a viewer who
-    can't restage shouldn't see the board). No agent-service call; an empty DB
+    This is the **Team pipeline** (vs Joseph's principal "My pipeline"): it shows
+    every owner's threads, paints an Owner badge on each card, and exposes owner +
+    track filter chips (``?owner=`` / ``?track=``) so a lead can slice the board by
+    person or capital track. Repointed off the stale agent-service ``/threads``
+    read: it queries ``apps.crm.OutreachThread`` (the canonical CRM, the strangler
+    step) and buckets cards into the SAME ordered stage columns Joseph's board uses
+    (Discover → Committed + a catch-all "Other") so both boards share one source of
+    truth and the same drag-to-restage wiring (POST to the single shared
+    ``crm:thread-set-stage`` endpoint, Task 2). Role-gated by ``_can_manage_crm``
+    (the CRM gate ``set_stage`` itself enforces). No agent-service call; an empty DB
     renders empty columns, never a 500.
     """
     from apps.crm.views_import import _can_manage_crm
@@ -33,9 +35,42 @@ def pipeline(request):
     if not _can_manage_crm(request):
         return HttpResponseForbidden("The pipeline is not available for your role.")
 
-    threads = [_crm_thread_card(t) for t in _crm_threads()]
-    columns = _build_pipeline_columns(threads)
-    return render(request, "console/pipeline.html", {"columns": columns})
+    # Filter chips: narrow to a single owner and/or capital track. An empty/invalid
+    # value is treated as "no filter" so a bad querystring never 500s — it just
+    # shows the whole board.
+    owner_filter = (request.GET.get("owner") or "").strip()
+    track_filter = (request.GET.get("track") or "").strip()
+
+    all_threads = list(_crm_threads())  # unfiltered — drives the chip lists.
+
+    # Owner chips: distinct owners present on the board (id + display name).
+    seen, owner_chips = set(), []
+    for t in all_threads:
+        if t.owner_id and t.owner_id not in seen:
+            seen.add(t.owner_id)
+            owner_chips.append({
+                "id": str(t.owner_id),
+                "name": (t.owner.name or t.owner.email) if t.owner_id else "",
+            })
+    owner_chips.sort(key=lambda c: c["name"].lower())
+
+    # Track chips: distinct non-empty tracks present on the board.
+    track_chips = sorted({t.track for t in all_threads if t.track})
+
+    visible = all_threads
+    if owner_filter:
+        visible = [t for t in visible if str(t.owner_id or "") == owner_filter]
+    if track_filter:
+        visible = [t for t in visible if t.track == track_filter]
+
+    columns = _build_pipeline_columns([_crm_thread_card(t) for t in visible])
+    return render(request, "console/pipeline.html", {
+        "columns": columns,
+        "owner_chips": owner_chips,
+        "track_chips": track_chips,
+        "owner_filter": owner_filter,
+        "track_filter": track_filter,
+    })
 
 
 @login_required

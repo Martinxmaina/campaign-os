@@ -139,6 +139,77 @@ def test_pipeline_empty_db_renders_columns(staff_client):
     assert "Discover" in resp.content.decode()
 
 
+@pytest.fixture
+def owned_threads(db):
+    """Two CRM threads owned by two different users, across two tracks — to
+    exercise the Team board's Owner badge + owner/track filter chips."""
+    from django.utils import timezone
+
+    from apps.accounts.models import User
+    from apps.crm.models import Organization, OutreachThread
+
+    alice = User.objects.create_user(
+        email="alice-pl@x.io", password="pw", name="Alice Owner",
+        tos_accepted_at=timezone.now(),
+    )
+    bob = User.objects.create_user(
+        email="bob-pl@x.io", password="pw", name="Bob Owner",
+        tos_accepted_at=timezone.now(),
+    )
+    org_a = Organization.objects.create(name="GreenClimate")
+    org_b = Organization.objects.create(name="WorldBank")
+    ta = OutreachThread.objects.create(
+        org=org_a, owner=alice, stage=OutreachThread.Stage.ENGAGED,
+        track="ai10bn", traffic_light="green", quintile=5,
+    )
+    tb = OutreachThread.objects.create(
+        org=org_b, owner=bob, stage=OutreachThread.Stage.PROPOSAL,
+        track="energy", traffic_light="amber", quintile=3,
+    )
+    return {"alice": alice, "bob": bob, "ta": ta, "tb": tb}
+
+
+@pytest.mark.django_db
+def test_console_pipeline_is_the_team_board(staff_client, owned_threads):
+    """/console/pipeline is the Team board: a 'Team pipeline' header (not Joseph's
+    'My pipeline') and an Owner badge on every card naming who owns the thread."""
+    resp = staff_client.get("/console/pipeline")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Team pipeline" in body
+    assert "My pipeline" not in body
+    # Owner badge names the owner on each card.
+    assert "Alice Owner" in body
+    assert "Bob Owner" in body
+
+
+@pytest.mark.django_db
+def test_console_pipeline_has_owner_and_track_filter_chips(staff_client, owned_threads):
+    """The Team board exposes owner + track filter chips (?owner= / ?track=) that
+    narrow the visible threads to the selected owner/track."""
+    alice = owned_threads["alice"]
+    # owner filter chips reference ?owner=<id> for each owner
+    resp = staff_client.get("/console/pipeline")
+    body = resp.content.decode()
+    assert f"owner={alice.id}" in body
+    assert "track=ai10bn" in body or "track=energy" in body
+
+    # Filtering by Alice's id drops Bob's thread.
+    resp = staff_client.get(f"/console/pipeline?owner={alice.id}")
+    body = resp.content.decode()
+    assert "GreenClimate" in body
+    assert "WorldBank" not in body
+
+
+@pytest.mark.django_db
+def test_console_pipeline_track_filter_narrows(staff_client, owned_threads):
+    """Filtering by track narrows the board to that track's threads."""
+    resp = staff_client.get("/console/pipeline?track=energy")
+    body = resp.content.decode()
+    assert "WorldBank" in body
+    assert "GreenClimate" not in body
+
+
 @pytest.mark.django_db
 def test_notification_read_posts(staff_client, monkeypatch):
     from apps.intelligence import console_views

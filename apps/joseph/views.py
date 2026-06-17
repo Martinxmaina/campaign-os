@@ -361,12 +361,18 @@ def _crm_thread_card(thread) -> dict:
     # Map the CRM stage onto the pipeline column key when one applies (else keep
     # the raw stage so a literal column-key stage still buckets correctly).
     column = _CRM_STAGE_TO_COLUMN.get(thread.stage, thread.stage)
+    owner = thread.owner if thread.owner_id else None
     card = {
         "id": str(thread.id),
         "org": thread.org.name if thread.org_id else "",
         "stage": column,
         "stage_raw": thread.stage,
         "track": thread.track,
+        # Owner is surfaced ONLY on the Team (console) board's Owner badge — the
+        # principal (Joseph) board omits it (everything is his lens). Joseph's
+        # templates simply don't render this field.
+        "owner_id": str(thread.owner_id) if thread.owner_id else "",
+        "owner_name": (owner.name or owner.email) if owner else "",
         "traffic_light": thread.traffic_light,
         "quintile": thread.quintile,
         "score": thread.score,
@@ -381,17 +387,23 @@ def _crm_thread_card(thread) -> dict:
     return _annotate_thread(card)
 
 
-def _crm_threads(*, owner=None, traffic_light=None):
+def _crm_threads(*, owner=None, traffic_light=None, track=None):
     """Local CRM OutreachThread queryset (the canonical source), newest first,
-    with its org + primary contact pre-fetched. Optional owner/traffic_light
-    filters mirror the old ``readers.list_threads`` filters."""
+    with its org + primary contact + owner pre-fetched. Optional
+    owner/traffic_light/track filters mirror the old ``readers.list_threads``
+    filters (track powers the Team board's track chips)."""
     from apps.crm.models import OutreachThread
 
-    qs = OutreachThread.objects.select_related("org", "primary_contact").order_by("-updated_at")
+    qs = (
+        OutreachThread.objects.select_related("org", "primary_contact", "owner")
+        .order_by("-updated_at")
+    )
     if traffic_light:
         qs = qs.filter(traffic_light=traffic_light)
     if owner is not None:
         qs = qs.filter(owner=owner)
+    if track:
+        qs = qs.filter(track=track)
     return qs
 
 
@@ -558,14 +570,16 @@ def _build_pipeline_columns(threads: list[dict]) -> list[dict]:
 
 @login_required
 def pipeline(request):
-    """Joseph's deal-flow board — a traffic-light kanban grouped by stage.
+    """Joseph's principal "My pipeline" board — a traffic-light kanban by stage.
 
-    Threads are local ``apps.crm.OutreachThread`` rows (the CRM is canonical —
-    the strangler step), bucketed into the five ordered stage columns
-    (Discover → Committed) with a catch-all so an unrecognised stage is never
-    silently dropped. Each card shows the org, a traffic-light dot, the quintile
-    and the next action, and links into the thread drawer. No agent-service read —
-    an empty DB just renders empty columns, never a 500.
+    This is the principal lens (vs the console's "Team pipeline"): the cards carry
+    NO Owner badge because the whole board is his to read. Threads are local
+    ``apps.crm.OutreachThread`` rows (the CRM is canonical — the strangler step),
+    bucketed into the five ordered stage columns (Discover → Committed) with a
+    catch-all so an unrecognised stage is never silently dropped. Each card shows
+    the org, a traffic-light dot, the quintile and the next action, and links into
+    the thread drawer. No agent-service read — an empty DB just renders empty
+    columns, never a 500.
     """
     if not _can_access_joseph(request):
         return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
