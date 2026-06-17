@@ -53,6 +53,34 @@ THREADS = [
 ]
 
 _DEMO_TAG = "demo-seed"  # marker in Organization.notes for --wipe
+_POST_TAG = "demo-seed"  # marker in Post.tags for --wipe
+
+# Realistic HERALD-style draft captions awaiting Joseph's approval, drawn from the
+# demo content tracks (AI, energy access, programmes). (title, caption, first_comment)
+DRAFT_POSTS = [
+    ("AfCEN at the AI for Africa $10bn convening",
+     "Africa won't be a footnote in the AI decade. This week AfCEN is in the room where "
+     "the $10bn for African AI gets shaped — arguing that compute, data sovereignty and "
+     "local talent must be funded together, not in silos.\n\nWhat we're pushing for:\n"
+     "• African-owned compute, not rented dependence\n• Data trusts that keep value on the continent\n"
+     "• Funding the builders already here",
+     "Full position paper in the comments. What would you fund first?"),
+    ("Energy access is the on-ramp to the AI economy",
+     "No power, no platforms. As the GEAPP partnership advances, we're making a simple "
+     "case to funders: every megawatt of clean, reliable power in Africa is also "
+     "AI-readiness infrastructure.\n\nThe grid IS the strategy.",
+     "Reliable power + local compute = sovereign AI. Read why."),
+    ("Why programmes, not pilots, win the decade",
+     "Africa doesn't have a pilot problem — it has a scale problem. AfCEN's programmes "
+     "track is built to take what works from 3 districts to 30, with the governance and "
+     "M&E funders need to write the next cheque.\n\nProof, then scale.",
+     "Our scale playbook, in the comments."),
+    ("The talent is here. Fund it.",
+     "The most underpriced asset in African AI is the engineer who already shipped. "
+     "AfCEN is building the warm-intro bridge between African builders and the capital "
+     "that says it wants to back them.\n\nLess prospecting. More backing.",
+     ""),
+]
 
 
 class Command(BaseCommand):
@@ -67,10 +95,14 @@ class Command(BaseCommand):
         from apps.crm.models import Activity, Contact, Organization, OutreachThread, Task
 
         if opts["wipe"]:
+            from apps.composer.models import Post
             orgs = Organization.objects.filter(notes__contains=_DEMO_TAG)
             n = orgs.count()
             orgs.delete()  # cascades to contacts/threads/activities/tasks
-            self.stdout.write(self.style.SUCCESS(f"wiped {n} demo orgs (+ cascaded)"))
+            posts = Post.objects.filter(tags__contains=[_POST_TAG])
+            np = posts.count()
+            posts.delete()  # cascades to platform_posts
+            self.stdout.write(self.style.SUCCESS(f"wiped {n} demo orgs (+ cascaded), {np} demo posts"))
             return
 
         owner = (
@@ -144,10 +176,62 @@ class Command(BaseCommand):
 
         self._seed_calendar(owner, thread_by_name, now)
         self._seed_outreach(owner, thread_by_name, now)
+        n_posts = self._seed_approvals(owner)
 
         self.stdout.write(self.style.SUCCESS(
             f"seeded: {len(FUNDERS)} orgs, {len(THREADS)} threads (owner={owner.email}), "
-            f"activities+tasks, calendar, a sequence, a mailbox."))
+            f"activities+tasks, calendar, a sequence, a mailbox, {n_posts} pending-review posts."))
+
+    def _owner_workspace(self, owner):
+        """Resolve the owner's workspace (last_workspace_id, else first membership).
+
+        Mirrors the workspace RBACMiddleware picks for global pages, so the seeded
+        Posts land in the same workspace ``/console/approvals`` reads.
+        """
+        from apps.workspaces.models import Workspace
+        ws_id = getattr(owner, "last_workspace_id", None)
+        return (Workspace.objects.filter(id=ws_id).first() if ws_id
+                else Workspace.objects.filter(memberships__user=owner).first())
+
+    def _seed_approvals(self, owner):
+        """Seed HERALD-style draft Posts pending Joseph's review.
+
+        Mirrors the shape ``apps.content_intake.draft_post.ensure_draft_post``
+        produces (workspace=owner's workspace, author/review_assignee=owner,
+        review_state=PENDING) plus a PlatformPost in ``pending_review`` so the
+        publish path is realistic. Idempotent on (workspace, title); tagged with
+        ``_POST_TAG`` for ``--wipe``.
+        """
+        from apps.composer.models import PlatformPost, Post
+        from apps.social_accounts.models import SocialAccount
+
+        ws = self._owner_workspace(owner)
+        if ws is None:
+            return 0
+
+        # One shared demo social account so the pending_review PlatformPosts have a
+        # channel (get_or_create keeps it idempotent across re-runs).
+        account, _ = SocialAccount.objects.get_or_create(
+            workspace=ws, platform="linkedin", account_platform_id="demo-afcen-li",
+            defaults=dict(account_name="AfCEN (demo)",
+                          connection_status=SocialAccount.ConnectionStatus.CONNECTED),
+        )
+
+        n = 0
+        for title, caption, first_comment in DRAFT_POSTS:
+            post = Post.objects.filter(workspace=ws, title=title).first()
+            if post is None:
+                post = Post.objects.create(
+                    workspace=ws, author=owner, title=title, caption=caption,
+                    first_comment=first_comment, tags=[_POST_TAG],
+                    review_assignee=owner, review_state=Post.ReviewState.PENDING,
+                )
+                PlatformPost.objects.get_or_create(
+                    post=post, social_account=account,
+                    defaults=dict(status=PlatformPost.Status.PENDING_REVIEW),
+                )
+            n += 1
+        return n
 
     def _seed_calendar(self, owner, threads, now):
         from apps.joseph.models import CalendarEvent

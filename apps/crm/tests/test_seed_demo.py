@@ -13,7 +13,7 @@ def owner(org_owner, workspace):
 
 
 @pytest.mark.django_db
-def test_seed_demo_populates_and_is_idempotent(owner):
+def test_seed_demo_populates_and_is_idempotent(owner, workspace):
     from apps.crm.models import Activity, Contact, Organization, OutreachThread, Task
     from apps.joseph.models import CalendarEvent
     from apps.outreach.models import Mailbox, Sequence
@@ -29,10 +29,26 @@ def test_seed_demo_populates_and_is_idempotent(owner):
     assert Mailbox.objects.filter(user=owner).exists()
     assert Sequence.objects.count() >= 1
 
-    # idempotent: re-run does not duplicate orgs/threads
-    before = (Organization.objects.count(), OutreachThread.objects.count())
+    # AI Approvals bridge: pending-review HERALD-style Posts routed to the owner
+    # so /console/approvals and /joseph/content populate.
+    from apps.composer.models import Post
+    pending = Post.objects.filter(
+        review_state=Post.ReviewState.PENDING,
+        review_assignee=owner,
+        author=owner,
+    )
+    assert pending.count() >= 3
+    assert all(p.workspace_id == workspace.id for p in pending)               # owner's workspace
+    assert all(p.caption.strip() for p in pending)                           # real captions
+
+    # idempotent: re-run does not duplicate orgs/threads/pending Posts
+    before = (Organization.objects.count(), OutreachThread.objects.count(), pending.count())
     call_command("seed_demo", owner=owner.email)
-    assert (Organization.objects.count(), OutreachThread.objects.count()) == before
+    assert (
+        Organization.objects.count(),
+        OutreachThread.objects.count(),
+        Post.objects.filter(review_state=Post.ReviewState.PENDING, review_assignee=owner).count(),
+    ) == before
 
 
 @pytest.mark.django_db
