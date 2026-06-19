@@ -60,7 +60,17 @@ class CalendarEvent(models.Model):
     attendees = models.JSONField(default=list, blank=True)
     # Empty string = unlinked (surfaces as a linkage suggestion in the queue).
     linked_thread_id = models.CharField(max_length=64, blank=True, default="")
+    # Pre-meeting cascade state machine: none → linked → briefed → captured.
     briefing_status = models.CharField(max_length=20, default="none")
+    # Gate-checked talking points drafted by the T-2 cascade stage (Task 2).
+    talking_points = models.JSONField(default=list, blank=True)
+    # Cascade stages already fired for this event (e.g. ["t5", "t2"]) — the
+    # idempotency ledger so a re-run of the beat doesn't double-fire a stage.
+    prep_stages = models.JSONField(default=list, blank=True)
+    # Post-meeting capture state: none → prompted → captured (or deferred).
+    capture_status = models.CharField(max_length=20, default="none")
+    # When a capture is deferred, the time to re-prompt (Task 4).
+    defer_until = models.DateTimeField(null=True, blank=True)
     raw = models.JSONField(default=dict, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

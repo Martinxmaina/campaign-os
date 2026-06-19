@@ -24,6 +24,14 @@ urlpatterns = [
     # |tasks|deck|sequence). thread_id is the agent-service thread id (a string).
     path("thread/<str:thread_id>/", views.thread_drawer, name="thread"),
     path("thread/<str:thread_id>/escalate/", views.thread_escalate, name="thread-escalate"),
+    # Confirm a calendar event ↔ thread linkage by hand (TB.3) — the auto-linker
+    # only links confident matches; mid-band suggestions are resolved here.
+    # google_event_id is the Google Calendar event id (a string, unique).
+    path(
+        "calendar/<str:google_event_id>/link/",
+        views.calendar_link,
+        name="calendar-link",
+    ),
     # Knowledge wiki browser — search + entity_type chips; cards link to detail.
     path("knowledge/", views.knowledge, name="knowledge"),
     # Page detail — title + L0/L1/L2 tier toggle (HTMX) + outgoing links + revisions.

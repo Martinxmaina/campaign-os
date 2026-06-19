@@ -730,6 +730,34 @@ def thread_escalate(request, thread_id):
     return redirect("joseph:thread", thread_id=thread_id)
 
 
+@require_POST
+def calendar_link(request, google_event_id):
+    """Confirm a calendar event ↔ thread linkage by hand (TB.3).
+
+    The auto-linker only links a confident (≥0.9) match; a mid-band one surfaces
+    as a suggestion the principal resolves here, picking the thread by its CRM
+    (UUID) pk. Role-gated + CSRF-protected (require_POST); an unknown thread id
+    links nothing (and a non-UUID id resolves to ``None`` rather than 500ing).
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    from django.shortcuts import get_object_or_404
+
+    from apps.joseph import linkage
+    from apps.joseph.models import CalendarEvent
+
+    event = get_object_or_404(CalendarEvent, google_event_id=google_event_id)
+    thread = _crm_thread_by_id(request.POST.get("thread_id"))
+    if thread is None:
+        messages.error(request, "Couldn't link — that thread no longer exists.")
+    else:
+        linkage.link_event(event, thread)
+        org = thread.org.name if thread.org_id else "thread"
+        messages.success(request, f"Linked this meeting to {org}.")
+    return redirect("joseph:home")
+
+
 # The wiki entity types Joseph filters by (chips in the knowledge browser),
 # matching the agent-service knowledge model's entity_type vocabulary.
 _KNOWLEDGE_ENTITY_TYPES = ["funder", "org", "person", "initiative", "topic"]
