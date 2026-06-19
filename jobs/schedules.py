@@ -75,6 +75,13 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.joseph.tasks.sync_google_calendar",
         "schedule": schedule(run_every=300),  # 5 min
     },
+    "joseph-meeting-prep": {
+        # Pre-meeting cascade T-5/T-2/T-0: refresh dossier, draft + gate talking
+        # points, mark the brief ready. Idempotent via CalendarEvent.prep_stages,
+        # so a 30-min cadence is safe. No-ops when no linked future events exist.
+        "task": "apps.joseph.tasks.run_meeting_prep",
+        "schedule": schedule(run_every=1800),  # 30 min
+    },
     "joseph-gmail-sync": {
         # Pull each member's recent inbound Gmail every 10 minutes and POST it to
         # agent-service /ingest (source_type=email_inbound). No-ops when no

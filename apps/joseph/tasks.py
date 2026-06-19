@@ -41,6 +41,7 @@ __all__ = [
     "build_gmail_service",
     "recent_messages",
     "post_to_ingest",
+    "run_meeting_prep",
 ]
 
 
@@ -308,3 +309,14 @@ def sync_google_gmail(self):
         integration.save(update_fields=["last_synced_at", "updated_at"])
 
     return {"ingested": ingested}
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def run_meeting_prep(self):
+    """Beat entry — fire the due pre-meeting cascade stage (T-5/T-2/T-0) for
+    every linked, future CalendarEvent. Thin wrapper over
+    ``apps.joseph.meeting_prep.check_meeting_prep`` (idempotent via
+    ``prep_stages``); returns its summary dict."""
+    from apps.joseph.meeting_prep import check_meeting_prep
+
+    return check_meeting_prep()
