@@ -22,6 +22,8 @@ from celery import shared_task
 from django.utils import timezone
 
 from apps.joseph import readers
+from apps.joseph.extraction import extract
+from apps.joseph.transcription import transcribe
 from apps.publisher.ingest_webhook import post_to_ingest
 from integrations.gmail import build_gmail_service, recent_messages
 from integrations.google_calendar import build_calendar_service, upcoming_events
@@ -44,6 +46,8 @@ __all__ = [
     "run_meeting_prep",
     "run_capture_prompts",
     "extract_meeting",
+    "transcribe",
+    "extract",
 ]
 
 
@@ -337,10 +341,115 @@ def run_capture_prompts(self):
 
 @shared_task(bind=True, max_retries=3, default_retry_delay=120)
 def extract_meeting(self, voice_note_id):
-    """Async post-meeting extraction (transcription seam → extraction seam →
-    ExtractedMeeting). The capture surface (Task 4) enqueues this when a voice
-    note is uploaded; the real seam chain lands in Task 5.
+    """Async post-meeting extraction: transcription seam → extraction seam →
+    ``ExtractedMeeting`` + items (state=pending). The capture surface (Task 4)
+    enqueues this when a voice note is uploaded.
 
-    # SEAM: real Whisper transcription + agent-service ATLAS extraction wired in
-    # Task 5 (apps.joseph.transcription / apps.joseph.extraction)."""
-    return {"voice_note_id": str(voice_note_id), "pending": True}
+    Walks the note ``uploaded → transcribing → transcribed → extracted``,
+    writing the transcript and persisting one ``ExtractedItem`` per mapped
+    signal for the confirm screen (Task 6) to route. Idempotent: a note already
+    in ``extracted`` is a no-op (never duplicates a meeting). A failure marks the
+    note ``failed`` and returns a summary instead of raising — a bad recording
+    must never crash the worker.
+
+    # SEAM: the heavy lifting lives in apps.joseph.transcription.transcribe
+    # (Whisper/Google STT later) and apps.joseph.extraction.extract (agent-
+    # service ATLAS later); both are deterministic pure functions today."""
+    from apps.joseph.models import ExtractedMeeting, VoiceNote
+
+    note = VoiceNote.objects.filter(pk=voice_note_id).select_related("thread").first()
+    if note is None:
+        return {"skipped": "no-voice-note", "voice_note_id": str(voice_note_id)}
+
+    # Idempotency: a note already extracted (re-run / duplicate delivery) no-ops.
+    if note.status == VoiceNote.Status.EXTRACTED:
+        return {"voice_note_id": str(note.id), "skipped": "already-extracted"}
+
+    try:
+        note.status = VoiceNote.Status.TRANSCRIBING
+        note.save(update_fields=["status", "updated_at"])
+
+        transcript = transcribe(note)  # SEAM: real Whisper/Google STT later
+        note.transcript = transcript
+        note.status = VoiceNote.Status.TRANSCRIBED
+        note.save(update_fields=["transcript", "status", "updated_at"])
+
+        result = extract(transcript, note.thread)  # SEAM: real ATLAS later
+
+        meeting = ExtractedMeeting.objects.create(
+            thread=note.thread,
+            voice_note=note,
+            source=ExtractedMeeting.Source.VOICE,
+            transcript=transcript,
+            warmth_delta=(
+                result.get("warmth_delta", "")
+                if result.get("warmth_delta") in ExtractedMeeting.WarmthDelta.values
+                else ""
+            ),
+            relationship_notes=result.get("relationship_notes", ""),
+            status=ExtractedMeeting.Status.PENDING,
+        )
+        _persist_items(meeting, result)
+
+        note.status = VoiceNote.Status.EXTRACTED
+        note.save(update_fields=["status", "updated_at"])
+    except Exception as exc:  # a bad recording must never crash the worker
+        logger.warning("extract_meeting: failed for note %s: %s", voice_note_id, exc)
+        VoiceNote.objects.filter(pk=voice_note_id).update(
+            status=VoiceNote.Status.FAILED, updated_at=timezone.now()
+        )
+        return {"voice_note_id": str(voice_note_id), "status": "failed"}
+
+    return {
+        "voice_note_id": str(note.id),
+        "meeting_id": str(meeting.id),
+        "items": meeting.items.count(),
+    }
+
+
+def _persist_items(meeting, result) -> None:
+    """Fan the extraction seam's structured dict out into pending ExtractedItems.
+
+    Each kind maps onto the routing set the confirm screen (Task 6) dispatches
+    on; intelligence signals carry the ``wiki_update_candidate`` flag through to
+    the wiki-revision queue.
+    """
+    from apps.joseph.models import ExtractedItem
+
+    for c in result.get("commitments", []):
+        ExtractedItem.objects.create(
+            meeting=meeting,
+            kind=c.get("kind", ExtractedItem.Kind.COMMITMENT_FOLLOW_UP),
+            description=c.get("description", ""),
+            verbatim_quote=c.get("verbatim_quote", ""),
+            confidence=float(c.get("confidence", 0.0)),
+            payload={"source": "voice"},
+        )
+    for n in result.get("next_steps", []):
+        ExtractedItem.objects.create(
+            meeting=meeting,
+            kind=ExtractedItem.Kind.NEXT_STEP,
+            description=n.get("description", ""),
+            verbatim_quote=n.get("verbatim_quote", ""),
+            confidence=float(n.get("confidence", 0.0)),
+            payload={"source": "voice"},
+        )
+    for s in result.get("intelligence_signals", []):
+        ExtractedItem.objects.create(
+            meeting=meeting,
+            kind=ExtractedItem.Kind.INTELLIGENCE_SIGNAL,
+            description=s.get("description", ""),
+            verbatim_quote=s.get("verbatim_quote", ""),
+            confidence=float(s.get("confidence", 0.0)),
+            wiki_update_candidate=bool(s.get("wiki_update_candidate", False)),
+            payload={"source": "voice"},
+        )
+    for i in result.get("content_ideas", []):
+        ExtractedItem.objects.create(
+            meeting=meeting,
+            kind=ExtractedItem.Kind.CONTENT_IDEA,
+            description=i.get("description", ""),
+            verbatim_quote=i.get("verbatim_quote", ""),
+            confidence=float(i.get("confidence", 0.0)),
+            payload={"source": "voice"},
+        )
