@@ -61,6 +61,31 @@ Deck / Sequence. The Brief tab is the default (rendered server-side here).
       {% include "joseph/_drawer_tabs/"|add:tab|add:".html" %}
     </div>
 
+    {# ── Meetings — captured meetings on this thread (TB.4 Task 7) ──── #}
+    <div class="px-6 pb-6 border-t border-stone-200 pt-5">
+      <div class="sidebar-section-label" style="padding-left:0">Meetings</div>
+      <div class="card divide-y mt-1 overflow-hidden">
+        {% for m in extracted_meetings %}
+        <a href="{% url 'joseph:meeting' m.id %}"
+           class="p-3.5 flex items-center justify-between hover:bg-stone-50 transition-colors">
+          <div class="min-w-0">
+            <div class="font-medium text-sm truncate">
+              {{ m.created_at|date:"j M H:i" }} · {{ m.get_source_display }} capture
+            </div>
+            <div class="text-xs text-stone-500">
+              {{ m.items.count }} item{{ m.items.count|pluralize }} · {{ m.get_status_display }}
+            </div>
+          </div>
+          <span class="text-xs font-semibold {% if m.status == 'pending' %}text-brand-600{% else %}text-stone-400{% endif %} flex-shrink-0">
+            {% if m.status == 'pending' %}Review →{% else %}Confirmed{% endif %}
+          </span>
+        </a>
+        {% empty %}
+        <div class="p-4 text-sm text-stone-400">No captured meetings yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+
   </div>
 </div>
 {% endblock %}

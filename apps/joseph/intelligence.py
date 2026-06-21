@@ -146,7 +146,8 @@ class JosephIntelligence:
 
     def proposals(self, *, workspace=None, user=None) -> list:
         """Merge unread agent-service notifications + Joseph's PENDING posts +
-        unlinked calendar events into normalized ActionCard dicts, urgent first.
+        pending-confirm meetings + unlinked calendar events into normalized
+        ActionCard dicts, urgent first.
         """
         cards: list[dict] = []
 
@@ -172,7 +173,20 @@ class JosephIntelligence:
                 "href": f"/joseph/content/#{post.id}",
             })
 
-        # 3) unlinked calendar events surfaced as linkage suggestions
+        # 3) pending-confirm meetings (TB.4) — a captured meeting still waiting
+        # for the principal to route its items into the CRM.
+        for m in self._pending_meetings(workspace, user):
+            org = m.thread.org.name if (m.thread_id and m.thread.org_id) else "a thread"
+            cards.append({
+                "kind": "meeting_confirm",
+                "title": f"Confirm meeting — {org}",
+                "subtitle": "Captured — review and route the items",
+                "urgent": False,
+                "actions": [{"label": "Review", "href": f"/joseph/meeting/{m.id}/"}],
+                "href": f"/joseph/meeting/{m.id}/",
+            })
+
+        # 4) unlinked calendar events surfaced as linkage suggestions
         for ev in self._unlinked_calendar_events(workspace):
             title = ev.get("title", "Calendar event")
             cards.append({
@@ -201,6 +215,27 @@ class JosephIntelligence:
         if user is not None:
             qs = qs.filter(Q(review_assignee=user) | Q(author=user))
         return list(qs)
+
+    @staticmethod
+    def _pending_meetings(workspace, user):
+        """Pending-confirm ExtractedMeetings whose thread Joseph owns (or all when
+        no user filter), scoped to ``workspace`` via the thread's org workspace.
+
+        Degrades to ``[]`` if the table is absent (pre-migration) so the queue
+        never 500s before Task 3 lands."""
+        try:
+            from apps.joseph.models import ExtractedMeeting
+        except (ImportError, LookupError):
+            return []
+        try:
+            qs = ExtractedMeeting.objects.filter(
+                status=ExtractedMeeting.Status.PENDING
+            ).select_related("thread", "thread__org")
+            if user is not None:
+                qs = qs.filter(thread__owner=user)
+            return list(qs)
+        except Exception:
+            return []
 
     @staticmethod
     def _unlinked_calendar_events(workspace):

@@ -2,6 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponseForbidden, JsonResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -81,8 +82,9 @@ def home(request):
     # Red threads — local CRM threads flagged red (the canonical source).
     red_threads = [_crm_thread_card(t) for t in _crm_threads(traffic_light="red")]
 
-    # Today's calendar events (linked + unlinked) for this workspace.
-    today_events = _today_events(workspace)
+    # Today's calendar events (linked + unlinked) for this workspace, annotated
+    # with their meeting-loop state (prep status + capture CTA — TB.4 Task 7).
+    today_events = [_annotate_meeting_event(ev) for ev in _today_events(workspace)]
 
     # Joseph's personal content queue (a teaser strip; full surface is Task 9).
     content = _joseph_content(workspace, request.user)
@@ -441,6 +443,41 @@ def _today_events(workspace):
         return []
 
 
+# The pre-meeting cascade's briefing_status → a human label for the Today strip.
+_BRIEFING_LABELS = {
+    "none": "",
+    "linked": "Linked",
+    "briefed": "Briefed",
+    "captured": "Captured",
+}
+
+
+def _annotate_meeting_event(ev):
+    """Annotate a CalendarEvent with its meeting-loop state for the Today strip.
+
+    Sets three template-read attributes in place (TB.4 Task 7): ``prep_label``
+    (the cascade's briefing_status as a human chip), ``capture_url`` (the
+    "I'm going in" / "Capture now" link into ``/joseph/capture/<thread>/`` with
+    the event id threaded through so the post can mark the right meeting
+    captured), and ``needs_capture`` (the meeting has ended and was neither
+    captured nor deferred — surfaces a "Capture now" entry). An unlinked event
+    has no thread to capture against, so it carries no capture URL."""
+    ev.prep_label = _BRIEFING_LABELS.get(ev.briefing_status or "none", "")
+    ev.capture_url = ""
+    if ev.linked_thread_id:
+        ev.capture_url = (
+            reverse("joseph:capture", args=[ev.linked_thread_id])
+            + f"?event={ev.google_event_id}"
+        )
+    ended = bool(ev.end and ev.end <= timezone.now())
+    ev.needs_capture = bool(
+        ev.linked_thread_id
+        and ended
+        and (ev.capture_status or "none") not in ("captured", "deferred")
+    )
+    return ev
+
+
 def _joseph_content(workspace, user):
     """Posts assigned to / authored by Joseph, newest scheduling first (teaser)."""
     from django.db.models import Q
@@ -649,6 +686,12 @@ def thread_drawer(request, thread_id):
         "crm_thread": crm_thread,
         "tab": tab,
         "tabs": _DRAWER_TABS,
+        # Captured meetings on this thread (TB.4 Task 7) — the drawer's "Meetings"
+        # section, each row linking to its confirm screen. Empty list when the
+        # thread is unknown/has none.
+        "extracted_meetings": (
+            list(crm_thread.extracted_meetings.all()) if crm_thread else []
+        ),
     }
     context.update(_drawer_tab_context(tab, thread_id, thread, crm_thread))
 

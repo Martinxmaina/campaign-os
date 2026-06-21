@@ -25,14 +25,20 @@
       <span class="tl mt-1.5 inline-block h-2.5 w-2.5 rounded-full"
             style="background:{% if ev.linked_thread_id %}var(--success){% else %}var(--warning){% endif %}"></span>
       <div class="flex-1">
-        <div class="font-semibold">{{ ev.start|date:"H:i" }} · {{ ev.title }}</div>
+        <div class="font-semibold flex items-center gap-2">
+          {{ ev.start|date:"H:i" }} · {{ ev.title }}
+          {% if ev.prep_label %}<span class="text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5"
+                style="background:var(--primary-soft);color:var(--brand-700)">{{ ev.prep_label }}</span>{% endif %}
+        </div>
         <div class="text-sm text-stone-500">
           {% if ev.linked_thread_id %}linked to a thread{% else %}unlinked — match to a thread?{% endif %}
         </div>
         <div class="flex gap-2 mt-3">
-          {% if ev.linked_thread_id %}
+          {% if ev.needs_capture %}
+          <a href="{{ ev.capture_url }}" class="btn-brand">Capture now →</a>
+          {% elif ev.linked_thread_id %}
           <a href="/joseph/brief/{{ ev.linked_thread_id }}/" class="btn-soft">Brief</a>
-          <a href="/joseph/brief/{{ ev.linked_thread_id }}/" class="btn-brand">I'm going in →</a>
+          <a href="{{ ev.capture_url }}" class="btn-brand">I'm going in →</a>
           {% else %}
           <a href="/joseph/pipeline/" class="btn-soft">Link a thread</a>
           {% endif %}
