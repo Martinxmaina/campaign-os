@@ -39,6 +39,16 @@ urlpatterns = [
     path("capture/<str:thread_id>/voice/", views.capture_voice, name="capture-voice"),
     path("capture/<str:thread_id>/form/", views.capture_form, name="capture-form"),
     path("capture/<str:thread_id>/defer/", views.capture_defer, name="capture-defer"),
+    # One-tap meeting confirm + routing (TB.4) — review the extracted items of a
+    # captured meeting (accept/edit/dismiss + bulk-accept), then route each into
+    # Activities/Tasks/intake/wiki + a warmth rescore. extracted_meeting_id is an
+    # ExtractedMeeting UUID. GET lists; POST (same view) confirms + routes.
+    path("meeting/<str:extracted_meeting_id>/", views.meeting_confirm, name="meeting"),
+    path(
+        "meeting/<str:extracted_meeting_id>/confirm/",
+        views.meeting_confirm,
+        name="meeting-confirm",
+    ),
     # Knowledge wiki browser — search + entity_type chips; cards link to detail.
     path("knowledge/", views.knowledge, name="knowledge"),
     # Page detail — title + L0/L1/L2 tier toggle (HTMX) + outgoing links + revisions.

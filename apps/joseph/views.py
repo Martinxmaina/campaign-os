@@ -916,6 +916,89 @@ def capture_defer(request, thread_id):
     return redirect("joseph:home")
 
 
+def _extracted_meeting(meeting_id):
+    """Resolve a pending/confirmed ExtractedMeeting by its (UUID) pk + thread,
+    tolerating a non-UUID id → ``None`` rather than a 500."""
+    from django.core.exceptions import ValidationError
+
+    from apps.joseph.models import ExtractedMeeting
+
+    try:
+        return (
+            ExtractedMeeting.objects.select_related("thread", "thread__org")
+            .filter(pk=meeting_id)
+            .first()
+        )
+    except (ValueError, ValidationError):
+        return None
+
+
+@login_required
+def meeting_confirm(request, extracted_meeting_id):
+    """One-tap meeting confirm + routing (TB.4) — Joseph reviews then routes.
+
+    GET lists the meeting's ``ExtractedItem`` lines (accept/edit/dismiss + a
+    bulk-accept). POST walks them: an accepted item is routed by its ``kind``
+    (``routing.apply_item``) into Activities/Tasks/intake/wiki, a dismissed one
+    logs an "outcome logged" note (``routing.dismiss_item``), the meeting's
+    warmth delta folds into the thread (``routing.apply_warmth`` → rescore), and
+    the meeting is marked ``confirmed``. The thread is the canonical CRM
+    OutreachThread. Gated by ``_can_access_joseph``; CSP-safe (POST forms)."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    meeting = _extracted_meeting(extracted_meeting_id)
+    if meeting is None:
+        from django.http import Http404
+
+        raise Http404("No such meeting.")
+
+    if request.method == "POST":
+        return _route_confirmed_meeting(request, meeting)
+
+    return render(
+        request,
+        "joseph/meeting_confirm.html",
+        {
+            "meeting": meeting,
+            "thread": _crm_thread_card(meeting.thread) if meeting.thread_id else {},
+            "thread_id": str(meeting.thread_id),
+            "items": list(meeting.items.all()),
+            "is_mobile": _is_mobile(request),
+        },
+    )
+
+
+def _route_confirmed_meeting(request, meeting):
+    """Walk the posted accept/dismiss actions, route each item, apply warmth,
+    mark the meeting confirmed. ``bulk=accept`` accepts every item; otherwise an
+    ``action_<item_id>`` field (``accept``/``dismiss``) picks per item (a missing
+    one defaults to accept so a one-tap confirm routes everything)."""
+    from apps.joseph import routing
+
+    workspace = getattr(request, "workspace", None)
+    bulk = (request.POST.get("bulk") or "").strip().lower() == "accept"
+
+    for item in meeting.items.all():
+        item._by_user = request.user  # actor hint for note routing
+        action = (request.POST.get(f"action_{item.id}") or "").strip().lower()
+        if not bulk and action == "dismiss":
+            routing.dismiss_item(item)
+        else:
+            # bulk-accept, an explicit accept, or no per-item choice → accept.
+            routing.apply_item(item, by_user=request.user, workspace=workspace)
+
+    routing.apply_warmth(meeting)
+
+    from apps.joseph.models import ExtractedMeeting
+
+    meeting.status = ExtractedMeeting.Status.CONFIRMED
+    meeting.save(update_fields=["status", "updated_at"])
+
+    messages.success(request, "Confirmed — the meeting's actions are routed.")
+    return redirect("joseph:thread", thread_id=str(meeting.thread_id))
+
+
 # The wiki entity types Joseph filters by (chips in the knowledge browser),
 # matching the agent-service knowledge model's entity_type vocabulary.
 _KNOWLEDGE_ENTITY_TYPES = ["funder", "org", "person", "initiative", "topic"]
