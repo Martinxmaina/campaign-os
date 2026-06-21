@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Joseph · Capture meeting{% endblock %}
+
+{% comment %}
+The post-meeting capture surface (TB.4) — Joseph's "I'm going in" follow-up.
+Extends base.html so it inherits the Campaign OS chrome (incl. the
+"Joseph · Principal" sidebar). One screen, three paths picked with an Alpine
+tab (`path`): record a voice note (MediaRecorder → multipart POST), fill a quick
+form (five fields straight into a pending ExtractedMeeting), or defer (re-prompt
+in 2h + a backstop escalation). CSP-safe: Alpine @click for path switching (no
+inline onclick/onsubmit), POST forms with {% csrf_token %}, and the one
+recorder <script> carries the CSP nonce. Reuses BrightBean tokens (.card,
+.btn-brand, font-display Georgia, orange --primary, warm stone).
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5 max-w-2xl" x-data="{ path: 'voice' }">
+
+  {# ── Header ──────────────────────────────────────────────────────── #}
+  <div class="border-b border-stone-200 pb-4">
+    <h1 class="font-display text-2xl">Capture your meeting</h1>
+    <div class="text-sm text-stone-500">
+      {% if thread.org %}{{ thread.org }} · {% endif %}while it's fresh — record a note, jot the essentials, or defer
+    </div>
+  </div>
+
+  {# ── Path switch (Alpine, no inline onclick) ─────────────────────── #}
+  <div class="flex gap-2" role="tablist">
+    <button type="button" class="btn-brand"
+            x-bind:class="path === 'voice' ? '' : 'opacity-50'"
+            x-on:click="path = 'voice'">Voice note</button>
+    <button type="button" class="btn-brand"
+            x-bind:class="path === 'form' ? '' : 'opacity-50'"
+            x-on:click="path = 'form'">Quick form</button>
+    <button type="button" class="btn-brand"
+            x-bind:class="path === 'defer' ? '' : 'opacity-50'"
+            x-on:click="path = 'defer'">Defer</button>
+  </div>
+
+  {# ── Voice record ────────────────────────────────────────────────── #}
+  <div class="card p-5" x-show="path === 'voice'"
+       x-data="{ recording: false, hasClip: false }">
+    <div class="font-semibold text-sm mb-1">Record a voice note</div>
+    <div class="text-xs text-stone-500 mb-3">
+      Speak the outcome — we'll transcribe it and pull out the commitments and next steps.
+    </div>
+    <form id="capture-voice-form" method="post" enctype="multipart/form-data"
+          action="{% url 'joseph:capture-voice' thread_id %}">
+      {% csrf_token %}
+      <input type="hidden" name="google_event_id" value="{{ google_event_id }}">
+      <input type="hidden" name="audio" id="capture-audio-field">
+      <div class="flex items-center gap-3">
+        <button type="button" id="capture-record-btn" class="btn-brand"
+                x-text="recording ? 'Stop' : 'Start recording'"></button>
+        <span class="text-xs text-stone-500" x-show="hasClip">Recorded — ready to send</span>
+      </div>
+      <audio id="capture-audio-preview" class="mt-3 w-full" controls x-show="hasClip"></audio>
+      <div class="mt-4">
+        <button type="submit" class="btn-brand" id="capture-voice-submit" x-bind:disabled="!hasClip">
+          Send recording
+        </button>
+        <span class="text-[11px] text-stone-500 ml-2">transcribed + extracted in the background</span>
+      </div>
+    </form>
+    <noscript>
+      <div class="text-xs text-rose-700 mt-2">
+        Recording needs JavaScript — use the quick form instead.
+      </div>
+    </noscript>
+  </div>
+
+  {# ── Quick form (5 fields) ───────────────────────────────────────── #}
+  <div class="card p-5" x-show="path === 'form'">
+    <div class="font-semibold text-sm mb-1">Quick form</div>
+    <div class="text-xs text-stone-500 mb-3">The essentials — routed into actions when you confirm.</div>
+    <form method="post" action="{% url 'joseph:capture-form' thread_id %}" class="space-y-4">
+      {% csrf_token %}
+      <input type="hidden" name="google_event_id" value="{{ google_event_id }}">
+
+      <div>
+        <label class="block text-sm font-medium mb-1" for="cap-commitments">Commitments made</label>
+        <textarea name="commitments" id="cap-commitments" rows="2"
+                  class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+                  placeholder="What did they commit to?"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1" for="cap-next-step">Next step</label>
+        <textarea name="next_step" id="cap-next-step" rows="2"
+                  class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+                  placeholder="What happens next, and who owns it?"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1" for="cap-due-date">Due date</label>
+        <input type="date" name="due_date" id="cap-due-date"
+               class="rounded-lg border border-stone-300 px-3 py-2 text-sm">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium mb-1" for="cap-warmth">Warmth after this meeting</label>
+        <select name="warmth_delta" id="cap-warmth"
+                class="rounded-lg border border-stone-300 px-3 py-2 text-sm">
+          {% for value, label in warmth_deltas %}
+          <option value="{{ value }}"{% if value == 'same' %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <label class="flex items-center gap-2 text-sm">
+        <input type="checkbox" name="share" class="rounded border-stone-300">
+        Share this with the team
+      </label>
+
+      <button type="submit" class="btn-brand">Capture</button>
+    </form>
+  </div>
+
+  {# ── Defer ───────────────────────────────────────────────────────── #}
+  <div class="card p-5" x-show="path === 'defer'">
+    <div class="font-semibold text-sm mb-1">Not now</div>
+    <div class="text-xs text-stone-500 mb-3">
+      I'll remind you in a couple of hours — and loop in your backstop if it's still open tomorrow.
+    </div>
+    <form method="post" action="{% url 'joseph:capture-defer' thread_id %}">
+      {% csrf_token %}
+      <input type="hidden" name="google_event_id" value="{{ google_event_id }}">
+      <button type="submit" class="btn-brand">Defer for later</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script nonce="{{ request.csp_nonce }}">
+/* CSP-safe voice recorder. Uses the MediaRecorder API to capture an audio clip,
+   stashes the blob on a hidden file input via a DataTransfer so the multipart
+   POST ships it under name="audio" (the FileField the view writes to configured
+   storage). All wiring is addEventListener (no inline handlers); degrades to the
+   quick form when MediaRecorder/getUserMedia is unavailable. */
+(function () {
+    var btn = document.getElementById('capture-record-btn');
+    var form = document.getElementById('capture-voice-form');
+    if (!btn || !form) return;
+    var fileField = document.getElementById('capture-audio-field');
+    var preview = document.getElementById('capture-audio-preview');
+    var supported = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.MediaRecorder);
+    if (!supported) {
+        btn.disabled = true;
+        btn.textContent = 'Recording unsupported';
+        return;
+    }
+    var recorder = null, chunks = [], stream = null;
+
+    function setState(rec, hasClip) {
+        // Alpine owns the visual state via x-data; mirror it for components that read it.
+        var root = btn.closest('[x-data]');
+        if (root && root.__x) { root.__x.$data.recording = rec; root.__x.$data.hasClip = hasClip; }
+    }
+
+    btn.addEventListener('click', function () {
+        if (recorder && recorder.state === 'recording') {
+            recorder.stop();
+            return;
+        }
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function (s) {
+            stream = s;
+            chunks = [];
+            recorder = new MediaRecorder(stream);
+            recorder.addEventListener('dataavailable', function (e) {
+                if (e.data && e.data.size) { chunks.push(e.data); }
+            });
+            recorder.addEventListener('stop', function () {
+                var blob = new Blob(chunks, { type: 'audio/webm' });
+                var file = new File([blob], 'meeting-note.webm', { type: 'audio/webm' });
+                var dt = new DataTransfer();
+                dt.items.add(file);
+                // Promote the hidden text input to a real file input carrying the clip.
+                fileField.type = 'file';
+                fileField.files = dt.files;
+                if (preview) { preview.src = URL.createObjectURL(blob); }
+                if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); }
+                setState(false, true);
+            });
+            recorder.start();
+            setState(true, false);
+        }).catch(function () {
+            btn.textContent = 'Mic blocked';
+        });
+    });
+})();
+</script>
+{% endblock %}

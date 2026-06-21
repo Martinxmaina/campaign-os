@@ -23,6 +23,7 @@ class EventType(models.TextChoices):
     APPROVAL_STALLED = "approval_stalled", "Stalled approval escalation"
     CLIENT_CONNECTED_ACCOUNTS = "client_connected_accounts", "Client connected accounts"
     MEETING_PREP = "meeting_prep", "Pre-meeting prep cascade"
+    MEETING_CAPTURE = "meeting_capture", "Post-meeting capture prompt"
 
 
 class Channel(models.TextChoices):

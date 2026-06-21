@@ -42,6 +42,8 @@ __all__ = [
     "recent_messages",
     "post_to_ingest",
     "run_meeting_prep",
+    "run_capture_prompts",
+    "extract_meeting",
 ]
 
 
@@ -320,3 +322,25 @@ def run_meeting_prep(self):
     from apps.joseph.meeting_prep import check_meeting_prep
 
     return check_meeting_prep()
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def run_capture_prompts(self):
+    """Beat entry — prompt the owner of every just-ended, uncaptured meeting and
+    escalate any deferred capture that has rotted past 24h. Thin wrapper over
+    ``apps.joseph.capture`` (both idempotent via ``capture_status``); returns a
+    merged summary dict."""
+    from apps.joseph.capture import escalate_deferred_captures, send_capture_prompts
+
+    return {**send_capture_prompts(), **escalate_deferred_captures()}
+
+
+@shared_task(bind=True, max_retries=3, default_retry_delay=120)
+def extract_meeting(self, voice_note_id):
+    """Async post-meeting extraction (transcription seam → extraction seam →
+    ExtractedMeeting). The capture surface (Task 4) enqueues this when a voice
+    note is uploaded; the real seam chain lands in Task 5.
+
+    # SEAM: real Whisper transcription + agent-service ATLAS extraction wired in
+    # Task 5 (apps.joseph.transcription / apps.joseph.extraction)."""
+    return {"voice_note_id": str(voice_note_id), "pending": True}

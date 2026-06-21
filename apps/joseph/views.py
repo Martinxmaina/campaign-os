@@ -8,6 +8,7 @@ from django.views.decorators.http import require_POST
 from apps.common.agent_client import AgentClientError, agent_get, agent_post, agent_put
 from apps.joseph import readers
 from apps.joseph.intelligence import JosephIntelligence
+from apps.joseph.tasks import extract_meeting
 
 _CHANNELS = ["linkedin", "email", "x", "voice"]
 
@@ -755,6 +756,163 @@ def calendar_link(request, google_event_id):
         linkage.link_event(event, thread)
         org = thread.org.name if thread.org_id else "thread"
         messages.success(request, f"Linked this meeting to {org}.")
+    return redirect("joseph:home")
+
+
+# The warmth-delta values the quick form offers (mirrors ExtractedMeeting.WarmthDelta).
+_WARMTH_DELTAS = [
+    ("warmer", "Warmer"),
+    ("same", "About the same"),
+    ("cooler", "Cooler"),
+]
+
+
+def _capture_event(request, thread):
+    """Resolve the optional CalendarEvent a capture is for, scoped to ``thread``.
+
+    The capture forms carry the meeting's ``google_event_id`` so a voice/form/
+    defer post can flip the right event's ``capture_status``. A missing/unknown
+    id (a hand-typed capture with no linked event) resolves to ``None`` so the
+    capture still records — it just doesn't move any calendar state."""
+    from apps.joseph.models import CalendarEvent
+
+    gid = (request.POST.get("google_event_id") or "").strip()
+    if not gid:
+        return None
+    return (
+        CalendarEvent.objects.filter(
+            google_event_id=gid, linked_thread_id=str(thread.id)
+        ).first()
+    )
+
+
+@login_required
+def capture(request, thread_id):
+    """The post-meeting capture surface — Joseph's "I'm going in" follow-up.
+
+    One screen, three paths: record a **voice** note (multipart upload →
+    ``VoiceNote`` → async extraction, Task 5), fill a **quick form** (five
+    fields: commitments / next step / due date / warmth delta / share toggle →
+    a pending ``ExtractedMeeting`` of items, no transcription), or **defer**
+    (re-prompt in 2h + a backstop escalation if it rots). The thread is a local
+    CRM ``OutreachThread`` (the CRM is canonical); a ``?event=`` carries the
+    linked meeting's ``google_event_id`` through so the post can mark it
+    captured. Gated by ``_can_access_joseph``; CSP-safe (POST forms + Alpine).
+    """
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    crm_thread = _crm_thread_by_id(thread_id)
+    google_event_id = (request.GET.get("event") or "").strip()
+    return render(
+        request,
+        "joseph/capture.html",
+        {
+            "thread_id": thread_id,
+            "thread": _crm_thread_card(crm_thread) if crm_thread else {},
+            "google_event_id": google_event_id,
+            "warmth_deltas": _WARMTH_DELTAS,
+            "is_mobile": _is_mobile(request),
+        },
+    )
+
+
+@login_required
+@require_POST
+def capture_voice(request, thread_id):
+    """Voice path — persist the uploaded recording then enqueue extraction.
+
+    Writes the audio to a ``VoiceNote`` (status ``uploaded``) via the project's
+    configured FileField storage (R2 in prod, FS in dev/test — no bespoke upload
+    code), marks the linked event ``captured``, and enqueues the async
+    transcription→extraction pipeline (Task 5) with the new note's id. Role-gated
+    + CSRF (require_POST)."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    from apps.joseph import capture as capture_logic
+    from apps.joseph.models import VoiceNote
+
+    crm_thread = _crm_thread_by_id(thread_id)
+    if crm_thread is None:
+        messages.error(request, "Couldn't capture — that thread no longer exists.")
+        return redirect("joseph:home")
+
+    audio = request.FILES.get("audio")
+    if not audio:
+        messages.error(request, "No recording received — try again.")
+        return redirect("joseph:capture", thread_id=thread_id)
+
+    event = _capture_event(request, crm_thread)
+    note = VoiceNote.objects.create(
+        thread=crm_thread,
+        calendar_event=event,
+        file=audio,
+        status=VoiceNote.Status.UPLOADED,
+        created_by=request.user,
+    )
+    capture_logic.mark_captured(event)
+    # Hand off to the async pipeline (transcription seam → extraction seam → items).
+    extract_meeting.delay(str(note.id))
+
+    messages.success(request, "Got it — transcribing your note and pulling out the actions.")
+    return redirect("joseph:thread", thread_id=thread_id)
+
+
+@login_required
+@require_POST
+def capture_form(request, thread_id):
+    """Quick-form path — five fields straight into a pending ExtractedMeeting.
+
+    Commitments / next step / due date / warmth delta / share-toggle map onto
+    ``ExtractedItem`` rows directly (no transcription), and the warmth delta is
+    stored on the meeting for the confirm-time rescore (Task 6). Marks the linked
+    event ``captured``. Role-gated + CSRF (require_POST)."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    from apps.joseph import capture as capture_logic
+
+    crm_thread = _crm_thread_by_id(thread_id)
+    if crm_thread is None:
+        messages.error(request, "Couldn't capture — that thread no longer exists.")
+        return redirect("joseph:home")
+
+    event = _capture_event(request, crm_thread)
+    capture_logic.build_form_meeting(
+        crm_thread,
+        commitments=request.POST.get("commitments", ""),
+        next_step=request.POST.get("next_step", ""),
+        due_date=request.POST.get("due_date", ""),
+        warmth_delta=(request.POST.get("warmth_delta") or "").strip().lower(),
+        share=bool(request.POST.get("share")),
+    )
+    capture_logic.mark_captured(event)
+
+    messages.success(request, "Captured — review the items to route them.")
+    return redirect("joseph:thread", thread_id=thread_id)
+
+
+@login_required
+@require_POST
+def capture_defer(request, thread_id):
+    """Defer path — re-prompt in 2h, with a backstop escalation if it rots.
+
+    Marks the linked event ``deferred`` with a ``defer_until`` 2h out; the beat
+    sweep re-prompts then, and ``escalate_deferred_captures`` escalates to the
+    thread backstop after 24h if it is still uncaptured. Role-gated + CSRF."""
+    if not _can_access_joseph(request):
+        return HttpResponseForbidden("Joseph's principal surface is not available for your role.")
+
+    from apps.joseph import capture as capture_logic
+
+    crm_thread = _crm_thread_by_id(thread_id)
+    event = _capture_event(request, crm_thread) if crm_thread else None
+    if event is not None:
+        capture_logic.defer_capture(event)
+        messages.success(request, "Deferred — I'll remind you in a couple of hours.")
+    else:
+        messages.error(request, "Couldn't defer — no linked meeting to defer.")
     return redirect("joseph:home")
 
 

@@ -82,6 +82,13 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.joseph.tasks.run_meeting_prep",
         "schedule": schedule(run_every=1800),  # 30 min
     },
+    "joseph-capture-prompts": {
+        # Post-meeting capture: prompt the owner of any meeting that just ended
+        # uncaptured, and escalate a deferred capture to the backstop after 24h.
+        # Idempotent via CalendarEvent.capture_status, so a 15-min cadence is safe.
+        "task": "apps.joseph.tasks.run_capture_prompts",
+        "schedule": schedule(run_every=900),  # 15 min
+    },
     "joseph-gmail-sync": {
         # Pull each member's recent inbound Gmail every 10 minutes and POST it to
         # agent-service /ingest (source_type=email_inbound). No-ops when no

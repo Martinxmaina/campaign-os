@@ -32,6 +32,13 @@ urlpatterns = [
         views.calendar_link,
         name="calendar-link",
     ),
+    # Post-meeting capture surface (TB.4) — the "I'm going in" follow-up: one
+    # screen with three paths (voice record / quick form / defer). thread_id is
+    # a CRM OutreachThread UUID (a string here, resolved to the Django pk).
+    path("capture/<str:thread_id>/", views.capture, name="capture"),
+    path("capture/<str:thread_id>/voice/", views.capture_voice, name="capture-voice"),
+    path("capture/<str:thread_id>/form/", views.capture_form, name="capture-form"),
+    path("capture/<str:thread_id>/defer/", views.capture_defer, name="capture-defer"),
     # Knowledge wiki browser — search + entity_type chips; cards link to detail.
     path("knowledge/", views.knowledge, name="knowledge"),
     # Page detail — title + L0/L1/L2 tier toggle (HTMX) + outgoing links + revisions.
