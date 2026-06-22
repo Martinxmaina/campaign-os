@@ -1,22 +1,24 @@
-"""Console pipeline reads canonical Django threads + drag-and-drop (Task 3).
+"""Pipeline IA: the content console's pipeline is now the **content** board; the
+funder **deal** board moved to CRM (``crm:pipeline``).
 
-The console pipeline (``/console/pipeline``) used to read the stale agent-service
-``/threads`` route and group cards into traffic-light columns. It now reads the
-canonical ``apps.crm.OutreachThread`` rows grouped into the SAME ordered stage
-columns Joseph's board uses (Discover -> Committed + a catch-all "Other"), and
-the cards are draggable: a drop POSTs the thread id + the destination column's
-stage to the single shared ``crm:thread-set-stage`` endpoint (Task 2). No
-agent-service call happens. CSP-safe: SortableJS (jsdelivr) + a nonce'd init.
+- ``/console/pipeline`` → team CONTENT pipeline (created + curated, by stage).
+- ``/crm/pipeline/``     → team DEAL pipeline (every owner's threads, drag-restage).
+
+The deal board still reads canonical ``apps.crm.OutreachThread`` rows grouped into
+Joseph-parity stage columns with draggable cards (POST to ``crm:thread-set-stage``).
 """
 import pytest
-from django.test import Client
 from django.contrib.auth import get_user_model
+from django.test import Client
+from django.urls import reverse
 from django.utils import timezone
+
+DEAL_URL = "/crm/pipeline/"
 
 
 @pytest.fixture
 def staff_client(db):
-    """A staff user passes ``_can_manage_crm`` (the CRM gate the console reuses)."""
+    """A staff user passes ``_can_manage_crm`` (the CRM gate the deal board uses)."""
     User = get_user_model()
     u = User.objects.create_user(
         email="op3@x.io", password="pw", name="Op3",
@@ -29,7 +31,7 @@ def staff_client(db):
 
 @pytest.fixture
 def member_client(db, organization, workspace):
-    """An ordinary workspace member — must be 403'd from the CRM pipeline."""
+    """An ordinary workspace member — must be 403'd from the CRM deal pipeline."""
     from apps.accounts.models import User
     from apps.members.models import OrgMembership, WorkspaceMembership
 
@@ -65,149 +67,145 @@ def crm_thread(db):
     )
 
 
+# ── Deal board (relocated to CRM) ───────────────────────────────────────────
+
 @pytest.mark.django_db
-def test_pipeline_renders_crm_threads_grouped_by_stage(staff_client, crm_thread, monkeypatch):
-    """The board shows the CRM thread's org, bucketed under its stage column —
-    not the old agent-service traffic-light columns."""
-    from apps.intelligence import console_views
-
-    # Guard: agent-service must NOT be touched. Blow up if it is.
-    monkeypatch.setattr(
-        console_views, "safe_get",
-        lambda *a, **k: (_ for _ in ()).throw(AssertionError("agent-service called")),
-    )
-
-    resp = staff_client.get("/console/pipeline")
+def test_deal_pipeline_renders_crm_threads_grouped_by_stage(staff_client, crm_thread):
+    resp = staff_client.get(DEAL_URL)
     assert resp.status_code == 200
     body = resp.content.decode()
+    assert "Deal pipeline" in body  # relabeled, no longer "Team pipeline"
     assert "AfDB" in body
-    # Stage columns (Joseph parity), NOT traffic-light columns.
-    assert "Proposal" in body
-    assert "Discover" in body
-    assert "Committed" in body
+    assert "Proposal" in body and "Discover" in body and "Committed" in body
 
 
 @pytest.mark.django_db
-def test_pipeline_does_not_call_agent_service(staff_client, crm_thread, monkeypatch):
-    """The repoint removed the ``safe_get('/threads')`` read entirely."""
-    from apps.intelligence import console_views
-
-    calls = []
-    monkeypatch.setattr(console_views, "safe_get",
-                        lambda *a, **k: calls.append(a) or {"items": []})
-
-    resp = staff_client.get("/console/pipeline")
-    assert resp.status_code == 200
-    assert calls == []
-
-
-@pytest.mark.django_db
-def test_pipeline_wires_drag_drop_to_set_stage(staff_client, crm_thread):
-    """The cards are draggable and a drop POSTs to the shared set_stage endpoint:
-    SortableJS is loaded (jsdelivr) and the card carries its thread id + the
-    destination column carries its stage key."""
-    resp = staff_client.get("/console/pipeline")
+def test_deal_pipeline_wires_drag_drop_to_set_stage(staff_client, crm_thread):
+    resp = staff_client.get(DEAL_URL)
     body = resp.content.decode()
     assert "cdn.jsdelivr.net" in body and "Sortable" in body
     assert "/crm/threads/" in body and "/stage/" in body
     assert f'data-thread-id="{crm_thread.id}"' in body
-    assert 'data-stage="proposal"' in body  # the thread's display column
+    assert 'data-stage="proposal"' in body
 
 
 @pytest.mark.django_db
-def test_pipeline_init_script_is_nonced(staff_client, crm_thread):
-    """CSP-safe: the drag-drop init runs from a nonce'd <script>, no inline
-    onclick/onsubmit handlers."""
-    resp = staff_client.get("/console/pipeline")
+def test_deal_pipeline_init_script_is_nonced(staff_client, crm_thread):
+    resp = staff_client.get(DEAL_URL)
     body = resp.content.decode()
     assert 'nonce="' in body
     assert "onclick=" not in body and "onsubmit=" not in body
 
 
 @pytest.mark.django_db
-def test_pipeline_forbidden_for_non_crm_role(member_client, crm_thread):
-    """A plain workspace member is gated out of the CRM pipeline."""
-    resp = member_client.get("/console/pipeline")
+def test_deal_pipeline_forbidden_for_non_crm_role(member_client, crm_thread):
+    resp = member_client.get(DEAL_URL)
     assert resp.status_code == 403
 
 
 @pytest.mark.django_db
-def test_pipeline_empty_db_renders_columns(staff_client):
-    """An empty CRM just renders empty stage columns — never a 500."""
-    resp = staff_client.get("/console/pipeline")
+def test_deal_pipeline_empty_db_renders_columns(staff_client):
+    resp = staff_client.get(DEAL_URL)
     assert resp.status_code == 200
     assert "Discover" in resp.content.decode()
 
 
 @pytest.fixture
 def owned_threads(db):
-    """Two CRM threads owned by two different users, across two tracks — to
-    exercise the Team board's Owner badge + owner/track filter chips."""
-    from django.utils import timezone
-
+    """Two CRM threads owned by two users across two tracks — for the Owner
+    badge + owner/track filter chips on the deal board."""
     from apps.accounts.models import User
     from apps.crm.models import Organization, OutreachThread
 
     alice = User.objects.create_user(
-        email="alice-pl@x.io", password="pw", name="Alice Owner",
-        tos_accepted_at=timezone.now(),
-    )
+        email="alice-pl@x.io", password="pw", name="Alice Owner", tos_accepted_at=timezone.now())
     bob = User.objects.create_user(
-        email="bob-pl@x.io", password="pw", name="Bob Owner",
-        tos_accepted_at=timezone.now(),
-    )
+        email="bob-pl@x.io", password="pw", name="Bob Owner", tos_accepted_at=timezone.now())
     org_a = Organization.objects.create(name="GreenClimate")
     org_b = Organization.objects.create(name="WorldBank")
     ta = OutreachThread.objects.create(
         org=org_a, owner=alice, stage=OutreachThread.Stage.ENGAGED,
-        track="ai10bn", traffic_light="green", quintile=5,
-    )
+        track="ai10bn", traffic_light="green", quintile=5)
     tb = OutreachThread.objects.create(
         org=org_b, owner=bob, stage=OutreachThread.Stage.PROPOSAL,
-        track="energy", traffic_light="amber", quintile=3,
-    )
+        track="energy", traffic_light="amber", quintile=3)
     return {"alice": alice, "bob": bob, "ta": ta, "tb": tb}
 
 
 @pytest.mark.django_db
-def test_console_pipeline_is_the_team_board(staff_client, owned_threads):
-    """/console/pipeline is the Team board: a 'Team pipeline' header (not Joseph's
-    'My pipeline') and an Owner badge on every card naming who owns the thread."""
-    resp = staff_client.get("/console/pipeline")
-    assert resp.status_code == 200
+def test_deal_pipeline_shows_owner_badges(staff_client, owned_threads):
+    resp = staff_client.get(DEAL_URL)
     body = resp.content.decode()
-    assert "Team pipeline" in body
-    assert "My pipeline" not in body
-    # Owner badge names the owner on each card.
-    assert "Alice Owner" in body
-    assert "Bob Owner" in body
+    assert "Deal pipeline" in body and "My pipeline" not in body
+    assert "Alice Owner" in body and "Bob Owner" in body
 
 
 @pytest.mark.django_db
-def test_console_pipeline_has_owner_and_track_filter_chips(staff_client, owned_threads):
-    """The Team board exposes owner + track filter chips (?owner= / ?track=) that
-    narrow the visible threads to the selected owner/track."""
+def test_deal_pipeline_owner_filter_narrows(staff_client, owned_threads):
     alice = owned_threads["alice"]
-    # owner filter chips reference ?owner=<id> for each owner
-    resp = staff_client.get("/console/pipeline")
+    resp = staff_client.get(DEAL_URL)
     body = resp.content.decode()
     assert f"owner={alice.id}" in body
-    assert "track=ai10bn" in body or "track=energy" in body
-
-    # Filtering by Alice's id drops Bob's thread.
-    resp = staff_client.get(f"/console/pipeline?owner={alice.id}")
+    resp = staff_client.get(f"{DEAL_URL}?owner={alice.id}")
     body = resp.content.decode()
-    assert "GreenClimate" in body
-    assert "WorldBank" not in body
+    assert "GreenClimate" in body and "WorldBank" not in body
 
 
 @pytest.mark.django_db
-def test_console_pipeline_track_filter_narrows(staff_client, owned_threads):
-    """Filtering by track narrows the board to that track's threads."""
-    resp = staff_client.get("/console/pipeline?track=energy")
+def test_deal_pipeline_track_filter_narrows(staff_client, owned_threads):
+    resp = staff_client.get(f"{DEAL_URL}?track=energy")
     body = resp.content.decode()
-    assert "WorldBank" in body
-    assert "GreenClimate" not in body
+    assert "WorldBank" in body and "GreenClimate" not in body
+
+
+# ── Content board (the repurposed console pipeline) ─────────────────────────
+
+@pytest.fixture
+def content_member(db, organization, workspace):
+    """A logged-in workspace member (the content pipeline is content-ops, not gated
+    to CRM roles)."""
+    from apps.accounts.models import User
+    from apps.members.models import OrgMembership, WorkspaceMembership
+    u = User.objects.create_user(
+        email="content@x.io", password="pw", name="Content Op", tos_accepted_at=timezone.now())
+    OrgMembership.objects.create(user=u, organization=organization, org_role=OrgMembership.OrgRole.MEMBER)
+    WorkspaceMembership.objects.create(user=u, workspace=workspace, workspace_role="member")
+    u.last_workspace_id = workspace.id
+    u.save(update_fields=["last_workspace_id"])
+    c = Client()
+    c.force_login(u)
+    return c
+
+
+@pytest.mark.django_db
+def test_console_pipeline_is_the_content_board(content_member, workspace):
+    """/console/pipeline is now the CONTENT board: stage columns fed by created +
+    curated content — not deal threads."""
+    from apps.composer.models import Post
+    from apps.content_intake.models import ContentIntake
+    Post.objects.create(workspace=workspace, caption="A created draft", title="Created One")
+    ContentIntake.objects.create(workspace=workspace, external_id="cur-1",
+        sensitivity="public_safe", status=ContentIntake.Status.PUBLISHED, angle="Curated One")
+
+    resp = content_member.get("/console/pipeline")
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Content pipeline" in body
+    assert "Created One" in body and "Curated One" in body
+    # stage column labels present; it is NOT the deal board
+    assert "Published" in body
+    assert "Deal pipeline" not in body
+
+
+@pytest.mark.django_db
+def test_console_pipeline_no_agent_call(content_member, monkeypatch):
+    """The content board reads Django only — no agent-service call."""
+    from apps.intelligence import console_views
+    calls = []
+    monkeypatch.setattr(console_views, "safe_get", lambda *a, **k: calls.append(a) or {"items": []})
+    resp = content_member.get("/console/pipeline")
+    assert resp.status_code == 200
+    assert calls == []
 
 
 @pytest.mark.django_db

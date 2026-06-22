@@ -2,6 +2,16 @@
 {% block console %}
 <a href="/console/drafts" class="text-sm text-stone-500 hover:text-stone-900">&larr; Drafts</a>
 {% if down or not c %}{% include "console/_unavailable.html" %}{% else %}
+
+{# Flash messages (publish / schedule outcomes). #}
+{% if messages %}
+<div class="mt-3 space-y-2">
+  {% for m in messages %}
+  <div class="rounded-lg px-4 py-2 text-sm {% if 'error' in m.tags %}bg-rose-50 text-rose-700 border border-rose-200{% else %}bg-emerald-50 text-emerald-700 border border-emerald-200{% endif %}">{{ m }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+
 <div class="border border-stone-200 rounded-lg p-6 bg-white mt-3">
   <div class="flex items-center gap-2 text-[11px] uppercase tracking-wider text-stone-500">
     <span>{{ c.sector|default:"general" }}</span>
@@ -13,6 +23,43 @@
   <h1 class="text-xl font-bold mt-1">{{ c.title|default:"(untitled)" }}</h1>
   {% if c.fit_rationale %}<p class="text-sm text-stone-600 mt-2">{{ c.fit_rationale }}</p>{% endif %}
   <div class="prose prose-sm mt-4 whitespace-pre-wrap text-stone-800">{{ c.body }}</div>
+</div>
+
+{# ── Gate block: surface findings so the author can fix before publishing ── #}
+{% if gate_blocked %}
+<div class="border border-rose-200 bg-rose-50 rounded-lg p-4 mt-3">
+  <div class="font-semibold text-rose-800 text-sm">The compliance gate blocked this draft ({{ gate_verdict|default:"block" }}).</div>
+  <ul class="mt-2 space-y-1 text-sm text-rose-700 list-disc list-inside">
+    {% for f in gate_findings %}
+    <li>{{ f }}</li>
+    {% empty %}
+    <li>Edit the draft to address the compliance issue, then try again.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endif %}
+
+{# ── Actions: publish / schedule / edit (each materialises a real Post + runs the gate) ── #}
+<div class="border border-stone-200 rounded-lg p-4 mt-3 bg-white" x-data="{ scheduling: false }">
+  <div class="flex flex-wrap items-center gap-2">
+    <form method="post" action="{% url 'console:draft-publish' c.id %}">{% csrf_token %}
+      <button type="submit" class="btn-brand rounded px-3 py-1.5 text-sm">Publish now</button>
+    </form>
+    <button type="button" @click="scheduling = !scheduling"
+            class="rounded border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400">Schedule</button>
+    <a href="{% url 'console:draft-edit' c.id %}"
+       class="rounded border border-stone-200 px-3 py-1.5 text-sm text-stone-700 hover:border-stone-400">Edit text → composer</a>
+    <a href="{% url 'console:ideas' %}" class="text-sm text-[var(--primary)] hover:underline ml-auto">View source idea →</a>
+  </div>
+  <p class="text-xs text-stone-400 mt-2">Publishing materialises a post and runs it through the compliance gate — nothing goes out unchecked.</p>
+
+  {# Schedule form — revealed on demand (CSP-safe Alpine toggle, no inline handlers). #}
+  <form method="post" action="{% url 'console:draft-schedule' c.id %}" x-show="scheduling" x-cloak class="mt-3 flex flex-wrap items-center gap-2" style="display:none">
+    {% csrf_token %}
+    <input type="datetime-local" name="scheduled_at" required
+           class="rounded border border-stone-200 px-3 py-1.5 text-sm">
+    <button type="submit" class="rounded bg-stone-800 text-white px-3 py-1.5 text-sm">Schedule through gate</button>
+  </form>
 </div>
 {% endif %}
 {% endblock %}

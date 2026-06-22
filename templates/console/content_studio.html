@@ -1,35 +1,107 @@
 {% extends "console/base.html" %}
 {% comment %}
-Content Studio — unified content board.
+Content Studio — the unified content board (Task 4 UI).
 
-Task 3 ships the backend query/context only; this is a minimal placeholder so
-the view renders. Task 4 replaces it with the full segmented board UI (filter
-chips, segment grouping, per-card status badge + inline actions). Keep it
-CSP-safe (no inline JS) until then.
+Collapses the four fragmented draft surfaces (intake plan rows, agent-service
+drafts, Django draft Posts, the AI Approvals queue) into ONE segmented board.
+For the active workspace it lists every relevant Post across states — draft,
+pending_review, approved, scheduled, recently-published — each card stamped with
+its derived state and the inline action appropriate to that state.
+
+Segmentation: House (= workspace) · Pillar · Track · Campaign. Filter chips are
+plain ``?param=`` GET links (no JS) so filtering is a navigation. Counts come
+from the Task 3 query (counts_by_track / counts_by_pillar) and reflect the
+filtered set.
+
+INVARIANT: the gate is untouchable. The Publish action only SCHEDULES; the
+existing Celery chain enforces the gate. AI/HERALD posts must be Approved before
+a Publish action appears — never bypass.
+
+CSP-safe: no inline event handlers; actions are plain <form> POSTs and links.
 {% endcomment %}
+{% load studio_chips %}
 {% block console %}
-<div class="p-6">
-  <h1 class="text-2xl font-bold mb-1" style="font-family:Georgia,serif;">Content Studio</h1>
-  <p class="text-sm text-stone-500 mb-4">{{ total }} item{{ total|pluralize }}</p>
-  <div class="space-y-3">
-    {% for post in posts %}
-    <div class="card rounded-lg border border-stone-200 bg-white p-4">
-      <div class="flex items-start justify-between gap-3">
-        <div>
-          <h3 class="font-semibold">{{ post.title|default:"Untitled" }}</h3>
-          <p class="text-sm text-stone-600">{{ post.caption|truncatechars:160 }}</p>
-          <p class="text-xs text-stone-400 mt-1">
-            {% if post.track %}<span class="mr-2">{{ post.get_track_display }}</span>{% endif %}
-            {% if post.pillar %}<span class="mr-2">{{ post.get_pillar_display }}</span>{% endif %}
-            {% if post.campaign %}<span class="mr-2">{{ post.campaign }}</span>{% endif %}
-          </p>
-        </div>
-        <span class="text-xs rounded px-2 py-1 bg-stone-100 text-stone-600">{{ post.studio_state }}</span>
-      </div>
+{% track_chips as track_chips %}
+{% pillar_chips as pillar_chips %}
+{% state_chips as state_chips %}
+<div class="p-2 sm:p-4 space-y-5">
+
+  {# ── Header ─────────────────────────────────────────────────────── #}
+  <div class="flex flex-wrap items-end justify-between gap-3 border-b border-stone-200 pb-3">
+    <div>
+      <h1 class="text-2xl font-bold" style="font-family:Georgia,serif;">Content Studio</h1>
+      <p class="text-sm text-stone-500">
+        {{ total }} item{{ total|pluralize }} in this house
+        {% if active.track or active.pillar or active.campaign or active.state or active.q %}
+        · <a href="{% url 'console:content' %}" class="text-[var(--primary)] hover:underline">Clear filters</a>
+        {% endif %}
+      </p>
     </div>
+  </div>
+
+  {# ── Filter chips: state ────────────────────────────────────────── #}
+  <div class="space-y-2">
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">State</span>
+      <a href="?{% studio_qs active %}"
+         class="rounded-full px-3 py-1 text-xs border {% if not active.state %}bg-stone-800 text-white border-stone-800{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
+      {% for value, label in state_chips %}
+      <a href="?{% studio_qs active state=value %}"
+         class="rounded-full px-3 py-1 text-xs border {% if active.state == value %}bg-stone-800 text-white border-stone-800{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">{{ label }}</a>
+      {% endfor %}
+    </div>
+
+    {# ── Filter chips: track (with T3 counts) ─────────────────────── #}
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Track</span>
+      <a href="?{% studio_qs active %}"
+         class="rounded-full px-3 py-1 text-xs border {% if not active.track %}bg-[var(--primary)] text-white border-[var(--primary)]{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
+      {% for value, label in track_chips %}
+      <a href="?{% studio_qs active track=value %}"
+         class="rounded-full px-3 py-1 text-xs border {% if active.track == value %}bg-[var(--primary)] text-white border-[var(--primary)]{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">
+        {{ label }}
+        {% with c=counts_by_track|dict_get:value %}{% if c %}<span class="ml-1 opacity-70">{{ c }}</span>{% endif %}{% endwith %}
+      </a>
+      {% endfor %}
+    </div>
+
+    {# ── Filter chips: pillar (with T3 counts) ────────────────────── #}
+    <div class="flex flex-wrap items-center gap-2">
+      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Pillar</span>
+      <a href="?{% studio_qs active %}"
+         class="rounded-full px-3 py-1 text-xs border {% if not active.pillar %}bg-emerald-700 text-white border-emerald-700{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
+      {% for value, label in pillar_chips %}
+      <a href="?{% studio_qs active pillar=value %}"
+         class="rounded-full px-3 py-1 text-xs border {% if active.pillar == value %}bg-emerald-700 text-white border-emerald-700{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">
+        {{ label }}
+        {% with c=counts_by_pillar|dict_get:value %}{% if c %}<span class="ml-1 opacity-70">{{ c }}</span>{% endif %}{% endwith %}
+      </a>
+      {% endfor %}
+    </div>
+
+    {# ── Filter: campaign + text search (plain GET form, no JS) ───── #}
+    <form method="get" action="{% url 'console:content' %}" class="flex flex-wrap items-center gap-2">
+      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Find</span>
+      {# Preserve the other active filters across a search. #}
+      {% if active.track %}<input type="hidden" name="track" value="{{ active.track }}">{% endif %}
+      {% if active.pillar %}<input type="hidden" name="pillar" value="{{ active.pillar }}">{% endif %}
+      {% if active.state %}<input type="hidden" name="state" value="{{ active.state }}">{% endif %}
+      <input type="text" name="campaign" value="{{ active.campaign }}" placeholder="Campaign"
+             class="rounded border border-stone-200 px-3 py-1 text-xs">
+      <input type="text" name="q" value="{{ active.q }}" placeholder="Search title or caption"
+             class="rounded border border-stone-200 px-3 py-1 text-xs min-w-[12rem]">
+      <button type="submit" class="rounded bg-stone-800 text-white px-3 py-1 text-xs">Apply</button>
+    </form>
+  </div>
+
+  {# ── The board: responsive card grid ──────────────────────────── #}
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+    {% for post in posts %}
+      {% include "console/_studio_card.html" with post=post %}
     {% empty %}
-    <p class="text-stone-400">No content in this house yet.</p>
+    <p class="text-stone-400 col-span-full py-8 text-center">No content matches these filters.</p>
     {% endfor %}
   </div>
+
 </div>
 {% endblock %}

@@ -625,7 +625,7 @@
                 </a>
                 <a href="/console/pipeline" class="mb-1 sidebar-nav-item {% if request.resolver_match.url_name == 'pipeline' and request.resolver_match.app_name == 'console' %}active{% endif %}">
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-                    <span class="sidebar-nav-label">Pipeline</span>
+                    <span class="sidebar-nav-label">Content pipeline</span>
                 </a>
                 <a href="/console/brain" class="mb-1 sidebar-nav-item {% if request.resolver_match.url_name == 'brain' and request.resolver_match.app_name == 'console' %}active{% endif %}">
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 13.41 13.41 7.76 16.24 10.59 10.59 16.24 7.76"/></svg>
@@ -689,9 +689,9 @@
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
                     <span class="sidebar-nav-label">Contacts</span>
                 </a>
-                <a href="{% url 'joseph:pipeline' %}" class="mb-1 sidebar-nav-item {% if request.resolver_match.app_name == 'joseph' and request.resolver_match.url_name == 'pipeline' %}active{% endif %}">
+                <a href="{% url 'crm:pipeline' %}" class="mb-1 sidebar-nav-item {% if request.resolver_match.app_name == 'crm' and request.resolver_match.url_name == 'pipeline' %}active{% endif %}">
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/></svg>
-                    <span class="sidebar-nav-label">Pipeline</span>
+                    <span class="sidebar-nav-label">Deal pipeline</span>
                 </a>
                 <a href="{% url 'crm:import-home' %}" class="mb-1 sidebar-nav-item {% if request.resolver_match.app_name == 'crm' and 'import' in request.resolver_match.url_name %}active{% endif %}">
                     <svg class="flex-shrink-0" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>

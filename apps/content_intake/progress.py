@@ -147,3 +147,62 @@ def content_pipeline_progress(workspace) -> dict:
         "published": counts["published"],
         "percent": percent,
     }
+
+
+def content_pipeline_board(workspace) -> list[dict]:
+    """The created + curated content as a stage-bucketed board (the team content
+    pipeline). Returns one column per funnel stage, each with its cards. Each card
+    links to where it is acted on: a Post → the composer; a curated-only intake
+    row → the intake board. De-duped exactly like ``content_pipeline_progress``.
+    """
+    from django.urls import reverse
+
+    cols = {key: [] for key, _ in STAGES}
+    if workspace is not None:
+        # Curated rows (may carry a linked Post → take its more-advanced stage).
+        intake_rows = ContentIntake.objects.filter(workspace=workspace).values_list(
+            "id", "status", "angle", "pillar_theme",
+            "post_id", "post__published_at", "post__scheduled_at",
+            "post__review_state", "post__title",
+        )
+        for iid, status, angle, pillar, post_id, p_pub, p_sched, p_review, p_title in intake_rows:
+            stage = _INTAKE_STAGE.get(status)
+            if stage is None:
+                continue
+            if p_review is not None:
+                post_stage = _post_stage(p_pub, p_sched, p_review)
+                if _STAGE_ORDER[post_stage] > _STAGE_ORDER[stage]:
+                    stage = post_stage
+            if post_id:
+                url = reverse("composer:compose_edit",
+                              kwargs={"workspace_id": workspace.id, "post_id": post_id})
+            else:
+                url = reverse("console:intake-board")
+            cols[stage].append({
+                "title": (p_title or angle or pillar or "Untitled").strip()[:90],
+                "subtitle": pillar or "",
+                "origin": "curated",
+                "url": url,
+            })
+
+        # Created standalone Posts (no intake behind them).
+        post_rows = (
+            Post.objects.filter(workspace=workspace, intake_source__isnull=True)
+            .exclude(review_state=Post.ReviewState.REJECTED)
+            .values_list("id", "title", "caption", "pillar",
+                         "published_at", "scheduled_at", "review_state")
+        )
+        for pid, title, caption, pillar, p_pub, p_sched, p_review in post_rows:
+            stage = _post_stage(p_pub, p_sched, p_review)
+            cols[stage].append({
+                "title": (title or caption or "Untitled").strip()[:90],
+                "subtitle": pillar or "",
+                "origin": "created",
+                "url": reverse("composer:compose_edit",
+                               kwargs={"workspace_id": workspace.id, "post_id": pid}),
+            })
+
+    return [
+        {"key": key, "label": label, "color": _STAGE_COLOR[key], "cards": cols[key]}
+        for key, label in STAGES
+    ]

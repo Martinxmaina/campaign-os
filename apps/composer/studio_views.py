@@ -22,10 +22,12 @@ Invariants honoured here:
 """
 from datetime import timedelta
 
+from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.composer.models import Post
 from apps.composer.status import derive_post_status
@@ -113,3 +115,49 @@ def content_studio(request):
         "down": False,
     }
     return render(request, "console/content_studio.html", context)
+
+
+def _route_reviewer(post, workspace):
+    """Pick who should approve this post: keep an existing assignee, else the
+    workspace owner (so it lands in someone's AI Approvals queue)."""
+    if post.review_assignee_id:
+        return post.review_assignee
+    from apps.members.models import WorkspaceMembership
+
+    m = (
+        WorkspaceMembership.objects.filter(workspace=workspace, workspace_role="owner")
+        .select_related("user")
+        .first()
+    )
+    return m.user if m else None
+
+
+@login_required
+@require_POST
+def studio_submit_review(request, post_id):
+    """Move a draft into the approval pipeline — the missing first step.
+
+    A draft Content Studio card had no way forward (Publish only appears once a
+    post is APPROVED). This flags the post ``pending`` (so it shows in AI
+    Approvals + Joseph's queue) and submits its platform posts for review (so the
+    studio re-derives ``pending_review`` and the Approve → Publish chain lights
+    up). The publish gate stays untouched — nothing is auto-published here.
+    """
+    from apps.approvals.services import submit_for_review
+
+    ws = getattr(request, "workspace", None)
+    post = get_object_or_404(Post, id=post_id, workspace=ws)
+
+    if post.review_state in (
+        Post.ReviewState.NONE,
+        Post.ReviewState.CHANGES_REQUESTED,
+        Post.ReviewState.REJECTED,
+    ):
+        post.review_state = Post.ReviewState.PENDING
+        if not post.review_assignee_id:
+            post.review_assignee = _route_reviewer(post, ws)
+        post.save(update_fields=["review_state", "review_assignee", "updated_at"])
+
+    submit_for_review(post, request.user, ws)
+    messages.success(request, "Submitted for review — it's now in AI Approvals.")
+    return redirect("console:content")

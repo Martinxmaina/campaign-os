@@ -1,0 +1,45 @@
+{% extends "console/base.html" %}
+{% comment %}
+Team content pipeline — created (composer Posts) + curated (ContentIntake)
+content bucketed into one stage board. The funder *deal* pipeline lives under
+CRM (crm:pipeline); this board is content only. Read from canonical Django
+tables. Cards link to where the item is acted on (composer / intake board).
+CSP-safe: plain links, no inline handlers.
+{% endcomment %}
+{% block console %}
+<div class="p-4 sm:p-6 space-y-4">
+  <div>
+    <h1 class="text-xl font-bold">Content pipeline</h1>
+    <div class="text-sm text-stone-500">Everything the team has created &amp; curated, by stage</div>
+  </div>
+
+  {# Created + curated progress summary (shared strip). #}
+  {% include "content_intake/_pipeline_progress.html" %}
+
+  {# Stage columns. #}
+  <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+    {% for col in columns %}
+    <div class="rounded-lg bg-stone-50 border border-stone-200 p-3 min-h-[160px]">
+      <div class="flex items-center gap-2 mb-2">
+        <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:{{ col.color }}"></span>
+        <h3 class="text-xs font-semibold uppercase tracking-wider text-stone-500">{{ col.label }}</h3>
+        <span class="ml-auto text-xs text-stone-400 tabular-nums">{{ col.cards|length }}</span>
+      </div>
+      <div class="space-y-2">
+        {% for card in col.cards %}
+        <a href="{{ card.url }}" class="block rounded-md bg-white border border-stone-200 p-2.5 hover:border-stone-400 transition-colors">
+          <div class="text-sm font-medium text-stone-800 leading-snug">{{ card.title }}</div>
+          <div class="flex items-center gap-1.5 mt-1 text-[11px] text-stone-400">
+            {% if card.subtitle %}<span>{{ card.subtitle }}</span><span>·</span>{% endif %}
+            <span>{{ card.origin }}</span>
+          </div>
+        </a>
+        {% empty %}
+        <p class="text-[11px] text-stone-300 py-2">—</p>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

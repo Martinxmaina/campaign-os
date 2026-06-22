@@ -1,0 +1,62 @@
+{% comment %}
+A single Content Studio card. `post` carries `studio_state` (derived status) and
+the segmentation fields (track / pillar / campaign). Inline actions are keyed off
+the derived state:
+
+  pending_review → Approve / Request changes / Reject  (POST → console:approval-decide)
+  approved       → Publish                             (POST → composer:publish_post, T2)
+  any state      → Edit                                (link  → composer:compose_edit)
+
+The Publish action only SCHEDULES — the existing publish chain enforces the
+untouchable gate. AI/HERALD posts only get a Publish action once APPROVED.
+CSP-safe: plain <form> POSTs + links, no inline onclick/onsubmit.
+{% endcomment %}
+<div class="card rounded-lg border border-stone-200 bg-white p-4 flex flex-col">
+  <div class="flex items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h3 class="font-semibold truncate">{{ post.title|default:"Untitled" }}</h3>
+      <p class="text-sm text-stone-600 mt-0.5">{{ post.caption|truncatechars:140 }}</p>
+    </div>
+    <span class="shrink-0 text-[11px] rounded px-2 py-1
+      {% if post.studio_state == 'pending_review' %}bg-amber-100 text-amber-700
+      {% elif post.studio_state == 'approved' %}bg-emerald-100 text-emerald-700
+      {% elif post.studio_state == 'scheduled' %}bg-sky-100 text-sky-700
+      {% elif post.studio_state == 'published' %}bg-stone-200 text-stone-700
+      {% elif post.studio_state == 'failed' %}bg-rose-100 text-rose-700
+      {% else %}bg-stone-100 text-stone-600{% endif %}">{{ post.studio_state }}</span>
+  </div>
+
+  {# ── Segmentation badges ───────────────────────────────────────── #}
+  <div class="flex flex-wrap gap-1.5 mt-2 text-[11px]">
+    {% if post.track %}<span class="rounded px-1.5 py-0.5 bg-orange-50 text-orange-700">{{ post.get_track_display }}</span>{% endif %}
+    {% if post.pillar %}<span class="rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700">{{ post.get_pillar_display }}</span>{% endif %}
+    {% if post.campaign %}<span class="rounded px-1.5 py-0.5 bg-stone-100 text-stone-600">{{ post.campaign }}</span>{% endif %}
+  </div>
+
+  {# ── Inline actions by state ───────────────────────────────────── #}
+  <div class="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-stone-100">
+    {% if post.studio_state == "draft" or post.studio_state == "changes_requested" or post.studio_state == "rejected" %}
+      {# The missing first step: send a draft into the approval pipeline so it
+         can be Approved → Published. The gate runs at publish, never here. #}
+      <form method="post" action="{% url 'console:studio-submit-review' post.id %}">{% csrf_token %}
+        <button type="submit" class="btn-brand rounded px-3 py-1 text-xs">Submit for review</button></form>
+    {% elif post.studio_state == "pending_review" %}
+      <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+        <input type="hidden" name="decision" value="approve">
+        <button type="submit" class="rounded bg-emerald-600 text-white px-3 py-1 text-xs">Approve</button></form>
+      <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+        <input type="hidden" name="decision" value="changes">
+        <button type="submit" class="rounded bg-amber-500 text-white px-3 py-1 text-xs">Request changes</button></form>
+      <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+        <input type="hidden" name="decision" value="reject">
+        <button type="submit" class="rounded bg-rose-500 text-white px-3 py-1 text-xs">Reject</button></form>
+    {% elif post.studio_state == "approved" %}
+      {# One-tap Publish — schedules effective-now; the gate runs in the chain. #}
+      <form method="post" action="{% url 'composer:publish_post' workspace_id=post.workspace_id post_id=post.id %}">{% csrf_token %}
+        <button type="submit" class="btn-brand rounded px-3 py-1 text-xs">Publish</button></form>
+    {% endif %}
+    {# Edit is always available — links to the composer for this post. #}
+    <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
+       class="rounded border border-stone-200 px-3 py-1 text-xs text-stone-700 hover:border-stone-400 ml-auto">Edit</a>
+  </div>
+</div>

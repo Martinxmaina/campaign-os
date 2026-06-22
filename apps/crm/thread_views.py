@@ -37,6 +37,52 @@ def _tasks(thread):
 
 
 @login_required
+def pipeline(request):
+    """Team **deal** pipeline — every owner's CRM threads, bucketed into stage
+    columns with an Owner badge + owner/track filter chips. This is the relocated
+    home of the deal board (it used to sit under the content console's "Team
+    pipeline"); deals now live with the rest of the CRM. Drag-to-restage posts to
+    the shared ``crm:thread-set-stage`` endpoint. Empty DB → empty columns, never
+    a 500.
+    """
+    from apps.joseph.views import _build_pipeline_columns, _crm_thread_card, _crm_threads
+
+    if not _can_manage_crm(request):
+        return HttpResponseForbidden("The pipeline is not available for your role.")
+
+    owner_filter = (request.GET.get("owner") or "").strip()
+    track_filter = (request.GET.get("track") or "").strip()
+
+    all_threads = list(_crm_threads())  # unfiltered — drives the chip lists.
+
+    seen, owner_chips = set(), []
+    for t in all_threads:
+        if t.owner_id and t.owner_id not in seen:
+            seen.add(t.owner_id)
+            owner_chips.append({
+                "id": str(t.owner_id),
+                "name": (t.owner.name or t.owner.email) if t.owner_id else "",
+            })
+    owner_chips.sort(key=lambda c: c["name"].lower())
+    track_chips = sorted({t.track for t in all_threads if t.track})
+
+    visible = all_threads
+    if owner_filter:
+        visible = [t for t in visible if str(t.owner_id or "") == owner_filter]
+    if track_filter:
+        visible = [t for t in visible if t.track == track_filter]
+
+    columns = _build_pipeline_columns([_crm_thread_card(t) for t in visible])
+    return render(request, "console/pipeline.html", {
+        "columns": columns,
+        "owner_chips": owner_chips,
+        "track_chips": track_chips,
+        "owner_filter": owner_filter,
+        "track_filter": track_filter,
+    })
+
+
+@login_required
 @require_POST
 def thread_edit(request, thread_id):
     """Update a thread's stage / owner / next_action (the team's quick edit).

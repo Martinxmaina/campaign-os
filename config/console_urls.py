@@ -1,6 +1,6 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
-from django.urls import path
+from django.urls import path, reverse
 
 from apps.composer import console_views as composer_console
 from apps.composer import studio_views as composer_studio
@@ -16,14 +16,49 @@ def home(request):
     return redirect("console:ideas")
 
 
+@login_required
+def drafts_to_studio(request):
+    """Collapse the old Drafts list into the unified Content Studio board.
+
+    Content Studio (Task 4) is the single segmented surface for every draft /
+    pending-review / approved / scheduled post, so the standalone Drafts list is
+    retired — its route now redirects into the studio (preserving any query so a
+    bookmarked filter still lands somewhere sensible).
+    """
+    qs = request.META.get("QUERY_STRING", "")
+    url = reverse("console:content")
+    return redirect(f"{url}?{qs}" if qs else url)
+
+
+@login_required
+def approvals_to_studio(request):
+    """Collapse the old AI Approvals queue into the Content Studio board.
+
+    The review actions still POST to ``console:approval-decide`` (untouched); the
+    *list* surface is the studio filtered to pending review, so this route
+    redirects into the studio's pending-review view.
+    """
+    return redirect(f"{reverse('console:content')}?state=pending_review")
+
+
 urlpatterns = [
     path("", home, name="home"),
     path("ideas", composer_console.ideas, name="ideas"),
     path("ideas/<str:idea_id>/decide", composer_console.idea_decide, name="idea-decide"),
-    path("drafts", composer_console.drafts, name="drafts"),
+    # Drafts + AI Approvals collapse into the unified Content Studio board.
+    path("drafts", drafts_to_studio, name="drafts"),
     path("drafts/<str:content_id>", composer_console.draft_detail, name="draft-detail"),
+    # HERALD draft detail actions — materialise a Post + act through the gate.
+    path("drafts/<str:content_id>/publish", composer_console.draft_publish, name="draft-publish"),
+    path("drafts/<str:content_id>/schedule", composer_console.draft_schedule, name="draft-schedule"),
+    path("drafts/<str:content_id>/edit", composer_console.draft_edit, name="draft-edit"),
     # Content Studio — the unified content board (collapses the 4 draft surfaces).
     path("content", composer_studio.content_studio, name="content"),
+    # Submit a draft into the approval pipeline (the missing draft → review step).
+    path("content/<uuid:post_id>/submit", composer_studio.studio_submit_review, name="studio-submit-review"),
+    # AI Approvals keeps its dedicated, owner-routed review queue (it shows every
+    # review_state=pending post, including ones without platform posts that the
+    # studio's derived-state filter would miss). Drafts still collapse into studio.
     path("approvals", approvals_console.ai_approvals, name="approvals"),
     path("approvals/<str:approval_id>/decide", approvals_console.approval_decide, name="approval-decide"),
     path("pipeline", intel_console.pipeline, name="pipeline"),

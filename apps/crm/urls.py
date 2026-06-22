@@ -27,6 +27,8 @@ urlpatterns = [
     path("contacts/new/", views.contact_new, name="contact-new"),
     path("contacts/<uuid:contact_id>/", views.contact_detail, name="contact-detail"),
     path("contacts/<uuid:contact_id>/edit/", views.contact_edit, name="contact-edit"),
+    # Team deal pipeline — all-owner board (relocated from the content console).
+    path("pipeline/", thread_views.pipeline, name="pipeline"),
     # Team thread CRUD — the Joseph drawer posts these (edit / log activity / add task).
     path("threads/<uuid:thread_id>/edit/", thread_views.thread_edit, name="thread-edit"),
     path("threads/<uuid:thread_id>/stage/", thread_views.set_stage, name="thread-set-stage"),
