@@ -4,6 +4,7 @@ from django import forms
 
 from apps.common.validators import normalize_tags, parse_and_truncate_tag_string
 
+from . import segments
 from .models import ContentCategory, Idea, Post, PostTemplate
 
 
@@ -47,9 +48,19 @@ class PostForm(forms.ModelForm):
     # as a comma-separated string, not JSON.  clean_tags() converts to a list.
     tags = forms.CharField(required=False, widget=forms.HiddenInput())
 
+    # Segmentation selects. Accept free text and coerce to a canonical value (or
+    # blank) in clean_* so an unrecognised value never hard-fails the save — the
+    # field is additive, never blocking.
+    track = forms.CharField(required=False)
+    pillar = forms.CharField(required=False)
+    campaign = forms.CharField(required=False, max_length=255)
+
     class Meta:
         model = Post
-        fields = ["title", "caption", "first_comment", "internal_notes", "tags", "category"]
+        fields = [
+            "title", "caption", "first_comment", "internal_notes", "tags",
+            "category", "track", "pillar", "campaign",
+        ]
         widgets = {
             "caption": forms.Textarea(
                 attrs={
@@ -84,6 +95,17 @@ class PostForm(forms.ModelForm):
             return normalize_tags(tags)
         except ValueError as e:
             raise forms.ValidationError(str(e)) from e
+
+    def clean_track(self):
+        # Coerce to a canonical track; unrecognised -> "" (never a hard error).
+        return segments.normalize_track(self.cleaned_data.get("track", ""))
+
+    def clean_pillar(self):
+        # Coerce free text to a canonical pillar; unrecognised -> "".
+        return segments.normalize_pillar(self.cleaned_data.get("pillar", ""))
+
+    def clean_campaign(self):
+        return (self.cleaned_data.get("campaign") or "").strip()
 
 
 class ContentCategoryForm(forms.ModelForm):

@@ -32,6 +32,7 @@ from apps.members.models import WorkspaceMembership
 from apps.social_accounts.models import SocialAccount
 from apps.workspaces.models import Workspace
 
+from . import segments
 from .forms import ContentCategoryForm, PostForm
 from .models import (
     ContentCategory,
@@ -485,6 +486,8 @@ def compose(request, workspace_id, post_id=None):
         "can_view_internal_notes": can_view_internal_notes,
         "is_edit": post is not None,
         "categories": categories,
+        "track_choices": segments.TRACK_CHOICES,
+        "pillar_choices": segments.PILLAR_CHOICES,
         "queues": queues,
         "template_data_json": json.dumps(template_data) if template_data else "null",
         "workflow_mode": workflow_mode,

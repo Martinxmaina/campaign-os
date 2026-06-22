@@ -56,7 +56,9 @@ _DEMO_TAG = "demo-seed"  # marker in Organization.notes for --wipe
 _POST_TAG = "demo-seed"  # marker in Post.tags for --wipe
 
 # Realistic HERALD-style draft captions awaiting Joseph's approval, drawn from the
-# demo content tracks (AI, energy access, programmes). (title, caption, first_comment)
+# demo content tracks (AI, energy access, programmes). Tagged across ≥2 tracks and
+# ≥2 pillars so the Content Studio board demos segmentation.
+# (title, caption, first_comment, track, pillar)
 DRAFT_POSTS = [
     ("AfCEN at the AI for Africa $10bn convening",
      "Africa won't be a footnote in the AI decade. This week AfCEN is in the room where "
@@ -64,22 +66,26 @@ DRAFT_POSTS = [
      "local talent must be funded together, not in silos.\n\nWhat we're pushing for:\n"
      "• African-owned compute, not rented dependence\n• Data trusts that keep value on the continent\n"
      "• Funding the builders already here",
-     "Full position paper in the comments. What would you fund first?"),
+     "Full position paper in the comments. What would you fund first?",
+     "ai10bn", "ai"),
     ("Energy access is the on-ramp to the AI economy",
      "No power, no platforms. As the GEAPP partnership advances, we're making a simple "
      "case to funders: every megawatt of clean, reliable power in Africa is also "
      "AI-readiness infrastructure.\n\nThe grid IS the strategy.",
-     "Reliable power + local compute = sovereign AI. Read why."),
+     "Reliable power + local compute = sovereign AI. Read why.",
+     "waiis", "energy"),
     ("Why programmes, not pilots, win the decade",
      "Africa doesn't have a pilot problem — it has a scale problem. AfCEN's programmes "
      "track is built to take what works from 3 districts to 30, with the governance and "
      "M&E funders need to write the next cheque.\n\nProof, then scale.",
-     "Our scale playbook, in the comments."),
+     "Our scale playbook, in the comments.",
+     "programs", "ai"),
     ("The talent is here. Fund it.",
      "The most underpriced asset in African AI is the engineer who already shipped. "
      "AfCEN is building the warm-intro bridge between African builders and the capital "
      "that says it wants to back them.\n\nLess prospecting. More backing.",
-     ""),
+     "",
+     "ai10bn", "ai"),
 ]
 
 
@@ -226,18 +232,25 @@ class Command(BaseCommand):
             SocialAccount.objects.bulk_create([account])
 
         n = 0
-        for title, caption, first_comment in DRAFT_POSTS:
+        for title, caption, first_comment, track, pillar in DRAFT_POSTS:
             post = Post.objects.filter(workspace=ws, title=title).first()
             if post is None:
                 post = Post.objects.create(
                     workspace=ws, author=owner, title=title, caption=caption,
                     first_comment=first_comment, tags=[_POST_TAG],
+                    track=track, pillar=pillar, campaign="EGM 2026",
                     review_assignee=owner, review_state=Post.ReviewState.PENDING,
                 )
                 PlatformPost.objects.get_or_create(
                     post=post, social_account=account,
                     defaults=dict(status=PlatformPost.Status.PENDING_REVIEW),
                 )
+            else:
+                # Idempotently segment pre-existing demo posts (re-run on prod).
+                post.track, post.pillar = track, pillar
+                if not post.campaign:
+                    post.campaign = "EGM 2026"
+                post.save(update_fields=["track", "pillar", "campaign", "updated_at"])
             n += 1
         return n
 

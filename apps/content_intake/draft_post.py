@@ -10,7 +10,42 @@ from __future__ import annotations
 from apps.common.safe import safe_get
 from apps.approvals.intake_publish import create_post_from_content
 from apps.composer.models import Post
+from apps.composer.segments import infer_track, normalize_pillar
 from apps.content_intake.owner_routing import resolve_reviewer
+
+
+def _carry_segments(post, intake):
+    """Carry the intake plan row's segmentation onto its draft Post.
+
+    Sets ``pillar`` (normalized from ``intake.pillar_theme`` via the sector map),
+    ``campaign`` (copied verbatim) and ``track`` (inferred when a signal is
+    present, else left blank for the editor). Only fills fields that are still
+    blank on the Post, so a manual/earlier choice is never clobbered and the
+    operation is idempotent across re-ensures.
+    """
+    update_fields = []
+
+    if not post.pillar:
+        pillar = normalize_pillar(intake.pillar_theme)
+        if pillar:
+            post.pillar = pillar
+            update_fields.append("pillar")
+
+    if not post.campaign:
+        campaign = (intake.campaign or "").strip()
+        if campaign:
+            post.campaign = campaign
+            update_fields.append("campaign")
+
+    if not post.track:
+        track = infer_track(intake.campaign, intake.angle, intake.pillar_theme)
+        if track:
+            post.track = track
+            update_fields.append("track")
+
+    if update_fields:
+        post.save(update_fields=update_fields)
+    return post
 
 
 def _route_for_review(post, intake):
@@ -75,14 +110,15 @@ def _route_for_review(post, intake):
 def ensure_draft_post(intake):
     """Return the intake's editable Post, creating it from the HERALD draft if needed."""
     if intake.post_id:
-        return _route_for_review(intake.post, intake)
+        return _route_for_review(_carry_segments(intake.post, intake), intake)
 
     content = None
     if intake.herald_content_id:
         content = safe_get(f"/content/items/{intake.herald_content_id}", default=None)
 
     if content:
-        return _route_for_review(create_post_from_content(content, intake), intake)
+        post = create_post_from_content(content, intake)
+        return _route_for_review(_carry_segments(post, intake), intake)
 
     # Content not ready yet — create a minimal Post from the intake itself so the
     # composer has something to open; caption refreshes when the draft lands.
@@ -93,4 +129,4 @@ def ensure_draft_post(intake):
     )
     intake.post = post
     intake.save(update_fields=["post", "updated_at"])
-    return _route_for_review(post, intake)
+    return _route_for_review(_carry_segments(post, intake), intake)

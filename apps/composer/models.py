@@ -20,6 +20,7 @@ from django.utils import timezone
 
 from apps.common.managers import WorkspaceScopedManager
 from apps.common.validators import validate_hex_color
+from apps.composer import segments as segment_choices
 
 
 class ContentCategory(models.Model):
@@ -252,6 +253,33 @@ class Post(models.Model):
         null=True,
         blank=True,
         related_name="posts",
+    )
+
+    # Content Studio segmentation (carried from the intake plan row; editable in
+    # the composer). All blank-ok — segmentation is additive, never blocking.
+    # Choices live in apps.composer.segments (track = CRM canon; pillar = the
+    # owner_routing sectors). See that module for normalization rules.
+    track = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        choices=segment_choices.TRACK_CHOICES,
+        db_index=True,
+        help_text="WAIIS programme track (core / ai10bn / waiis / programs).",
+    )
+    pillar = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        choices=segment_choices.PILLAR_CHOICES,
+        db_index=True,
+        help_text="Sector pillar (energy / agribusiness / ai / digital / minerals).",
+    )
+    campaign = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        help_text="Campaign label carried from the intake plan row.",
     )
 
     # Scheduling (default when a PlatformPost doesn't set its own scheduled_at)
