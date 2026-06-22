@@ -865,6 +865,80 @@ def transition_platform_post(request, workspace_id, post_id, platform_post_id):
 
 @login_required
 @require_POST
+def publish_post(request, workspace_id, post_id):
+    """Content Studio one-tap Publish (the gate ALWAYS runs).
+
+    Two — and only two — callers may publish:
+
+    1. An **approved** post (``review_state == APPROVED``). AI/HERALD drafts
+       must clear AI Approval first; once approved, any workspace member can
+       one-tap Publish because the untouchable publish gate (not the role) is
+       the safety net.
+    2. The **human author** of the post, when they hold ``publish_directly`` —
+       their own directly-composed content, exactly as the composer's
+       ``publish_now`` action allows.
+
+    This action only **schedules**: it sets an effective-now schedule and
+    transitions the post's PlatformPosts to ``scheduled`` so the existing
+    Celery chain (``apps/publisher/engine``) picks them up and enforces the
+    gate at ``_dispatch_to_provider``. It NEVER sets ``gate_bypassed`` — AI
+    posts stay gated by construction; only posts a human composed directly
+    (which already carry ``gate_bypassed=True`` from compose time) skip the
+    missing-gate_id block. Idempotent: re-publishing an already-scheduled (or
+    already-published) post is a safe no-op.
+    """
+    workspace = _get_workspace(request, workspace_id)
+    post = get_object_or_404(
+        Post.objects.select_related("workspace"), id=post_id, workspace=workspace
+    )
+
+    membership = request.workspace_membership
+    perms = membership.effective_permissions if membership else {}
+    is_approved = post.review_state == Post.ReviewState.APPROVED
+    is_human_direct = post.author_id == request.user.id and perms.get("publish_directly", False)
+    if not (is_approved or is_human_direct):
+        # AI/HERALD drafts must be approved first; a non-author (or an author
+        # without publish_directly) cannot push unapproved content live.
+        raise PermissionDenied(
+            "This post must be approved before it can be published, or you must "
+            "be its author with direct-publish permission."
+        )
+
+    now_dt = timezone.now()
+    # Schedule effective-now so _get_due_platform_posts() picks it up on the
+    # next poll. Set both the Post default and every child's per-platform time
+    # so the Coalesce fallback resolves to <= now regardless of which is read.
+    post.scheduled_at = now_dt
+    post.save(update_fields=["scheduled_at", "updated_at"])
+    # Transition children toward 'scheduled' (approved/draft go direct; other
+    # states hop via draft) — but never disturb children already mid-publish or
+    # published (idempotent / no double-publish).
+    publishable = post.platform_posts.exclude(
+        status__in=[
+            PlatformPost.Status.SCHEDULED,
+            PlatformPost.Status.PUBLISHING,
+            PlatformPost.Status.PUBLISHED,
+        ]
+    )
+    only_ids = [pp.id for pp in publishable]
+    _transition_post_children(post, "scheduled", only=only_ids)
+    # Propagate the effective-now time onto every child that is now scheduled
+    # (leave already-published children untouched).
+    post.platform_posts.filter(status=PlatformPost.Status.SCHEDULED).update(scheduled_at=now_dt)
+
+    if request.htmx:
+        return HttpResponse(
+            status=204,
+            headers={
+                "HX-Trigger": json.dumps({"postSaved": {"postId": str(post.id), "status": post.status}}),
+                "X-Platform-Statuses": json.dumps(_platform_status_map(post)),
+            },
+        )
+    return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+
+
+@login_required
+@require_POST
 def platform_post_operation(request, workspace_id, post_id, platform_post_id):
     """Delete or edit (delete-recreate) an already-published PlatformPost.
 

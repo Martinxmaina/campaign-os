@@ -15,6 +15,23 @@ def _is_ws_admin(request):
     return bool(m and m.workspace_role in ("owner", "admin"))
 
 
+def post_is_publishable(post, user, perms):
+    """Single source of truth for "can this user one-tap Publish *post*?".
+
+    Mirrors ``apps.composer.views.publish_post``: an APPROVED post is
+    publishable by any member (the untouchable gate is the safety net), and a
+    human author who holds ``publish_directly`` may publish their own post
+    directly. Used by the Content Studio surfaces to decide when to render the
+    Publish action — it never publishes and never touches the gate.
+    """
+    perms = perms or {}
+    is_approved = post.review_state == Post.ReviewState.APPROVED
+    is_human_direct = post.author_id == getattr(user, "id", None) and perms.get(
+        "publish_directly", False
+    )
+    return bool(is_approved or is_human_direct)
+
+
 @login_required
 def ai_approvals(request):
     ws = getattr(request, "workspace", None)

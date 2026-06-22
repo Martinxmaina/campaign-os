@@ -36,6 +36,9 @@ urlpatterns = [
         views.platform_post_operation,
         name="platform_post_operation",
     ),
+    # Content Studio one-tap Publish (approved posts → scheduled via the gate-
+    # enforced publish chain; human authors with publish_directly may publish own)
+    path("compose/<uuid:post_id>/publish/", views.publish_post, name="publish_post"),
     # Auto-save
     path("compose/autosave/", views.autosave, name="autosave"),
     path("compose/<uuid:post_id>/autosave/", views.autosave, name="autosave_edit"),
