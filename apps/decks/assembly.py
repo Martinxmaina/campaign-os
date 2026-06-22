@@ -27,6 +27,7 @@ source-cited ``DeckRegistry`` row. It is the walled chokepoint of the module:
 from __future__ import annotations
 
 from apps.decks import skeletons
+from apps.decks.continuity import apply_continuity
 from apps.decks.models import Block, DeckRegistry
 from apps.decks.slides import render as render_slides
 from apps.decks.voice import apply_voice
@@ -257,6 +258,13 @@ def assemble_deck(thread, skeleton_id: str, ask_amount: str | None = None, prese
     payload, generated_lines = _build_payload(
         skeleton, selected, dossier=dossier, audience=audience, track=track, ask_amount=ask_amount
     )
+
+    # 3b. continuity — a follow-up to a prior SENT deck is a delta (drop repeats,
+    # add a "Progress since" slide, note stage/dossier diffs), not a re-pitch.
+    payload, change_summary, is_continuation = apply_continuity(
+        thread, payload=payload, dossier=dossier
+    )
+
     voiced = "\n".join(apply_voice(line) for line in generated_lines)
     gate_id = ""
     findings: list = []
@@ -281,9 +289,13 @@ def assemble_deck(thread, skeleton_id: str, ask_amount: str | None = None, prese
         slides_payload=payload,
         presenter=presenter,
         ask_amount=ask_amount or "",
+        thread_stage=(getattr(thread, "stage", "") or ""),
+        dossier_updated_at=str(dossier.get("updated_at") or ""),
         gate_id=gate_id,
         findings=findings,
         status=DeckRegistry.Status.DRAFT,
+        is_continuation=is_continuation,
+        change_summary=change_summary,
     )
 
     rendered = render_slides(deck)

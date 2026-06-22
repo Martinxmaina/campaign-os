@@ -36,6 +36,8 @@ logger = logging.getLogger(__name__)
 # Days-to-start thresholds for each cascade stage (inclusive upper bound).
 T5_WINDOW = 5
 T2_WINDOW = 2
+# A deck older than this (days) is considered stale and re-assembled at T-5.
+DECK_STALE_DAYS = 30
 
 
 def check_meeting_prep() -> dict:
@@ -73,6 +75,14 @@ def check_meeting_prep() -> dict:
             stages.append("t5")
             fired.append("t5")
 
+        # Proactive deck auto-assemble: at T-5, a linked thread with no current
+        # deck (or one older than 30 days) gets one queued. The "deck" stage is
+        # its own idempotency marker so a later sweep never re-assembles.
+        if days <= T5_WINDOW and "deck" not in stages:
+            _fire_deck(event, thread)
+            stages.append("deck")
+            fired.append("deck")
+
         if days <= T2_WINDOW and "t2" not in stages:
             _fire_t2(event, thread)
             stages.append("t2")
@@ -103,6 +113,41 @@ def _fire_t5(event, thread) -> None:
         title=f"Prep starting — {event.title}",
         body=f"Meeting in 5 days. Dossier refresh requested for {_org_name(thread)}.",
         data={"google_event_id": event.google_event_id, "stage": "t5"},
+    )
+
+
+def _fire_deck(event, thread) -> None:
+    """T-5 proactive deck — queue an auto-assemble when no fresh deck exists.
+
+    A linked thread with no current deck (or whose newest deck is older than
+    ``DECK_STALE_DAYS``) gets ``assemble_deck`` enqueued with the default skeleton
+    for its audience+track, and the owner is notified. A fresh deck means there is
+    nothing to do (the trigger still records the "deck" stage so it never re-fires).
+    """
+    from datetime import timedelta
+
+    from apps.decks.continuity import skeleton_for_thread
+    from apps.decks.models import DeckRegistry
+    from apps.decks.tasks import assemble_deck_task
+
+    cutoff = timezone.now() - timedelta(days=DECK_STALE_DAYS)
+    has_fresh = DeckRegistry.objects.filter(thread=thread, created_at__gte=cutoff).exists()
+    if has_fresh:
+        return
+
+    skeleton_id = skeleton_for_thread(thread)
+    presenter = getattr(thread, "owner", None)
+    assemble_deck_task.delay(
+        thread_id=str(thread.id),
+        skeleton_id=skeleton_id,
+        presenter_id=str(presenter.id) if presenter is not None else None,
+    )
+    _notify(
+        thread,
+        title=f"Deck in prep — {event.title}",
+        body=f"No current deck for {_org_name(thread)} — assembling a {skeleton_id} deck to review.",
+        data={"google_event_id": event.google_event_id, "stage": "deck", "skeleton_id": skeleton_id},
+        event_type=EventType.DECK_READY,
     )
 
 
@@ -176,14 +221,14 @@ def _org_name(thread) -> str:
     return thread.org.name if getattr(thread, "org_id", None) else "this organisation"
 
 
-def _notify(thread, *, title: str, body: str, data: dict) -> None:
+def _notify(thread, *, title: str, body: str, data: dict, event_type=EventType.MEETING_PREP) -> None:
     """Notify the cascade owner (thread owner, else a workspace principal)."""
     user = getattr(thread, "owner", None)
     if user is None:
         user = _fallback_owner()
     if user is None:
         return
-    notify(user, EventType.MEETING_PREP, title, body, data=data)
+    notify(user, event_type, title, body, data=data)
 
 
 def _fallback_owner():

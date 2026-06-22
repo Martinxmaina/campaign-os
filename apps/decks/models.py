@@ -150,6 +150,12 @@ class DeckRegistry(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="presented_decks"
     )
     ask_amount = models.CharField(max_length=64, blank=True, default="")
+    # The thread stage at assembly time — so a later deck can detect a stage
+    # advance for the continuity ask-slide update + change summary (Task 4).
+    thread_stage = models.CharField(max_length=24, blank=True, default="")
+    # The dossier ``updated_at`` snapshot at assembly time — so a later deck can
+    # note dossier-diff funder updates in the change summary (Task 4).
+    dossier_updated_at = models.CharField(max_length=64, blank=True, default="")
     gate_id = models.CharField(max_length=64, blank=True, default="")
     # The gate findings on the generated personalization (empty == clean). A
     # non-empty findings list marks the deck un-sendable (see ``is_sendable``).
@@ -157,6 +163,11 @@ class DeckRegistry(models.Model):
     slides_url = models.URLField(blank=True, default="")  # placeholder until live Slides
     slides_id = models.CharField(max_length=128, blank=True, default="")
     status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT, db_index=True)
+    # Continuity (Task 4): when this deck is a *follow-up* to a prior SENT deck for
+    # the same thread, ``is_continuation`` is True and ``change_summary`` carries
+    # the "what changed" delta ({dropped, new, stage_advanced, dossier_updated}).
+    is_continuation = models.BooleanField(default=False)
+    change_summary = models.JSONField(default=dict, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
