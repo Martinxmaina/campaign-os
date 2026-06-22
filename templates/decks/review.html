@@ -132,6 +132,66 @@ Context: `deck`, `slides`, `block_rows`, `versions`.
         {% endif %}
       </div>
 
+      {# ---- customisation loop (Task 5): three edit modes ---- #}
+      <div class="card p-4" x-data="{ mode: 'section' }">
+        <div class="sidebar-section-label mb-2">Customise</div>
+        <div class="flex gap-1 mb-3 text-xs">
+          <button type="button" class="rounded px-2 py-1 border border-stone-200"
+                  x-bind:class="mode === 'section' ? 'bg-stone-100 font-medium' : 'bg-white'"
+                  x-on:click="mode = 'section'">Section request</button>
+          <button type="button" class="rounded px-2 py-1 border border-stone-200"
+                  x-bind:class="mode === 'swap' ? 'bg-stone-100 font-medium' : 'bg-white'"
+                  x-on:click="mode = 'swap'">Block swap</button>
+          <button type="button" class="rounded px-2 py-1 border border-stone-200"
+                  x-bind:class="mode === 'sync' ? 'bg-stone-100 font-medium' : 'bg-white'"
+                  x-on:click="mode = 'sync'">Sync</button>
+        </div>
+
+        {# (1) Section request — NL instruction to a named slide #}
+        <form method="post" action="{% url 'decks:edit_section' deck.id %}"
+              class="space-y-2" x-show="mode === 'section'">
+          {% csrf_token %}
+          <label class="block text-xs text-stone-500">Slide
+            <select name="slide" class="mt-1 w-full rounded border border-stone-200 px-2 py-1 text-sm">
+              {% for s in slides %}<option value="{{ s.slide }}">Slide {{ s.slide }}</option>{% endfor %}
+            </select>
+          </label>
+          <textarea name="instruction" rows="3" required
+                    placeholder="e.g. Sharpen the framing for a climate-finance audience."
+                    class="w-full rounded border border-stone-200 px-2 py-1 text-sm"></textarea>
+          <button type="submit" class="btn-brand text-xs px-3 py-1.5">Request edit (re-gated)</button>
+          <p class="text-xs text-stone-400">The changed slide is re-gated; a new version is recorded.</p>
+        </form>
+
+        {# (2) Block swap — browse compatible blocks for a slot #}
+        <div x-show="mode === 'swap'" class="space-y-3">
+          {% for sw in swap_slots %}
+          <form method="post" action="{% url 'decks:edit_swap' deck.id %}" class="space-y-1">
+            {% csrf_token %}
+            <input type="hidden" name="slot" value="{{ sw.slot }}">
+            <div class="text-xs text-stone-500">Slot {{ sw.slot }}</div>
+            <select name="block_id" class="w-full rounded border border-stone-200 px-2 py-1 text-sm">
+              {% for c in sw.candidates %}
+              <option value="{{ c.id }}">{{ c.type }} · {{ c.content_md|truncatechars:48 }}</option>
+              {% endfor %}
+            </select>
+            <button type="submit" class="btn-brand text-xs px-3 py-1.5">Swap in (re-gated)</button>
+          </form>
+          {% empty %}
+          <p class="text-sm text-stone-500">No compatible swap-in blocks for this deck's slots.</p>
+          {% endfor %}
+        </div>
+
+        {# (3) Direct edit + sync — pull live Slides state back and re-gate #}
+        <form method="post" action="{% url 'decks:sync' deck.id %}"
+              class="space-y-2" x-show="mode === 'sync'">
+          {% csrf_token %}
+          <p class="text-sm text-stone-600">Edit the deck directly in Google Slides, then pull the
+            changes back in. The whole deck is re-gate-verified.</p>
+          <button type="submit" class="btn-brand text-xs px-3 py-1.5">Sync from Slides (re-gated)</button>
+        </form>
+      </div>
+
       {% include "decks/_versions.html" %}
     </div>
   </div>

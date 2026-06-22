@@ -20,4 +20,11 @@ urlpatterns = [
     path("<uuid:deck_id>/", views.review, name="review"),
     # Restore a prior version (writes a NEW version row, never in-place).
     path("<uuid:deck_id>/revert/<uuid:version_id>/", views.revert, name="revert"),
+    # Customisation loop (Task 5): each edit re-gates + appends a version.
+    # Section request — NL instruction → targeted slide edit → re-gate changed slide.
+    path("<uuid:deck_id>/edit/section/", views.edit_section, name="edit_section"),
+    # Block swap — swap a compatible block into a slot → re-gate that slide.
+    path("<uuid:deck_id>/edit/swap/", views.edit_swap, name="edit_swap"),
+    # Direct edit + sync — pull live Slides state back in → re-gate whole deck.
+    path("<uuid:deck_id>/sync/", views.sync, name="sync"),
 ]
