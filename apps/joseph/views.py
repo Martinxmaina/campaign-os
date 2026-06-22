@@ -7,6 +7,7 @@ from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from apps.common.agent_client import AgentClientError, agent_get, agent_post, agent_put
+from apps.content_intake.progress import content_pipeline_progress
 from apps.joseph import readers
 from apps.joseph.intelligence import JosephIntelligence
 from apps.joseph.tasks import extract_meeting
@@ -113,7 +114,10 @@ def home(request):
     # degrade to empty/zero when the agent-service is down (the readers swallow
     # AgentClientError) — never a 500.
     if not is_mobile:
-        context["funnel"] = _capital_funnel()
+        # Content pipeline: union of created (Posts) + curated (intake) content,
+        # de-duped and mapped onto one funnel. Read from the canonical Django
+        # tables (not agent-service), so it survives an outage.
+        context["pipeline_progress"] = content_pipeline_progress(workspace)
         context["by_track"] = _pipeline_by_track()
         context["escalations"] = [a for a in actions if a.get("urgent")]
         context["chart_by_track"] = _chart_by_track()
@@ -121,27 +125,6 @@ def home(request):
 
     template = "joseph/home_mobile.html" if is_mobile else "joseph/home_desktop.html"
     return render(request, template, context)
-
-
-# The pipeline statuses that make up Joseph's capital funnel, in flow order.
-_FUNNEL_STATUSES = [
-    ("draft", "Draft"),
-    ("scheduled", "Scheduled"),
-    ("published", "Published"),
-]
-
-
-def _capital_funnel() -> list[dict]:
-    """Draft → Scheduled → Published content counts for the desktop funnel.
-
-    Each count comes from ``readers.list_content(status=...)`` (the fixed
-    agent-service ``/content/items`` route). The reader returns ``[]`` when the
-    service is down, so a funnel stage degrades to a zero count rather than a 500.
-    """
-    return [
-        {"key": key, "label": label, "count": len(readers.list_content(status=key))}
-        for key, label in _FUNNEL_STATUSES
-    ]
 
 
 # Capital tracks in display order; a thread outside these falls into "Other".

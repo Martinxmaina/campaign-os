@@ -37,6 +37,9 @@
     </div>
   </div>
 
+  {# Created + curated content, de-duped, with % through the pipeline. #}
+  {% include "content_intake/_pipeline_progress.html" %}
+
   <form id="bulk-form" {% if draft_selected_url %}hx-post="{{ draft_selected_url }}" hx-target="#intake-table" hx-swap="outerHTML"{% endif %}
         class="mb-2 flex items-center gap-2 text-sm">
     {% csrf_token %}

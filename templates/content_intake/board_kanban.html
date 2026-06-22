@@ -8,6 +8,10 @@
       <a href="?view=board" class="rounded bg-stone-700 text-white px-3 py-1">Board</a>
     </div>
   </div>
+
+  {# Created + curated content, de-duped, with % through the pipeline. #}
+  {% include "content_intake/_pipeline_progress.html" %}
+
   <div class="grid grid-cols-3 gap-4">
     {% for stage, label in lanes_labels %}
     <div id="kanban-col-{{ stage }}"

@@ -132,15 +132,8 @@ queue. CSP-safe: plain links + Alpine/hx-* only, no inline handlers.
 
       {# ── Pipeline by track + content pipeline ───────────────── #}
       <div>
-        <div class="sidebar-section-label" style="padding-left:0">Content pipeline</div>
-        <div class="grid grid-cols-3 gap-3">
-          {% for stage in funnel %}
-          <div class="card p-4">
-            <div class="font-display text-2xl">{{ stage.count }}</div>
-            <div class="text-xs text-stone-500 mt-1">{{ stage.label }}</div>
-          </div>
-          {% endfor %}
-        </div>
+        {# Created + curated content, de-duped, with % through the pipeline. #}
+        {% include "content_intake/_pipeline_progress.html" %}
         <div class="card p-5 mt-3">
           <div class="text-sm font-bold mb-3">Pipeline by track</div>
           <div class="space-y-2.5 text-sm">

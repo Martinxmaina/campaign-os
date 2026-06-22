@@ -341,3 +341,39 @@ def test_panel_shows_edit_link_when_post_exists(authed, workspace):
     resp = authed.get(reverse("console:intake-row-panel", args=[item.pk]))
     assert resp.status_code == 200
     assert f"/workspace/{workspace.pk}/compose/{post.pk}/".encode() in resp.content
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("query", ["", "?view=board"])
+def test_board_shows_content_pipeline_progress_strip(authed, workspace, query):
+    """Both the table and kanban board views render the unified content-pipeline
+    progress strip: total + a % through the pipeline + stage legend."""
+    from apps.composer.models import Post
+    ContentIntake.objects.create(workspace=workspace, external_id="cur",
+        sensitivity="public_safe", status=ContentIntake.Status.ACCEPTED)
+    ContentIntake.objects.create(workspace=workspace, external_id="pub",
+        sensitivity="public_safe", status=ContentIntake.Status.PUBLISHED)
+    Post.objects.create(workspace=workspace, caption="standalone")  # created
+
+    resp = authed.get(reverse("console:intake-board") + query)
+    assert resp.status_code == 200
+    body = resp.content.decode()
+    assert "Content pipeline" in body
+    assert "through pipeline" in body
+    for label in ("Curated", "Published"):
+        assert label in body
+    assert "3" in body  # 2 curated + 1 created
+
+
+@pytest.mark.django_db
+def test_board_progress_strip_excludes_skipped_intake(authed, workspace):
+    """Skipped intake is dead content — it is not counted in the progress total."""
+    ContentIntake.objects.create(workspace=workspace, external_id="ok",
+        sensitivity="public_safe", status=ContentIntake.Status.ACCEPTED)
+    ContentIntake.objects.create(workspace=workspace, external_id="skip",
+        sensitivity="public_safe", status=ContentIntake.Status.SKIPPED)
+    resp = authed.get(reverse("console:intake-board"))
+    body = resp.content.decode()
+    # only the accepted one counts → singular "piece", not "pieces"
+    assert "piece of content" in body
+    assert "pieces of content" not in body

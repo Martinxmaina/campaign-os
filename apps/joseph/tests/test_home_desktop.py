@@ -4,8 +4,9 @@ The desktop home is the full operations shell (extends the real console
 ``base.html`` so it inherits the Campaign OS sidebar). On top of the shared
 home data it adds three operational surfaces fleshed out in Task 7:
 
-  * a capital-funnel summary — draft / scheduled / published counts pulled from
-    ``readers.list_content(status=...)``;
+  * a content-pipeline summary — created (composer Posts) + curated
+    (ContentIntake) content de-duped onto one funnel with a % through it,
+    read from the canonical Django tables (``content_pipeline_progress``);
   * an escalations strip — the urgent slice of ``JosephIntelligence.proposals()``;
   * the action queue — the full proposals merge.
 
@@ -67,31 +68,30 @@ def test_desktop_home_uses_desktop_template_and_real_sidebar(joseph, client):
 
 
 @pytest.mark.django_db
-def test_desktop_home_shows_capital_funnel_counts(joseph, client):
-    """The capital funnel summarises draft / scheduled / published content counts
-    computed from ``readers.list_content(status=...)``."""
-    def _content(**filters):
-        status = filters.get("status")
-        return {
-            "draft": [{"id": "c1"}, {"id": "c2"}, {"id": "c3"}],      # 3 drafts
-            "scheduled": [{"id": "c4"}, {"id": "c5"}],                # 2 scheduled
-            "published": [{"id": "c6"}, {"id": "c7"}, {"id": "c8"}, {"id": "c9"}],  # 4 published
-        }.get(status, [])
+def test_desktop_home_shows_content_pipeline_progress(joseph, client, workspace):
+    """The Content pipeline widget summarises created (composer Posts) + curated
+    (ContentIntake) content as one funnel, with a % through the pipeline. Read
+    from the canonical Django tables, not the agent-service."""
+    from apps.composer.models import Post
+    from apps.content_intake.models import ContentIntake
+    ContentIntake.objects.create(
+        workspace=workspace, external_id="p1", status=ContentIntake.Status.PUBLISHED)
+    ContentIntake.objects.create(
+        workspace=workspace, external_id="c1", status=ContentIntake.Status.ACCEPTED)
+    Post.objects.create(workspace=workspace, caption="standalone draft")  # created
 
     with patch("apps.joseph.views.readers.list_threads", return_value=[]), \
-         patch("apps.joseph.views.readers.list_content", side_effect=_content), \
          patch("apps.joseph.intelligence.readers.list_notifications", return_value=[]):
         resp = _desktop(client)
     assert resp.status_code == 200
-    body = resp.content
-    assert b"Content pipeline" in body
-    # the funnel labels are present
-    for label in (b"Draft", b"Scheduled", b"Published"):
+    body = resp.content.decode()
+    assert "Content pipeline" in body
+    assert "through pipeline" in body  # the weighted progress label
+    # unified funnel stage labels are present
+    for label in ("Curated", "Drafting", "Published"):
         assert label in body
-    # and the counts the readers returned
-    assert b">3<" in body or b"3" in body
-    assert b">2<" in body or b"2" in body
-    assert b">4<" in body or b"4" in body
+    # 3 pieces total (2 curated + 1 created), 1 published
+    assert "3" in body
 
 
 @pytest.mark.django_db
@@ -110,18 +110,6 @@ def test_desktop_home_shows_pipeline_by_track(joseph, client):
     assert b"Pipeline by track" in body
     assert b"AI 10Bn" in body and b"Core programs" in body
     assert b">2<" in body  # ai10bn count
-
-
-@pytest.mark.django_db
-def test_desktop_home_funnel_calls_list_content_per_status(joseph, client):
-    """The funnel is built by querying list_content once per pipeline status."""
-    with patch("apps.joseph.views.readers.list_threads", return_value=[]), \
-         patch("apps.joseph.views.readers.list_content", return_value=[]) as lc, \
-         patch("apps.joseph.intelligence.readers.list_notifications", return_value=[]):
-        resp = _desktop(client)
-    assert resp.status_code == 200
-    called_statuses = {c.kwargs.get("status") for c in lc.call_args_list}
-    assert {"draft", "scheduled", "published"} <= called_statuses
 
 
 @pytest.mark.django_db

@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from apps.content_intake.draft_post import ensure_draft_post
 from apps.content_intake.herald_bridge import request_herald_draft
 from apps.content_intake.models import ContentIntake, UnblockCondition
+from apps.content_intake.progress import content_pipeline_progress
 from apps.content_intake.sheets_sync import sync_sheet_to_intake
 
 
@@ -24,6 +25,7 @@ def board(request):
             "status_filter": "",
             "pillar_filter": "",
             "sort": "",
+            "pipeline_progress": content_pipeline_progress(None),
         })
     qs = ContentIntake.objects.filter(workspace=workspace).exclude(
         status=ContentIntake.Status.SKIPPED
@@ -79,6 +81,9 @@ def board(request):
         "sort": sort,
         "last_sync_at": activity["last_sync_at"],
         "last_draft_at": activity["last_draft_at"],
+        # Union of created (Posts) + curated (intake) content, de-duped and
+        # mapped onto one funnel — drives the progress strip on both board views.
+        "pipeline_progress": content_pipeline_progress(workspace),
     }
     if request.GET.get("view") == "board":
         lanes = {"todo": [], "in_progress": [], "done": []}

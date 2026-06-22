@@ -1,0 +1,42 @@
+{# Unified content-pipeline progress strip: created (composer Posts) + curated
+   (ContentIntake), de-duped and mapped onto one funnel. Context key:
+   `pipeline_progress` (apps.content_intake.progress.content_pipeline_progress).
+   Inline `style` widths/colours only — no inline event handlers (CSP-safe). #}
+{% with p=pipeline_progress %}
+{% if p %}
+<div class="card p-4 mb-4">
+  <div class="flex items-end justify-between flex-wrap gap-3 mb-3">
+    <div>
+      <div class="sidebar-section-label" style="padding-left:0">Content pipeline</div>
+      <div class="font-display text-2xl leading-tight">
+        {{ p.total }}
+        <span class="text-base font-normal text-stone-500">{% if p.total == 1 %}piece{% else %}pieces{% endif %} of content</span>
+      </div>
+      <div class="text-xs text-stone-500 mt-0.5">
+        {{ p.created }} created · {{ p.curated }} curated · {{ p.published }} published
+      </div>
+    </div>
+    <div class="text-right">
+      <div class="font-display text-2xl" style="color:var(--primary)">{{ p.percent }}%</div>
+      <div class="text-xs text-stone-500">through pipeline</div>
+    </div>
+  </div>
+
+  {# Segmented bar — one block per non-empty stage, width = share of total. #}
+  <div class="flex h-2.5 rounded-full overflow-hidden bg-stone-100 mb-3">
+    {% for s in p.stages %}{% if s.count %}<div style="width:{{ s.pct }}%;background:{{ s.color }}" title="{{ s.label }}: {{ s.count }}"></div>{% endif %}{% endfor %}
+  </div>
+
+  {# Per-stage legend with counts. #}
+  <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
+    {% for s in p.stages %}
+    <div class="flex items-center gap-1.5">
+      <span class="inline-block w-2.5 h-2.5 rounded-full flex-shrink-0" style="background:{{ s.color }}"></span>
+      <span class="text-stone-600">{{ s.label }}</span>
+      <span class="font-semibold tabular-nums">{{ s.count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endwith %}
