@@ -177,3 +177,65 @@ class DeckRegistry(models.Model):
         block *send*, mirroring the publish/outreach gate invariant.
         """
         return not self.findings
+
+
+class DeckVersion(models.Model):
+    """An immutable snapshot of a deck at one assembly/edit cycle.
+
+    Every change to a deck — the initial assembly, an edit, a revert — appends a
+    ``DeckVersion`` (the ``block_versions`` map + the ``slides_payload`` at that
+    moment + the gate verdict). The review screen's version-history rail reads
+    these; ``revert`` restores one by writing a NEW row (never mutating an old
+    snapshot), so the full lineage is always recoverable.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    deck = models.ForeignKey(
+        DeckRegistry, on_delete=models.CASCADE, related_name="versions"
+    )
+    # Monotonic per-deck sequence (1, 2, 3, …) for the history rail + revert UI.
+    number = models.PositiveIntegerField(default=1)
+    block_versions = models.JSONField(default=dict, blank=True)
+    slides_payload = models.JSONField(default=list, blank=True)
+    gate_id = models.CharField(max_length=64, blank=True, default="")
+    findings = models.JSONField(default=list, blank=True)
+    # Why this version exists: "assembled" | "edited" | "revert to v<N>" | …
+    reason = models.CharField(max_length=120, blank=True, default="")
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="deck_versions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "decks_version"
+        ordering = ["deck", "number"]
+        unique_together = [("deck", "number")]
+
+    def __str__(self):
+        return f"DeckVersion({self.deck_id}, v{self.number})"
+
+
+def record_version(deck: DeckRegistry, *, reason: str = "", created_by=None) -> DeckVersion:
+    """Append a ``DeckVersion`` snapshotting ``deck``'s current live state.
+
+    The single sanctioned path to a new version row — assembly, edits and revert
+    all funnel through here, so the per-deck ``number`` sequence stays gap-free
+    and every snapshot carries the live ``block_versions`` + ``slides_payload`` +
+    gate verdict at that moment.
+    """
+    last = deck.versions.order_by("-number").first()
+    number = (last.number + 1) if last else 1
+    return DeckVersion.objects.create(
+        deck=deck,
+        number=number,
+        block_versions=deck.block_versions,
+        slides_payload=deck.slides_payload,
+        gate_id=deck.gate_id,
+        findings=deck.findings,
+        reason=reason,
+        created_by=created_by,
+    )

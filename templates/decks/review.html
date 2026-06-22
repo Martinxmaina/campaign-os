@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Deck · Review{% endblock %}
+
+{% comment %}
+Deck review screen (TB.5 Task 3). Extends base.html so it inherits the real
+Campaign OS chrome + the Joseph principal sidebar. Four panels:
+
+  1. Slide preview — the rendered slide payload, with the placeholder Slides embed
+     URL from the render SEAM (swapped for the live presentation once Google creds
+     land).
+  2. Gate status — the verdict + any flagged findings; a flagged deck is
+     un-sendable (deck.is_sendable) but always reviewable.
+  3. Block list — each pinned block with its citations + a "superseded" flag.
+  4. Version-history rail — the _versions.html partial (revert restores a
+     snapshot as a NEW version).
+
+CSP-safe: no inline handlers; the only <script> is nonce'd. BrightBean tokens
+(.card, .btn-brand, font-display).
+
+Context: `deck`, `slides`, `block_rows`, `versions`.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5" x-data="{ slide: 0 }">
+
+  <div class="border-b border-stone-200 pb-4 flex items-start justify-between gap-4">
+    <div>
+      <a href="{% url 'decks:index' %}" class="text-xs text-stone-500 hover:underline">← All decks</a>
+      <h1 class="font-display text-2xl mt-1">
+        {{ deck.thread.org.name|default:"Deck" }}
+      </h1>
+      <div class="text-sm text-stone-500">
+        {{ deck.skeleton_id }} · {{ deck.get_status_display }}
+        {% if deck.ask_amount %}· ask {{ deck.ask_amount }}{% endif %}
+      </div>
+    </div>
+    <div class="shrink-0 text-right">
+      {% if deck.is_sendable %}
+      <span class="inline-block rounded-full bg-emerald-50 text-emerald-700 text-xs px-2 py-1">Gate clear · sendable</span>
+      {% else %}
+      <span class="inline-block rounded-full bg-red-50 text-red-700 text-xs px-2 py-1">Gate flagged · review before sending</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+    {# ---- left: slide preview + block list ---- #}
+    <div class="lg:col-span-2 space-y-5">
+
+      {# slide preview — payload + placeholder Slides embed (render SEAM) #}
+      <div class="card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <div class="sidebar-section-label">Slide preview</div>
+          {% if deck.slides_url %}
+          <a href="{{ deck.slides_url }}" target="_blank" rel="noopener"
+             class="text-xs text-stone-500 hover:underline">Open in Slides ↗</a>
+          {% endif %}
+        </div>
+
+        <div class="space-y-3">
+          {% for s in slides %}
+          <div class="rounded-lg border border-stone-200 p-4 bg-stone-50/60" data-slide="{{ s.slide }}">
+            <div class="text-xs uppercase tracking-wide text-stone-400 mb-1">Slide {{ s.slide }}</div>
+            {% if s.personalization %}
+            <div class="font-display text-lg mb-1">{{ s.personalization }}</div>
+            {% endif %}
+            {% if s.content_md %}<div class="text-sm whitespace-pre-line text-stone-700">{{ s.content_md }}</div>{% endif %}
+            {% if s.citations %}
+            <div class="mt-2 text-xs text-stone-500">
+              Sources:
+              {% for c in s.citations %}<span class="inline-block bg-white border border-stone-200 rounded px-1.5 py-0.5 mr-1 mb-1">{{ c }}</span>{% endfor %}
+            </div>
+            {% endif %}
+            {% if s.untraceable %}<div class="mt-1 text-xs text-amber-600">⚠ untraceable claim — confirm a source</div>{% endif %}
+          </div>
+          {% empty %}
+          <div class="text-sm text-stone-500">No slides assembled.</div>
+          {% endfor %}
+        </div>
+        {% if deck.slides_url %}
+        <div class="mt-3 text-xs text-stone-400">
+          Placeholder embed: <span class="font-mono">{{ deck.slides_url }}</span> (live Slides render lands when Google creds are wired).
+        </div>
+        {% endif %}
+      </div>
+
+      {# block list with citations #}
+      <div class="card p-4">
+        <div class="sidebar-section-label mb-2">Blocks ({{ block_rows|length }})</div>
+        {% if block_rows %}
+        <ul class="space-y-2 text-sm">
+          {% for b in block_rows %}
+          <li class="border-b border-stone-100 pb-2 last:border-0" data-block-id="{{ b.id }}">
+            <div class="flex items-center justify-between gap-2">
+              <span class="font-medium">{{ b.type|default:"block" }}
+                <span class="text-stone-400 font-normal">· slot {{ b.slot }}</span></span>
+              {% if b.superseded %}<span class="text-xs text-amber-600">superseded in library</span>{% endif %}
+            </div>
+            <div class="text-stone-700">{{ b.content_md }}</div>
+            {% if b.source_ref %}<div class="text-xs text-stone-500">cite: {{ b.source_ref }}</div>{% endif %}
+            <div class="text-xs text-stone-400 font-mono">{{ b.id }}</div>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <div class="text-sm text-stone-500">No blocks pinned.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ---- right: gate status + version rail ---- #}
+    <div class="space-y-5">
+
+      <div class="card p-4">
+        <div class="sidebar-section-label mb-2">Gate status</div>
+        <div class="text-sm">
+          <div>Verdict:
+            {% if deck.is_sendable %}<span class="text-emerald-700">clear</span>
+            {% else %}<span class="text-red-700">flagged</span>{% endif %}
+          </div>
+          {% if deck.gate_id %}<div class="text-xs text-stone-500 font-mono">gate {{ deck.gate_id }}</div>{% endif %}
+        </div>
+        {% if deck.findings %}
+        <ul class="mt-2 space-y-1 text-sm">
+          {% for f in deck.findings %}
+          <li class="text-red-700 bg-red-50 rounded px-2 py-1">
+            {{ f.rule|default:"finding" }}{% if f.match %} · “{{ f.match }}”{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
+      </div>
+
+      {% include "decks/_versions.html" %}
+    </div>
+  </div>
+</div>
+
+<script nonce="{{ request.csp_nonce }}">
+  /* Review screen is server-rendered + Alpine-only; nothing imperative needed
+     today. The nonce'd script keeps the CSP contract explicit (and is where the
+     slide-stepper / live-render polling lands once Slides is wired). */
+  (function () { /* no-op */ })();
+</script>
+{% endblock %}

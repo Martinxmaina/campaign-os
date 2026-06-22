@@ -1,0 +1,42 @@
+{% comment %}
+Version-history rail for the deck review screen (TB.5 Task 3).
+
+Each DeckVersion is an immutable snapshot (block_versions + slides payload + gate
+verdict) from one assembly/edit/revert cycle, newest first. Revert posts to
+decks:revert which restores the snapshot as a NEW version (never in-place) — so
+the rail only ever grows. CSP-safe: the revert control is a real <form>, no
+inline handlers.
+
+Context: `deck`, `versions` (DeckVersion[] newest-first).
+{% endcomment %}
+<div class="card p-4">
+  <div class="sidebar-section-label mb-2">Version history</div>
+  {% if versions %}
+  <ol class="space-y-2 text-sm">
+    {% for v in versions %}
+    <li class="flex items-start justify-between gap-3 border-b border-stone-100 pb-2 last:border-0"
+        data-version-id="{{ v.id }}">
+      <div class="min-w-0">
+        <div class="font-medium">v{{ v.number }}
+          <span class="text-stone-400 font-normal">· {{ v.reason|default:"—" }}</span>
+        </div>
+        <div class="text-xs text-stone-500">
+          {{ v.created_at|date:"M j, Y H:i" }}
+          {% if v.findings %}· <span class="text-red-600">gate-flagged</span>{% endif %}
+        </div>
+      </div>
+      {% if not forloop.first %}
+      <form method="post" action="{% url 'decks:revert' deck.id v.id %}" class="shrink-0">
+        {% csrf_token %}
+        <button type="submit" class="btn-brand text-xs px-2 py-1">Restore</button>
+      </form>
+      {% else %}
+      <span class="shrink-0 text-xs text-stone-400">current</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ol>
+  {% else %}
+  <div class="text-sm text-stone-500">No versions recorded yet.</div>
+  {% endif %}
+</div>

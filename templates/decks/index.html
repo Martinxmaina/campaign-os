@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Decks{% endblock %}
+
+{% comment %}
+Decks index (TB.5 Task 3) — Joseph's deck action queue. Draft decks (the ones
+needing review before they can be sent) lead; sent/archived decks follow. Each
+card links into the review screen. BrightBean tokens; no inline handlers.
+
+Context: `drafts`, `others`, `deck_count`.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="border-b border-stone-200 pb-4 flex items-center justify-between">
+    <div>
+      <h1 class="font-display text-2xl">Decks</h1>
+      <div class="text-sm text-stone-500">Assembled pitch decks · drafts need a review before sending</div>
+    </div>
+    <a href="{% url 'decks:stale' %}" class="text-sm text-stone-500 hover:underline">Stale-figure report →</a>
+  </div>
+
+  {% if drafts %}
+  <div>
+    <div class="sidebar-section-label mb-2">Needs review ({{ drafts|length }})</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for d in drafts %}
+      <a href="{% url 'decks:review' d.id %}"
+         class="card card-hover-lift p-4 block" data-deck-id="{{ d.id }}">
+        <div class="flex items-center justify-between">
+          <span class="font-medium">{{ d.thread.org.name|default:"Deck" }}</span>
+          {% if not d.is_sendable %}<span class="text-xs text-red-600">gate flagged</span>{% endif %}
+        </div>
+        <div class="text-sm text-stone-500">{{ d.skeleton_id }} · {{ d.get_status_display }}</div>
+        <div class="text-xs text-stone-400 font-mono mt-1">{{ d.id }}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if others %}
+  <div>
+    <div class="sidebar-section-label mb-2">Sent &amp; archived ({{ others|length }})</div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {% for d in others %}
+      <a href="{% url 'decks:review' d.id %}"
+         class="card card-hover-lift p-4 block" data-deck-id="{{ d.id }}">
+        <div class="font-medium">{{ d.thread.org.name|default:"Deck" }}</div>
+        <div class="text-sm text-stone-500">{{ d.skeleton_id }} · {{ d.get_status_display }}</div>
+        <div class="text-xs text-stone-400 font-mono mt-1">{{ d.id }}</div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% if not deck_count %}
+  <div class="card p-6 text-center text-stone-500">No decks assembled yet.</div>
+  {% endif %}
+</div>
+{% endblock %}

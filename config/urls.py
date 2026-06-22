@@ -47,6 +47,11 @@ urlpatterns = [
     # Intelligence console (Slice G') — server-rendered operator surfaces
     # backed by agent-service over HTTP. Mounted top-level, login-gated per view.
     path("console/", include("config.console_urls")),
+    # Decks (TB.5) — Joseph's pitch-deck review surface: review screen, version
+    # history/revert, stale-figure report. Mounted at /joseph/decks/ BEFORE the
+    # joseph include (which matches the bare /joseph/ prefix). Role-gated per view
+    # by apps.joseph.views._can_access_joseph.
+    path("joseph/decks/", include("apps.decks.urls")),
     # Joseph — voice profile editor (TB.1). Login-gated per view; reads/writes
     # the voice profile via agent-service over HTTP.
     path("joseph/", include("apps.joseph.urls")),

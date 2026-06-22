@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Decks · Stale figures{% endblock %}
+
+{% comment %}
+Stale-figure report (TB.5 Task 3). Every *sent* deck whose registry pins a block
+version the live library has since superseded (block.superseded_by set). Lists
+the deck + the offending block + the current (superseding) block, so a corrected
+figure is chased down across every deck still on the old number. No inline
+handlers; BrightBean tokens.
+
+Context: `rows` ({deck, offenders:[{block, slot, current}]}[]), `stale_count`.
+{% endcomment %}
+
+{% block content %}
+<div class="px-1 py-1 space-y-5">
+
+  <div class="border-b border-stone-200 pb-4 flex items-center justify-between">
+    <div>
+      <h1 class="font-display text-2xl">Stale figures</h1>
+      <div class="text-sm text-stone-500">Sent decks holding a block the library has since corrected</div>
+    </div>
+    <a href="{% url 'decks:index' %}" class="text-sm text-stone-500 hover:underline">← All decks</a>
+  </div>
+
+  {% if rows %}
+  <div class="space-y-3">
+    {% for row in rows %}
+    <div class="card p-4" data-deck-id="{{ row.deck.id }}">
+      <div class="flex items-center justify-between">
+        <a href="{% url 'decks:review' row.deck.id %}" class="font-medium hover:underline">
+          {{ row.deck.thread.org.name|default:"Deck" }}
+        </a>
+        <span class="text-xs text-stone-400 font-mono">{{ row.deck.id }}</span>
+      </div>
+      <div class="text-sm text-stone-500">{{ row.deck.skeleton_id }} · sent</div>
+      <ul class="mt-2 space-y-2 text-sm">
+        {% for o in row.offenders %}
+        <li class="bg-amber-50 border border-amber-100 rounded px-2 py-1">
+          <div class="flex items-center justify-between gap-2">
+            <span>Slot {{ o.slot }} · {{ o.block.type }}</span>
+            <span class="text-xs text-amber-700">superseded</span>
+          </div>
+          <div class="text-stone-700">“{{ o.block.content_md }}”</div>
+          <div class="text-xs text-stone-500 font-mono">block {{ o.block.id }}</div>
+          {% if o.current %}
+          <div class="text-xs text-emerald-700 mt-1">→ current: “{{ o.current.content_md }}” ({{ o.current.id }})</div>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card p-6 text-center text-stone-500">No stale figures — every sent deck is on the current library.</div>
+  {% endif %}
+</div>
+{% endblock %}
