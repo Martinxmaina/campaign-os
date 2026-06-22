@@ -24,6 +24,7 @@ class EventType(models.TextChoices):
     CLIENT_CONNECTED_ACCOUNTS = "client_connected_accounts", "Client connected accounts"
     MEETING_PREP = "meeting_prep", "Pre-meeting prep cascade"
     MEETING_CAPTURE = "meeting_capture", "Post-meeting capture prompt"
+    DECK_READY = "deck_ready", "Pitch deck assembled and ready to review"
 
 
 class Channel(models.TextChoices):

@@ -59,6 +59,7 @@ DEFAULT_CHANNELS: dict[str, dict[str, bool]] = {
     EventType.CLIENT_CONNECTED_ACCOUNTS: {Channel.IN_APP: True, Channel.EMAIL: True},
     EventType.MEETING_PREP: {Channel.IN_APP: True, Channel.EMAIL: False},
     EventType.MEETING_CAPTURE: {Channel.IN_APP: True, Channel.EMAIL: False},
+    EventType.DECK_READY: {Channel.IN_APP: True, Channel.EMAIL: False},
 }
 
 # Event types considered non-critical (suppressed during quiet hours).

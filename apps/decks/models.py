@@ -116,3 +116,64 @@ class Block(models.Model):
             timezone.now().isoformat(),
         )
         return self
+
+
+class DeckRegistry(models.Model):
+    """One assembled deck for a thread — the durable record of an assembly run.
+
+    The registry is the *source of truth* for what a deck contains: the exact
+    block **versions** that were assembled (so continuity in Task 4 and the
+    stale-figure report in Task 3 can diff a sent deck against the live library),
+    the gate verdict that cleared (or flagged) the generated personalization, and
+    the placeholder Slides handle from the render SEAM. A flagged gate marks the
+    deck un-sendable (``is_sendable``) but never un-reviewable — Joseph can always
+    open a draft deck to inspect/fix the finding.
+    """
+
+    class Status(models.TextChoices):
+        DRAFT = "draft"
+        SENT = "sent"
+        ARCHIVED = "archived"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    thread = models.ForeignKey(
+        "crm.OutreachThread", on_delete=models.CASCADE, related_name="decks"
+    )
+    skeleton_id = models.CharField(max_length=48, db_index=True)
+    # {slot_or_type: [block_id, ...]} — the exact block versions assembled, so a
+    # later library change is detectable (block.superseded_by) per deck.
+    block_versions = models.JSONField(default=dict, blank=True)
+    # The structured per-slide payload the render SEAM (and the review screen)
+    # consume: [{slide, type, block_ids, content_md, personalization, citations}].
+    slides_payload = models.JSONField(default=list, blank=True)
+    presenter = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="presented_decks"
+    )
+    ask_amount = models.CharField(max_length=64, blank=True, default="")
+    gate_id = models.CharField(max_length=64, blank=True, default="")
+    # The gate findings on the generated personalization (empty == clean). A
+    # non-empty findings list marks the deck un-sendable (see ``is_sendable``).
+    findings = models.JSONField(default=list, blank=True)
+    slides_url = models.URLField(blank=True, default="")  # placeholder until live Slides
+    slides_id = models.CharField(max_length=128, blank=True, default="")
+    status = models.CharField(max_length=12, choices=Status.choices, default=Status.DRAFT, db_index=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "decks_registry"
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["thread", "-created_at"])]
+
+    def __str__(self):
+        return f"Deck({self.skeleton_id}, {self.status})"
+
+    @property
+    def is_sendable(self) -> bool:
+        """A deck is sendable only when the gate cleared with zero findings.
+
+        Findings never block *review* (Joseph can always open the draft) — they
+        block *send*, mirroring the publish/outreach gate invariant.
+        """
+        return not self.findings
