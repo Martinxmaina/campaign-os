@@ -1,0 +1,35 @@
+{% extends "console/base.html" %}
+{% comment %}
+Content Studio — unified content board.
+
+Task 3 ships the backend query/context only; this is a minimal placeholder so
+the view renders. Task 4 replaces it with the full segmented board UI (filter
+chips, segment grouping, per-card status badge + inline actions). Keep it
+CSP-safe (no inline JS) until then.
+{% endcomment %}
+{% block console %}
+<div class="p-6">
+  <h1 class="text-2xl font-bold mb-1" style="font-family:Georgia,serif;">Content Studio</h1>
+  <p class="text-sm text-stone-500 mb-4">{{ total }} item{{ total|pluralize }}</p>
+  <div class="space-y-3">
+    {% for post in posts %}
+    <div class="card rounded-lg border border-stone-200 bg-white p-4">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <h3 class="font-semibold">{{ post.title|default:"Untitled" }}</h3>
+          <p class="text-sm text-stone-600">{{ post.caption|truncatechars:160 }}</p>
+          <p class="text-xs text-stone-400 mt-1">
+            {% if post.track %}<span class="mr-2">{{ post.get_track_display }}</span>{% endif %}
+            {% if post.pillar %}<span class="mr-2">{{ post.get_pillar_display }}</span>{% endif %}
+            {% if post.campaign %}<span class="mr-2">{{ post.campaign }}</span>{% endif %}
+          </p>
+        </div>
+        <span class="text-xs rounded px-2 py-1 bg-stone-100 text-stone-600">{{ post.studio_state }}</span>
+      </div>
+    </div>
+    {% empty %}
+    <p class="text-stone-400">No content in this house yet.</p>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
