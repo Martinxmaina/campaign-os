@@ -51,3 +51,16 @@ class APIError(ProviderError):
     ):
         self.status_code = status_code
         super().__init__(message, **kwargs)
+
+
+class BlotatoStillPublishing(ProviderError):
+    """Blotato accepted the post but it was still in-progress at our poll timeout.
+
+    The engine parks the PlatformPost at ``publishing`` and persists the Blotato
+    ``submission_id``; the reconcile beat task finalizes it later. We never
+    re-submit (``POST /v2/posts`` is not idempotent → re-submit would duplicate).
+    """
+
+    def __init__(self, submission_id: str, **kwargs):
+        self.submission_id = submission_id
+        super().__init__(f"Blotato post {submission_id} still in progress", **kwargs)

@@ -8,6 +8,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .blotato import (
+    BlotatoBlueskyProvider,
+    BlotatoFacebookProvider,
+    BlotatoInstagramProvider,
+    BlotatoLinkedInProvider,
+    BlotatoThreadsProvider,
+)
 from .facebook import FacebookProvider
 from .ghost import GhostProvider
 from .instagram import InstagramProvider
@@ -31,6 +38,12 @@ PROVIDER_REGISTRY: dict[str, type[SocialProvider]] = {
     "threads": ThreadsProvider,
     "twitter": TwitterProvider,
     "ghost": GhostProvider,
+    # Blotato add-on family (single-key, multi-target; behind the same gate).
+    "blotato_instagram": BlotatoInstagramProvider,
+    "blotato_facebook": BlotatoFacebookProvider,
+    "blotato_threads": BlotatoThreadsProvider,
+    "blotato_bluesky": BlotatoBlueskyProvider,
+    "blotato_linkedin": BlotatoLinkedInProvider,
 }
 
 
