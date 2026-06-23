@@ -32,6 +32,7 @@ from apps.credentials.models import PlatformCredential
 from apps.publisher.gate_client import GateError, verify_gate
 from apps.publisher.ingest_webhook import post_to_ingest
 from providers import get_provider
+from providers.exceptions import BlotatoStillPublishing
 from providers.types import AuthType, PostType, PublishContent
 
 from .models import PublishLog, RateLimitState
@@ -85,6 +86,20 @@ def _resolve_publish_credentials(account):
     """
     platform = account.platform
 
+    # Blotato is a single-key, multi-target provider family. Every blotato_*
+    # account shares one org-level key (PlatformCredential(platform="blotato"))
+    # with an env fallback. There are no per-account OAuth tokens.
+    if platform.startswith("blotato_"):
+        api_key = ""
+        try:
+            cred = PlatformCredential.objects.for_org(
+                account.workspace.organization_id
+            ).get(platform="blotato", is_configured=True)
+            api_key = cred.credentials.get("api_key", "")
+        except PlatformCredential.DoesNotExist:
+            api_key = getattr(settings, "BLOTATO_API_KEY", "")
+        return {"api_key": api_key}
+
     try:
         cred = PlatformCredential.objects.for_org(account.workspace.organization_id).get(
             platform=platform, is_configured=True
@@ -117,6 +132,16 @@ def _resolve_publish_credentials(account):
         credentials["pds_url"] = account.instance_url
 
     return credentials
+
+
+def _blotato_extra(account, platform: str, extra: dict) -> None:
+    """Inject per-account Blotato data into the provider content extras."""
+    cfg = account.provider_config or {}
+    extra["blotato_account_id"] = cfg.get("blotato_account_id") or account.account_platform_id
+    if platform == "blotato_facebook" and "page_id" not in extra:
+        page_id = cfg.get("page_id")
+        if page_id:
+            extra["page_id"] = page_id
 
 
 MAX_RETRIES = 3
@@ -374,6 +399,21 @@ class PublishEngine:
             # BLOCK. Do NOT schedule a retry — re-publishing identical
             # unapproved content would just fail the gate again forever.
             return {"success": False, "error": f"GATE BLOCK: {e}"}
+        except BlotatoStillPublishing as e:
+            # Blotato accepted the post but it's still in-progress. Park at
+            # publishing + persist the submission id; the reconcile task
+            # finalizes it. Never re-submit (would duplicate the post).
+            platform_post.platform_post_id = e.submission_id
+            platform_post.status = PlatformPost.Status.PUBLISHING
+            platform_post.publish_error = ""
+            platform_post.save(update_fields=["platform_post_id", "status", "publish_error", "updated_at"])
+            PublishLog.objects.create(
+                platform_post=platform_post,
+                attempt_number=platform_post.retry_count + 1,
+                error_message=f"Blotato in-progress ({e.submission_id}); awaiting reconcile",
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+            return {"success": False, "pending": True, "platform_post_id": e.submission_id}
         except Exception as e:
             duration_ms = int((time.monotonic() - start_time) * 1000)
             error_msg = str(e)
@@ -570,6 +610,10 @@ class PublishEngine:
             # Inject org author URN for LinkedIn Company Page.
             if platform == "linkedin_company" and "author" not in extra:
                 extra["author"] = f"urn:li:organization:{account.account_platform_id}"
+
+            # Inject Blotato per-account data for blotato_* platforms.
+            if platform.startswith("blotato_"):
+                _blotato_extra(account, platform, extra)
 
             # Pop link_url from extra and set on PublishContent directly
             link_url = extra.pop("link_url", None)
