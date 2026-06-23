@@ -42,6 +42,11 @@ class SocialAccount(models.Model):
     # Instance URL for Mastodon and Bluesky PDS
     instance_url = models.URLField(max_length=500, blank=True, default="")
 
+    # Provider-specific per-account config that doesn't fit the OAuth fields.
+    # Blotato uses {"blotato_account_id": "...", "page_id": "..."}; reserved for
+    # future per-platform config (TikTok privacy defaults, etc.).
+    provider_config = models.JSONField(default=dict, blank=True)
+
     # Connection health
     connection_status = models.CharField(
         max_length=20,

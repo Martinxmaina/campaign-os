@@ -36,6 +36,13 @@ SOURCE_REPO_URL = env("SOURCE_REPO_URL")
 # Overridden via JOSEPH_APPROVER_EMAIL env var in production.
 JOSEPH_APPROVER_EMAIL = env("JOSEPH_APPROVER_EMAIL")
 
+# Blotato multi-platform publishing (add-on providers). One workspace API key;
+# falls back here when no org-level PlatformCredential(platform="blotato") exists.
+BLOTATO_API_KEY = env("BLOTATO_API_KEY", default="")
+BLOTATO_API_BASE = env("BLOTATO_API_BASE", default="https://backend.blotato.com/v2")
+BLOTATO_PUBLISH_TIMEOUT = env.int("BLOTATO_PUBLISH_TIMEOUT", default=30)  # inline poll budget (s)
+BLOTATO_POLL_INTERVAL = env.int("BLOTATO_POLL_INTERVAL", default=2)  # seconds between polls
+
 # Application definition
 
 DJANGO_APPS = [
