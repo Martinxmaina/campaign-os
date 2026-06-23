@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="p-6 max-w-2xl">
+  <h1 class="text-2xl font-bold mb-1" style="font-family:Georgia,serif;">Import Blotato accounts</h1>
+  <p class="text-sm text-stone-500 mb-4">Accounts you connected in Blotato. Pick the ones to publish to from here — every post still goes through the compliance gate.</p>
+
+  {% if not accounts %}
+  <div class="card p-4 text-sm text-stone-500">
+    No importable Blotato accounts found. Add your Blotato API key under
+    <a class="text-[var(--primary)] hover:underline" href="/console/credentials">Credentials</a>,
+    connect accounts in your Blotato dashboard, then reload.
+  </div>
+  {% else %}
+  <form method="post" class="space-y-2">
+    {% csrf_token %}
+    {% for a in accounts %}
+    <label class="card p-3 flex items-center gap-3 cursor-pointer">
+      <input type="checkbox" name="account_id" value="{{ a.id }}">
+      <div>
+        <div class="font-medium">{{ a.fullname }}</div>
+        <div class="text-xs text-stone-500">{{ a.platform }} · @{{ a.username }}</div>
+      </div>
+    </label>
+    {% endfor %}
+    <button type="submit" class="btn-brand rounded px-4 py-2 text-sm mt-2">Import selected</button>
+  </form>
+  {% endif %}
+</div>
+{% endblock %}

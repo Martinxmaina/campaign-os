@@ -82,6 +82,14 @@ PLATFORM_FIELDS: dict[str, dict] = {
             ("newsletter_slug", "Newsletter slug (optional, for email sends)", "text", False),
         ],
     },
+    "blotato": {
+        "label": "Blotato (multi-platform publishing)",
+        "help": "blotato.com → Settings → API. Paste your workspace API key "
+                "(it may end with '='; include it). Then import accounts.",
+        "fields": [
+            ("api_key", "API Key", "password"),
+        ],
+    },
 }
 
 

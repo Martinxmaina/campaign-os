@@ -38,6 +38,12 @@ urlpatterns = [
         views.select_account,
         name="select_account",
     ),
+    # Blotato import (multi-platform publishing add-on)
+    path(
+        "<uuid:workspace_id>/blotato/import/",
+        views.blotato_import,
+        name="blotato_import",
+    ),
     # Per-account actions
     path(
         "<uuid:workspace_id>/<uuid:account_id>/reconnect/",

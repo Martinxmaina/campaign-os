@@ -22,7 +22,12 @@ from django_ratelimit.decorators import ratelimit
 from apps.common.validators import is_safe_url as _is_safe_url
 from apps.credentials.models import PlatformCredential
 from apps.members.decorators import require_permission
+from apps.workspaces.models import Workspace
 
+from .blotato_client import (
+    blotato_list_accounts,
+    blotato_subaccount_page_id,
+)
 from .models import MastodonAppRegistration, PlatformVisibility, SocialAccount
 from .oauth_aliases import from_url_slug, redirect_uri_from_request, to_url_slug
 
@@ -735,6 +740,54 @@ def disconnect(request, workspace_id, account_id):
         return render(request, "social_accounts/partials/_empty.html")
 
     return redirect("social_accounts:list", workspace_id=workspace_id)
+
+
+# ------------------------------------------------------------------
+# Blotato import (multi-platform publishing add-on)
+# ------------------------------------------------------------------
+
+# Blotato target platforms we support importing (MVP).
+_BLOTATO_SUPPORTED = {"instagram", "facebook", "threads", "bluesky", "linkedin"}
+
+
+@login_required
+def blotato_import(request, workspace_id):
+    """List the workspace's Blotato-connected accounts and import selected ones."""
+    workspace = get_object_or_404(Workspace, id=workspace_id)
+    org_id = workspace.organization_id
+    items = blotato_list_accounts(org_id)
+    supported = [a for a in items if a.get("platform") in _BLOTATO_SUPPORTED]
+
+    if request.method == "POST":
+        chosen = set(request.POST.getlist("account_id"))
+        created = 0
+        for a in supported:
+            if str(a.get("id")) not in chosen:
+                continue
+            target = a["platform"]
+            cfg = {"blotato_account_id": str(a["id"])}
+            if target == "facebook":
+                page_id = blotato_subaccount_page_id(org_id, a["id"])
+                if page_id:
+                    cfg["page_id"] = page_id
+            SocialAccount.objects.update_or_create(
+                workspace=workspace, platform=f"blotato_{target}",
+                account_platform_id=str(a["id"]),
+                defaults={
+                    "account_name": a.get("fullname", ""),
+                    "account_handle": a.get("username", ""),
+                    "connection_status": SocialAccount.ConnectionStatus.CONNECTED,
+                    "provider_config": cfg,
+                },
+            )
+            created += 1
+        messages.success(request, f"Imported {created} Blotato account(s).")
+        return redirect("social_accounts:list", workspace_id=workspace.id)
+
+    return render(request, "social_accounts/blotato_import.html", {
+        "workspace_id": workspace.id,
+        "accounts": supported,
+    })
 
 
 # ------------------------------------------------------------------
