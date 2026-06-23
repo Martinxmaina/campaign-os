@@ -122,4 +122,10 @@ BEAT_SCHEDULE: dict = {
         "task": "apps.outreach.tasks.run_no_reply_followups",
         "schedule": schedule(run_every=86400),  # daily
     },
+    "blotato-reconcile": {
+        # Finalize Blotato posts parked at 'publishing' (async publish that
+        # didn't complete within the inline poll window). Never re-submits.
+        "task": "apps.publisher.tasks.reconcile_blotato_posts",
+        "schedule": schedule(run_every=60),
+    },
 }
