@@ -102,6 +102,12 @@ def test_post_publish_consumes_token_and_schedules(client, workspace, django_use
 
     assert resp.status_code in (200, 302)
 
+    # Success is shown — the template renders the success notice (and hides the
+    # Publish form) only when the view sets success=True in the context.
+    content = resp.content.decode()
+    assert "notice success" in content
+    assert "The post is being published" in content
+
     # schedule_now ran — scheduled_at is set.
     post.refresh_from_db()
     assert post.scheduled_at is not None
@@ -120,14 +126,14 @@ def test_post_publish_consumes_token_and_schedules(client, workspace, django_use
 def test_publish_token_does_not_bypass_gate(client, workspace, django_user_model, social_account):
     """The tokenized publish path schedules the post but the gate stays authoritative.
 
-    A PlatformPost with no gate_id and gate_bypassed=False is scheduled by the
-    publish-token POST, but PublishEngine._dispatch_to_provider must still raise
-    GateBlockError and never mark it published.
-
-    The child starts in ``approved`` — the genuine "reviewer approved, ready to
-    publish" state the publish-by-email flow produces, and the only state the
-    publish-token path is reached from. ``schedule_now`` moves it to
-    ``scheduled``; the gate then blocks it for lacking a gate_id.
+    Per the spec, the child PlatformPost starts in ``pending_review`` with no
+    gate_id and gate_bypassed=False. The publish-by-email flow only mints a
+    PUBLISH token once the reviewer has approved, so before the publish-token
+    POST is reached the child has moved ``pending_review`` -> ``approved`` (the
+    genuine "reviewer approved, ready to publish" state and the only state
+    ``schedule_now`` can take to ``scheduled``). ``schedule_now`` then moves it
+    to ``scheduled``; the gate must still block it for lacking a gate_id and
+    never let it reach ``published``.
     """
     user = django_user_model.objects.create_user(
         email="pubC@example.com", password="x", name="Publisher C"
@@ -137,10 +143,15 @@ def test_publish_token_does_not_bypass_gate(client, workspace, django_user_model
     pp = PlatformPost.objects.create(
         post=post,
         social_account=account,
-        status=PlatformPost.Status.APPROVED,
+        status=PlatformPost.Status.PENDING_REVIEW,
         gate_bypassed=False,
     )
     assert pp.gate_id is None
+
+    # The PUBLISH token is only minted after the reviewer approves; reflect that
+    # approval the token embodies (pending_review -> approved) before publish.
+    pp.transition_to(PlatformPost.Status.APPROVED)
+    pp.save(update_fields=["status", "updated_at"])
 
     resp = client.post(_publish_url(workspace.id, tok.token))
     assert resp.status_code in (200, 302)
