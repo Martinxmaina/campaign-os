@@ -8,6 +8,8 @@ correctly.  Pure function; no DB writes.
 
 from __future__ import annotations
 
+import html as _html
+
 
 # Per-platform display metadata: (label, accent_color_hex)
 _PLATFORM_STYLES: dict[str, tuple[str, str]] = {
@@ -47,32 +49,25 @@ def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url:
     """Render a single inline-styled card as an HTML string."""
     thumb_html = ""
     if thumbnail_url:
+        # quote=True escapes " so a crafted URL cannot break out of the src attribute.
+        safe_url = _html.escape(thumbnail_url, quote=True)
         thumb_html = (
             f'<div style="margin-bottom:8px;">'
-            f'<img src="{thumbnail_url}" alt="media" '
+            f'<img src="{safe_url}" alt="media" '
             f'style="max-width:100%;border-radius:4px;display:block;" /></div>'
         )
 
     handle_html = ""
     if handle:
-        safe_handle = (
-            handle
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-        )
+        # quote=True escapes " so a crafted handle cannot break an attribute.
+        safe_handle = _html.escape(handle, quote=True)
         handle_html = (
             f'<div style="font-size:12px;color:#888888;margin-bottom:8px;">'
             f'{safe_handle}</div>'
         )
 
-    # Escape caption for HTML display
-    safe_caption = (
-        caption
-        .replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-    )
+    # Escape caption for HTML text-node display (quote=True is belt-and-suspenders).
+    safe_caption = _html.escape(caption, quote=True)
 
     return (
         f'<div style="font-family:sans-serif;border:1px solid #e5e7eb;border-radius:8px;'
@@ -97,6 +92,18 @@ def render_cards(post) -> str:
     """
     parts: list[str] = []
 
+    # Resolve the thumbnail ONCE before the per-PlatformPost loop to avoid N+1 queries.
+    thumbnail_url: str | None = None
+    first_attachment = (
+        post.media_attachments.select_related("media_asset").order_by("position").first()
+    )
+    if first_attachment:
+        asset = first_attachment.media_asset
+        if asset.thumbnail:
+            thumbnail_url = asset.thumbnail.url
+        elif asset.file:
+            thumbnail_url = asset.file.url
+
     for pp in post.platform_posts.select_related("social_account").all():
         sa = pp.social_account
         platform = sa.platform if sa else ""
@@ -109,16 +116,6 @@ def render_cards(post) -> str:
 
         # Caption: use platform-specific override if set, else base post caption
         caption = pp.platform_specific_caption if pp.platform_specific_caption else post.caption
-
-        # First media thumbnail: use the first PostMedia attachment on the post.
-        thumbnail_url: str | None = None
-        first_attachment = post.media_attachments.select_related("media_asset").order_by("position").first()
-        if first_attachment:
-            asset = first_attachment.media_asset
-            if asset.thumbnail:
-                thumbnail_url = asset.thumbnail.url
-            elif asset.file:
-                thumbnail_url = asset.file.url
 
         parts.append(_card_html(label, color, handle, caption, thumbnail_url))
 
