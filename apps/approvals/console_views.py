@@ -72,5 +72,10 @@ def approval_decide(request, approval_id):
     elif decision == "reject":
         post.review_state = Post.ReviewState.REJECTED
         ApprovalAction.objects.create(post=post, user=request.user, action=ApprovalAction.ActionType.REJECTED)
+    elif decision == "send":
+        from apps.approvals.send_actions import send_for_publish
+
+        send_for_publish(post, request.user)
+        return redirect("console:approvals")
     post.save(update_fields=["review_state", "updated_at"])
     return redirect("console:approvals")

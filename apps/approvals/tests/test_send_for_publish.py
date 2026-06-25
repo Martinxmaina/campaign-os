@@ -82,3 +82,19 @@ def test_send_for_publish_email_failure_is_nonfatal(workspace, reviewer, monkeyp
     post.refresh_from_db()
     assert post.review_state == "approved"
     assert post.scheduled_at is not None
+
+
+from django.urls import reverse
+
+
+@pytest.mark.django_db
+def test_send_decision_endpoint(client, workspace, reviewer):
+    post = Post.objects.create(workspace=workspace, title="P", caption="c",
+        review_state="pending", review_assignee=reviewer)
+    url = reverse("console:approval-decide", args=[post.id])
+    resp = client.post(url, {"decision": "send"})
+    assert resp.status_code in (200, 302)
+    post.refresh_from_db()
+    assert post.review_state == "approved"
+    assert post.scheduled_at is not None
+    assert len(mail.outbox) == 1
