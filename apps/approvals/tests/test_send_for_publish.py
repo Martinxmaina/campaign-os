@@ -1,6 +1,10 @@
 # apps/approvals/tests/test_send_for_publish.py
 import pytest
+from django.core import mail
 from django.urls import reverse
+
+from apps.approvals.models import ApprovalAction
+from apps.composer.models import Post
 from apps.settings_manager.helpers import get_setting
 
 
@@ -14,14 +18,32 @@ def reviewer(client, org_owner, workspace):
     return org_owner
 
 
+@pytest.fixture
+def social_account(db, workspace):
+    """A CONNECTED mock SocialAccount tied to ``workspace``.
+
+    Mirrors the SocialAccount construction used by
+    ``apps/publisher/tests/test_joseph_gate.py`` and the root
+    ``due_platform_post_factory`` so PlatformPosts built in these tests sit
+    behind a real provider account (the publish engine's
+    ``_dispatch_to_provider`` and ``email_post_copy`` both read
+    ``pp.social_account``).
+    """
+    from apps.social_accounts.models import SocialAccount
+
+    return SocialAccount.objects.create(
+        workspace=workspace,
+        platform="mock",
+        account_platform_id="acct-approvals-mock",
+        account_name="mock approvals",
+        connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+    )
+
+
 @pytest.mark.django_db
 def test_review_copy_email_default(workspace):
     # Falls back to the app default when no workspace/org override exists.
     assert get_setting(workspace.id, "review.copy_email") == "martin.maina@africacen.org"
-
-
-from django.core import mail
-from apps.composer.models import Post
 
 
 @pytest.mark.django_db
@@ -44,9 +66,6 @@ def test_email_post_copy_no_address_is_noop(workspace, reviewer):
         review_state="pending", review_assignee=reviewer)
     assert email_post_copy(post, "", reviewer) is False
     assert len(mail.outbox) == 0
-
-
-from apps.approvals.models import ApprovalAction
 
 
 @pytest.mark.django_db
@@ -118,19 +137,38 @@ def test_non_assignee_cannot_send(client, organization, workspace):
     post.refresh_from_db()
     assert post.review_state == "pending"   # state unchanged
     assert post.scheduled_at is None        # never scheduled
+    assert len(mail.outbox) == 0            # no copy email leaked
 
 
 @pytest.mark.django_db
-def test_gate_still_blocks_after_send(workspace, reviewer):
-    """send_for_publish approves and schedules the post, but the gate remains
-    authoritative: a platform post with no gate_id would still be blocked at
-    publish time (the send path does not bypass the gate)."""
+def test_gate_still_blocks_after_send(workspace, reviewer, social_account):
+    """Send approves + schedules the platform post, but the compliance gate at
+    the provider chokepoint remains authoritative: an AI-drafted PlatformPost
+    with no ``gate_id`` (and ``gate_bypassed=False``) is still blocked at
+    publish time — Send does NOT bypass the gate.
+
+    The gate is exercised exactly the way ``apps/publisher/tests/test_joseph_gate.py``
+    drives it: instantiate the engine with ``PublishEngine.__new__`` and call
+    ``_dispatch_to_provider`` directly (no Celery, no network, no live provider
+    credentials). For an unapproved post the engine raises ``GateBlockError``
+    BEFORE it ever resolves credentials or reaches a provider.
+    """
+    from apps.composer.models import PlatformPost
     from apps.approvals.send_actions import send_for_publish
-    from apps.publisher.engine import PublishEngine
+    from apps.publisher.engine import GateBlockError, PublishEngine
 
     post = Post.objects.create(workspace=workspace, title="P",
         caption="Gate must remain.", review_state="pending",
         review_assignee=reviewer)
+    pp = PlatformPost.objects.create(
+        post=post,
+        social_account=social_account,
+        status=PlatformPost.Status.PENDING_REVIEW,
+    )
+    # Sanity: this is an AI-path post the gate is meant to block — no gate_id,
+    # gate not bypassed. (gate_bypassed=True would be the human-authored path.)
+    assert pp.gate_id is None
+    assert pp.gate_bypassed is False
 
     send_for_publish(post, reviewer)
 
@@ -138,11 +176,22 @@ def test_gate_still_blocks_after_send(workspace, reviewer):
     assert post.review_state == "approved"
     assert post.scheduled_at is not None
 
-    # Confirm gate is still authoritative: no gate_id -> engine reports failure.
-    for pp in post.platform_posts.all():
-        assert not pp.gate_bypassed
-        assert pp.gate_id is None
-        assert PublishEngine()._gate_failure_reason(pp) == "missing gate_id"
+    # Send scheduled the platform post (pending_review -> approved -> scheduled).
+    pp.refresh_from_db()
+    assert pp.status == "scheduled"
+
+    # The gate is authoritative: invoking the engine's dispatch chokepoint on
+    # the scheduled-but-unapproved post raises GateBlockError and never reaches
+    # a provider. This assertion ALWAYS executes (no empty loop).
+    engine = PublishEngine.__new__(PublishEngine)
+    with pytest.raises(GateBlockError):
+        engine._dispatch_to_provider(pp)
+
+    # The block is terminal: the post was failed, never published.
+    pp.refresh_from_db()
+    assert pp.status != "published"
+    assert pp.status == "failed"
+    assert "GATE BLOCK" in (pp.publish_error or "")
 
 
 @pytest.mark.django_db
