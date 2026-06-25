@@ -1,0 +1,37 @@
+<div style="font-family:Georgia,serif;color:#1c1917;max-width:640px;margin:0 auto">
+  <p style="color:#1c1917;font-size:15px;margin:0 0 4px;font-weight:600">
+    Your post has been approved.
+  </p>
+  <p style="color:#78716c;font-size:13px;margin:0 0 16px">
+    Click the button below to publish it through the platform.
+  </p>
+
+  {% if cards %}
+  <div style="margin:0 0 20px">
+    {{ cards|safe }}
+  </div>
+  {% else %}
+  <div style="border:1px solid #e7e5e4;border-radius:6px;padding:16px;margin:0 0 20px">
+    <h2 style="font-size:17px;margin:0 0 8px;color:#1c1917">{{ post.title|default:"(untitled)" }}</h2>
+    <p style="font-size:14px;color:#44403c;white-space:pre-wrap;margin:0">{{ post.caption }}</p>
+  </div>
+  {% endif %}
+
+  <table cellpadding="0" cellspacing="0" border="0" style="margin:0 0 20px">
+    <tr>
+      <td>
+        <a href="{{ publish_url }}"
+           style="display:inline-block;background:#1d4ed8;color:#ffffff;font-family:Arial,sans-serif;font-size:14px;font-weight:600;text-decoration:none;padding:10px 24px;border-radius:6px">
+          Publish Now
+        </a>
+      </td>
+    </tr>
+  </table>
+
+  <p style="color:#78716c;font-size:12px;margin:0 0 4px">
+    This link expires in 7 days and can only be used once.
+  </p>
+  <p style="color:#78716c;font-size:12px;margin:0">
+    The post will still pass through the content gate before publishing.
+  </p>
+</div>
