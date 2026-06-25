@@ -1,5 +1,6 @@
 # apps/approvals/tests/test_send_for_publish.py
 import pytest
+from django.urls import reverse
 from apps.settings_manager.helpers import get_setting
 
 
@@ -84,20 +85,64 @@ def test_send_for_publish_email_failure_is_nonfatal(workspace, reviewer, monkeyp
     assert post.scheduled_at is not None
 
 
-from django.urls import reverse
+@pytest.mark.django_db
+def test_non_assignee_cannot_send(client, organization, workspace):
+    """A non-admin workspace member must not be able to POST decision=send
+    on a post assigned to someone else (mirrors the existing approve guard)."""
+    from django.utils import timezone
+    from apps.accounts.models import User
+    from apps.members.models import OrgMembership, WorkspaceMembership
+
+    assignee = User.objects.create_user(
+        email="assignee2@example.com", password="x", name="Assignee",
+        tos_accepted_at=timezone.now())
+    WorkspaceMembership.objects.create(user=assignee, workspace=workspace, workspace_role="member")
+
+    attacker = User.objects.create_user(
+        email="attacker2@example.com", password="x", name="Attacker",
+        tos_accepted_at=timezone.now())
+    OrgMembership.objects.create(user=attacker, organization=organization,
+                                 org_role=OrgMembership.OrgRole.MEMBER)
+    WorkspaceMembership.objects.create(user=attacker, workspace=workspace, workspace_role="member")
+    attacker.last_workspace_id = workspace.id
+    attacker.save(update_fields=["last_workspace_id"])
+
+    post = Post.objects.create(workspace=workspace, title="NotYours", caption="c",
+        review_assignee=assignee, review_state="pending")
+
+    client.force_login(attacker)
+    url = reverse("console:approval-decide", args=[post.id])
+    resp = client.post(url, {"decision": "send"})
+
+    assert resp.status_code == 403
+    post.refresh_from_db()
+    assert post.review_state == "pending"   # state unchanged
+    assert post.scheduled_at is None        # never scheduled
 
 
 @pytest.mark.django_db
-def test_send_decision_endpoint(client, workspace, reviewer):
-    post = Post.objects.create(workspace=workspace, title="P", caption="c",
-        review_state="pending", review_assignee=reviewer)
-    url = reverse("console:approval-decide", args=[post.id])
-    resp = client.post(url, {"decision": "send"})
-    assert resp.status_code in (200, 302)
+def test_gate_still_blocks_after_send(workspace, reviewer):
+    """send_for_publish approves and schedules the post, but the gate remains
+    authoritative: a platform post with no gate_id would still be blocked at
+    publish time (the send path does not bypass the gate)."""
+    from apps.approvals.send_actions import send_for_publish
+    from apps.publisher.engine import PublishEngine
+
+    post = Post.objects.create(workspace=workspace, title="P",
+        caption="Gate must remain.", review_state="pending",
+        review_assignee=reviewer)
+
+    send_for_publish(post, reviewer)
+
     post.refresh_from_db()
     assert post.review_state == "approved"
     assert post.scheduled_at is not None
-    assert len(mail.outbox) == 1
+
+    # Confirm gate is still authoritative: no gate_id -> engine reports failure.
+    for pp in post.platform_posts.all():
+        assert not pp.gate_bypassed
+        assert pp.gate_id is None
+        assert PublishEngine()._gate_failure_reason(pp) == "missing gate_id"
 
 
 @pytest.mark.django_db
