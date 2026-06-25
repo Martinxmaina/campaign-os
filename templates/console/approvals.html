@@ -16,6 +16,10 @@
             <input type="hidden" name="decision" value="approve">
             <button class="rounded bg-green-600 text-white px-3 py-1 text-xs">Approve</button></form>
           <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
+            <input type="hidden" name="decision" value="send">
+            <button class="rounded text-white px-3 py-1 text-xs" style="background-color: var(--primary)"
+                    title="Approve, email a copy, and publish">Send</button></form>
+          <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
             <input type="hidden" name="decision" value="changes">
             <button class="rounded bg-amber-500 text-white px-3 py-1 text-xs">Request changes</button></form>
           <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}

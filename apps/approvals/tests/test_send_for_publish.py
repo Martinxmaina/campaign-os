@@ -98,3 +98,12 @@ def test_send_decision_endpoint(client, workspace, reviewer):
     assert post.review_state == "approved"
     assert post.scheduled_at is not None
     assert len(mail.outbox) == 1
+
+
+@pytest.mark.django_db
+def test_send_button_renders_in_queue(client, workspace, reviewer):
+    Post.objects.create(workspace=workspace, title="Mine", caption="c",
+        review_assignee=reviewer, review_state="pending")
+    resp = client.get(reverse("console:approvals"))
+    assert resp.status_code == 200
+    assert b'value="send"' in resp.content
