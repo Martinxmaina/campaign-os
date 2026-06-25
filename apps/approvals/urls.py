@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import review_views, views
 
 app_name = "approvals"
 
@@ -14,4 +14,6 @@ urlpatterns = [
     path("approvals/<uuid:post_id>/comments/<uuid:comment_id>/edit/", views.edit_comment, name="edit_comment"),
     path("approvals/<uuid:post_id>/comments/<uuid:comment_id>/delete/", views.delete_comment, name="delete_comment"),
     path("approvals/<uuid:post_id>/versions/", views.version_diff, name="version_diff"),
+    # Public review routes (approval-by-email) — full implementation in Task 5.
+    path("review/<str:token>/", review_views.review, name="review"),
 ]
