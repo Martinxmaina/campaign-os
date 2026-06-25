@@ -19,6 +19,6 @@ urlpatterns = [
     # mounts this urlconf at ``workspace/<uuid:workspace_id>/``.
     # IMPORTANT: publish route must precede the generic review route so
     # ``review/publish/<token>/`` is not captured by ``review/<token>/``.
-    path("review/publish/<str:token>/", review_views.review_publish_placeholder, name="review_publish"),
+    path("review/publish/<str:token>/", review_views.publish, name="review_publish"),
     path("review/<str:token>/", review_views.review, name="review"),
 ]

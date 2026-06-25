@@ -206,12 +206,50 @@ def review(request, workspace_id, token):
 
 
 # ---------------------------------------------------------------------------
-# Publish-by-token placeholder (Task 6 — stub so reverse("approvals:review_publish") resolves)
+# Publish-by-token view (Task 6)
 # ---------------------------------------------------------------------------
 
 @csrf_protect
-def review_publish_placeholder(request, workspace_id, token):
-    """Publish-by-token view — implemented in Task 6.  Stub for URL resolution."""
-    from django.http import HttpResponse
+def publish(request, workspace_id, token):
+    """Public publish-by-token page.
 
-    return HttpResponse("publish page — Task 6 not yet implemented", status=200)
+    GET shows a confirm page (with the platform cards). POST consumes the
+    single-use PUBLISH token and hands the post to ``schedule_now`` — which
+    only schedules; the authoritative compliance gate still runs downstream at
+    ``apps/publisher/engine._dispatch_to_provider``, so this path can never
+    bypass the gate.
+    """
+    tok = tok_mod.resolve_token(token, ActionToken.Purpose.PUBLISH)
+    if tok is None:
+        return _render_invalid(request)
+
+    assignment = tok.assignment
+    post = assignment.post
+    cards_html = render_cards(post)
+
+    if request.method == "GET":
+        return render(request, "approvals/public/publish.html", {
+            "post": post,
+            "assignment": assignment,
+            "cards": cards_html,
+            "token": token,
+        })
+
+    # POST — consume the token and schedule the post.
+    from apps.composer.views import schedule_now
+
+    with transaction.atomic():
+        # Re-resolve inside the transaction so a replay can't double-schedule.
+        tok_live = tok_mod.resolve_token(token, ActionToken.Purpose.PUBLISH)
+        if tok_live is None:
+            return _render_invalid(request)
+        tok_mod.consume(tok_live)
+        schedule_now(post)
+
+    return render(request, "approvals/public/publish.html", {
+        "post": post,
+        "assignment": assignment,
+        "cards": cards_html,
+        "token": token,
+        "success": True,
+    })
