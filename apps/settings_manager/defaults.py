@@ -49,6 +49,9 @@ APP_DEFAULTS = {
     "infra.max_concurrent_publish_jobs": 10,
     "infra.recurrence_generation_interval": "daily",
     "infra.cleanup_job_schedule": "daily_03:00_utc",
+    # Review → one-click Send: where the emailed copy goes (override per
+    # workspace/org via the settings cascade).
+    "review.copy_email": "martin.maina@africacen.org",
     # Content intake — Google Sheets sync
     "intake.sheet_id": "",
     "intake.sheet_range": "Sheet1!A:P",
