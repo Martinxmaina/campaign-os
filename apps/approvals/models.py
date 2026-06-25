@@ -138,3 +138,26 @@ class ApprovalReminder(models.Model):
 
     def __str__(self):
         return f"Reminder({self.stage}, count={self.reminder_count}) for {self.post_id}"
+
+
+class ReviewAssignment(models.Model):
+    class Status(models.TextChoices):
+        PENDING = "pending"; APPROVED = "approved"; DECLINED = "declined"; EXPIRED = "expired"
+    post = models.ForeignKey("composer.Post", on_delete=models.CASCADE, related_name="review_assignments")
+    assigned_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    reviewer_email = models.EmailField()
+    reviewer_name = models.CharField(max_length=200, blank=True, default="")
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    reason = models.TextField(blank=True, default="")
+    decided_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class ActionToken(models.Model):
+    class Purpose(models.TextChoices):
+        REVIEW = "review"; PUBLISH = "publish"
+    assignment = models.ForeignKey(ReviewAssignment, on_delete=models.CASCADE, related_name="tokens")
+    purpose = models.CharField(max_length=10, choices=Purpose.choices)
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
