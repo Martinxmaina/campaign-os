@@ -547,6 +547,29 @@ def _platform_status_map(post):
     return {str(pp.id): pp.status for pp in post.platform_posts.all()}
 
 
+def schedule_now(post):
+    """Schedule *post* to publish effective-now and hand it to the Celery
+    publish chain. Sets ``scheduled_at`` on the post and its publishable
+    children, transitions those children to ``scheduled``, and propagates the
+    time. Idempotent: children already scheduled / publishing / published are
+    left untouched. The compliance gate still runs downstream at
+    ``apps/publisher/engine._dispatch_to_provider`` — this only schedules.
+    """
+    now_dt = timezone.now()
+    post.scheduled_at = now_dt
+    post.save(update_fields=["scheduled_at", "updated_at"])
+    publishable = post.platform_posts.exclude(
+        status__in=[
+            PlatformPost.Status.SCHEDULED,
+            PlatformPost.Status.PUBLISHING,
+            PlatformPost.Status.PUBLISHED,
+        ]
+    )
+    only_ids = [pp.id for pp in publishable]
+    _transition_post_children(post, "scheduled", only=only_ids)
+    post.platform_posts.filter(status=PlatformPost.Status.SCHEDULED).update(scheduled_at=now_dt)
+
+
 @login_required
 @require_permission("create_posts")
 @require_POST
@@ -904,27 +927,7 @@ def publish_post(request, workspace_id, post_id):
             "be its author with direct-publish permission."
         )
 
-    now_dt = timezone.now()
-    # Schedule effective-now so _get_due_platform_posts() picks it up on the
-    # next poll. Set both the Post default and every child's per-platform time
-    # so the Coalesce fallback resolves to <= now regardless of which is read.
-    post.scheduled_at = now_dt
-    post.save(update_fields=["scheduled_at", "updated_at"])
-    # Transition children toward 'scheduled' (approved/draft go direct; other
-    # states hop via draft) — but never disturb children already mid-publish or
-    # published (idempotent / no double-publish).
-    publishable = post.platform_posts.exclude(
-        status__in=[
-            PlatformPost.Status.SCHEDULED,
-            PlatformPost.Status.PUBLISHING,
-            PlatformPost.Status.PUBLISHED,
-        ]
-    )
-    only_ids = [pp.id for pp in publishable]
-    _transition_post_children(post, "scheduled", only=only_ids)
-    # Propagate the effective-now time onto every child that is now scheduled
-    # (leave already-published children untouched).
-    post.platform_posts.filter(status=PlatformPost.Status.SCHEDULED).update(scheduled_at=now_dt)
+    schedule_now(post)
 
     if request.htmx:
         return HttpResponse(
