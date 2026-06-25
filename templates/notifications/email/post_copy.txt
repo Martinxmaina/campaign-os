@@ -1,0 +1,8 @@
+A post was approved and sent to publish.
+
+Title: {{ post.title|default:"(untitled)" }}
+Sent by: {{ reviewer.display_name|default:reviewer.email }}
+Platforms: {% for p in platforms %}{{ p }}{% if not forloop.last %}, {% endif %}{% empty %}(none){% endfor %}
+
+--- Caption ---
+{{ post.caption }}

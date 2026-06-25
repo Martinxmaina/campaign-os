@@ -1,0 +1,9 @@
+<div style="font-family:Georgia,serif;color:#1c1917;max-width:640px">
+  <p style="color:#78716c;font-size:13px;margin:0 0 12px">A post was approved and sent to publish.</p>
+  <h2 style="font-size:18px;margin:0 0 4px">{{ post.title|default:"(untitled)" }}</h2>
+  <p style="color:#78716c;font-size:13px;margin:0 0 2px">Sent by {{ reviewer.display_name|default:reviewer.email }}</p>
+  <p style="color:#78716c;font-size:13px;margin:0 0 16px">
+    Platforms: {% for p in platforms %}{{ p }}{% if not forloop.last %}, {% endif %}{% empty %}(none){% endfor %}
+  </p>
+  <div style="white-space:pre-wrap;border-top:1px solid #e7e5e4;padding-top:12px;font-size:15px;line-height:1.6">{{ post.caption }}</div>
+</div>
