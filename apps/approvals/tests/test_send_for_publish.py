@@ -43,3 +43,42 @@ def test_email_post_copy_no_address_is_noop(workspace, reviewer):
         review_state="pending", review_assignee=reviewer)
     assert email_post_copy(post, "", reviewer) is False
     assert len(mail.outbox) == 0
+
+
+from apps.approvals.models import ApprovalAction
+
+
+@pytest.mark.django_db
+def test_send_for_publish_approves_emails_and_schedules(workspace, reviewer):
+    from apps.approvals.send_actions import send_for_publish
+    post = Post.objects.create(workspace=workspace, title="P",
+        caption="Ship it across the corridor.", review_state="pending",
+        review_assignee=reviewer)
+
+    send_for_publish(post, reviewer)
+
+    post.refresh_from_db()
+    assert post.review_state == "approved"                      # approved
+    assert post.scheduled_at is not None                        # scheduled to publish
+    assert ApprovalAction.objects.filter(post=post, action="approved").exists()
+    assert len(mail.outbox) == 1                                # one copy email
+    assert mail.outbox[0].to == ["martin.maina@africacen.org"]  # to the default address
+
+
+@pytest.mark.django_db
+def test_send_for_publish_email_failure_is_nonfatal(workspace, reviewer, monkeypatch):
+    """A broken mail backend must not stop approve + publish."""
+    import apps.approvals.send_actions as sa
+    from apps.approvals.send_actions import send_for_publish
+    post = Post.objects.create(workspace=workspace, title="P", caption="c",
+        review_state="pending", review_assignee=reviewer)
+
+    def boom(*a, **k):
+        raise RuntimeError("smtp down")
+    monkeypatch.setattr(sa, "email_post_copy", boom)
+
+    send_for_publish(post, reviewer)  # must not raise
+
+    post.refresh_from_db()
+    assert post.review_state == "approved"
+    assert post.scheduled_at is not None
