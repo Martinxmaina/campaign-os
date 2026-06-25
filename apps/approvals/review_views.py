@@ -1,12 +1,214 @@
-"""Public review views for approval-by-email (Task 5 implementation).
+"""Public review views for approval-by-email (Task 5 + Task 6).
 
-This module is a stub — routes are registered here so that
-``reverse("approvals:review", ...)`` resolves in Task 4's
-``assignment_service``.  The full implementation lives in Task 5.
+These views are PUBLIC — no ``login_required``.  They are protected by
+single-use signed tokens (``ActionToken``).  CSRF protection is retained
+(the ``@csrf_protect`` decorator) to guard against cross-site form
+submissions.
+
+URL parameters:
+    workspace_id  — UUID; comes from the parent URL pattern
+                    ``workspace/<uuid:workspace_id>/``.  Not used for
+                    access-control (the token is the secret); included so
+                    the URL namespace resolves correctly.
+    token         — the raw ``ActionToken.token`` value.
 """
-from django.http import HttpResponse
+from __future__ import annotations
+
+from django.db import transaction
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_protect
+
+from apps.approvals import emailer, tokens as tok_mod
+from apps.approvals.assignment_service import _abs
+from apps.approvals.models import ActionToken, ApprovalAction, ReviewAssignment
+from apps.approvals.platform_cards import render_cards
+from apps.composer.models import Post
+from apps.settings_manager.helpers import get_setting
+from django.template.loader import render_to_string
+from django.urls import reverse
 
 
-def review(request, token):
-    """Public review page — implemented in Task 5."""
-    return HttpResponse("review page placeholder", status=200)
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+def _publisher_email(assignment):
+    """Return the best email address to notify the publisher.
+
+    Preference order:
+    1. ``assigned_by.email`` (the User who initiated the review)
+    2. workspace setting ``review.copy_email``
+    """
+    if assignment.assigned_by_id and assignment.assigned_by.email:
+        return assignment.assigned_by.email
+    post = assignment.post
+    return get_setting(post.workspace_id, "review.copy_email") or ""
+
+
+def _render_invalid(request):
+    """Render the 'link no longer valid' page."""
+    return render(request, "approvals/public/invalid.html", {}, status=200)
+
+
+# ---------------------------------------------------------------------------
+# Public review view (Task 5)
+# ---------------------------------------------------------------------------
+
+@csrf_protect
+def review(request, workspace_id, token):
+    """Public review page — GET shows the post for review; POST records the decision."""
+    tok = tok_mod.resolve_token(token, ActionToken.Purpose.REVIEW)
+    if tok is None:
+        return _render_invalid(request)
+
+    assignment = tok.assignment
+    post = assignment.post
+    cards_html = render_cards(post)
+
+    if request.method == "GET":
+        return render(request, "approvals/public/review.html", {
+            "post": post,
+            "assignment": assignment,
+            "cards": cards_html,
+            "token": token,
+        })
+
+    # POST — read decision
+    decision = request.POST.get("decision", "").strip().lower()
+    reason = request.POST.get("reason", "").strip()
+
+    if decision == "approve":
+        with transaction.atomic():
+            # Re-check token inside the transaction (idempotency guard)
+            tok_live = tok_mod.resolve_token(token, ActionToken.Purpose.REVIEW)
+            if tok_live is None:
+                return _render_invalid(request)
+
+            # Record the approval action
+            ApprovalAction.objects.create(
+                post=post,
+                user=assignment.assigned_by,
+                action=ApprovalAction.ActionType.APPROVED,
+                comment=reason,
+            )
+
+            # Update assignment + post state
+            assignment.status = ReviewAssignment.Status.APPROVED
+            assignment.save(update_fields=["status"])
+
+            post.review_state = Post.ReviewState.APPROVED
+            post.save(update_fields=["review_state", "updated_at"])
+
+            # Consume the REVIEW token
+            tok_mod.consume(tok_live)
+
+            # Mint a PUBLISH token
+            ttl = get_setting(post.workspace_id, "review.token_ttl_days") or 7
+            publish_tok = tok_mod.mint_token(
+                assignment, ActionToken.Purpose.PUBLISH, ttl_days=int(ttl)
+            )
+
+        # Email the publisher (outside the transaction so failures don't rollback)
+        publish_url = _abs(
+            reverse(
+                "approvals:review_publish",
+                kwargs={"workspace_id": post.workspace_id, "token": publish_tok.token},
+            )
+        )
+        html = render_to_string(
+            "approvals/email/publish.html",
+            {"post": post, "cards": cards_html, "publish_url": publish_url},
+        )
+        publisher_email = _publisher_email(assignment)
+        if publisher_email:
+            emailer.send_email(
+                publisher_email,
+                f"Approved and ready to publish: {post.title or post.caption_snippet}",
+                html,
+            )
+
+        return render(request, "approvals/public/review.html", {
+            "post": post,
+            "assignment": assignment,
+            "cards": cards_html,
+            "token": token,
+            "success": "approved",
+        })
+
+    elif decision == "decline":
+        if not reason:
+            # Re-render with error — no state change
+            return render(request, "approvals/public/review.html", {
+                "post": post,
+                "assignment": assignment,
+                "cards": cards_html,
+                "token": token,
+                "error": "A reason is required when declining.",
+            })
+
+        with transaction.atomic():
+            tok_live = tok_mod.resolve_token(token, ActionToken.Purpose.REVIEW)
+            if tok_live is None:
+                return _render_invalid(request)
+
+            # Record the changes-requested action
+            ApprovalAction.objects.create(
+                post=post,
+                user=assignment.assigned_by,
+                action=ApprovalAction.ActionType.CHANGES_REQUESTED,
+                comment=reason,
+            )
+
+            # Update assignment + post state
+            assignment.status = ReviewAssignment.Status.DECLINED
+            assignment.reason = reason
+            assignment.save(update_fields=["status", "reason"])
+
+            post.review_state = Post.ReviewState.CHANGES_REQUESTED
+            post.save(update_fields=["review_state", "updated_at"])
+
+            # Consume the token
+            tok_mod.consume(tok_live)
+
+        # Email the publisher
+        declined_html = render_to_string(
+            "approvals/email/declined.html",
+            {"post": post, "reason": reason},
+        )
+        publisher_email = _publisher_email(assignment)
+        if publisher_email:
+            emailer.send_email(
+                publisher_email,
+                f"Declined: {post.title or post.caption_snippet}",
+                declined_html,
+            )
+
+        return render(request, "approvals/public/review.html", {
+            "post": post,
+            "assignment": assignment,
+            "cards": cards_html,
+            "token": token,
+            "success": "declined",
+        })
+
+    else:
+        # Unknown decision — re-render
+        return render(request, "approvals/public/review.html", {
+            "post": post,
+            "assignment": assignment,
+            "cards": cards_html,
+            "token": token,
+            "error": "Unknown decision.",
+        })
+
+
+# ---------------------------------------------------------------------------
+# Publish-by-token placeholder (Task 6 — stub so reverse("approvals:review_publish") resolves)
+# ---------------------------------------------------------------------------
+
+@csrf_protect
+def review_publish_placeholder(request, workspace_id, token):
+    """Publish-by-token view — implemented in Task 6.  Stub for URL resolution."""
+    from django.http import HttpResponse
+
+    return HttpResponse("publish page — Task 6 not yet implemented", status=200)

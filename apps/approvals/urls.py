@@ -14,6 +14,11 @@ urlpatterns = [
     path("approvals/<uuid:post_id>/comments/<uuid:comment_id>/edit/", views.edit_comment, name="edit_comment"),
     path("approvals/<uuid:post_id>/comments/<uuid:comment_id>/delete/", views.delete_comment, name="delete_comment"),
     path("approvals/<uuid:post_id>/versions/", views.version_diff, name="version_diff"),
-    # Public review routes (approval-by-email) — full implementation in Task 5.
+    # Public review routes (approval-by-email, Tasks 5 + 6).
+    # The workspace_id segment is provided by the parent URL conf which
+    # mounts this urlconf at ``workspace/<uuid:workspace_id>/``.
+    # IMPORTANT: publish route must precede the generic review route so
+    # ``review/publish/<token>/`` is not captured by ``review/<token>/``.
+    path("review/publish/<str:token>/", review_views.review_publish_placeholder, name="review_publish"),
     path("review/<str:token>/", review_views.review, name="review"),
 ]

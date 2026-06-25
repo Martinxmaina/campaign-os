@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Review Post{% if post.title %}: {{ post.title }}{% endif %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0;
+      font-family: Georgia, serif;
+      background: #f9f7f4;
+      color: #1c1917;
+    }
+    .wrapper {
+      max-width: 680px;
+      margin: 40px auto;
+      padding: 0 16px 48px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .header h1 {
+      font-size: 22px;
+      margin: 0 0 6px;
+      color: #1c1917;
+    }
+    .header p {
+      font-size: 14px;
+      color: #78716c;
+      margin: 0;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e7e5e4;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .card h2 {
+      font-size: 17px;
+      margin: 0 0 10px;
+      color: #1c1917;
+    }
+    .card p {
+      font-size: 14px;
+      color: #44403c;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      margin: 0;
+    }
+    .notice {
+      padding: 12px 16px;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      font-size: 14px;
+    }
+    .notice.error { background: #fff1f2; border: 1px solid #fca5a5; color: #dc2626; }
+    .notice.success { background: #f0fdf4; border: 1px solid #86efac; color: #16a34a; }
+    .action-form { margin-top: 24px; }
+    .action-form label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      color: #44403c;
+    }
+    .action-form textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d6d3d1;
+      border-radius: 6px;
+      font-size: 14px;
+      font-family: Georgia, serif;
+      color: #1c1917;
+      resize: vertical;
+      min-height: 80px;
+    }
+    .action-form textarea:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+    }
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    .btn {
+      display: inline-block;
+      padding: 10px 28px;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      font-family: Arial, sans-serif;
+      cursor: pointer;
+      text-align: center;
+    }
+    .btn-approve { background: #16a34a; color: #ffffff; }
+    .btn-approve:hover { background: #15803d; }
+    .btn-decline { background: #dc2626; color: #ffffff; }
+    .btn-decline:hover { background: #b91c1c; }
+    .divider {
+      border: none;
+      border-top: 1px solid #e7e5e4;
+      margin: 24px 0;
+    }
+    .meta {
+      font-size: 12px;
+      color: #a8a29e;
+      text-align: center;
+      margin-top: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="header">
+      <h1>Post Review</h1>
+      <p>Please review the post below and approve or decline it.</p>
+    </div>
+
+    {% if error %}
+    <div class="notice error" role="alert">{{ error }}</div>
+    {% endif %}
+
+    {% if success == "approved" %}
+    <div class="notice success">
+      The post has been approved. The publisher has been notified.
+    </div>
+    {% elif success == "declined" %}
+    <div class="notice success" style="background:#fff7ed;border-color:#fdba74;color:#c2410c;">
+      The post has been declined. The publisher has been notified with your reason.
+    </div>
+    {% endif %}
+
+    {% if cards %}
+    <div>{{ cards|safe }}</div>
+    {% else %}
+    <div class="card">
+      {% if post.title %}<h2>{{ post.title }}</h2>{% endif %}
+      <p>{{ post.caption }}</p>
+    </div>
+    {% endif %}
+
+    {% if not success %}
+    <hr class="divider">
+    <form method="post" class="action-form" novalidate>
+      {% csrf_token %}
+      <label for="reason-field">Reason (required when declining, optional when approving):</label>
+      <textarea id="reason-field" name="reason" placeholder="Add a comment or reason for your decision…">{{ request.POST.reason|default:"" }}</textarea>
+
+      <div class="btn-row">
+        <button type="submit" name="decision" value="approve" class="btn btn-approve">
+          Approve
+        </button>
+        <button type="submit" name="decision" value="decline" class="btn btn-decline">
+          Decline
+        </button>
+      </div>
+    </form>
+    {% endif %}
+
+    <p class="meta">This link is single-use and will expire after 7 days.</p>
+  </div>
+</body>
+</html>
