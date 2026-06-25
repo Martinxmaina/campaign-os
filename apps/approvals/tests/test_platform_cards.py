@@ -47,6 +47,6 @@ def test_render_cards_includes_account_handle(workspace, social_account):
     PlatformPost.objects.create(post=post, social_account=account)
 
     html = render_cards(post)
-    # Either the handle or account name should appear
-    assert "@afcen_ig" in html or "AfCEN IG" in html
+    # The handle is set and should appear directly
+    assert "@afcen_ig" in html
     assert "Instagram" in html

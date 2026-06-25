@@ -8,7 +8,6 @@ correctly.  Pure function; no DB writes.
 
 from __future__ import annotations
 
-from apps.composer.models import Post
 
 # Per-platform display metadata: (label, accent_color_hex)
 _PLATFORM_STYLES: dict[str, tuple[str, str]] = {
@@ -56,9 +55,15 @@ def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url:
 
     handle_html = ""
     if handle:
+        safe_handle = (
+            handle
+            .replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;")
+        )
         handle_html = (
             f'<div style="font-size:12px;color:#888888;margin-bottom:8px;">'
-            f'{handle}</div>'
+            f'{safe_handle}</div>'
         )
 
     # Escape caption for HTML display
@@ -83,7 +88,7 @@ def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url:
     )
 
 
-def render_cards(post: Post) -> str:
+def render_cards(post) -> str:
     """Return an HTML string of platform-styled cards for all PlatformPosts on *post*.
 
     Iterates ``post.platform_posts.select_related("social_account")`` and emits
@@ -105,9 +110,15 @@ def render_cards(post: Post) -> str:
         # Caption: use platform-specific override if set, else base post caption
         caption = pp.platform_specific_caption if pp.platform_specific_caption else post.caption
 
-        # First media thumbnail: check platform_specific_media first
+        # First media thumbnail: use the first PostMedia attachment on the post.
         thumbnail_url: str | None = None
-        # (media lookup is a seam; thumbnails are advisory for email previews)
+        first_attachment = post.media_attachments.select_related("media_asset").order_by("position").first()
+        if first_attachment:
+            asset = first_attachment.media_asset
+            if asset.thumbnail:
+                thumbnail_url = asset.thumbnail.url
+            elif asset.file:
+                thumbnail_url = asset.file.url
 
         parts.append(_card_html(label, color, handle, caption, thumbnail_url))
 
