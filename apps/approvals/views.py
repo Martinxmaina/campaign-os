@@ -416,6 +416,59 @@ def version_diff(request, workspace_id, post_id):
     return render(request, "approvals/version_diff.html", context)
 
 
+# ---------------------------------------------------------------------------
+# Assign-for-review (Task 7)
+# ---------------------------------------------------------------------------
+
+
+@login_required
+@require_POST
+def assign_for_review_view(request, workspace_id, post_id):
+    """Assign a post for external review by email.
+
+    Accepts ``reviewer_email`` and ``reviewer_name`` from the POST body.
+    Creates a ReviewAssignment and emails the reviewer a tokenised review link.
+
+    Permission: the caller must hold ``approve_posts`` OR be the post's author.
+    This follows the spec: 'approve_posts OR post author can assign'.
+    """
+    workspace = _get_workspace(request, workspace_id)
+    post = get_object_or_404(Post, id=post_id, workspace=workspace)
+
+    # Permission gate: approve_posts holders or the post's own author may assign.
+    from apps.members.models import WorkspaceMembership
+
+    membership = WorkspaceMembership.objects.filter(
+        user=request.user, workspace=workspace
+    ).first()
+    has_approve_posts = bool(
+        membership and membership.effective_permissions.get("approve_posts", False)
+    )
+    is_post_author = post.author_id == request.user.id
+
+    if not (has_approve_posts or is_post_author):
+        return HttpResponse("Forbidden: approve_posts permission or post authorship required.", status=403)
+
+    reviewer_email = request.POST.get("reviewer_email", "").strip()
+    reviewer_name = request.POST.get("reviewer_name", "").strip()
+
+    if not reviewer_email:
+        return HttpResponse("reviewer_email is required.", status=400)
+
+    from apps.approvals import assignment_service
+
+    assignment_service.assign_for_review(
+        post=post,
+        assigned_by=request.user,
+        reviewer_email=reviewer_email,
+        reviewer_name=reviewer_name,
+    )
+
+    next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or "/"
+    from django.shortcuts import redirect as _redirect
+    return _redirect(next_url)
+
+
 def _build_diff(old_snapshot, new_snapshot):
     """Build a structured diff between two version snapshots."""
     diff = {

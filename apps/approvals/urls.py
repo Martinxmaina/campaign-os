@@ -14,6 +14,8 @@ urlpatterns = [
     path("approvals/<uuid:post_id>/comments/<uuid:comment_id>/edit/", views.edit_comment, name="edit_comment"),
     path("approvals/<uuid:post_id>/comments/<uuid:comment_id>/delete/", views.delete_comment, name="delete_comment"),
     path("approvals/<uuid:post_id>/versions/", views.version_diff, name="version_diff"),
+    # Assign-for-review (Task 7) — login-gated; approve_posts OR post author.
+    path("approvals/<uuid:post_id>/assign-review/", views.assign_for_review_view, name="assign_review"),
     # Public review routes (approval-by-email, Tasks 5 + 6).
     # The workspace_id segment is provided by the parent URL conf which
     # mounts this urlconf at ``workspace/<uuid:workspace_id>/``.

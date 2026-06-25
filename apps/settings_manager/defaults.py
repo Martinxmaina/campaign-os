@@ -52,6 +52,8 @@ APP_DEFAULTS = {
     # Review → one-click Send: where the emailed copy goes (override per
     # workspace/org via the settings cascade).
     "review.copy_email": "martin.maina@africacen.org",
+    # Approval-by-email: how many days a reviewer / publisher token is valid.
+    "review.token_ttl_days": 7,
     # Content intake — Google Sheets sync
     "intake.sheet_id": "",
     "intake.sheet_range": "Sheet1!A:P",

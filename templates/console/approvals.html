@@ -11,7 +11,7 @@
           <p class="text-sm text-stone-600">{{ post.caption|truncatechars:160 }}</p>
           <p class="text-xs text-stone-400 mt-1">Assigned: {{ post.review_assignee.name|default:post.review_assignee.email|default:"—" }}</p>
         </div>
-        <div class="flex gap-2">
+        <div class="flex gap-2 flex-wrap">
           <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
             <input type="hidden" name="decision" value="approve">
             <button class="rounded bg-green-600 text-white px-3 py-1 text-xs">Approve</button></form>
@@ -25,6 +25,34 @@
           <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
             <input type="hidden" name="decision" value="reject">
             <button class="rounded bg-red-500 text-white px-3 py-1 text-xs">Reject</button></form>
+          {# Assign for review — sends the post to an external reviewer by email #}
+          {% if post.workspace_id %}
+          <details class="relative">
+            <summary class="rounded border border-stone-300 bg-stone-50 text-stone-700 px-3 py-1 text-xs cursor-pointer select-none">
+              Assign for review…
+            </summary>
+            <div class="absolute right-0 mt-1 z-10 bg-white border border-stone-200 rounded shadow-lg p-3 w-64">
+              <form method="post"
+                    action="{% url 'approvals:assign_review' workspace_id=post.workspace_id post_id=post.id %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{% url 'console:approvals' %}">
+                <label class="block text-xs font-medium text-stone-700 mb-1">Reviewer email</label>
+                <input type="email" name="reviewer_email" required
+                       placeholder="reviewer@example.com"
+                       class="w-full border border-stone-300 rounded px-2 py-1 text-xs mb-2">
+                <label class="block text-xs font-medium text-stone-700 mb-1">Name (optional)</label>
+                <input type="text" name="reviewer_name"
+                       placeholder="Reviewer Name"
+                       class="w-full border border-stone-300 rounded px-2 py-1 text-xs mb-2">
+                <button type="submit"
+                        class="w-full rounded text-white px-3 py-1 text-xs"
+                        style="background-color: var(--primary)">
+                  Send review request
+                </button>
+              </form>
+            </div>
+          </details>
+          {% endif %}
         </div>
       </div>
     </div>
