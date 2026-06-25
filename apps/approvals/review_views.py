@@ -16,11 +16,12 @@ from __future__ import annotations
 
 from django.db import transaction
 from django.shortcuts import render
+from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 
 from apps.approvals import emailer, tokens as tok_mod
-from apps.approvals.assignment_service import _abs
 from apps.approvals.models import ActionToken, ApprovalAction, ReviewAssignment
+from apps.approvals.utils import abs_url as _abs
 from apps.approvals.platform_cards import render_cards
 from apps.composer.models import Post
 from apps.settings_manager.helpers import get_setting
@@ -94,7 +95,8 @@ def review(request, workspace_id, token):
 
             # Update assignment + post state
             assignment.status = ReviewAssignment.Status.APPROVED
-            assignment.save(update_fields=["status"])
+            assignment.decided_at = timezone.now()
+            assignment.save(update_fields=["status", "decided_at"])
 
             post.review_state = Post.ReviewState.APPROVED
             post.save(update_fields=["review_state", "updated_at"])
@@ -162,7 +164,8 @@ def review(request, workspace_id, token):
             # Update assignment + post state
             assignment.status = ReviewAssignment.Status.DECLINED
             assignment.reason = reason
-            assignment.save(update_fields=["status", "reason"])
+            assignment.decided_at = timezone.now()
+            assignment.save(update_fields=["status", "reason", "decided_at"])
 
             post.review_state = Post.ReviewState.CHANGES_REQUESTED
             post.save(update_fields=["review_state", "updated_at"])

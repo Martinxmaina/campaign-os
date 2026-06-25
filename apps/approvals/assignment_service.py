@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import logging
 
-from django.conf import settings
 from django.template.loader import render_to_string
 from django.urls import reverse
 
@@ -17,23 +16,13 @@ from apps.settings_manager.helpers import get_setting
 from . import emailer, tokens
 from .models import ActionToken, ReviewAssignment
 from .platform_cards import render_cards
+from .utils import abs_url
 
 logger = logging.getLogger(__name__)
 
 
-def _abs(path: str) -> str:
-    """Return an absolute URL for *path* using the project's base-URL convention.
-
-    Reads ``settings.STUDIO_BASE_URL`` (the canonical public origin used
-    throughout this project — see ``apps/outreach/senders.py`` and
-    ``apps/intelligence/views.py`` for the same pattern).  Falls back to
-    ALLOWED_HOSTS or localhost so the helper never raises.
-    """
-    base = (getattr(settings, "STUDIO_BASE_URL", "") or "").strip().rstrip("/")
-    if not base:
-        hosts = [h for h in getattr(settings, "ALLOWED_HOSTS", []) if h and h not in ("*",)]
-        base = f"https://{hosts[0]}" if hosts else "https://localhost"
-    return f"{base}{path}"
+# Keep a module-local alias so existing internal callers are not broken.
+_abs = abs_url
 
 
 def assign_for_review(

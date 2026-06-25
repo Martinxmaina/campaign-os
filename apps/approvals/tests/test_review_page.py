@@ -12,7 +12,6 @@ Tests:
 """
 
 import pytest
-from django.core import mail
 from django.urls import reverse
 
 from apps.approvals.models import ActionToken, ApprovalAction, ReviewAssignment
