@@ -18,7 +18,7 @@ from django.conf import settings
 
 from .base import SocialProvider
 from .exceptions import BlotatoStillPublishing, PublishError
-from .types import AccountProfile, AuthType, MediaType, PostType, PublishContent, PublishResult
+from .types import AccountProfile, AccountMetrics, AuthType, MediaType, PostMetrics, PostType, PublishContent, PublishResult
 
 logger = logging.getLogger(__name__)
 
@@ -74,6 +74,58 @@ class BlotatoProvider(SocialProvider):
         if not api_key:
             raise PublishError("Blotato API key is not configured", platform=self.platform_name)
         return {"blotato-api-key": api_key}
+
+    # ------------------------------------------------------------------
+    # Analytics
+    # ------------------------------------------------------------------
+
+    def get_post_metrics(self, access_token: str, post_id: str) -> PostMetrics:
+        """Fetch engagement metrics for a Blotato-published post.
+
+        Calls GET /v2/posts/{post_id}/analytics. The ``post_id`` is the
+        ``postSubmissionId`` returned at publish time (stored as
+        ``PlatformPost.platform_post_id``).
+
+        All metric values arrive as strings from the API; we coerce them to
+        int, defaulting to 0 for missing or non-numeric keys.
+        """
+        resp = self._request(
+            "GET",
+            f"{_api_base()}/posts/{post_id}/analytics",
+            headers=self._headers(),
+        )
+        data = resp.json()
+        metrics: dict = data.get("metrics") or {}
+
+        def _int(key: str) -> int:
+            try:
+                return int(metrics.get(key) or 0)
+            except (TypeError, ValueError):
+                return 0
+
+        return PostMetrics(
+            impressions=_int("impressionsCount"),
+            reach=_int("reachCount"),
+            likes=_int("likesCount"),
+            comments=_int("commentsCount"),
+            shares=_int("sharesCount"),
+            saves=_int("savesCount"),
+            video_views=_int("viewsCount"),
+            clicks=_int("clicksCount"),
+            extra={
+                "replies": _int("repliesCount"),
+                "follows": _int("followsCount"),
+            },
+        )
+
+    def get_account_metrics(self, access_token: str, date_range) -> AccountMetrics:
+        """Blotato has no account-level analytics endpoint.
+
+        Return an empty ``AccountMetrics`` so the account-level sync path
+        skips gracefully rather than raising ``NotImplementedError`` (which
+        would log a noisy warning on every sync cycle).
+        """
+        return AccountMetrics()
 
     def get_profile(self, access_token: str) -> AccountProfile:
         resp = self._request("GET", f"{_api_base()}/users/me/accounts", headers=self._headers())

@@ -21,6 +21,13 @@ class PlatformCredential(models.Model):
         GOOGLE_BUSINESS = "google_business", "Google Business Profile"
         MASTODON = "mastodon", "Mastodon"
         GHOST = "ghost", "Ghost (Nexus Brief)"
+        # Blotato add-on family (multi-platform via single workspace API key)
+        BLOTATO_INSTAGRAM = "blotato_instagram", "Instagram (Blotato)"
+        BLOTATO_FACEBOOK = "blotato_facebook", "Facebook (Blotato)"
+        BLOTATO_TWITTER = "blotato_twitter", "X / Twitter (Blotato)"
+        BLOTATO_LINKEDIN = "blotato_linkedin", "LinkedIn (Blotato)"
+        BLOTATO_THREADS = "blotato_threads", "Threads (Blotato)"
+        BLOTATO_BLUESKY = "blotato_bluesky", "Bluesky (Blotato)"
 
     class TestResult(models.TextChoices):
         SUCCESS = "success", "Success"

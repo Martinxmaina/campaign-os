@@ -79,6 +79,15 @@ PLATFORM_METRICS: dict[str, list[str]] = {
     # (meta.pagination.total) but no per-post or per-day engagement metrics,
     # so the only surface is the subscriber count (label "Subscribers").
     "ghost": ["subscribers"],
+    # Blotato add-on family: metrics from GET /v2/posts/{id}/analytics.
+    # Each sub-platform exposes the same analytics response shape; the metric
+    # list mirrors what the target network actually surfaces through Blotato.
+    "blotato_instagram": ["impressions", "reach", "views", "likes", "comments", "saves", "shares", "clicks", "engagement"],
+    "blotato_facebook": ["impressions", "reach", "likes", "comments", "shares", "clicks", "engagement"],
+    "blotato_twitter": ["impressions", "reach", "likes", "comments", "shares", "clicks", "engagement"],
+    "blotato_linkedin": ["impressions", "likes", "comments", "shares", "clicks", "engagement"],
+    "blotato_threads": ["impressions", "reach", "views", "likes", "comments", "shares", "engagement"],
+    "blotato_bluesky": ["likes", "comments", "shares"],
 }
 
 # The "hero" metric each platform defaults the big chart and table sort to.
@@ -96,6 +105,13 @@ PLATFORM_PRIMARY: dict[str, str] = {
     "google_business": "impressions",
     "mastodon": "likes",
     "ghost": "subscribers",
+    # Blotato add-on family
+    "blotato_instagram": "impressions",
+    "blotato_facebook": "impressions",
+    "blotato_twitter": "impressions",
+    "blotato_linkedin": "impressions",
+    "blotato_threads": "impressions",
+    "blotato_bluesky": "likes",
 }
 
 # Brand-orange override for charts; per-platform colors used as a tweak.
@@ -113,6 +129,13 @@ PLATFORM_COLOR: dict[str, str] = {
     "google_business": "#4285F4",
     "mastodon": "#6364FF",
     "ghost": "#15171A",
+    # Blotato add-on family — use the target network's canonical color.
+    "blotato_instagram": "#E4405F",
+    "blotato_facebook": "#1877F2",
+    "blotato_twitter": "#111111",
+    "blotato_linkedin": "#0A66C2",
+    "blotato_threads": "#111111",
+    "blotato_bluesky": "#0085FF",
 }
 
 # Metrics that contribute to engagement rate (numerator).

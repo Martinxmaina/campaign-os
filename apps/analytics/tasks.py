@@ -83,6 +83,14 @@ BACKFILL_DAYS_PER_PLATFORM: dict[str, int] = {
     "bluesky": 0,
     "mastodon": 0,
     "linkedin_personal": 0,
+    # Blotato add-on family: GET /v2/posts/{id}/analytics is available from
+    # publish time onward; use the standard 90-day window.
+    "blotato_instagram": 90,
+    "blotato_facebook": 90,
+    "blotato_twitter": 90,
+    "blotato_linkedin": 90,
+    "blotato_threads": 90,
+    "blotato_bluesky": 90,
 }
 DEFAULT_BACKFILL_DAYS = 90
 
