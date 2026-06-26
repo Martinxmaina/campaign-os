@@ -66,7 +66,11 @@ class BlotatoProvider(SocialProvider):
 
     # ------------------------------------------------------------------
     def _headers(self) -> dict:
-        api_key = self.credentials.get("api_key", "")
+        # Blotato uses one workspace API key for all sub-providers. Prefer an
+        # explicit per-org credential, else fall back to the BLOTATO_API_KEY
+        # env setting (so health checks + publishing resolve the key even when
+        # the generic per-platform credential lookup misses).
+        api_key = self.credentials.get("api_key", "") or getattr(settings, "BLOTATO_API_KEY", "")
         if not api_key:
             raise PublishError("Blotato API key is not configured", platform=self.platform_name)
         return {"blotato-api-key": api_key}

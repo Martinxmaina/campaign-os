@@ -34,16 +34,19 @@ from django.urls import reverse
 # ---------------------------------------------------------------------------
 
 def _publisher_email(assignment):
-    """Return the best email address to notify the publisher.
+    """Return the address to notify the publisher.
 
-    Preference order:
-    1. ``assigned_by.email`` (the User who initiated the review)
-    2. workspace setting ``review.copy_email``
+    Publish notifications go to the workspace's designated publish inbox
+    (``review.copy_email``); only if that is unset do we fall back to the
+    assigner's own account email.
     """
+    post = assignment.post
+    configured = get_setting(post.workspace_id, "review.copy_email")
+    if configured:
+        return configured
     if assignment.assigned_by_id and assignment.assigned_by.email:
         return assignment.assigned_by.email
-    post = assignment.post
-    return get_setting(post.workspace_id, "review.copy_email") or ""
+    return ""
 
 
 def _render_invalid(request):
