@@ -113,6 +113,13 @@ class SocialAccount(models.Model):
         "google_business": 1500,
         "mastodon": 500,
         "ghost": 100000,
+        # Blotato add-on family
+        "blotato_twitter": 280,
+        "blotato_instagram": 2200,
+        "blotato_facebook": 63206,
+        "blotato_threads": 500,
+        "blotato_bluesky": 300,
+        "blotato_linkedin": 3000,
     }
 
     @property
@@ -195,6 +202,13 @@ class SocialAccount(models.Model):
             "bluesky": "bs",
             "google_business": "gb",
             "mastodon": "ma",
+            # Blotato add-on family
+            "blotato_twitter": "x",
+            "blotato_instagram": "ig",
+            "blotato_facebook": "f",
+            "blotato_threads": "th",
+            "blotato_bluesky": "bs",
+            "blotato_linkedin": "in",
         }
         return icons.get(self.platform, self.platform[:2])
 

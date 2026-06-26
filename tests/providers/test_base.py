@@ -26,6 +26,7 @@ class TestProviderRegistry:
             "blotato_threads",
             "blotato_bluesky",
             "blotato_linkedin",
+            "blotato_twitter",
         }
         # "mock" is an optional, flag-gated entry (ENABLE_MOCK_PROVIDER) that
         # is present in the test settings; it is not a real platform, so the

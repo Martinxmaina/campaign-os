@@ -3,7 +3,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from providers import get_provider
-from providers.blotato import BlotatoFacebookProvider, BlotatoInstagramProvider
+from providers.blotato import BlotatoFacebookProvider, BlotatoInstagramProvider, BlotatoTwitterProvider
 from providers.exceptions import BlotatoStillPublishing, PublishError
 from providers.types import PublishContent
 
@@ -35,6 +35,14 @@ def test_registry_exposes_blotato_targets():
     assert isinstance(get_provider("blotato_instagram", {"api_key": "k"}), BlotatoInstagramProvider)
     assert get_provider("blotato_instagram", {"api_key": "k"}).target_type == "instagram"
     assert get_provider("blotato_facebook", {"api_key": "k"}).target_type == "facebook"
+
+
+def test_registry_exposes_blotato_twitter():
+    provider = get_provider("blotato_twitter", {"api_key": "k"})
+    assert isinstance(provider, BlotatoTwitterProvider)
+    assert provider.target_type == "twitter"
+    assert provider.max_caption_length == 280
+    assert provider.platform_name == "X / Twitter (Blotato)"
 
 
 def test_publish_submits_then_returns_published(monkeypatch):

@@ -185,3 +185,9 @@ class BlotatoLinkedInProvider(BlotatoProvider):
     target_type = "linkedin"
     _label = "LinkedIn (Blotato)"
     _max_caption = 3000
+
+
+class BlotatoTwitterProvider(BlotatoProvider):
+    target_type = "twitter"
+    _label = "X / Twitter (Blotato)"
+    _max_caption = 280

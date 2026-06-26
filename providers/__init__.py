@@ -14,6 +14,7 @@ from .blotato import (
     BlotatoInstagramProvider,
     BlotatoLinkedInProvider,
     BlotatoThreadsProvider,
+    BlotatoTwitterProvider,
 )
 from .facebook import FacebookProvider
 from .ghost import GhostProvider
@@ -44,6 +45,7 @@ PROVIDER_REGISTRY: dict[str, type[SocialProvider]] = {
     "blotato_threads": BlotatoThreadsProvider,
     "blotato_bluesky": BlotatoBlueskyProvider,
     "blotato_linkedin": BlotatoLinkedInProvider,
+    "blotato_twitter": BlotatoTwitterProvider,
 }
 
 

@@ -35,6 +35,7 @@ _PLATFORM_STYLES: dict[str, tuple[str, str]] = {
     "blotato_threads": ("Threads", "#000000"),
     "blotato_bluesky": ("Bluesky", "#0085FF"),
     "blotato_linkedin": ("LinkedIn", "#0A66C2"),
+    "blotato_twitter": ("X / Twitter", "#000000"),
 }
 
 _DEFAULT_STYLE = ("Social", "#555555")

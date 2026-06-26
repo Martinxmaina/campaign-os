@@ -747,7 +747,7 @@ def disconnect(request, workspace_id, account_id):
 # ------------------------------------------------------------------
 
 # Blotato target platforms we support importing (MVP).
-_BLOTATO_SUPPORTED = {"instagram", "facebook", "threads", "bluesky", "linkedin"}
+_BLOTATO_SUPPORTED = {"instagram", "facebook", "threads", "bluesky", "linkedin", "twitter"}
 
 
 @login_required
