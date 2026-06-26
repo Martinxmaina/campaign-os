@@ -308,6 +308,10 @@ SESSION_SAVE_EVERY_REQUEST = True  # Sliding window
 # Email
 EMAIL_BACKEND_TYPE = env("EMAIL_BACKEND_TYPE")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="noreply@localhost")
+# Resend transactional email (https://resend.com). When set, the approvals
+# emailer (apps/approvals/emailer.py) sends via the Resend HTTP API; the FROM
+# address (DEFAULT_FROM_EMAIL) must be on a Resend-verified domain.
+RESEND_API_KEY = env("RESEND_API_KEY", default="")
 
 if EMAIL_BACKEND_TYPE == "smtp":
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

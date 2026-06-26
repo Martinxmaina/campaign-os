@@ -97,3 +97,46 @@ def test_send_email_returns_false_when_both_transports_fail(
     result = emailer.send_email("to@x.co", "S", "<b>x</b>")
 
     assert result is False
+
+
+# ---------------------------------------------------------------------------
+# (d) Resend configured → Resend path used first; returns True
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_send_email_prefers_resend_when_configured(settings, monkeypatch):
+    """When RESEND_API_KEY is set, send_email sends via Resend (not SMTP)."""
+    settings.RESEND_API_KEY = "re_test"
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    from apps.approvals import emailer
+
+    calls = []
+    monkeypatch.setattr(emailer, "_resend_send",
+                        lambda to, subject, html: calls.append((to, subject)) or True)
+
+    result = emailer.send_email("to@x.co", "Subj", "<p>hi</p>")
+
+    assert result is True
+    assert calls == [("to@x.co", "Subj")]
+    assert len(mail.outbox) == 0  # SMTP not used
+
+
+# ---------------------------------------------------------------------------
+# (e) Resend fails → falls back to SMTP/locmem; returns True
+# ---------------------------------------------------------------------------
+
+@pytest.mark.django_db
+def test_send_email_falls_back_when_resend_fails(settings, monkeypatch):
+    settings.RESEND_API_KEY = "re_test"
+    settings.EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+    from apps.approvals import emailer
+
+    def boom(to, subject, html):
+        raise RuntimeError("resend down")
+
+    monkeypatch.setattr(emailer, "_resend_send", boom)
+
+    result = emailer.send_email("to@x.co", "S", "<b>h</b>")
+
+    assert result is True
+    assert len(mail.outbox) == 1  # fell back to SMTP/locmem

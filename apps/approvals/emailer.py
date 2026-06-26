@@ -65,11 +65,39 @@ def _gmail_integration():
 # Public API
 # ---------------------------------------------------------------------------
 
+def _resend_send(to: str, subject: str, html: str) -> bool:
+    """Send via the Resend HTTP API (https://resend.com). Returns True on 2xx.
+
+    Used when ``settings.RESEND_API_KEY`` is configured. The ``from`` address is
+    ``settings.DEFAULT_FROM_EMAIL`` and must be on a Resend-verified domain.
+    """
+    import httpx
+
+    resp = httpx.post(
+        "https://api.resend.com/emails",
+        headers={
+            "Authorization": f"Bearer {settings.RESEND_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json={"from": settings.DEFAULT_FROM_EMAIL, "to": [to], "subject": subject, "html": html},
+        timeout=15.0,
+    )
+    resp.raise_for_status()
+    return True
+
+
 def send_email(to: str, subject: str, html: str) -> bool:
-    """Send an HTML email; prefer Gmail-OAuth, fall back to SMTP/console.
+    """Send an HTML email. Prefer Resend (if configured), then Gmail-OAuth, then
+    Django's SMTP/console backend.
 
     Returns True on success, False if every transport failed.  Never raises.
     """
+    if getattr(settings, "RESEND_API_KEY", ""):
+        try:
+            return _resend_send(to, subject, html)
+        except Exception:  # noqa: BLE001
+            logger.warning("Resend send failed; falling back", exc_info=True)
+
     integration = _gmail_integration()
     if integration is not None:
         try:
