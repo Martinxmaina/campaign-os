@@ -98,6 +98,7 @@ LOCAL_APPS = [
     "apps.crm",
     "apps.outreach",
     "apps.decks",
+    "apps.home",
     "theme",
 ]
 
