@@ -893,12 +893,36 @@ git commit -m "feat(composer): calmer two-pane Compose with folded optional sect
 
 # PHASE C — Remaining density pages (outline; plan per page when reached)
 
-Apply the same four density principles, one page per task, each with a render-smoke test and a commit:
-- **C1** — Calendar/Publish (`templates/calendar/*`): make the day grid the focus; fold filters/queues into a side rail.
-- **C2** — Content board / Studio (`templates/console/*`): reduce column chrome; one clear primary action per card (already partly done in `_studio_card.html`).
-- **C3** — Inbox detail (`templates/inbox/*`): thread-first; tools in a quiet rail.
+Apply the same four density principles, one page per task, each with a render-smoke test and a commit.
 
-Each C-task: write render-smoke test → refactor template → run `uv run pytest -q -k "<area>"` → commit. Do not start Phase C until Phases A and B are merged and verified in prod.
+**PRESERVATION CHECKLIST (every C task — non-negotiable):**
+- Change layout / visual hierarchy / grouping ONLY. Do **not** change behavior.
+- Keep every form `name=` attribute, every `hx-*` (HTMX) attribute and target, every `x-data` / `x-show` / `@click` (Alpine) binding, every `{% url %}`, and all inline `<script>` logic.
+- Keep all existing CSS classes and the page's existing JS hooks. Reuse them; don't rename.
+- Run the area's EXISTING tests (not just the new smoke test) and keep them green.
+- If a refactor would be a large rewrite or you're unsure it preserves behavior, make the **minimal** decluttering change instead (fold secondary controls into a `<details>`/side rail, demote secondary buttons) rather than restructuring.
+
+**Render-smoke test pattern (adapt the route per task):**
+```python
+import pytest
+from django.urls import reverse
+from apps.members.models import WorkspaceMembership
+
+pytestmark = pytest.mark.django_db
+
+def test_<area>_renders_200(client, workspace, make_user_in_workspace):
+    user = make_user_in_workspace(workspace, role=WorkspaceMembership.WorkspaceRole.MANAGER)
+    client.force_login(user)
+    resp = client.get(reverse("<route>", kwargs={"workspace_id": workspace.id}))
+    assert resp.status_code == 200
+```
+(`make_user_in_workspace` is available via `apps/home/tests/conftest.py`; re-export it in the area's `tests/conftest.py` if missing, following the pattern in `apps/accounts/tests/conftest.py`.)
+
+- **C1** — Calendar/Publish (`templates/calendar/calendar.html` + partials): make the day grid / schedule the focus; fold filters, posting-slots and queue controls into a collapsible side rail. Route `calendar:calendar`.
+- **C2** — Content board / Studio (`templates/console/*`, incl. `_studio_card.html`): reduce column chrome; one clear primary action per card (partly done already). Route `console:content`.
+- **C3** — Inbox feed/detail (`templates/inbox/*`): thread-first; move reply tools/SLA/assignment into a quiet rail. Route `inbox:feed`.
+
+Each C-task: write the render-smoke test → refactor the template within the preservation checklist → run `uv run pytest -q -k "<area>"` (must stay green) → commit. (Ordering note from earlier — "ship C only after A+B in prod" — is superseded: user chose to build A+B+C on the branch and deploy them together.)
 
 ---
 
