@@ -111,13 +111,13 @@ def test_service_worker_js_is_served(client, joseph, settings):
 
 @pytest.mark.django_db
 def test_sidebar_shows_joseph_link_for_capable_user(joseph, client):
-    """A Joseph-capable user (owner) sees the 'Joseph · Principal' sidebar entry
-    linking to /joseph/."""
+    """A Joseph-capable user (owner) sees the 'Joseph' sidebar role group
+    linking to /joseph/ (IA "Group & Home" renamed the section to "Joseph")."""
     lt, ln = _patched()
     with lt, ln:
         resp = client.get(reverse("joseph:home"))
     html = resp.content.decode()
-    assert "Joseph · Principal" in html
+    assert "Joseph" in html
     assert reverse("joseph:home") in html
 
 
@@ -129,7 +129,8 @@ def test_sidebar_hides_joseph_link_for_viewer(viewer, client):
     resp = client.get(reverse("notifications:list"))
     assert resp.status_code == 200
     html = resp.content.decode()
-    assert "Joseph · Principal" not in html
+    # The Joseph role group (and its links) must not render for a non-capable member.
+    assert reverse("joseph:home") not in html
 
 
 @pytest.mark.django_db

@@ -27,6 +27,7 @@ urlpatterns = [
     path("social-accounts/", include("apps.social_accounts.urls")),
     # Content Pipeline (Stream A)
     path("workspace/<uuid:workspace_id>/", include("apps.composer.urls")),
+    path("workspace/<uuid:workspace_id>/home/", include("apps.home.urls")),
     path("workspace/<uuid:workspace_id>/calendar/", include("apps.calendar.urls")),
     path("workspace/<uuid:workspace_id>/inbox/", include("apps.inbox.urls")),
     path("workspace/<uuid:workspace_id>/analytics/", include("apps.analytics.urls")),

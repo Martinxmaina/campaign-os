@@ -39,7 +39,12 @@ CSP-safe: no inline event handlers; actions are plain <form> POSTs and links.
     </div>
   </div>
 
-  {# ── Filter chips: state ────────────────────────────────────────── #}
+  {# ── Filters ─────────────────────────────────────────────────────
+     Density: State is the primary segmentation, so its chips stay visible.
+     The secondary filters (Track / Pillar / Find) fold into a quiet
+     collapsible rail so they don't dominate the board chrome — opened
+     automatically whenever one of them is active. Every chip link, the GET
+     form, all hidden inputs, url tags and template-tag calls are unchanged. #}
   <div class="space-y-2">
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">State</span>
@@ -51,47 +56,54 @@ CSP-safe: no inline event handlers; actions are plain <form> POSTs and links.
       {% endfor %}
     </div>
 
-    {# ── Filter chips: track (with T3 counts) ─────────────────────── #}
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Track</span>
-      <a href="?{% studio_qs active %}"
-         class="rounded-full px-3 py-1 text-xs border {% if not active.track %}bg-[var(--primary)] text-white border-[var(--primary)]{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
-      {% for value, label in track_chips %}
-      <a href="?{% studio_qs active track=value %}"
-         class="rounded-full px-3 py-1 text-xs border {% if active.track == value %}bg-[var(--primary)] text-white border-[var(--primary)]{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">
-        {{ label }}
-        {% with c=counts_by_track|dict_get:value %}{% if c %}<span class="ml-1 opacity-70">{{ c }}</span>{% endif %}{% endwith %}
-      </a>
-      {% endfor %}
-    </div>
+    <details class="group" {% if active.track or active.pillar or active.campaign or active.q %}open{% endif %}>
+      <summary class="flex items-center gap-1.5 cursor-pointer select-none text-[11px] uppercase tracking-wider text-stone-400 hover:text-stone-600 list-none">
+        <span class="transition-transform group-open:rotate-90">▸</span> Track · Pillar · Find
+      </summary>
+      <div class="space-y-2 mt-2">
+        {# ── Filter chips: track (with T3 counts) ─────────────────────── #}
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Track</span>
+          <a href="?{% studio_qs active %}"
+             class="rounded-full px-3 py-1 text-xs border {% if not active.track %}bg-[var(--primary)] text-white border-[var(--primary)]{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
+          {% for value, label in track_chips %}
+          <a href="?{% studio_qs active track=value %}"
+             class="rounded-full px-3 py-1 text-xs border {% if active.track == value %}bg-[var(--primary)] text-white border-[var(--primary)]{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">
+            {{ label }}
+            {% with c=counts_by_track|dict_get:value %}{% if c %}<span class="ml-1 opacity-70">{{ c }}</span>{% endif %}{% endwith %}
+          </a>
+          {% endfor %}
+        </div>
 
-    {# ── Filter chips: pillar (with T3 counts) ────────────────────── #}
-    <div class="flex flex-wrap items-center gap-2">
-      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Pillar</span>
-      <a href="?{% studio_qs active %}"
-         class="rounded-full px-3 py-1 text-xs border {% if not active.pillar %}bg-emerald-700 text-white border-emerald-700{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
-      {% for value, label in pillar_chips %}
-      <a href="?{% studio_qs active pillar=value %}"
-         class="rounded-full px-3 py-1 text-xs border {% if active.pillar == value %}bg-emerald-700 text-white border-emerald-700{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">
-        {{ label }}
-        {% with c=counts_by_pillar|dict_get:value %}{% if c %}<span class="ml-1 opacity-70">{{ c }}</span>{% endif %}{% endwith %}
-      </a>
-      {% endfor %}
-    </div>
+        {# ── Filter chips: pillar (with T3 counts) ────────────────────── #}
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Pillar</span>
+          <a href="?{% studio_qs active %}"
+             class="rounded-full px-3 py-1 text-xs border {% if not active.pillar %}bg-emerald-700 text-white border-emerald-700{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">All</a>
+          {% for value, label in pillar_chips %}
+          <a href="?{% studio_qs active pillar=value %}"
+             class="rounded-full px-3 py-1 text-xs border {% if active.pillar == value %}bg-emerald-700 text-white border-emerald-700{% else %}bg-white text-stone-600 border-stone-200 hover:border-stone-400{% endif %}">
+            {{ label }}
+            {% with c=counts_by_pillar|dict_get:value %}{% if c %}<span class="ml-1 opacity-70">{{ c }}</span>{% endif %}{% endwith %}
+          </a>
+          {% endfor %}
+        </div>
 
-    {# ── Filter: campaign + text search (plain GET form, no JS) ───── #}
-    <form method="get" action="{% url 'console:content' %}" class="flex flex-wrap items-center gap-2">
-      <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Find</span>
-      {# Preserve the other active filters across a search. #}
-      {% if active.track %}<input type="hidden" name="track" value="{{ active.track }}">{% endif %}
-      {% if active.pillar %}<input type="hidden" name="pillar" value="{{ active.pillar }}">{% endif %}
-      {% if active.state %}<input type="hidden" name="state" value="{{ active.state }}">{% endif %}
-      <input type="text" name="campaign" value="{{ active.campaign }}" placeholder="Campaign"
-             class="rounded border border-stone-200 px-3 py-1 text-xs">
-      <input type="text" name="q" value="{{ active.q }}" placeholder="Search title or caption"
-             class="rounded border border-stone-200 px-3 py-1 text-xs min-w-[12rem]">
-      <button type="submit" class="rounded bg-stone-800 text-white px-3 py-1 text-xs">Apply</button>
-    </form>
+        {# ── Filter: campaign + text search (plain GET form, no JS) ───── #}
+        <form method="get" action="{% url 'console:content' %}" class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">Find</span>
+          {# Preserve the other active filters across a search. #}
+          {% if active.track %}<input type="hidden" name="track" value="{{ active.track }}">{% endif %}
+          {% if active.pillar %}<input type="hidden" name="pillar" value="{{ active.pillar }}">{% endif %}
+          {% if active.state %}<input type="hidden" name="state" value="{{ active.state }}">{% endif %}
+          <input type="text" name="campaign" value="{{ active.campaign }}" placeholder="Campaign"
+                 class="rounded border border-stone-200 px-3 py-1 text-xs">
+          <input type="text" name="q" value="{{ active.q }}" placeholder="Search title or caption"
+                 class="rounded border border-stone-200 px-3 py-1 text-xs min-w-[12rem]">
+          <button type="submit" class="rounded bg-stone-800 text-white px-3 py-1 text-xs">Apply</button>
+        </form>
+      </div>
+    </details>
   </div>
 
   {# ── The board: responsive card grid ──────────────────────────── #}

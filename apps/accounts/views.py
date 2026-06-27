@@ -52,7 +52,7 @@ def dashboard(request):
             workspace_id=user.last_workspace_id,
             workspace__is_archived=False,
         ).exists():
-            return redirect("calendar:calendar", workspace_id=user.last_workspace_id)
+            return redirect("home:index", workspace_id=user.last_workspace_id)
         user.last_workspace_id = None
         user.save(update_fields=["last_workspace_id"])
 
@@ -63,7 +63,7 @@ def dashboard(request):
     if membership:
         user.last_workspace_id = membership.workspace.id
         user.save(update_fields=["last_workspace_id"])
-        return redirect("calendar:calendar", workspace_id=membership.workspace.id)
+        return redirect("home:index", workspace_id=membership.workspace.id)
 
     return render(request, "accounts/dashboard.html")
 

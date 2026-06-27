@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+{% url 'approvals:queue' workspace_id=workspace.id as signoff_url %}
+{% url 'composer:drafts_list' workspace_id=workspace.id as drafts_url %}
+{% url 'calendar:calendar' workspace_id=workspace.id as calendar_url %}
+{% url 'inbox:feed' workspace_id=workspace.id as inbox_url %}
+{% url 'crm:pipeline' as crm_url %}
+{% url 'joseph:home' as joseph_url %}
+{% url 'console:approvals' as team_approvals_url %}
+{% url 'console:healing' as healing_url %}
+{% url 'members:list' as people_url %}
+<div class="max-w-5xl mx-auto px-6 py-8">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold">Good to see you, {{ request.user.display_name|default:"there" }}</h1>
+    <a href="{% url 'composer:compose' workspace_id=workspace.id %}" class="btn-brand rounded px-4 py-2 text-sm font-semibold">New post</a>
+  </div>
+
+  {% if show_analytics %}
+    {% include "home/_performance_graph.html" %}
+  {% endif %}
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+    {% if signoff %}{% include "home/_card.html" with title="Needs your sign-off" count=signoff|length subtitle="Awaiting review" href=signoff_url %}{% endif %}
+    {% include "home/_card.html" with title="Your drafts" count=drafts|length subtitle="Pick up where you left off" href=drafts_url %}
+    {% include "home/_card.html" with title="Going out soon" count=going_out|length subtitle="Scheduled this week" href=calendar_url %}
+    {% if sidebar_unread_inbox_count %}{% include "home/_card.html" with title="Inbox" count=sidebar_unread_inbox_count subtitle="Unread messages" href=inbox_url %}{% endif %}
+
+    {% if can_manage_crm %}{% include "home/_card.html" with title="Deals needing action" subtitle="Relationships" href=crm_url %}{% endif %}
+    {% if can_access_joseph %}{% include "home/_card.html" with title="Briefs needing attention" subtitle="Open Joseph" href=joseph_url %}{% endif %}
+
+    {% if is_admin %}
+      {% include "home/_card.html" with title="Team approvals pending" count=sidebar_pending_approvals href=team_approvals_url %}
+      {% include "home/_card.html" with title="System health" subtitle="Breakers · healing · fleet" href=healing_url %}
+      {% include "home/_card.html" with title="Invite a teammate" subtitle="Add someone by email" href=people_url %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
