@@ -180,12 +180,12 @@ def _get_filtered_platform_posts(workspace, request):
 
 def _get_publish_context(workspace, request):
     """Build shared context for the publish page (channels, tags, timezone)."""
-    # Channels that have posts in this workspace
+    # ALL connected channels in this workspace (same query the sidebar uses),
+    # not just channels that happen to have posts in the current tab — so the
+    # channel filter can scope to any connected account even when it has no posts.
     channels_with_posts = (
-        SocialAccount.objects.filter(
-            platform_posts__post__workspace=workspace,
-        )
-        .distinct()
+        SocialAccount.objects.for_workspace(workspace.id)
+        .filter(connection_status=SocialAccount.ConnectionStatus.CONNECTED)
         .order_by("platform", "account_name")
     )
 
