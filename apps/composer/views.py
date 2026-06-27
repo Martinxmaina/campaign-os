@@ -1867,33 +1867,14 @@ def _create_idea_media_asset(workspace, user, uploaded_file):
 @login_required
 @require_permission("create_posts")
 def create_landing(request, workspace_id):
-    """Render the Create landing page with Ideas Kanban board."""
-    from apps.composer.builtin_templates import (
-        CATEGORIES,
-        get_all_templates,
-        get_featured_templates,
-    )
+    """Deprecated landing — the Create front door now opens the composer directly.
 
-    workspace = _get_workspace(request, workspace_id)
-    tab = request.GET.get("tab", "ideas")
-    tag = request.GET.get("tag")
-
-    columns, all_tags = _idea_columns(workspace, tag)
-
-    feeds = Feed.objects.for_workspace(workspace.id)
-
-    context = {
-        "workspace": workspace,
-        "tab": tab,
-        "columns": columns,
-        "all_tags": all_tags,
-        "active_tag": tag,
-        "featured_templates": get_featured_templates(),
-        "builtin_templates": get_all_templates(),
-        "template_categories": CATEGORIES,
-        "feeds": feeds,
-    }
-    return render(request, "composer/create_landing.html", context)
+    Kept as a 302 so old links/bookmarks keep working. The idea board, templates
+    and feeds it used to surface remain reachable via the Create dropdown and
+    their existing routes; nothing is deleted.
+    """
+    _get_workspace(request, workspace_id)  # preserve the membership/403 check
+    return redirect("composer:compose", workspace_id=workspace_id)
 
 
 @login_required
