@@ -145,6 +145,12 @@
     /* Hide scrollbar on filter containers */
     .cal-filters-scroll::-webkit-scrollbar { display: none; }
 
+    /* Collapsible Filters disclosure: suppress the native triangle marker
+       so the styled summary button reads as a normal toolbar control. */
+    .cal-filters-rail > summary { list-style: none; }
+    .cal-filters-rail > summary::-webkit-details-marker { display: none; }
+    .cal-filters-rail > summary::marker { content: ""; }
+
     /* Filter dropdowns (shared by list and calendar modes) */
     .publish-filter-select,
     .cal-filter-select {
