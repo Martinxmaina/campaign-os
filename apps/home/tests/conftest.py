@@ -20,6 +20,50 @@ _email_counter = itertools.count(1)
 
 
 @pytest.fixture
+def social_account(db, workspace):
+    """A connected SocialAccount in the test workspace.
+
+    Modeled on ``apps/approvals/tests/conftest.py`` + the real
+    ``apps.social_accounts.models.SocialAccount`` fields.
+    """
+    from apps.social_accounts.models import SocialAccount
+
+    return SocialAccount.objects.create(
+        workspace=workspace,
+        platform="linkedin",
+        account_platform_id="acct-linkedin-home",
+        account_name="LinkedIn account",
+        connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+    )
+
+
+@pytest.fixture
+def make_post(db):
+    """Build a ``composer.Post`` in a workspace.
+
+    ``Post.status`` is a *derived* property over ``platform_posts`` (see
+    ``apps.composer.status.derive_post_status``) — it is NOT a settable field —
+    so the ``status`` kwarg here is only a hint; callers that need a specific
+    derived status attach ``PlatformPost`` children themselves (as the A2
+    published-post test does). ``scheduled_at`` is a real Post field; ``author``
+    maps to ``Post.author``.
+    """
+    from apps.composer.models import Post
+
+    def _make(workspace, status="draft", author=None, scheduled_at=None, **kwargs):
+        return Post.objects.create(
+            workspace=workspace,
+            author=author,
+            caption=kwargs.pop("caption", "Sample caption"),
+            title=kwargs.pop("title", "Sample title"),
+            scheduled_at=scheduled_at,
+            **kwargs,
+        )
+
+    return _make
+
+
+@pytest.fixture
 def make_user_in_workspace(db):
     def _make(workspace, role=WorkspaceMembership.WorkspaceRole.MEMBER):
         n = next(_email_counter)
