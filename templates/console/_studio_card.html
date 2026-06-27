@@ -33,8 +33,13 @@ CSP-safe: plain <form> POSTs + links, no inline onclick/onsubmit.
     {% if post.campaign %}<span class="rounded px-1.5 py-0.5 bg-stone-100 text-stone-600">{{ post.campaign }}</span>{% endif %}
   </div>
 
-  {# ── Inline actions by state ───────────────────────────────────── #}
-  <div class="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-stone-100">
+  {# ── Inline actions by state ───────────────────────────────────────
+     Density: ONE clear primary action per card (Submit / Approve / Publish,
+     in btn-brand or solid colour); the secondary review decisions are demoted
+     to quiet outline buttons, and Edit stays a persistent quiet link on the
+     right. Every form, url tag, hidden input and CSS hook below is preserved
+     exactly — only the secondary buttons' visual weight changed. #}
+  <div class="flex flex-wrap items-center gap-2 mt-auto pt-3 border-t border-stone-100">
     {% if post.studio_state == "draft" or post.studio_state == "changes_requested" or post.studio_state == "rejected" %}
       {# The missing first step: send a draft into the approval pipeline so it
          can be Approved → Published. The gate runs at publish, never here. #}
@@ -57,15 +62,16 @@ CSP-safe: plain <form> POSTs + links, no inline onclick/onsubmit.
         </div>
       </details>
     {% elif post.studio_state == "pending_review" %}
+      {# Primary: Approve. Secondaries (changes / reject) demoted to outline. #}
       <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
         <input type="hidden" name="decision" value="approve">
         <button type="submit" class="rounded bg-emerald-600 text-white px-3 py-1 text-xs">Approve</button></form>
       <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
         <input type="hidden" name="decision" value="changes">
-        <button type="submit" class="rounded bg-amber-500 text-white px-3 py-1 text-xs">Request changes</button></form>
+        <button type="submit" class="rounded border border-amber-300 text-amber-700 px-3 py-1 text-xs hover:bg-amber-50">Request changes</button></form>
       <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
         <input type="hidden" name="decision" value="reject">
-        <button type="submit" class="rounded bg-rose-500 text-white px-3 py-1 text-xs">Reject</button></form>
+        <button type="submit" class="rounded border border-rose-200 text-rose-600 px-3 py-1 text-xs hover:bg-rose-50">Reject</button></form>
     {% elif post.studio_state == "approved" %}
       {# One-tap Publish — schedules effective-now; the gate runs in the chain. #}
       <form method="post" action="{% url 'composer:publish_post' workspace_id=post.workspace_id post_id=post.id %}">{% csrf_token %}
@@ -73,6 +79,6 @@ CSP-safe: plain <form> POSTs + links, no inline onclick/onsubmit.
     {% endif %}
     {# Edit is always available — links to the composer for this post. #}
     <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
-       class="rounded border border-stone-200 px-3 py-1 text-xs text-stone-700 hover:border-stone-400 ml-auto">Edit</a>
+       class="rounded px-3 py-1 text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100 ml-auto">Edit</a>
   </div>
 </div>
