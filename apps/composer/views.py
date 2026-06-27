@@ -806,6 +806,33 @@ def save_post(request, workspace_id, post_id=None):
     except Exception:
         logger.exception("voice delta capture failed for post %s", post.id)
 
+    # "Send for review" straight from the composer: the draft is now saved and
+    # its PlatformPosts synced (above), so create the review assignment + email
+    # the reviewer. Works for both new and existing posts (the post has a PK
+    # here regardless). No-ops back to a plain draft save if no email was given.
+    if action == "save_and_assign":
+        reviewer_email = (request.POST.get("reviewer_email") or "").strip()
+        if reviewer_email:
+            from django.urls import reverse
+
+            from apps.approvals.assignment_service import assign_for_review
+
+            assign_for_review(
+                post,
+                request.user,
+                reviewer_email,
+                (request.POST.get("reviewer_name") or "").strip(),
+            )
+            edit_url = reverse(
+                "composer:compose_edit",
+                kwargs={"workspace_id": workspace.id, "post_id": post.id},
+            )
+            if request.htmx:
+                # Full navigation to the saved post so the reviewer assignment
+                # shows in its approval history (clear confirmation).
+                return HttpResponse(status=204, headers={"HX-Redirect": edit_url})
+            return redirect("composer:compose_edit", workspace_id=workspace.id, post_id=post.id)
+
     # Return appropriate response
     if request.htmx:
         return HttpResponse(
