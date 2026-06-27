@@ -102,3 +102,68 @@ def performance_summary(workspace, days: int = 30, metric: str = _GRAPH_METRIC) 
         "has_data": has_data,
         "window_days": days,
     }
+
+
+# ----------------------------------------------------------------------------
+# Action-card builders (sign-off, drafts, going-out-soon)
+#
+# NOTE on field names: a Post's editorial status is *derived* from its
+# ``platform_posts`` children (``apps.composer.status.derive_post_status``); it
+# is not a settable ``Post`` column. So "draft" is queried via the child
+# ``platform_posts__status`` join — mirroring ``apps/composer/views.drafts_list``
+# (composer/views.py:~1563) — NOT via a ``review_state`` literal. ``review_state``
+# is the separate AI-approval column whose values are
+# none/pending/approved/changes_requested/rejected (see Post.ReviewState), used
+# only by ``pending_signoff``. ``scheduled_at`` is a real ``Post`` field.
+# ----------------------------------------------------------------------------
+from apps.composer.models import Post
+
+# Child statuses that mean a post has moved past "draft".
+_BEYOND_DRAFT = [
+    "pending_review",
+    "pending_client",
+    "approved",
+    "scheduled",
+    "publishing",
+    "partially_published",
+    "published",
+    "failed",
+]
+
+
+def my_drafts(workspace, user, limit: int = 6):
+    """This user's draft posts in this workspace, newest first.
+
+    A post is a draft when a PlatformPost child is in the ``draft`` state and
+    none have advanced further (matches ``composer.views.drafts_list``).
+    """
+    return list(
+        Post.objects.filter(
+            workspace_id=workspace.id, author=user, platform_posts__status="draft"
+        )
+        .exclude(platform_posts__status__in=_BEYOND_DRAFT)
+        .distinct()
+        .order_by("-updated_at")[:limit]
+    )
+
+
+def going_out_soon(workspace, days: int = 7, limit: int = 6):
+    """Posts scheduled to publish in the next ``days`` days, soonest first."""
+    now = timezone.now()
+    return list(
+        Post.objects.filter(
+            workspace_id=workspace.id,
+            scheduled_at__gte=now,
+            scheduled_at__lte=now + timedelta(days=days),
+        )
+        .distinct()
+        .order_by("scheduled_at")[:limit]
+    )
+
+
+def pending_signoff(workspace, user, limit: int = 6):
+    """Posts awaiting review that this user can act on (reviewer or approver)."""
+    qs = Post.objects.filter(
+        workspace_id=workspace.id, review_state=Post.ReviewState.PENDING
+    ).order_by("-updated_at")
+    return list(qs[:limit])

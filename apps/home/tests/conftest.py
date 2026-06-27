@@ -38,6 +38,20 @@ def social_account(db, workspace):
 
 
 @pytest.fixture
+def other_workspace(db, workspace):
+    """A second Workspace in the SAME org — the cross-house wall counterpart.
+
+    Modeled on the root ``conftest.workspace`` fixture; used by the A3
+    ``my_drafts`` test to prove drafts from another workspace are excluded.
+    """
+    from apps.workspaces.models import Workspace
+
+    return Workspace.objects.create(
+        organization=workspace.organization, name="AfCEN"
+    )
+
+
+@pytest.fixture
 def make_post(db):
     """Build a ``composer.Post`` in a workspace.
 
