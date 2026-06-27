@@ -748,7 +748,7 @@
                      (and keeping its hidden-field fallback outside the fold so the form
                      always submits a value) declutters the caption two-pane. -->
                 <details class="group rounded-xl border border-stone-200 bg-white"
-                         x-data="{}" x-init="if (anyPlatformSupportsFirstComment) $el.open = true">
+                         x-data="{}" x-effect="if (anyPlatformSupportsFirstComment) $el.open = true">
                     <summary class="flex items-center justify-between px-4 py-2.5 cursor-pointer select-none list-none">
                         <span class="text-sm font-semibold text-stone-500 uppercase tracking-wider">First comment &amp; schedule</span>
                         <svg class="w-4 h-4 text-stone-400 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
