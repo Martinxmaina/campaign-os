@@ -55,4 +55,9 @@ urlpatterns = [
         views.disconnect,
         name="disconnect",
     ),
+    path(
+        "<uuid:workspace_id>/<uuid:account_id>/logo/",
+        views.set_account_logo,
+        name="set_logo",
+    ),
 ]

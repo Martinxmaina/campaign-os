@@ -742,6 +742,43 @@ def disconnect(request, workspace_id, account_id):
     return redirect("social_accounts:list", workspace_id=workspace_id)
 
 
+@login_required
+@require_permission("manage_social_accounts")
+@require_POST
+def set_account_logo(request, workspace_id, account_id):
+    """Upload a brand logo for an account so it's visually identifiable.
+
+    Stored on the model's ImageField (whose .url re-signs for private S3), and
+    rendered everywhere via ``SocialAccount.logo_display_url``.
+    """
+    account = get_object_or_404(SocialAccount.objects.for_workspace(workspace_id), id=account_id)
+    f = request.FILES.get("logo")
+    if not f:
+        messages.error(request, "Choose an image to use as the logo.")
+    elif f.size > 5 * 1024 * 1024:
+        messages.error(request, "Logo must be 5 MB or smaller.")
+    else:
+        from PIL import Image
+
+        try:
+            Image.open(f).verify()  # reject non-images
+            f.seek(0)
+        except Exception:
+            messages.error(request, "That file isn't a valid image.")
+        else:
+            account.logo = f
+            account.save(update_fields=["logo", "updated_at"])
+            messages.success(request, f"Logo updated for {account.account_name or account.account_handle}.")
+
+    if request.headers.get("HX-Request"):
+        return render(
+            request,
+            "social_accounts/partials/_account_card.html",
+            {"account": account, "workspace_id": workspace_id},
+        )
+    return redirect("social_accounts:list", workspace_id=workspace_id)
+
+
 # ------------------------------------------------------------------
 # Blotato import (multi-platform publishing add-on)
 # ------------------------------------------------------------------

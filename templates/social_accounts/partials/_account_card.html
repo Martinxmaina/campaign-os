@@ -5,16 +5,28 @@ Usage: {% include "social_accounts/partials/_account_card.html" with account=acc
 {% load social_accounts_tags %}
 <div id="account-{{ account.id }}" class="group relative bg-white rounded-xl border border-stone-200 p-5 transition-all duration-200 hover:shadow">
     <div class="flex items-start gap-4">
-        <!-- Avatar -->
-        <div class="flex-shrink-0">
-            {% if account.avatar_url %}
-            <img src="{{ account.avatar_url }}" alt="{{ account.account_name|default:account.account_handle }}" class="w-11 h-11 rounded-full object-cover ring-2 ring-stone-100">
-            {% else %}
-            <div class="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
-                {% include "social_accounts/partials/_platform_icon.html" with platform=account.platform size="5" %}
-            </div>
-            {% endif %}
-        </div>
+        <!-- Avatar / logo (click to upload a brand logo so accounts are identifiable) -->
+        <form class="flex-shrink-0"
+              hx-post="{% url 'social_accounts:set_logo' workspace_id=workspace_id account_id=account.id %}"
+              hx-encoding="multipart/form-data"
+              hx-target="#account-{{ account.id }}"
+              hx-swap="outerHTML"
+              x-data>
+            {% csrf_token %}
+            <label class="relative block w-11 h-11 cursor-pointer group/logo" title="Click to upload a logo">
+                {% if account.logo_display_url %}
+                <img src="{{ account.logo_display_url }}" alt="{{ account.account_name|default:account.account_handle }}" class="w-11 h-11 rounded-full object-cover ring-2 ring-stone-100">
+                {% else %}
+                <div class="w-11 h-11 rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
+                    {% include "social_accounts/partials/_platform_icon.html" with platform=account.platform size="5" %}
+                </div>
+                {% endif %}
+                <span class="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover/logo:opacity-100 flex items-center justify-center transition-opacity">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                </span>
+                <input type="file" name="logo" accept="image/*" class="hidden" @change="$el.form.requestSubmit()">
+            </label>
+        </form>
 
         <!-- Info -->
         <div class="flex-1 min-w-0">

@@ -316,8 +316,8 @@
                             <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                         </span>
                         <div class="relative flex-shrink-0">
-                            {% if account.avatar_url %}
-                            <img src="{{ account.avatar_url }}" alt="{{ account.account_name|default:account.account_handle }}" class="w-7 h-7 rounded-full object-cover">
+                            {% if account.logo_display_url %}
+                            <img src="{{ account.logo_display_url }}" alt="{{ account.account_name|default:account.account_handle }}" class="w-7 h-7 rounded-full object-cover">
                             {% else %}
                             <div class="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center text-stone-400">
                                 {% include "partials/_platform_icon.html" with platform=account.platform size="sm" %}

@@ -32,6 +32,11 @@ class SocialAccount(models.Model):
     account_name = models.CharField(max_length=255)
     account_handle = models.CharField(max_length=255, blank=True, default="")
     avatar_url = models.URLField(max_length=2000, blank=True, default="")
+    # User-uploaded brand logo for this account — overrides the provider avatar
+    # in the UI so accounts (especially two of the same platform) are visually
+    # distinguishable. An ImageField's .url re-signs on every render, so it
+    # survives the private-S3 presigned-URL expiry that a stored URL string would not.
+    logo = models.ImageField(upload_to="account_logos/", blank=True, null=True)
     follower_count = models.IntegerField(default=0)
 
     # Encrypted OAuth tokens
@@ -79,6 +84,17 @@ class SocialAccount(models.Model):
 
     def __str__(self):
         return f"{self.account_name} ({self.get_platform_display()})"
+
+    @property
+    def logo_display_url(self) -> str:
+        """Best image to show for this account: uploaded logo first, else the
+        provider avatar. Returns a fresh (re-signed on S3) URL, or '' if none."""
+        if self.logo:
+            try:
+                return self.logo.url
+            except Exception:
+                pass
+        return self.avatar_url or ""
 
     @property
     def is_token_expiring_soon(self) -> bool:
