@@ -874,6 +874,72 @@ def _capture_voice_delta(request, post):
 
 
 @login_required
+@require_permission("create_posts")
+@require_POST
+def duplicate_post(request, workspace_id, post_id):
+    """Clone a post (content + media + per-channel targets) into a fresh draft.
+
+    Reuses the source's caption/title/segmentation, its media attachments, and
+    its channel targets (incl. any per-channel caption overrides). The clone is
+    a brand-new draft: publishing state is reset so it re-gates from scratch and
+    nothing is accidentally re-published.
+    """
+    from django.urls import reverse
+
+    workspace = _get_workspace(request, workspace_id)
+    src = get_object_or_404(Post, id=post_id, workspace=workspace)
+
+    with transaction.atomic():
+        clone = Post.objects.create(
+            workspace=workspace,
+            author=request.user,
+            title=(f"Copy of {src.title}" if src.title else ""),
+            caption=src.caption,
+            first_comment=src.first_comment,
+            internal_notes=src.internal_notes,
+            tags=list(src.tags or []),
+            category=src.category,
+            track=src.track,
+            pillar=src.pillar,
+            campaign=src.campaign,
+            review_state=Post.ReviewState.NONE,
+            # scheduled_at / published_at intentionally left null
+        )
+
+        # Media attachments (same MediaAssets, preserved order + alt text)
+        for m in src.media_attachments.all():
+            PostMedia.objects.create(
+                post=clone,
+                media_asset=m.media_asset,
+                position=m.position,
+                alt_text=m.alt_text,
+                platform_overrides=dict(m.platform_overrides or {}),
+            )
+
+        # Channel targets — copy content/targeting, RESET all publishing state so
+        # the clone is a clean draft that re-gates on publish.
+        for pp in src.platform_posts.all():
+            PlatformPost.objects.create(
+                post=clone,
+                social_account=pp.social_account,
+                platform_specific_title=pp.platform_specific_title,
+                platform_specific_caption=pp.platform_specific_caption,
+                platform_specific_media=pp.platform_specific_media,
+                platform_specific_first_comment=pp.platform_specific_first_comment,
+                platform_extra=dict(pp.platform_extra or {}),
+                status=PlatformPost.Status.DRAFT,
+                gate_bypassed=pp.gate_bypassed,
+                # platform_post_id / publish_error / published_at / scheduled_at /
+                # retry_count / gate_id / content_hash all left at defaults (reset)
+            )
+
+    edit_url = reverse("composer:compose_edit", kwargs={"workspace_id": workspace.id, "post_id": clone.id})
+    if request.headers.get("HX-Request"):
+        return HttpResponse(status=204, headers={"HX-Redirect": edit_url})
+    return redirect(edit_url)
+
+
+@login_required
 @require_POST
 def transition_platform_post(request, workspace_id, post_id, platform_post_id):
     """Transition a single PlatformPost to a target editorial status.
