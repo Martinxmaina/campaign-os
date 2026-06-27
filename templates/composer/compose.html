@@ -743,12 +743,14 @@
                                 <label class="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1"
                                        x-text="(charLimits[accId]?.title_label || 'Title') + ' Override'"></label>
                                 <input type="text" :name="'override_title_' + accId"
+                                       x-model="overrideTitles[accId]"
                                        class="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all"
                                        :placeholder="'Custom ' + (charLimits[accId]?.title_label || 'title') + '…'"
                                        :maxlength="charLimits[accId]?.title_max_length || 255">
                             </div>
                         </template>
                         <textarea :name="'override_caption_' + accId"
+                                  x-model="overrideCaptions[accId]"
                                   class="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all resize-none"
                                   style="font-family: system-ui, -apple-system, sans-serif;"
                                   :placeholder="'Custom ' + (charLimits[accId]?.caption_label || 'caption') + ' for this platform...'"
@@ -1506,6 +1508,7 @@
 {{ selected_account_ids|json_script:"composer-selected-accounts" }}
 {{ char_limits|json_script:"composer-char-limits" }}
 {{ platform_extras|json_script:"composer-platform-extras" }}
+{{ platform_overrides|json_script:"composer-platform-overrides" }}
 {{ media_items|json_script:"composer-media-items" }}
 <script nonce="{{ request.csp_nonce }}">
 function composerApp() {
@@ -1516,6 +1519,9 @@ function composerApp() {
         selectedAccounts: JSON.parse(document.getElementById('composer-selected-accounts').textContent),
         charLimits: JSON.parse(document.getElementById('composer-char-limits').textContent),
         overrides: {},
+        savedOverrides: JSON.parse(document.getElementById('composer-platform-overrides').textContent) || {},
+        overrideCaptions: {},
+        overrideTitles: {},
         advancedOpen: {},
         platformExtras: JSON.parse(document.getElementById('composer-platform-extras').textContent) || {},
         showMediaPicker: false,
@@ -1617,6 +1623,14 @@ function composerApp() {
                 this.overrides[id] = false;
                 this.advancedOpen[id] = false;
                 if (!this.platformExtras[id]) this.platformExtras[id] = {};
+                // Pre-fill saved per-channel variants + auto-open the override on edit
+                // (so editing doesn't silently wipe a channel's custom caption).
+                const ov = this.savedOverrides[id] || {};
+                this.overrideCaptions[id] = ov.caption || '';
+                this.overrideTitles[id] = ov.title || '';
+                if ((ov.caption && ov.caption.length) || (ov.title && ov.title.length)) {
+                    this.overrides[id] = true;
+                }
             });
 
             // Listen for thumbnail selection events dispatched from the picker
@@ -1672,6 +1686,8 @@ function composerApp() {
                 this.overrides[id] = false;
                 this.advancedOpen[id] = false;
                 if (!this.platformExtras[id]) this.platformExtras[id] = {};
+                if (this.overrideCaptions[id] === undefined) this.overrideCaptions[id] = '';
+                if (this.overrideTitles[id] === undefined) this.overrideTitles[id] = '';
             }
             // Wait for Alpine to flush :value bindings before triggering HTMX
             this.$nextTick(() => {
