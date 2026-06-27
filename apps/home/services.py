@@ -91,6 +91,14 @@ def performance_summary(workspace, days: int = 30, metric: str = _GRAPH_METRIC) 
     avg_engagement = round(sum(nonzero) / len(nonzero), 1) if nonzero else 0.0
     has_data = posts_published > 0 or any(series)
 
+    # Pre-compute the SVG bar geometry here so the template stays logic-free.
+    # Each bar is normalised to a 70px-tall plot; ``y`` is the top edge.
+    _peak = max(series) or 1.0
+    bar_heights = [
+        {"h": round(70 * v / _peak, 2), "y": round(70 - 70 * v / _peak, 2)}
+        for v in series
+    ]
+
     return {
         "series": series,
         "labels": labels,
@@ -101,6 +109,7 @@ def performance_summary(workspace, days: int = 30, metric: str = _GRAPH_METRIC) 
         "by_platform": by_platform,
         "has_data": has_data,
         "window_days": days,
+        "bar_heights": bar_heights,
     }
 
 
