@@ -69,11 +69,12 @@ def test_sidebar_shows_crm_section_for_manager(manager, client):
     resp = client.get(reverse("notifications:list"))
     assert resp.status_code == 200
     body = resp.content.decode()
-    # Section header + all four CRM links resolve and render.
-    assert "CRM" in body
+    # IA "Group & Home": the CRM links now live in the role-gated "Relationships"
+    # group (CRM + Outreach), and the deal pipeline points at crm:pipeline.
+    assert "Relationships" in body
     assert reverse("crm:org-list") in body
     assert reverse("crm:contact-list") in body
-    assert reverse("joseph:pipeline") in body
+    assert reverse("crm:pipeline") in body
     assert reverse("crm:import-home") in body
 
 
