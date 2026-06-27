@@ -64,29 +64,61 @@ Rendered as **collapsible groups below the spine**, each behind its existing per
 - Approver / owner / `approve_posts`: `/console/approvals` (owner-routed AI Approvals).
 - Each target keeps a visible link to the other approval views so nothing becomes unreachable — but only **one** "Review" item sits in the spine.
 
+### 3.3.1 The three personas → existing roles
+
+The platform already has a full RBAC model (`apps/members/models.py`). We do **not** invent new roles — we map each persona to an existing workspace role and let the existing permission gates drive the nav and Home. The gates: `can_access_joseph` = role in (owner, admin, principal); `can_manage_crm` = role in (owner, admin, campaign_owner); `approve_posts` and the other 13 permission keys come from each role's built-in permission set.
+
+| Persona | Assign workspace role | Joseph group | Relationships group | Can approve/publish | Home variant |
+|---------|----------------------|:------------:|:-------------------:|:-------------------:|--------------|
+| **Joseph** — sees as admin, leads on content | `admin` *(default)* — or `principal` if he should **not** see CRM/settings | ✓ | ✓ *(admin only)* | ✓ | **Executive** (§4) |
+| **CRM + content publishing** | `campaign_owner` | ✗ | ✓ | ✓ | **Operator + relationships** |
+| **Content publishing only** | `manager` *(publishes directly)* — or `editor` *(creates; someone approves)* | ✗ | ✗ | manager ✓ / editor ✗ | **Operator** |
+
+Decisions to confirm in review:
+- **Joseph's role.** `admin` matches "sees as the admin" and unlocks everything; the trade-off is he also sees the CRM/Relationships group and workspace settings. If you'd rather his surface stay focused (no CRM, no settings management) while keeping Joseph access + approvals + the performance graph, use `principal` — the role purpose-built for principals. *Default in this spec: `admin`.*
+- **Content-only role.** `manager` if these people publish themselves; `editor` if their posts must be approved by Joseph/an admin first. *Default: `manager`.*
+
 ### 3.4 Settings (gear menu)
 
 A single **gear menu** (top bar / footer) groups links to the existing settings pages — no page rebuilds:
-Account settings, Workspace settings, Approvals rules, Content Intake (Sheet), Platform Credentials, Team, Notification preferences, API keys, Org settings, Workspace switcher.
+Account settings, Workspace settings, Approvals rules, Content Intake (Sheet), Platform Credentials, **Team / People (invite)**, Notification preferences, API keys, Org settings, Workspace switcher.
 
-## 4. Role-aware Home (new)
+### 3.5 Adding people by email (already exists — just surfaced)
 
-New route `home` (per workspace) becomes the **default post-login landing** (replaces the calendar default). One template with **role-conditional card sections**; each card reuses existing querysets — no new data models.
+Inviting users by email is **already built** (`members:invite` → `members:accept_invite`, plus the member list at `members:list`). An org admin/owner enters an email, picks an org role (admin / member) and a per-workspace role, and the invitee gets an email; on accept the User + memberships are created. We are **not** rebuilding this.
 
-Cards by audience (a user sees the union of cards their role unlocks):
+Option 01's job is to make it **findable and obvious**:
+- Surface **"People"** clearly under the Settings gear (and as a card on the admin Home — "Invite a teammate").
+- When inviting, the workspace-role dropdown is the control that sets a person's experience — so the invite UI gets a one-line helper per role tier ("Admin — full access · Campaign owner — CRM + publishing · Manager — publishing · Editor — create, needs approval") drawn from §3.3.1, so Martin can add Joseph as `admin` (or `principal`) and others as `campaign_owner` / `manager` / `editor` without guessing.
 
-- **Everyone (content):**
-  - *Needs your sign-off* — posts assigned to you for review (if `approve_posts` or assigned reviewer).
-  - *Your drafts* — your draft posts, newest first.
-  - *Going out soon* — posts scheduled in the next 7 days.
-  - *Inbox* — count of unread inbox messages → link.
-  - *Recent performance* — last-N published posts with headline metrics (if analytics enabled).
-  - Primary CTA: **New post**.
-- **Owner / admin (Martin):** + *Team approvals pending*, *Intake to triage*, *System health* (open breakers / healing incidents / agent fleet status).
-- **Principal (`can_access_joseph`):** the Joseph "Today" essentials — briefs needing attention, approvals, pipeline movement (reuse `joseph:home` data; or a prominent "Open Joseph" card).
-- **Campaign owner (`can_manage_crm`):** + *Deals needing action*, *Replies to triage*.
+So "add Joseph": invite `joseph@…` → workspace role `admin` (or `principal`). He then lands on the Executive Home (§4).
 
-Empty states are invitations ("No drafts yet — start a post"), never dead ends.
+## 4. Role-aware Home (new) — the front door + mini dashboard
+
+New route `home` (per workspace) becomes the **default post-login landing** (replaces the calendar default). One template, **one consistent layout**, where each block renders only if the user's permissions unlock it. No new data models — every block reuses an existing queryset. This gives Joseph the polished mini-dashboard he asked for *and* gives a content-only editor a calm task list, from the same page.
+
+### 4.1 Layout (top → bottom)
+
+1. **Greeting + primary CTA** — "Good morning, {name}" and one **New post** button. One obvious action.
+2. **Content-performance graph** *(the mini dashboard — shown to anyone with `view_analytics`)* — a compact chart of how content is performing: engagement (or reach) over the last 30 days, with a small per-platform breakdown and 2–3 headline numbers (posts published, total reach, avg engagement). This is the **hero of Joseph's Home** and the "graph of how content is performing" he described. Built on the existing analytics models (`AccountInsightsSnapshot` / `PostInsightsSnapshot`, `PLATFORM_METRICS`). Rendered with a lightweight inline chart (no new heavy dependency).
+3. **Action cards** — a tidy grid; each card appears only if relevant:
+   - *Needs your sign-off* — posts awaiting your review (if `approve_posts` or you're the assigned reviewer).
+   - *Your drafts* — your draft posts, newest first.
+   - *Going out soon* — posts scheduled in the next 7 days.
+   - *Inbox* — unread message count (if `use_inbox`).
+   - **Admin/owner only:** *Team approvals pending*, *Intake to triage*, *System health* (open breakers / healing incidents / fleet status), *Invite a teammate*.
+   - **Campaign owner / CRM:** *Deals needing action*, *Replies to triage*.
+   - **Joseph / principal:** *Briefs needing attention*, *Pipeline movement* (reuse `joseph:home` data), with an "Open Joseph" deep link.
+
+### 4.2 What each persona's Home feels like
+
+- **Joseph (`admin`/`principal`):** performance graph up top → approvals waiting → briefs/pipeline → "Open Joseph" for the deep work. An executive glance, then one click into detail.
+- **Campaign owner:** performance graph → approvals + drafts → deals/replies needing action.
+- **Content-only (`manager`/`editor`):** a smaller performance card → your drafts → going out soon → inbox. No machinery, no empty admin cards.
+
+### 4.3 Honest data caveat
+
+The performance graph reflects posts **published through Campaign OS**. Posts published directly in Blotato's own dashboard (as some have been) won't appear until they flow through the platform; Blotato analytics is already wired so new platform-published posts populate the graph. The Home graph states its scope ("posts published via Campaign OS, last 30 days") so it's never mistaken for total account performance. Empty states are invitations ("No published posts yet — your performance graph fills in as you publish"), never dead ends.
 
 ## 5. Merging the "start content" front doors
 
@@ -114,14 +146,15 @@ Applied to the busiest pages, in priority order. Four principles:
 ## 7. Implementation surface
 
 - `templates/base.html` — the sidebar nav (lines ~245–925): rebuild the link list into spine + More drawer + role groups + gear menu; move Notifications to a top-bar bell. This is the bulk of the work.
-- **New Home:** `home` view + URL (workspace-scoped) + `templates/home/home.html` with role-conditional card partials. Update post-login redirect / workspace landing to point here.
+- **New Home:** `home` view + URL (workspace-scoped) + `templates/home/home.html` with permission-gated card partials. The view composes existing querysets (drafts, scheduled, approvals, inbox count) by permission; the **performance graph** card pulls from the analytics models and renders inline (no new chart library). Update the post-login redirect / workspace landing to point here.
 - `composer:create_landing` → redirect to Create flow; add the Create dropdown to the spine item.
+- **Invite-by-email is already built** — no new flow. Surface `members:invite` / `members:list` under the Settings gear as "People", add the per-role helper text to the invite form (§3.5), and add an "Invite a teammate" card to the admin Home.
 - `templates/composer/compose.html` — density refactor (two-pane + folded sections + single primary CTA).
-- No migrations expected (Home reuses existing models).
+- No migrations expected (Home and invites reuse existing models).
 
 ## 8. Rollout / phasing
 
-1. **Phase A — Nav + Home.** New spine, More drawer, role groups, gear menu, role-aware Home, idea-door merge. (The big perceived win.)
+1. **Phase A — Nav + Home.** New spine, More drawer, role groups, gear menu, role-aware Home (incl. the content-performance graph card), the "People" invite surfacing + per-role helper text, and the idea-door merge. (The big perceived win.)
 2. **Phase B — Compose density.** Refactor compose.html to the two-pane + folded layout.
 3. **Phase C — Remaining density pages.** Calendar, content board, inbox detail — one at a time.
 
@@ -129,8 +162,9 @@ Each phase is independently shippable and reversible (nav is template-level).
 
 ## 9. Testing
 
-- Nav renders correctly for each role: content member (spine + More only), campaign owner (+ Relationships), principal (+ Joseph), admin (full + System health card).
-- Home renders the right card set per role with no crashes on empty data.
+- Nav renders correctly for each persona: content-only `manager`/`editor` (spine + More only), `campaign_owner` (+ Relationships), Joseph as `admin` (full + Joseph + Relationships) and as `principal` (+ Joseph, no Relationships).
+- Home renders the right card set per role with no crashes on empty data; the performance-graph card appears for `view_analytics` holders and shows the empty-state when no platform-published posts exist.
+- Inviting a user by email with each workspace role produces the expected nav + Home for that user (invite → accept → land on Home).
 - `create_landing` 302s to the Create flow; old idea/post links still resolve.
 - Compose still saves/schedules/publishes correctly after the density refactor (existing publish-gate tests must stay green).
 - No existing route names removed (grep for reverse() usages before retiring any).
