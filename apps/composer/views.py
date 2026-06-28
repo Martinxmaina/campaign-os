@@ -19,7 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.html import strip_tags
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from apps.common.validators import (
     is_safe_url,
@@ -1190,8 +1190,37 @@ def autosave(request, workspace_id, post_id=None):
     )
 
 
+def _preview_kind(platform: str) -> str:
+    """Canonical preview-card key for a platform.
+
+    Connected accounts use either Blotato-prefixed platforms (``blotato_twitter``,
+    ``blotato_linkedin``, …) or native ones (``twitter``, ``linkedin_company``, …);
+    both collapse onto a single preview card. Without this, ``blotato_*`` and
+    ``ghost`` matched none of the preview branches and fell through to the bland
+    generic card — so X and Ghost never rendered as themselves.
+    """
+    p = (platform or "").lower()
+    if p in ("twitter", "x", "blotato_twitter"):
+        return "x"
+    if p in ("instagram", "instagram_login", "blotato_instagram"):
+        return "instagram"
+    if p in ("facebook", "blotato_facebook"):
+        return "facebook"
+    if p in ("linkedin", "linkedin_personal", "linkedin_company", "blotato_linkedin"):
+        return "linkedin"
+    if p in ("threads", "blotato_threads"):
+        return "threads"
+    if p in ("bluesky", "blotato_bluesky"):
+        return "bluesky"
+    if p == "ghost":
+        return "ghost"
+    if p in ("youtube", "tiktok", "pinterest"):
+        return p
+    return "generic"
+
+
 @login_required
-@require_GET
+@require_http_methods(["GET", "POST"])
 def preview(request, workspace_id):
     """Live preview endpoint - renders platform-specific preview from form state.
 
@@ -1199,10 +1228,14 @@ def preview(request, workspace_id):
     Stateless - no DB queries except social account lookup.
     """
     workspace = _get_workspace(request, workspace_id)
-    title = request.GET.get("title", "")
-    caption = request.GET.get("caption", "")
-    first_comment = request.GET.get("first_comment", "")
-    selected_ids_str = request.GET.get("selected_accounts", "")
+    # Prefer POST: a long caption serialized into a GET query string blows past
+    # the server/proxy request-line limit (~4-8 KB) and 400s. POST carries it in
+    # the body. Fall back to GET so existing tests/links keep working.
+    data = request.POST or request.GET
+    title = data.get("title", "")
+    caption = data.get("caption", "")
+    first_comment = data.get("first_comment", "")
+    selected_ids_str = data.get("selected_accounts", "")
     selected_ids = [s.strip() for s in selected_ids_str.split(",") if s.strip()]
 
     # Build preview data per platform
@@ -1215,13 +1248,14 @@ def preview(request, workspace_id):
         for account in accounts:
             override_title_key = f"override_title_{account.id}"
             override_key = f"override_caption_{account.id}"
-            effective_title = request.GET.get(override_title_key, "") or title
-            effective_caption = request.GET.get(override_key, "") or caption
+            effective_title = data.get(override_title_key, "") or title
+            effective_caption = data.get(override_key, "") or caption
             char_limit = account.char_limit
             field_config = account.field_config
             previews.append(
                 {
                     "account": account,
+                    "preview_kind": _preview_kind(account.platform),
                     "title": effective_title,
                     "caption": effective_caption,
                     "first_comment": first_comment,
@@ -1239,7 +1273,7 @@ def preview(request, workspace_id):
     from apps.media_library.models import MediaAsset
 
     media_items = []
-    post_id_str = request.GET.get("_autosave_post_id", "")
+    post_id_str = data.get("_autosave_post_id", "")
 
     if post_id_str:
         try:
