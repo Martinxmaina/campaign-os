@@ -588,3 +588,118 @@ class ErrorResponse(Schema):
     remaining: int | None = None
     retry_after: int | None = None
     reset_at: dt.datetime | None = None
+
+
+# ---------------------------------------------------------------------------
+# /pipeline, /content, /campaigns, /overview — reporting surface
+# ---------------------------------------------------------------------------
+
+
+class PipelineStage(Schema):
+    key: str = Field(..., description="Funnel stage key: curated|drafting|review|approved|scheduled|published.")
+    label: str = Field(..., description="Human label for the stage.")
+    count: int = Field(..., description="Number of content items currently in this stage.")
+    pct: int = Field(..., description="This stage's count as a percent of the pipeline total (0-100).")
+    color: str = Field(..., description="Hex colour for the stage bar.")
+
+
+class PipelineResponse(Schema):
+    stages: list[PipelineStage] = Field(..., description="Funnel stages in flow order.")
+    total: int = Field(..., description="Total active content items (created + curated, de-duped).")
+    created: int = Field(..., description="Composer posts with no linked intake item.")
+    curated: int = Field(..., description="Intake-register rows (each counted once).")
+    published: int = Field(..., description="Items in the published stage.")
+    percent: int = Field(..., description="Weighted progress through the pipeline (0-100).")
+
+
+class ContentPlatform(Schema):
+    platform: str = Field(..., description="Platform key (e.g. linkedin, instagram, x).")
+    account_id: uuid.UUID = Field(..., description="Target SocialAccount id.")
+    status: str = Field(..., description="Per-platform editorial/publish status.")
+    scheduled_at: dt.datetime | None = Field(None, description="When this child is scheduled.")
+    published_at: dt.datetime | None = Field(None, description="When this child was published.")
+    platform_post_id: str = Field("", description="Native post id on the platform once published.")
+    error: str = Field("", description="Publish error, if the last attempt failed.")
+
+    @field_serializer("scheduled_at", "published_at")
+    def _ser_dt(self, value: dt.datetime | None) -> str | None:
+        return _serialize_utc_z(value)
+
+
+class ContentItem(Schema):
+    id: uuid.UUID = Field(..., description="Post id.")
+    title: str = Field(..., description="Post title.")
+    caption_preview: str = Field(..., description="First ~160 chars of the caption.")
+    source: str = Field(..., description="created (composer-authored) | curated (from the intake register).")
+    status: str = Field(..., description="Derived aggregate status across the post's platform children.")
+    campaign: str = Field("", description="Free-form campaign label.")
+    track: str = Field("", description="Programme track.")
+    pillar: str = Field("", description="Sector pillar.")
+    platforms: list[ContentPlatform] = Field(..., description="Per-platform children.")
+    scheduled_at: dt.datetime | None = Field(None, description="Post-level scheduled time.")
+    published_at: dt.datetime | None = Field(None, description="Post-level published time.")
+    created_at: dt.datetime = Field(..., description="Creation time.")
+    updated_at: dt.datetime = Field(..., description="Last update time.")
+
+    @field_serializer("scheduled_at", "published_at", "created_at", "updated_at")
+    def _ser_dt(self, value: dt.datetime | None) -> str | None:
+        return _serialize_utc_z(value)
+
+
+class ContentListResponse(Schema):
+    items: list[ContentItem] = Field(..., description="Page of content items.")
+    next_cursor: str | None = Field(None, description="Opaque cursor for the next page; null at the end.")
+    has_more: bool = Field(..., description="True if another page exists.")
+
+
+class PlatformMetric(Schema):
+    platform: str = Field(..., description="Platform key.")
+    metrics: dict[str, float] = Field(..., description="Metric key → summed value for the platform.")
+
+
+class AnalyticsRollup(Schema):
+    available: bool = Field(..., description="False when the key lacks view_analytics or no account has analytics.")
+    window_days: int = Field(..., description="Rolling window size in days.")
+    accounts: int = Field(..., description="Number of allowlisted accounts contributing analytics.")
+    totals: dict[str, float] = Field(..., description="Metric key → summed value across all platforms.")
+    by_platform: list[PlatformMetric] = Field(..., description="Per-platform metric breakdown.")
+
+
+class CampaignSummary(Schema):
+    name: str = Field(..., description="Campaign label (the free-form Post.campaign string).")
+    content_count: int = Field(..., description="Posts tagged with this campaign (allowlist-scoped).")
+    by_status: dict[str, int] = Field(..., description="Derived-status → count.")
+    platforms: list[str] = Field(..., description="Distinct platforms this campaign posts to.")
+    first_post: dt.datetime | None = Field(None, description="Earliest post creation time in the campaign.")
+    last_post: dt.datetime | None = Field(None, description="Latest post creation time in the campaign.")
+    analytics: AnalyticsRollup | None = Field(
+        None, description="Summed analytics over the campaign's accounts; null without view_analytics."
+    )
+
+    @field_serializer("first_post", "last_post")
+    def _ser_dt(self, value: dt.datetime | None) -> str | None:
+        return _serialize_utc_z(value)
+
+
+class CampaignListResponse(Schema):
+    items: list[CampaignSummary] = Field(..., description="Campaign rollups, most-recent activity first.")
+
+
+class ContentSummary(Schema):
+    total: int = Field(..., description="Total allowlist-visible posts in the workspace.")
+    by_status: dict[str, int] = Field(..., description="Derived-status → count.")
+    scheduled_next_7d: int = Field(..., description="Posts scheduled in the next 7 days.")
+    published_last_30d: int = Field(..., description="Posts published in the last 30 days.")
+
+
+class OverviewResponse(Schema):
+    workspace_id: uuid.UUID = Field(..., description="The workspace this rollup covers.")
+    generated_at: dt.datetime = Field(..., description="When the rollup was computed (UTC).")
+    pipeline: PipelineResponse = Field(..., description="Content pipeline funnel.")
+    content: ContentSummary = Field(..., description="Content counts + scheduling windows.")
+    campaigns: list[CampaignSummary] = Field(..., description="Top campaigns by recent activity.")
+    analytics: AnalyticsRollup = Field(..., description="Workspace analytics rollup (gated).")
+
+    @field_serializer("generated_at")
+    def _ser_dt(self, value: dt.datetime) -> str | None:
+        return _serialize_utc_z(value)

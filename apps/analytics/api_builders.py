@@ -16,8 +16,10 @@ from __future__ import annotations
 
 from apps.api.schemas import (
     AccountAnalyticsResponse,
+    AnalyticsRollup,
     DerivedMetricResponse,
     EngagementCardResponse,
+    PlatformMetric,
     PlatformPostAnalyticsResponse,
     PostAnalyticsResponse,
     PostMetricTileResponse,
@@ -199,4 +201,43 @@ def _build_platform_post_analytics(platform_post, enabled_platforms: list[str]) 
         metric_tiles=tiles,
         captured_at=captured_at,
         next_sync_eta=next_sync_eta,
+    )
+
+
+def account_metric_map(accounts, days: int) -> dict:
+    """Compute per-account hero metrics once, keyed by account id.
+
+    Returns ``{account_id: {"platform": str, "available": bool,
+    "metrics": {metric_key: value}}}``. Reuses :func:`build_account_analytics`
+    so the numbers match ``GET /analytics/accounts/{id}`` exactly. One pass per
+    account; callers (workspace rollup, per-campaign rollups) then sum without
+    re-querying.
+    """
+    result: dict = {}
+    for account in accounts:
+        resp = build_account_analytics(account, days)
+        result[account.id] = {
+            "platform": account.platform,
+            "available": resp.analytics_available,
+            "metrics": {m.key: m.value for m in resp.hero_metrics},
+        }
+    return result
+
+
+def build_workspace_analytics_rollup(account_map: dict, days: int) -> AnalyticsRollup:
+    """Sum an :func:`account_metric_map` into workspace totals + per-platform."""
+    available_accounts = [a for a in account_map.values() if a["available"]]
+    totals: dict[str, float] = {}
+    per_platform: dict[str, dict[str, float]] = {}
+    for acct in available_accounts:
+        platform_bucket = per_platform.setdefault(acct["platform"], {})
+        for key, value in acct["metrics"].items():
+            totals[key] = totals.get(key, 0.0) + value
+            platform_bucket[key] = platform_bucket.get(key, 0.0) + value
+    return AnalyticsRollup(
+        available=bool(available_accounts),
+        window_days=days,
+        accounts=len(available_accounts),
+        totals=totals,
+        by_platform=[PlatformMetric(platform=p, metrics=m) for p, m in sorted(per_platform.items())],
     )
