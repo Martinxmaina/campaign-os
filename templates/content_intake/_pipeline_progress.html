@@ -1,7 +1,7 @@
-{# Unified content-pipeline progress strip: created (composer Posts) + curated
+{% comment %}Unified content-pipeline progress strip: created (composer Posts) + curated
    (ContentIntake), de-duped and mapped onto one funnel. Context key:
    `pipeline_progress` (apps.content_intake.progress.content_pipeline_progress).
-   Inline `style` widths/colours only — no inline event handlers (CSP-safe). #}
+   Inline `style` widths/colours only — no inline event handlers (CSP-safe).{% endcomment %}
 {% with p=pipeline_progress %}
 {% if p %}
 <div class="card p-4 mb-4">

@@ -39,12 +39,12 @@ CSP-safe: no inline event handlers; actions are plain <form> POSTs and links.
     </div>
   </div>
 
-  {# ── Filters ─────────────────────────────────────────────────────
+  {% comment %}── Filters ──
      Density: State is the primary segmentation, so its chips stay visible.
      The secondary filters (Track / Pillar / Find) fold into a quiet
      collapsible rail so they don't dominate the board chrome — opened
      automatically whenever one of them is active. Every chip link, the GET
-     form, all hidden inputs, url tags and template-tag calls are unchanged. #}
+     form, all hidden inputs, url tags and template-tag calls are unchanged.{% endcomment %}
   <div class="space-y-2">
     <div class="flex flex-wrap items-center gap-2">
       <span class="text-[11px] uppercase tracking-wider text-stone-400 w-14 shrink-0">State</span>

@@ -19,8 +19,8 @@ nonce-bearing <script>.
 {% endcomment %}
 
 {% block extra_head %}
-  {# /joseph/-scoped manifest (overrides the site manifest for the installed
-     Joseph app — its own name, start_url and scope). #}
+  {% comment %}/joseph/-scoped manifest (overrides the site manifest for the installed
+     Joseph app — its own name, start_url and scope).{% endcomment %}
   <link rel="manifest" href="{% static 'joseph/manifest.json' %}">
   <meta name="theme-color" content="#F97316">
 {% endblock %}

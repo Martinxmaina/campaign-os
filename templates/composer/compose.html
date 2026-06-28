@@ -1337,8 +1337,8 @@
             </div>
             {% endif %}
 
-            {# Assign-for-review now lives in the composer action bar ("Assign for
-               review"), which works for new and existing posts alike. #}
+            {% comment %}Assign-for-review now lives in the composer action bar ("Assign for
+               review"), which works for new and existing posts alike.{% endcomment %}
 
             <!-- Approval timeline -->
             <h4 class="text-xs font-semibold text-stone-500 uppercase tracking-wider mb-2">Approval History</h4>
@@ -2171,45 +2171,15 @@ function composerApp() {
     const scheduleConfirm = document.getElementById('publish-schedule-confirm');
     if (!modeBtn || !popover) return;
 
-    // ── Schedule date/time pickers (#5) ──────────────────────────
-    // These inputs intentionally use the `compose-sched-datetime` class
-    // (NOT `form-datetime`) so base.html's global flatpickr auto-init —
-    // which appends the calendar to <body> and positions it relative to
-    // the input — does NOT pick them up. Inside this upward-opening
-    // popover that body-anchored calendar rendered above the viewport top
-    // and was unclickable. We init them here with `static: true` so the
-    // calendar/time grid renders INLINE within the scrollable schedule
-    // sub-view and stays fully on-screen and clickable.
-    if (typeof flatpickr === 'function') {
-        var schedDateEl = document.querySelector('input[name="scheduled_date"].compose-sched-datetime');
-        if (schedDateEl) {
-            var fpd = flatpickr(schedDateEl, {
-                static: true,
-                dateFormat: 'Y-m-d',
-                altInput: true,
-                altFormat: 'M j, Y',
-                minDate: 'today',
-                disableMobile: true,
-                appendTo: schedDateEl.parentNode,
-            });
-            if (fpd.altInput) fpd.altInput.placeholder = 'Select date…';
-        }
-        var schedTimeEl = document.querySelector('input[name="scheduled_time"].compose-sched-datetime');
-        if (schedTimeEl) {
-            var fpt = flatpickr(schedTimeEl, {
-                static: true,
-                enableTime: true,
-                noCalendar: true,
-                dateFormat: 'H:i',
-                altInput: true,
-                altFormat: 'h:i K',
-                time_24hr: false,
-                disableMobile: true,
-                appendTo: schedTimeEl.parentNode,
-            });
-            if (fpt.altInput) fpt.altInput.placeholder = 'Select time…';
-        }
-    }
+    // ── Schedule date/time: NATIVE <input type=date|time> pickers ──
+    // We deliberately do NOT flatpickr-enhance these. flatpickr's static inline
+    // calendar cramped this narrow popover, and its unnamed type=number hour/
+    // minute inputs tripped browser form validation ("An invalid form control
+    // with name='' is not focusable"), which can block the submit. Native
+    // pickers never clip, submit cleanly with their own names, and the
+    // schedule-confirm handler below reads their .value directly. The
+    // `compose-sched-datetime` class keeps base.html's global flatpickr
+    // auto-init (which targets `.form-datetime`) from touching them.
 
     // Icon SVG paths by key
     const icons = {

@@ -35,6 +35,16 @@ untouchable gate. AI/HERALD posts only get Publish once APPROVED. CSP-safe.
           <button type="submit" class="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 rounded">Duplicate</button></form>
         <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
            class="block px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 rounded">Open in composer</a>
+        <div class="my-1 border-t border-stone-100"></div>
+        {% comment %}Alpine @click + fetch (CSP-safe: 'unsafe-eval' is allowed, inline handlers are not)
+           — mirrors the compose-page delete. On the 204 we drop the card from the grid.{% endcomment %}
+        <button type="button"
+                @click="if (confirm('Delete this post permanently? This cannot be undone. (A published post stays live on the platform — delete it there too if needed.)')) {
+                          fetch('{% url 'composer:post_delete' workspace_id=post.workspace_id post_id=post.id %}', {
+                            method: 'POST', headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+                          }).then(function(r){ if (r.ok) { $el.closest('.card').remove(); } else { alert('Could not delete this post.'); } });
+                        }"
+                class="w-full text-left px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded">Delete</button>
       </div>
     </div>
   </div>

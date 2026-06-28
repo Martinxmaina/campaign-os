@@ -1,8 +1,8 @@
 {% extends "console/base.html" %}
 {% block content %}
-{# These routes are introduced in later tasks; resolve via the `as` form so the
+{% comment %}These routes are introduced in later tasks; resolve via the `as` form so the
    board renders cleanly before those routes exist (matches the _panel.html
-   convention established in Task 3). #}
+   convention established in Task 3).{% endcomment %}
 {% url 'console:intake-sync-now' as sync_now_url %}
 {% url 'console:intake-draft-selected' as draft_selected_url %}
 {% url 'console:intake-add-to-calendar' as add_to_calendar_url %}

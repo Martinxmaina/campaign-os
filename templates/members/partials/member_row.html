@@ -55,9 +55,9 @@
                       class="px-3 py-2" style="border-bottom: 1px solid var(--border);">
                     {% csrf_token %}
                     <label class="text-xs font-medium block mb-1" style="color: var(--text-secondary);">Organization Role</label>
-                    {# Stacked, full-width: the select + Save no longer crowd each other
+                    {% comment %}Stacked, full-width: the select + Save no longer crowd each other
                        inside the narrow dropdown. pr-7 leaves room for the native arrow
-                       so the option text isn't overlapped by it. #}
+                       so the option text isn't overlapped by it.{% endcomment %}
                     <div class="space-y-1.5">
                         <select name="org_role" class="w-full text-xs pl-2 pr-7 py-1.5 rounded border outline-none"
                                 style="border-color: var(--border); background: var(--surface-0); color: var(--text-primary);">
