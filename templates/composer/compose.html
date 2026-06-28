@@ -258,6 +258,35 @@
     .panel-scroll::-webkit-scrollbar-track { background: transparent; }
     .panel-scroll::-webkit-scrollbar-thumb { background: #D6D3D1; border-radius: 2px; }
     .panel-scroll::-webkit-scrollbar-thumb:hover { background: #A8A29E; }
+
+    /* Ghost (Nexus Brief) rich editor */
+    .ghost-rich-toolbar {
+        display: flex; flex-wrap: wrap; gap: 2px;
+        padding: 4px; border: 1px solid #E7E5E4; border-bottom: none;
+        border-radius: 8px 8px 0 0; background: #FAFAF9;
+    }
+    .ghost-rich-toolbar button {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 28px; height: 28px; padding: 0 6px;
+        font-size: 13px; font-weight: 600; color: #57534E;
+        background: transparent; border: none; border-radius: 6px; cursor: pointer;
+        transition: background 120ms ease, color 120ms ease;
+    }
+    .ghost-rich-toolbar button:hover { background: #F0EEED; color: #1C1917; }
+    .ghost-rich-editor {
+        min-height: 160px; max-height: 420px; overflow-y: auto;
+        padding: 12px; font-size: 14px; line-height: 1.6; color: #292524;
+        border: 1px solid #E7E5E4; border-radius: 0 0 8px 8px; background: #fff;
+        outline: none;
+    }
+    .ghost-rich-editor:focus { border-color: #F97316; box-shadow: 0 0 0 2px rgba(249,115,22,0.1); }
+    .ghost-rich-editor:empty:before {
+        content: attr(data-placeholder); color: #A8A29E; pointer-events: none;
+    }
+    .ghost-rich-editor img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; }
+    .ghost-rich-editor h2, .ghost-rich-editor h3 { font-weight: 700; margin: 12px 0 6px; }
+    .ghost-rich-editor ul { list-style: disc; padding-left: 22px; margin: 6px 0; }
+    .ghost-rich-editor a { color: #F97316; text-decoration: underline; }
 </style>
 {% endblock %}
 
@@ -749,12 +778,41 @@
                                        :maxlength="charLimits[accId]?.title_max_length || 255">
                             </div>
                         </template>
-                        <textarea :name="'override_caption_' + accId"
-                                  x-model="overrideCaptions[accId]"
-                                  class="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all resize-none"
-                                  style="font-family: system-ui, -apple-system, sans-serif;"
-                                  :placeholder="'Custom ' + (charLimits[accId]?.caption_label || 'caption') + ' for this platform...'"
-                                  rows="3"></textarea>
+
+                        <!-- GHOST channel: rich HTML editor (formatting + inline images).
+                             Rich HTML belongs to the Ghost per-channel override only —
+                             social channels keep the plain textarea below. -->
+                        <template x-if="charLimits[accId]?.platform === 'ghost'">
+                            <div data-ghost-rich-editor="1">
+                                <label class="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Article Body (rich)</label>
+                                <div class="ghost-rich-toolbar" role="toolbar" aria-label="Formatting">
+                                    <button type="button" title="Bold" @click="richFormat($event, accId, 'bold')"><span style="font-weight:700;">B</span></button>
+                                    <button type="button" title="Italic" @click="richFormat($event, accId, 'italic')"><span style="font-style:italic;">I</span></button>
+                                    <button type="button" title="Heading" @click="richFormat($event, accId, 'formatBlock', 'H2')">H</button>
+                                    <button type="button" title="Bullet list" @click="richFormat($event, accId, 'insertUnorderedList')">&bull; List</button>
+                                    <button type="button" title="Link" @click="richLink($event, accId)">Link</button>
+                                    <button type="button" title="Insert image" @click="richInsertImage($event, accId)">Image</button>
+                                </div>
+                                <div contenteditable="true"
+                                     class="ghost-rich-editor"
+                                     :id="'ghost-rich-' + accId"
+                                     data-placeholder="Write the Nexus Brief article…"
+                                     @input="overrideCaptions[accId] = $event.target.innerHTML"
+                                     x-init="$nextTick(() => { $el.innerHTML = overrideCaptions[accId] || ''; })"></div>
+                                <!-- Hidden field carries the HTML for submission (override_caption_<accId>) -->
+                                <textarea :name="'override_caption_' + accId" x-model="overrideCaptions[accId]" class="hidden" aria-hidden="true"></textarea>
+                            </div>
+                        </template>
+
+                        <!-- Non-ghost channels: plain text override (social channels stay plain text). -->
+                        <template x-if="charLimits[accId]?.platform !== 'ghost'">
+                            <textarea :name="'override_caption_' + accId"
+                                      x-model="overrideCaptions[accId]"
+                                      class="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all resize-none"
+                                      style="font-family: system-ui, -apple-system, sans-serif;"
+                                      :placeholder="'Custom ' + (charLimits[accId]?.caption_label || 'caption') + ' for this platform...'"
+                                      rows="3"></textarea>
+                        </template>
 
                     </div>
                 </template>
@@ -1598,6 +1656,93 @@ function composerApp() {
             return 'Over character limit: ' + this.overLimitChannels.join(', ');
         },
 
+        // ── Ghost (Nexus Brief) rich editor ──────────────────────────
+        // CSP-safe: no external library. A contenteditable div + document
+        // .execCommand for formatting, with @click handlers from the toolbar.
+        _ghostEditorEl(accId) {
+            return document.getElementById('ghost-rich-' + accId);
+        },
+        _syncRich(accId) {
+            const el = this._ghostEditorEl(accId);
+            if (el) this.overrideCaptions[accId] = el.innerHTML;
+        },
+        richFormat(ev, accId, command, value) {
+            ev.preventDefault();
+            const el = this._ghostEditorEl(accId);
+            if (!el) return;
+            el.focus();
+            try { document.execCommand(command, false, value || null); } catch (e) {}
+            this._syncRich(accId);
+        },
+        richLink(ev, accId) {
+            ev.preventDefault();
+            const url = window.prompt('Link URL', 'https://');
+            if (!url) return;
+            this.richFormat(ev, accId, 'createLink', url);
+        },
+        // Insert image: reuse the existing media upload endpoint (same as the
+        // main composer) to get a hosted URL, then insert <img src> at the cursor.
+        richInsertImage(ev, accId) {
+            ev.preventDefault();
+            const el = this._ghostEditorEl(accId);
+            if (!el) return;
+            el.focus();
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            const self = this;
+            input.addEventListener('change', function() {
+                const file = input.files && input.files[0];
+                if (!file) return;
+                self._uploadInlineImage(file, accId);
+            });
+            input.click();
+        },
+        _insertImgAtCursor(accId, url) {
+            const el = this._ghostEditorEl(accId);
+            if (!el) return;
+            el.focus();
+            const ok = (function() {
+                try { return document.execCommand('insertImage', false, url); } catch (e) { return false; }
+            })();
+            if (!ok) {
+                // Fallback: append at the end.
+                const img = document.createElement('img');
+                img.src = url;
+                el.appendChild(img);
+            }
+            this._syncRich(accId);
+        },
+        _uploadInlineImage(file, accId) {
+            const self = this;
+            const formData = new FormData();
+            formData.append('file', file);
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+            const xhr = new XMLHttpRequest();
+            xhr.addEventListener('load', function() {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const imgUrl = xhr.getResponseHeader('X-Uploaded-Asset-Url');
+                    if (imgUrl) {
+                        self._insertImgAtCursor(accId, imgUrl);
+                    }
+                    if (self.autosavedPostId && !self.uploadUrl.includes(self.autosavedPostId)) {
+                        self.uploadUrl = `/workspace/{{ workspace.id }}/compose/${self.autosavedPostId}/upload-media/`;
+                    }
+                } else {
+                    self.formError = 'Image upload failed';
+                    setTimeout(() => { self.formError = ''; }, 3000);
+                }
+            });
+            xhr.addEventListener('error', function() {
+                self.formError = 'Image upload failed';
+                setTimeout(() => { self.formError = ''; }, 3000);
+            });
+            xhr.open('POST', this.uploadUrl);
+            xhr.setRequestHeader('X-CSRFToken', csrfToken);
+            xhr.send(formData);
+        },
+
         platformIconSvg(platform) {
             const s = 'width="14" height="14"';
             const icons = {
@@ -1618,19 +1763,16 @@ function composerApp() {
         },
 
         init() {
-            // Initialize overrides map
+            // Initialize overrides map (and prefill any saved per-channel override)
             this.selectedAccounts.forEach(id => {
-                this.overrides[id] = false;
+                const saved = this.savedOverrides[id] || {};
+                this.overrideCaptions[id] = saved.caption || '';
+                this.overrideTitles[id] = saved.title || '';
+                // Auto-open the override block when there is a saved override so
+                // the editor (incl. the Ghost rich editor) re-hydrates on edit.
+                this.overrides[id] = !!(saved.caption || saved.title);
                 this.advancedOpen[id] = false;
                 if (!this.platformExtras[id]) this.platformExtras[id] = {};
-                // Pre-fill saved per-channel variants + auto-open the override on edit
-                // (so editing doesn't silently wipe a channel's custom caption).
-                const ov = this.savedOverrides[id] || {};
-                this.overrideCaptions[id] = ov.caption || '';
-                this.overrideTitles[id] = ov.title || '';
-                if ((ov.caption && ov.caption.length) || (ov.title && ov.title.length)) {
-                    this.overrides[id] = true;
-                }
             });
 
             // Listen for thumbnail selection events dispatched from the picker

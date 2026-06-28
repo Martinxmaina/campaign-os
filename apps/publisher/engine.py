@@ -134,6 +134,17 @@ def _resolve_publish_credentials(account):
     return credentials
 
 
+def _looks_like_html(text: str) -> bool:
+    """True when the string contains HTML markup (a tag like <p>, <strong>, <img …>).
+
+    Used to decide whether a Ghost channel's per-channel override was authored
+    in the composer's rich editor (HTML) versus typed as plain text.
+    """
+    import re
+
+    return bool(re.search(r"<[a-zA-Z][^>]*>", text or ""))
+
+
 def _blotato_extra(account, platform: str, extra: dict) -> None:
     """Inject per-account Blotato data into the provider content extras."""
     cfg = account.provider_config or {}
@@ -614,6 +625,16 @@ class PublishEngine:
             # Inject Blotato per-account data for blotato_* platforms.
             if platform.startswith("blotato_"):
                 _blotato_extra(account, platform, extra)
+
+            # Ghost (Nexus Brief): the per-channel override is authored in the
+            # composer's rich editor and is HTML. Signal the provider to publish
+            # it verbatim (no escaping) when the override is set on this channel.
+            if (
+                platform == "ghost"
+                and platform_post.platform_specific_caption
+                and _looks_like_html(platform_post.platform_specific_caption)
+            ):
+                extra["body_format"] = "html"
 
             # Pop link_url from extra and set on PublishContent directly
             link_url = extra.pop("link_url", None)
