@@ -45,7 +45,7 @@
             <!-- Dropdown -->
             <div x-show="showActions" @click.outside="showActions = false"
                  x-transition
-                 class="absolute right-0 top-full mt-1 w-52 py-1 rounded-lg shadow-lg z-10"
+                 class="absolute right-0 top-full mt-1 w-56 py-1 rounded-lg shadow-lg z-10"
                  style="background: var(--surface-0); border: 1px solid var(--border);">
 
                 <!-- Change Role -->
@@ -55,17 +55,20 @@
                       class="px-3 py-2" style="border-bottom: 1px solid var(--border);">
                     {% csrf_token %}
                     <label class="text-xs font-medium block mb-1" style="color: var(--text-secondary);">Organization Role</label>
-                    <div class="flex gap-2">
-                        <select name="org_role" class="text-xs flex-1 px-2 py-1 rounded border outline-none"
+                    {# Stacked, full-width: the select + Save no longer crowd each other
+                       inside the narrow dropdown. pr-7 leaves room for the native arrow
+                       so the option text isn't overlapped by it. #}
+                    <div class="space-y-1.5">
+                        <select name="org_role" class="w-full text-xs pl-2 pr-7 py-1.5 rounded border outline-none"
                                 style="border-color: var(--border); background: var(--surface-0); color: var(--text-primary);">
                             {% for value, label in org_role_choices %}
                             <option value="{{ value }}" {% if value == member.membership.org_role %}selected{% endif %}>{{ label }}</option>
                             {% endfor %}
                         </select>
                         <button type="submit"
-                                class="text-xs px-2 py-1 rounded font-medium cursor-pointer"
+                                class="w-full text-xs px-2 py-1.5 rounded font-medium cursor-pointer"
                                 style="background: var(--neutral-100); color: var(--text-primary);">
-                            Save
+                            Save role
                         </button>
                     </div>
                 </form>
