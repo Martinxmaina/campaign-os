@@ -7,12 +7,14 @@ campaign rollups, and top-line analytics.
 These routes live on the existing **Agent API** at `/api/v1/`, so they share its
 authentication, rate limits, and OpenAPI docs.
 
-- **Interactive docs (Swagger):** `https://<your-campaign-os-host>/api/v1/docs`
-- **OpenAPI JSON:** `https://<your-campaign-os-host>/api/v1/openapi.json`
+- **Base URL (production):** `https://web-production-2f84d.up.railway.app`
+- **Interactive docs (Swagger):** `https://web-production-2f84d.up.railway.app/api/v1/docs`
+- **OpenAPI JSON:** `https://web-production-2f84d.up.railway.app/api/v1/openapi.json`
 
-> Replace `<your-campaign-os-host>` with the host you log into Campaign OS on
-> (the deployed Studio URL). If you're unsure, open `/api/v1/docs` in a browser —
-> if it loads, that's your base host.
+> The base URL above is the current Railway production host. If a custom domain
+> (e.g. `api.africacen.org`) is mapped later, swap it in — the paths are
+> identical. To confirm any host, open `/api/v1/docs` in a browser; if it loads,
+> that's a valid base host.
 
 ---
 
@@ -38,7 +40,7 @@ access — a key is required even to read the pipeline.
 ### 2.1 Create an API key
 
 1. In Campaign OS, go to **Organization → API Keys**
-   (`https://<your-campaign-os-host>/organizations/api-keys/`).
+   (`https://web-production-2f84d.up.railway.app/organizations/api-keys/`).
 2. Click **Issue key** and choose:
    - **Workspace** — the house the key reads from (e.g. WAIIS, AfCEN). A key
      sees only this workspace's content.
@@ -72,7 +74,7 @@ Authorization: Bearer cos_your_token_here
 
 ```bash
 TOKEN="cos_your_token_here"
-HOST="https://<your-campaign-os-host>"
+HOST="https://web-production-2f84d.up.railway.app"
 
 # One-call dashboard rollup
 curl -s -H "Authorization: Bearer $TOKEN" \
@@ -314,7 +316,7 @@ All errors share one envelope:
 ```python
 import requests
 
-HOST = "https://<your-campaign-os-host>"
+HOST = "https://web-production-2f84d.up.railway.app"
 TOKEN = "cos_your_token_here"
 session = requests.Session()
 session.headers["Authorization"] = f"Bearer {TOKEN}"
@@ -343,7 +345,7 @@ print(f"{len(scheduled)} scheduled posts")
 ### JavaScript (`fetch`)
 
 ```javascript
-const HOST = "https://<your-campaign-os-host>";
+const HOST = "https://web-production-2f84d.up.railway.app";
 const TOKEN = "cos_your_token_here";
 const headers = { Authorization: `Bearer ${TOKEN}` };
 
@@ -368,7 +370,7 @@ async function* allContent(filters = {}) {
 
 ## 10. Reference
 
-- **Live, always-current schema:** `https://<your-campaign-os-host>/api/v1/docs`
+- **Live, always-current schema:** `https://web-production-2f84d.up.railway.app/api/v1/docs`
   (Swagger UI — try requests in the browser with your token).
 - **Design & decisions:** `docs/superpowers/specs/2026-06-28-reporting-api-design.md`
 - **Implementation:** `apps/api/routers/reporting.py`,
