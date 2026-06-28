@@ -81,7 +81,8 @@ def review(request, workspace_id, token):
     decision = request.POST.get("decision", "").strip().lower()
     reason = request.POST.get("reason", "").strip()
 
-    if decision == "approve":
+    if decision in ("approve", "approve_publish"):
+        publish_now = decision == "approve_publish"
         with transaction.atomic():
             # Re-check token inside the transaction (idempotency guard)
             tok_live = tok_mod.resolve_token(token, ActionToken.Purpose.REVIEW)
@@ -107,37 +108,60 @@ def review(request, workspace_id, token):
             # Consume the REVIEW token
             tok_mod.consume(tok_live)
 
-            # Mint a PUBLISH token
-            ttl = get_setting(post.workspace_id, "review.token_ttl_days") or 7
-            publish_tok = tok_mod.mint_token(
-                assignment, ActionToken.Purpose.PUBLISH, ttl_days=int(ttl)
-            )
+            publish_tok = None
+            if publish_now:
+                # Reviewer chose to approve AND publish in one step. schedule_now
+                # only schedules — the authoritative compliance gate still runs
+                # downstream at engine._dispatch_to_provider, so this can't bypass it.
+                from apps.composer.views import schedule_now
 
-        # Email the publisher (outside the transaction so failures don't rollback)
-        publish_url = _abs(
-            reverse(
-                "approvals:review_publish",
-                kwargs={"workspace_id": post.workspace_id, "token": publish_tok.token},
-            )
-        )
-        html = render_to_string(
-            "approvals/email/publish.html",
-            {"post": post, "cards": cards_html, "publish_url": publish_url},
-        )
+                schedule_now(post)
+            else:
+                # Two-step: mint a PUBLISH token so the owner publishes.
+                ttl = get_setting(post.workspace_id, "review.token_ttl_days") or 7
+                publish_tok = tok_mod.mint_token(
+                    assignment, ActionToken.Purpose.PUBLISH, ttl_days=int(ttl)
+                )
+
+        # Notify the owner (outside the transaction so failures don't rollback)
         publisher_email = _publisher_email(assignment)
-        if publisher_email:
-            emailer.send_email(
-                publisher_email,
-                f"Approved and ready to publish: {post.title or post.caption_snippet}",
-                html,
+        if publish_now:
+            published_html = render_to_string(
+                "approvals/email/published.html",
+                {"post": post, "cards": cards_html},
             )
+            if publisher_email:
+                emailer.send_email(
+                    publisher_email,
+                    f"Approved & published: {post.title or post.caption_snippet}",
+                    published_html,
+                )
+            success = "published"
+        else:
+            publish_url = _abs(
+                reverse(
+                    "approvals:review_publish",
+                    kwargs={"workspace_id": post.workspace_id, "token": publish_tok.token},
+                )
+            )
+            html = render_to_string(
+                "approvals/email/publish.html",
+                {"post": post, "cards": cards_html, "publish_url": publish_url},
+            )
+            if publisher_email:
+                emailer.send_email(
+                    publisher_email,
+                    f"Approved and ready to publish: {post.title or post.caption_snippet}",
+                    html,
+                )
+            success = "approved"
 
         return render(request, "approvals/public/review.html", {
             "post": post,
             "assignment": assignment,
             "cards": cards_html,
             "token": token,
-            "success": "approved",
+            "success": success,
         })
 
     elif decision == "decline":

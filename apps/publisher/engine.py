@@ -683,11 +683,28 @@ class PublishEngine:
                 first_media_type=first_media_type,
             )
 
+            # UTM tagging on outbound links. Applied HERE — at dispatch, AFTER
+            # the authoritative gate (so per-platform utm_source is correct and
+            # the gate still hashes the human-authored text). Social/plain-text
+            # only; Ghost article HTML is left untouched to avoid mangling tags.
+            caption_text = platform_post.effective_caption or ""
+            first_comment_text = platform_post.effective_first_comment
+            if platform != "ghost" and extra.get("body_format") != "html":
+                from apps.publisher.utm import apply_utm
+                from apps.settings_manager.helpers import get_setting
+
+                utm_enabled = get_setting(platform_post.post.workspace_id, "utm.enabled")
+                if utm_enabled is None or utm_enabled:  # default ON (opt-out)
+                    campaign = platform_post.post.campaign or ""
+                    caption_text = apply_utm(caption_text, platform, campaign)
+                    if first_comment_text:
+                        first_comment_text = apply_utm(first_comment_text, platform, campaign)
+
             content = PublishContent(
-                text=platform_post.effective_caption or "",
+                text=caption_text,
                 title=platform_post.effective_title,
-                description=platform_post.effective_caption,
-                first_comment=platform_post.effective_first_comment,
+                description=caption_text,
+                first_comment=first_comment_text,
                 media_files=media_files,
                 media_urls=media_urls,
                 post_type=post_type,
