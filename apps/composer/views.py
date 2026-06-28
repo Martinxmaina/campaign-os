@@ -298,6 +298,16 @@ def compose(request, workspace_id, post_id=None):
             selected_account_ids = list(post.platform_posts.values_list("social_account_id", flat=True))
         media_attachments = post.media_attachments.select_related("media_asset").all()
         platform_extras = {str(pp.social_account_id): (pp.platform_extra or {}) for pp in post.platform_posts.all()}
+        # Per-channel override prefill: caption (rich HTML for Ghost) + title,
+        # keyed by social_account_id, so the composer can re-hydrate the
+        # override editors when editing an existing post.
+        platform_overrides = {
+            str(pp.social_account_id): {
+                "caption": pp.platform_specific_caption or "",
+                "title": pp.platform_specific_title or "",
+            }
+            for pp in post.platform_posts.all()
+        }
         template_data = None
     else:
         post = None
@@ -327,6 +337,7 @@ def compose(request, workspace_id, post_id=None):
         selected_account_ids = []
         media_attachments = []
         platform_extras = {}
+        platform_overrides = {}
 
     # Clear any stale pending media from previous compose sessions.
     # Each compose page load starts fresh; the upload flow re-populates
@@ -476,6 +487,7 @@ def compose(request, workspace_id, post_id=None):
         "social_accounts": social_accounts,
         "selected_account_ids": [str(aid) for aid in selected_account_ids],
         "platform_extras": platform_extras,
+        "platform_overrides": platform_overrides,
         "media_attachments": media_attachments,
         "media_items": media_items,
         "char_limits": char_limits,
