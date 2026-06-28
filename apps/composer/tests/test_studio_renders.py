@@ -98,3 +98,20 @@ def test_studio_card_inline_actions_preserved(client):
     # No inline event handlers were introduced (CSP-safe).
     assert "onclick=" not in body
     assert "onsubmit=" not in body
+
+
+def test_studio_card_shows_channels(client):
+    """Each card lists its target channels (account name + platform) with a logo slot."""
+    org = Organization.objects.create(name="Studio Channels")
+    workspace = Workspace.objects.create(organization=org, name="WAIIS")
+    user = _member(workspace, org)
+    account = SocialAccount.objects.create(
+        workspace=workspace, platform="blotato_linkedin", account_platform_id="ch-1",
+        account_name="AfCEN", connection_status="connected",
+    )
+    post = Post.objects.create(workspace=workspace, title="Channel post", caption="hi")
+    PlatformPost.objects.create(post=post, social_account=account, status=PlatformPost.Status.DRAFT)
+    client.force_login(user)
+
+    body = client.get(reverse("console:content")).content.decode()
+    assert "AfCEN" in body  # the channel's name/logo chip renders on the card

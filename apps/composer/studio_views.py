@@ -72,7 +72,7 @@ def content_studio(request):
         if q:
             qs = qs.filter(Q(title__icontains=q) | Q(caption__icontains=q))
 
-        qs = qs.prefetch_related("platform_posts").order_by("-updated_at")
+        qs = qs.prefetch_related("platform_posts__social_account").order_by("-updated_at")
 
         cutoff = timezone.now() - _PUBLISHED_WINDOW
         for post in qs:

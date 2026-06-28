@@ -1,54 +1,84 @@
 {% comment %}
-A single Content Studio card. `post` carries `studio_state` (derived status) and
-the segmentation fields (track / pillar / campaign). Inline actions are keyed off
-the derived state:
+A single Content Studio card. `post` carries `studio_state` (derived status),
+the segmentation fields (track / pillar / campaign), and its platform_posts
+(channels). Inline actions are keyed off the derived state:
 
+  draft/changes_requested/rejected → Submit for review / Assign…
   pending_review → Approve / Request changes / Reject  (POST → console:approval-decide)
   approved       → Publish                             (POST → composer:publish_post, T2)
-  any state      → Edit                                (link  → composer:compose_edit)
+  any state      → Duplicate / Edit
 
-The Publish action only SCHEDULES — the existing publish chain enforces the
-untouchable gate. AI/HERALD posts only get a Publish action once APPROVED.
-CSP-safe: plain <form> POSTs + links, no inline onclick/onsubmit.
+Channel row: each target channel shows its uploaded logo (logo_display_url) or a
+brand-initial fallback, plus the platform name — so you read at a glance where a
+post goes. The Publish action only SCHEDULES; the existing chain enforces the
+untouchable gate. AI/HERALD posts only get Publish once APPROVED. CSP-safe.
 {% endcomment %}
-<div class="card rounded-lg border border-stone-200 bg-white p-4 flex flex-col">
-  <div class="flex items-start justify-between gap-3">
-    <div class="min-w-0">
-      <h3 class="font-semibold truncate">{{ post.title|default:"Untitled" }}</h3>
-      <p class="text-sm text-stone-600 mt-0.5">{{ post.caption|truncatechars:140 }}</p>
-    </div>
-    <span class="shrink-0 text-[11px] rounded px-2 py-1
+<div class="card rounded-xl border border-stone-200 bg-white p-4 flex flex-col gap-2.5">
+
+  {# ── Top: state badge + overflow menu ──────────────────────────── #}
+  <div class="flex items-start justify-between gap-2">
+    <span class="shrink-0 text-[10.5px] font-semibold rounded px-2 py-1
       {% if post.studio_state == 'pending_review' %}bg-amber-100 text-amber-700
       {% elif post.studio_state == 'approved' %}bg-emerald-100 text-emerald-700
       {% elif post.studio_state == 'scheduled' %}bg-sky-100 text-sky-700
-      {% elif post.studio_state == 'published' %}bg-stone-200 text-stone-700
+      {% elif post.studio_state == 'published' %}bg-stone-200 text-stone-600
       {% elif post.studio_state == 'failed' %}bg-rose-100 text-rose-700
-      {% else %}bg-stone-100 text-stone-600{% endif %}">{{ post.studio_state }}</span>
+      {% else %}bg-stone-100 text-stone-500{% endif %}">{{ post.studio_state }}</span>
+    <div class="relative" x-data="{ moreOpen: false }">
+      <button type="button" @click="moreOpen = !moreOpen" title="More actions"
+              class="text-stone-400 hover:text-stone-700 px-1 leading-none cursor-pointer">
+        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+      </button>
+      <div x-show="moreOpen" x-cloak @click.outside="moreOpen = false"
+           class="absolute right-0 mt-1 w-40 rounded-lg border border-stone-200 bg-white shadow-lg p-1" style="z-index:20;">
+        <form method="post" action="{% url 'composer:duplicate_post' workspace_id=post.workspace_id post_id=post.id %}">{% csrf_token %}
+          <button type="submit" class="w-full text-left px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 rounded">Duplicate</button></form>
+        <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
+           class="block px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-50 rounded">Open in composer</a>
+      </div>
+    </div>
   </div>
 
-  {# ── Segmentation badges ───────────────────────────────────────── #}
-  <div class="flex flex-wrap gap-1.5 mt-2 text-[11px]">
+  {# ── Title + caption ───────────────────────────────────────────── #}
+  <div class="min-w-0">
+    <h3 class="font-semibold text-[15px] leading-snug">{{ post.title|default:"Untitled" }}</h3>
+    <p class="text-[13px] text-stone-500 mt-0.5 leading-snug" style="display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">{{ post.caption|truncatechars:160 }}</p>
+  </div>
+
+  {# ── Channels: logo + platform per target account ──────────────── #}
+  {% with pps=post.platform_posts.all %}
+  {% if pps %}
+  <div class="flex flex-wrap gap-1.5">
+    {% for pp in pps %}{% with acc=pp.social_account %}{% if acc %}
+    <span class="inline-flex items-center gap-1.5 rounded-full bg-stone-50 border border-stone-200 pl-0.5 pr-2 py-0.5 text-[11px] text-stone-600" title="{{ acc.account_name|default:acc.account_handle }} · {{ acc.get_platform_display }}">
+      <span class="w-[18px] h-[18px] rounded-full overflow-hidden bg-stone-200 flex items-center justify-center text-[8px] font-bold text-stone-500 flex-shrink-0">
+        {% if acc.logo_display_url %}<img src="{{ acc.logo_display_url }}" alt="" class="w-full h-full object-cover">{% else %}{{ acc.account_name|default:acc.account_handle|default:acc.platform|first|upper }}{% endif %}
+      </span>
+      <span class="font-medium truncate max-w-[9rem]">{{ acc.account_name|default:acc.account_handle|default:"—" }}</span>
+      <span class="text-stone-400">· {{ acc.get_platform_display }}</span>
+    </span>
+    {% endif %}{% endwith %}{% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  {# ── Segmentation badges (skip blank/junk values) ──────────────── #}
+  {% if post.track or post.pillar or post.campaign %}
+  <div class="flex flex-wrap gap-1.5 text-[10.5px]">
     {% if post.track %}<span class="rounded px-1.5 py-0.5 bg-orange-50 text-orange-700">{{ post.get_track_display }}</span>{% endif %}
     {% if post.pillar %}<span class="rounded px-1.5 py-0.5 bg-emerald-50 text-emerald-700">{{ post.get_pillar_display }}</span>{% endif %}
-    {% if post.campaign %}<span class="rounded px-1.5 py-0.5 bg-stone-100 text-stone-600">{{ post.campaign }}</span>{% endif %}
+    {% if post.campaign and post.campaign != "#" %}<span class="rounded px-1.5 py-0.5 bg-stone-100 text-stone-500">{{ post.campaign }}</span>{% endif %}
   </div>
+  {% endif %}
 
-  {# ── Inline actions by state ───────────────────────────────────────
-     Density: ONE clear primary action per card (Submit / Approve / Publish,
-     in btn-brand or solid colour); the secondary review decisions are demoted
-     to quiet outline buttons, and Edit stays a persistent quiet link on the
-     right. Every form, url tag, hidden input and CSS hook below is preserved
-     exactly — only the secondary buttons' visual weight changed. #}
-  <div class="flex flex-wrap items-center gap-2 mt-auto pt-3 border-t border-stone-100">
+  {# ── Inline actions by state — one clear primary; Edit stays a quiet link. ── #}
+  <div class="flex flex-wrap items-center gap-2 mt-auto pt-2.5 border-t border-stone-100">
     {% if post.studio_state == "draft" or post.studio_state == "changes_requested" or post.studio_state == "rejected" %}
-      {# The missing first step: send a draft into the approval pipeline so it
-         can be Approved → Published. The gate runs at publish, never here. #}
       <form method="post" action="{% url 'console:studio-submit-review' post.id %}">{% csrf_token %}
-        <button type="submit" class="btn-brand rounded px-3 py-1 text-xs">Submit for review</button></form>
-      {# Assign a specific person to review by email (approval-by-email flow). #}
+        <button type="submit" class="btn-brand rounded-lg px-3 py-1.5 text-xs font-semibold">Submit for review</button></form>
       <details class="relative">
-        <summary class="rounded border border-stone-300 bg-stone-50 px-3 py-1 text-xs text-stone-700 cursor-pointer select-none hover:bg-stone-100">Assign for review…</summary>
-        <div class="absolute left-0 mt-1 z-10 w-64 rounded border border-stone-200 bg-white p-3 shadow-lg">
+        <summary class="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-xs text-stone-600 cursor-pointer select-none hover:bg-stone-50">Assign…</summary>
+        <div class="absolute left-0 mt-1 z-10 w-64 rounded-lg border border-stone-200 bg-white p-3 shadow-lg">
           <form method="post" action="{% url 'approvals:assign_review' workspace_id=post.workspace_id post_id=post.id %}">{% csrf_token %}
             <input type="hidden" name="next" value="{{ request.path }}">
             <label class="block text-[11px] font-medium text-stone-600 mb-1">Reviewer email</label>
@@ -62,26 +92,20 @@ CSP-safe: plain <form> POSTs + links, no inline onclick/onsubmit.
         </div>
       </details>
     {% elif post.studio_state == "pending_review" %}
-      {# Primary: Approve. Secondaries (changes / reject) demoted to outline. #}
       <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
         <input type="hidden" name="decision" value="approve">
-        <button type="submit" class="rounded bg-emerald-600 text-white px-3 py-1 text-xs">Approve</button></form>
+        <button type="submit" class="rounded-lg bg-emerald-600 text-white px-3 py-1.5 text-xs font-semibold">Approve</button></form>
       <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
         <input type="hidden" name="decision" value="changes">
-        <button type="submit" class="rounded border border-amber-300 text-amber-700 px-3 py-1 text-xs hover:bg-amber-50">Request changes</button></form>
+        <button type="submit" class="rounded-lg border border-amber-300 text-amber-700 px-3 py-1.5 text-xs hover:bg-amber-50">Request changes</button></form>
       <form method="post" action="{% url 'console:approval-decide' post.id %}">{% csrf_token %}
         <input type="hidden" name="decision" value="reject">
-        <button type="submit" class="rounded border border-rose-200 text-rose-600 px-3 py-1 text-xs hover:bg-rose-50">Reject</button></form>
+        <button type="submit" class="rounded-lg border border-rose-200 text-rose-600 px-3 py-1.5 text-xs hover:bg-rose-50">Reject</button></form>
     {% elif post.studio_state == "approved" %}
-      {# One-tap Publish — schedules effective-now; the gate runs in the chain. #}
       <form method="post" action="{% url 'composer:publish_post' workspace_id=post.workspace_id post_id=post.id %}">{% csrf_token %}
-        <button type="submit" class="btn-brand rounded px-3 py-1 text-xs">Publish</button></form>
+        <button type="submit" class="btn-brand rounded-lg px-3 py-1.5 text-xs font-semibold">Publish</button></form>
     {% endif %}
-    {# Duplicate — clone caption + assets + channels into a fresh draft (multi-channel reuse). #}
-    <form method="post" action="{% url 'composer:duplicate_post' workspace_id=post.workspace_id post_id=post.id %}" class="ml-auto">{% csrf_token %}
-      <button type="submit" class="rounded px-3 py-1 text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100">Duplicate</button></form>
-    {# Edit is always available — links to the composer for this post. #}
     <a href="{% url 'composer:compose_edit' workspace_id=post.workspace_id post_id=post.id %}"
-       class="rounded px-3 py-1 text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100">Edit</a>
+       class="ml-auto rounded-lg px-3 py-1.5 text-xs text-stone-500 hover:text-stone-800 hover:bg-stone-100">Edit</a>
   </div>
 </div>
