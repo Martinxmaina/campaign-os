@@ -327,6 +327,16 @@
                   x-text="selectedAccounts.length"
                   class="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-orange-100 text-orange-700 text-[10px] font-bold tabular-nums"></span>
         </button>
+        <!-- Preview collapse toggle (desktop only) — reclaims full width for the editor -->
+        <button type="button" @click="previewCollapsed = !previewCollapsed"
+                class="hidden lg:inline-flex ml-auto items-center gap-1.5 px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 text-xs font-semibold hover:border-stone-300 hover:bg-stone-50 transition-all duration-150 cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path x-show="!previewCollapsed" stroke-linecap="round" stroke-linejoin="round" d="M9 4.5l7.5 7.5L9 19.5"/>
+                <path x-show="previewCollapsed" stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+                <path x-show="previewCollapsed" stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            </svg>
+            <span x-text="previewCollapsed ? 'Show preview' : 'Hide preview'"></span>
+        </button>
     </div>
 
     <!-- Panels -->
@@ -1409,7 +1419,7 @@
          x-transition:leave-end="opacity-0"
          class="panel-right-backdrop"></div>
     <div class="panel-right border-l border-stone-200 bg-stone-50 lg:bg-stone-50 flex flex-col"
-         :class="{ 'is-open': showPreviewPanel }">
+         :class="{ 'is-open': showPreviewPanel, 'lg:hidden': previewCollapsed }">
         <div class="px-4 py-3 border-b border-stone-100 flex items-center justify-between">
             <h3 class="text-xs font-semibold text-stone-500 uppercase tracking-wider">Preview</h3>
             <div class="flex items-center gap-2">
@@ -1614,6 +1624,7 @@ function composerApp() {
         thumbnailPickerAccId: null,
         thumbnailUploading: {},
         showPreviewPanel: false,
+        previewCollapsed: false,
         showSaveToast: false,
         formError: '',
         lastSaved: null,
