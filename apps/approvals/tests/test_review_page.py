@@ -245,3 +245,79 @@ def test_post_decline_with_reason_records_and_emails(client, workspace, django_u
     # Token consumed
     tok.refresh_from_db()
     assert tok.used_at is not None
+
+
+# ---------------------------------------------------------------------------
+# (d) Edit & approve — reviewer tweaks content before approving
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_post_approve_persists_reviewer_edits(client, workspace, django_user_model, monkeypatch):
+    """POST approve with edited_* fields persists the edits, approves the post,
+    and records that the reviewer edited it. (Gate re-runs at dispatch.)"""
+    from apps.approvals import emailer, tokens as tok_mod
+
+    monkeypatch.setattr(emailer, "send_email", lambda *a, **k: True)
+
+    user = django_user_model.objects.create_user(
+        email="pub_edit@example.com", password="x", name="PublisherEdit"
+    )
+    post, a = _make_assignment(workspace, user)
+    tok = tok_mod.mint_token(a, ActionToken.Purpose.REVIEW, ttl_days=7)
+
+    url = _review_url(workspace.id, tok.token)
+    resp = client.post(url, {
+        "decision": "approve",
+        "reason": "looks good with a tweak",
+        "edited_title": "Edited Title",
+        "edited_caption": "Edited caption text",
+        "edited_first_comment": "Edited first comment",
+    })
+    assert resp.status_code in (200, 302)
+
+    post.refresh_from_db()
+    assert post.title == "Edited Title"
+    assert post.caption == "Edited caption text"
+    assert post.first_comment == "Edited first comment"
+    assert post.review_state == Post.ReviewState.APPROVED
+
+    action = ApprovalAction.objects.filter(
+        post=post, action=ApprovalAction.ActionType.APPROVED
+    ).latest("created_at")
+    assert "edited the content" in action.comment.lower()
+
+
+@pytest.mark.django_db
+def test_post_approve_without_edits_leaves_content_unchanged(client, workspace, django_user_model, monkeypatch):
+    """Approving without changing the prefilled fields is a no-op on content
+    and records no edit note."""
+    from apps.approvals import emailer, tokens as tok_mod
+
+    monkeypatch.setattr(emailer, "send_email", lambda *a, **k: True)
+
+    user = django_user_model.objects.create_user(
+        email="pub_noedit@example.com", password="x", name="PublisherNoEdit"
+    )
+    post, a = _make_assignment(workspace, user)
+    tok = tok_mod.mint_token(a, ActionToken.Purpose.REVIEW, ttl_days=7)
+
+    url = _review_url(workspace.id, tok.token)
+    resp = client.post(url, {
+        "decision": "approve",
+        "reason": "",
+        "edited_title": post.title,
+        "edited_caption": post.caption,
+        "edited_first_comment": post.first_comment or "",
+    })
+    assert resp.status_code in (200, 302)
+
+    post.refresh_from_db()
+    assert post.title == "Review Me"
+    assert post.caption == "Test caption"
+    assert post.review_state == Post.ReviewState.APPROVED
+
+    action = ApprovalAction.objects.filter(
+        post=post, action=ApprovalAction.ActionType.APPROVED
+    ).latest("created_at")
+    assert "edited the content" not in action.comment.lower()

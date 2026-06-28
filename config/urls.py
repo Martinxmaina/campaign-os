@@ -3,6 +3,7 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import TemplateView
+from django.views.generic.base import RedirectView
 
 from apps.accounts.views import health_check
 from apps.api.api import api as agent_api
@@ -11,6 +12,13 @@ from apps.approvals.views import org_approval_queue
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("health/", health_check, name="health_check"),
+    # Browsers auto-request /favicon.ico at the site root (incl. standalone
+    # pages like the public review page that don't carry the <link rel=icon>).
+    # Redirect to the bundled static icon so it stops 404-ing.
+    path(
+        "favicon.ico",
+        RedirectView.as_view(url=settings.STATIC_URL + "favicon/favicon.ico", permanent=True),
+    ),
     # AGPL source-availability: public modification notice + source link.
     path("about/", TemplateView.as_view(template_name="about.html"), name="about"),
     path("accounts/", include("apps.accounts.urls")),

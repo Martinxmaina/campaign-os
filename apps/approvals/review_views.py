@@ -54,6 +54,38 @@ def _render_invalid(request):
     return render(request, "approvals/public/invalid.html", {}, status=200)
 
 
+def _apply_reviewer_edits(post, request):
+    """Apply optional reviewer edits to the post before approval ("edit & approve").
+
+    The reviewer can tweak the title / caption / first comment on the review page
+    and approve in one step. Returns ``True`` if any gated field actually changed.
+
+    When something changed we clear ``gate_id`` + ``content_hash`` on every child
+    still carrying a gate so the publish engine's authoritative chokepoint
+    re-gates the NEW text at dispatch — editing on the review page can never
+    bypass the compliance gate. Mirrors the composer's FIX C invalidation.
+    """
+    candidates = {
+        "title": request.POST.get("edited_title"),
+        "caption": request.POST.get("edited_caption"),
+        "first_comment": request.POST.get("edited_first_comment"),
+    }
+    changed = []
+    for name, value in candidates.items():
+        if value is None:
+            continue  # field not submitted at all
+        if value != (getattr(post, name) or ""):
+            setattr(post, name, value)
+            changed.append(name)
+    if not changed:
+        return False
+    post.save(update_fields=changed + ["updated_at"])
+    post.platform_posts.exclude(gate_id__isnull=True).update(
+        gate_id=None, content_hash="", updated_at=timezone.now()
+    )
+    return True
+
+
 # ---------------------------------------------------------------------------
 # Public review view (Task 5)
 # ---------------------------------------------------------------------------
@@ -89,12 +121,17 @@ def review(request, workspace_id, token):
             if tok_live is None:
                 return _render_invalid(request)
 
+            # Optional "edit & approve": persist any reviewer tweaks first. This
+            # clears the gate on every child so the new text is re-gated at
+            # dispatch (never a bypass).
+            edited = _apply_reviewer_edits(post, request)
+
             # Record the approval action
             ApprovalAction.objects.create(
                 post=post,
                 user=assignment.assigned_by,
                 action=ApprovalAction.ActionType.APPROVED,
-                comment=reason,
+                comment=(reason + ("\n\n[Reviewer edited the content before approving.]" if edited else "")).strip(),
             )
 
             # Update assignment + post state
@@ -122,6 +159,11 @@ def review(request, workspace_id, token):
                 publish_tok = tok_mod.mint_token(
                     assignment, ActionToken.Purpose.PUBLISH, ttl_days=int(ttl)
                 )
+
+        # If the reviewer edited the content, re-render the platform cards so the
+        # success page AND the owner notification email show the final text.
+        if edited:
+            cards_html = render_cards(post)
 
         # Notify the owner (outside the transaction so failures don't rollback)
         publisher_email = _publisher_email(assignment)

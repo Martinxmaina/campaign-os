@@ -128,17 +128,20 @@ def sidebar_context(request):
             InboxMessage.objects.for_workspace(workspace.id).filter(status=InboxMessage.Status.UNREAD).count()
         )
 
-    # Pending approval count for badge
+    # Pending approval count for badge. Use the canonical post-level
+    # ``review_state`` (what the AI Approvals queue + Home's sign-off card use)
+    # UNION the legacy per-PlatformPost status, so the badge matches the queues
+    # instead of undercounting posts assigned via the email-review flow.
     sidebar_pending_approvals = 0
     if workspace:
-        from apps.composer.models import PlatformPost
+        from apps.composer.models import Post
 
         sidebar_pending_approvals = (
-            PlatformPost.objects.filter(
-                post__workspace_id=workspace.id,
-                status__in=["pending_review", "pending_client"],
+            Post.objects.filter(workspace_id=workspace.id)
+            .filter(
+                Q(review_state=Post.ReviewState.PENDING)
+                | Q(platform_posts__status__in=["pending_review", "pending_client"])
             )
-            .values("post_id")
             .distinct()
             .count()
         )

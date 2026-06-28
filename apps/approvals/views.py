@@ -4,7 +4,7 @@ import json
 
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
 from apps.composer.models import Post, PostVersion
@@ -38,47 +38,24 @@ def _get_workspace(request, workspace_id):
 @require_permission("approve_posts")
 @require_GET
 def approval_queue(request, workspace_id):
-    """Workspace-level approval queue showing pending posts."""
-    workspace = _get_workspace(request, workspace_id)
+    """Redirect the legacy per-PlatformPost queue into the canonical review queue.
 
-    status_filter = request.GET.get("status", "all")
-    base_filter = {"platform_posts__status__in": ["pending_review", "pending_client"]}
-    posts = (
-        Post.objects.for_workspace(workspace.id)
-        .filter(**base_filter)
-        .distinct()
-        .select_related("author")
-        .prefetch_related("platform_posts__social_account", "media_attachments__media_asset")
-        .order_by("scheduled_at", "-created_at")
-    )
+    The old queue filtered on ``platform_posts.status`` (pending_review /
+    pending_client), so it rendered EMPTY for posts assigned through the
+    email-review flow — which sets the post-level ``review_state=PENDING`` but
+    leaves the children in ``draft``. Home's "Needs your sign-off" card counts
+    review_state=PENDING, so the card showed a number while this page showed
+    nothing ("I click approvals and I can see nothing").
 
-    if status_filter == "pending_review":
-        posts = posts.filter(platform_posts__status="pending_review").distinct()
-    elif status_filter == "pending_client":
-        posts = posts.filter(platform_posts__status="pending_client").distinct()
-
-    from apps.composer.models import PlatformPost
-
-    pp_qs = PlatformPost.objects.filter(post__workspace=workspace)
-    pending_review_count = pp_qs.filter(status="pending_review").values("post_id").distinct().count()
-    pending_client_count = pp_qs.filter(status="pending_client").values("post_id").distinct().count()
-    counts = {
-        "pending_review_count": pending_review_count,
-        "pending_client_count": pending_client_count,
-    }
-
-    context = {
-        "workspace": workspace,
-        "posts": posts,
-        "status_filter": status_filter,
-        "pending_review_count": counts["pending_review_count"],
-        "pending_client_count": counts["pending_client_count"],
-    }
-
-    if request.htmx:
-        return render(request, "approvals/partials/post_list.html", context)
-
-    return render(request, "approvals/queue.html", context)
+    The AI Approvals queue (``console:approvals``) is the canonical surface — it
+    lists every review_state=PENDING post and its Approve / Request changes /
+    Reject / Approve-&-send actions all work. Collapse into it (mirrors
+    ``drafts_to_studio``). The RBAC middleware has already synced
+    last_workspace_id from this URL, so the global console page resolves the
+    same workspace.
+    """
+    _get_workspace(request, workspace_id)  # validates membership / 404s otherwise
+    return redirect("console:approvals")
 
 
 @login_required
