@@ -300,7 +300,8 @@ def compose(request, workspace_id, post_id=None):
         platform_extras = {str(pp.social_account_id): (pp.platform_extra or {}) for pp in post.platform_posts.all()}
         # Saved per-channel caption/title/first-comment variants, so the composer
         # can pre-fill + auto-open the "Customize <platform>" override on edit
-        # (otherwise editing silently wipes them on save).
+        # (otherwise editing silently wipes them on save). The caption carries
+        # rich HTML for the Ghost channel so its override editor re-hydrates.
         platform_overrides = {
             str(pp.social_account_id): {
                 "caption": pp.platform_specific_caption or "",

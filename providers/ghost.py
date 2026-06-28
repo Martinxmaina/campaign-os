@@ -7,6 +7,7 @@ email-only Newsletter (``extra['ghost_publish_as'] == 'newsletter'``).
 from __future__ import annotations
 
 import html as _html
+import re as _re
 from datetime import datetime
 
 import httpx
@@ -83,6 +84,71 @@ class GhostProvider(SocialProvider):
         paras = [p for p in (text or "").split("\n") if p.strip()]
         return "".join(f"<p>{_html.escape(p)}</p>" for p in paras) or "<p></p>"
 
+    @staticmethod
+    def _strip_tags(html_str: str) -> str:
+        """Best-effort plain-text from an HTML fragment (for title/excerpt).
+
+        Drops tags and collapses whitespace; unescapes entities so the derived
+        title/excerpt read naturally. Never used for the post body itself.
+        """
+        no_tags = _re.sub(r"<[^>]+>", " ", html_str or "")
+        text = _html.unescape(no_tags)
+        return " ".join(text.split())
+
+    def _upload_image(self, src: str) -> str | None:
+        """Fetch an image by URL and store it on Ghost; return the stable URL.
+
+        Our composer inserts ``<img>`` tags whose ``src`` points at our own
+        media (often a *presigned* S3 URL that expires in ~1h). Ghost stores
+        post HTML verbatim, so we must re-host each such image on Ghost via the
+        Admin API ``/images/upload/`` endpoint and rewrite the ``src`` to the
+        returned permanent Ghost URL before publishing. Best-effort: any failure
+        returns ``None`` and the caller keeps the original src.
+        """
+        try:
+            img_resp = httpx.get(src, timeout=_TIMEOUT, follow_redirects=True)
+            if img_resp.status_code != 200:
+                return None
+            content_type = img_resp.headers.get("content-type", "image/jpeg")
+            filename = (src.split("?", 1)[0].rsplit("/", 1)[-1]) or "image.jpg"
+            # The upload endpoint is multipart/form-data — sign a JWT but do NOT
+            # send the JSON Content-Type header (httpx sets the multipart one).
+            headers = {
+                "Authorization": f"Ghost {ghost_admin_jwt(self._key())}",
+                "Accept-Version": _HEADERS_VERSION,
+            }
+            up = httpx.post(
+                f"{self._base()}/ghost/api/admin/images/upload/",
+                headers=headers,
+                files={"file": (filename, img_resp.content, content_type)},
+                data={"purpose": "image"},
+                timeout=_TIMEOUT,
+            )
+            if up.status_code not in (200, 201):
+                return None
+            images = up.json().get("images", [])
+            return images[0].get("url") if images else None
+        except Exception:  # noqa: BLE001 — best-effort; keep the original src
+            return None
+
+    def _rehost_images(self, body_html: str) -> str:
+        """Rewrite every ``<img src>`` in the HTML to a Ghost-hosted URL.
+
+        Already-Ghost-hosted images (src under our base) are left untouched.
+        """
+        base = self._base()
+
+        def _replace(match: "_re.Match[str]") -> str:
+            whole, src = match.group(0), match.group(1)
+            if not src or src.startswith(f"{base}/content/"):
+                return whole
+            new_url = self._upload_image(src)
+            if not new_url:
+                return whole
+            return whole.replace(src, new_url, 1)
+
+        return _re.sub(r'<img\b[^>]*?\bsrc=["\']([^"\']+)["\']', _replace, body_html)
+
     # -- profile (connect validation) ----------------------------------
     def get_profile(self, access_token: str) -> AccountProfile:
         resp = httpx.get(
@@ -126,11 +192,26 @@ class GhostProvider(SocialProvider):
 
     # -- publish -------------------------------------------------------
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
-        title = (content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
-        excerpt = (content.text or "").strip()[:280]
+        # Rich-editor path: the override caption is already HTML (the Ghost
+        # channel's per-channel override). Publish it verbatim — do NOT escape
+        # — and derive a sensible title/excerpt from its text content.
+        is_html = (content.extra.get("body_format") == "html")
+        if is_html:
+            body_html = content.text or "<p></p>"
+            # Re-host inline images on Ghost so they survive our presigned-URL
+            # expiry (Ghost stores the HTML verbatim).
+            if "<img" in body_html:
+                body_html = self._rehost_images(body_html)
+            plain = self._strip_tags(body_html)
+            title = (content.extra.get("title") or plain.split(". ", 1)[0] or "Untitled")[:255]
+            excerpt = plain[:280]
+        else:
+            title = (content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
+            excerpt = (content.text or "").strip()[:280]
+            body_html = self._to_html(content.text)
         base_obj = {
             "title": title,
-            "html": self._to_html(content.text),
+            "html": body_html,
             "custom_excerpt": excerpt,
             "tags": [{"name": "AfCEN"}],
         }
