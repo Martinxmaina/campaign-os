@@ -1603,6 +1603,73 @@ def upload_media(request, workspace_id, post_id=None):
 
 
 @login_required
+@require_permission("create_posts")
+@require_POST
+def upload_inline_image(request, workspace_id):
+    """Upload an image for inline insertion into a Ghost ARTICLE body.
+
+    Hybrid persistence: always store the asset in the media library, AND — when a
+    Ghost channel is connected — push the bytes to Ghost immediately so the
+    article's ``<img src>`` is a permanent Ghost URL rather than an expiring
+    presigned S3 URL. Falls back to the media URL otherwise; the publisher's
+    publish-time ``_rehost_images`` remains the safety net. Unlike ``upload_media``
+    this does NOT attach the image as a post carousel attachment — it lives inline.
+    """
+    workspace = _get_workspace(request, workspace_id)
+    f = request.FILES.get("file")
+    if not f:
+        return JsonResponse({"error": "No file provided"}, status=400)
+    content_type = f.content_type or "image/jpeg"
+    if not content_type.startswith("image/"):
+        return JsonResponse({"error": "Only images can be inserted inline"}, status=400)
+
+    from apps.media_library.models import MediaAsset
+
+    raw = f.read()  # read once for both the asset save and the Ghost upload
+    f.seek(0)
+    asset = MediaAsset.objects.create(
+        workspace=workspace,
+        uploaded_by=request.user,
+        file=f,
+        filename=f.name,
+        media_type=MediaAsset.MediaType.IMAGE,
+        mime_type=content_type,
+        file_size=f.size,
+        source="upload",
+    )
+
+    url = asset.file.url
+    source = "media"
+    # Hybrid: prefer a permanent Ghost-hosted URL when a Ghost channel exists.
+    ghost_acct = SocialAccount.objects.for_workspace(workspace.id).filter(platform="ghost").first()
+    if ghost_acct:
+        try:
+            from django.conf import settings as _settings
+
+            from apps.credentials.models import PlatformCredential
+            from providers import get_provider
+
+            try:
+                cred = PlatformCredential.objects.for_org(workspace.organization_id).get(
+                    platform="ghost", is_configured=True
+                )
+                creds = cred.credentials
+            except PlatformCredential.DoesNotExist:
+                creds = getattr(_settings, "PLATFORM_CREDENTIALS_FROM_ENV", {}).get("ghost", {})
+            ghost_url = get_provider("ghost", creds).upload_image_bytes(raw, f.name or "image.jpg", content_type)
+            if ghost_url:
+                url = ghost_url
+                source = "ghost"
+        except Exception:  # noqa: BLE001 — fall back to the media URL; publish-time re-host covers it
+            logger.exception("inline image: Ghost upload failed for workspace %s; using media URL", workspace.id)
+
+    response = JsonResponse({"url": url, "source": source})
+    response["X-Uploaded-Asset-Url"] = url
+    response["X-Uploaded-Asset-Id"] = str(asset.id)
+    return response
+
+
+@login_required
 @require_POST
 def remove_media(request, workspace_id, post_id, media_id):
     """Remove a media attachment from a post."""

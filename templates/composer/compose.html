@@ -1726,9 +1726,6 @@ function composerApp() {
                     if (imgUrl) {
                         self._insertImgAtCursor(accId, imgUrl);
                     }
-                    if (self.autosavedPostId && !self.uploadUrl.includes(self.autosavedPostId)) {
-                        self.uploadUrl = `/workspace/{{ workspace.id }}/compose/${self.autosavedPostId}/upload-media/`;
-                    }
                 } else {
                     self.formError = 'Image upload failed';
                     setTimeout(() => { self.formError = ''; }, 3000);
@@ -1738,7 +1735,10 @@ function composerApp() {
                 self.formError = 'Image upload failed';
                 setTimeout(() => { self.formError = ''; }, 3000);
             });
-            xhr.open('POST', this.uploadUrl);
+            // Dedicated inline-image endpoint (hybrid): stores the asset AND
+            // re-hosts to Ghost immediately so the article img src is permanent.
+            // It does NOT attach the image as a carousel attachment.
+            xhr.open('POST', '/workspace/{{ workspace.id }}/compose/upload-inline-image/');
             xhr.setRequestHeader('X-CSRFToken', csrfToken);
             xhr.send(formData);
         },

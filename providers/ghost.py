@@ -95,6 +95,35 @@ class GhostProvider(SocialProvider):
         text = _html.unescape(no_tags)
         return " ".join(text.split())
 
+    def upload_image_bytes(self, content: bytes, filename: str = "image.jpg", content_type: str = "image/jpeg") -> str | None:
+        """Store raw image bytes on Ghost; return the permanent Ghost URL or None.
+
+        Used both by the composer (hybrid: re-host an inline article image the
+        moment it's inserted, so the ``src`` never depends on an expiring
+        presigned URL) and by :meth:`_rehost_images` at publish time. Best-effort:
+        any failure returns ``None``.
+        """
+        try:
+            # The upload endpoint is multipart/form-data — sign a JWT but do NOT
+            # send the JSON Content-Type header (httpx sets the multipart one).
+            headers = {
+                "Authorization": f"Ghost {ghost_admin_jwt(self._key())}",
+                "Accept-Version": _HEADERS_VERSION,
+            }
+            up = httpx.post(
+                f"{self._base()}/ghost/api/admin/images/upload/",
+                headers=headers,
+                files={"file": (filename, content, content_type)},
+                data={"purpose": "image"},
+                timeout=_TIMEOUT,
+            )
+            if up.status_code not in (200, 201):
+                return None
+            images = up.json().get("images", [])
+            return images[0].get("url") if images else None
+        except Exception:  # noqa: BLE001 — best-effort
+            return None
+
     def _upload_image(self, src: str) -> str | None:
         """Fetch an image by URL and store it on Ghost; return the stable URL.
 
@@ -111,23 +140,7 @@ class GhostProvider(SocialProvider):
                 return None
             content_type = img_resp.headers.get("content-type", "image/jpeg")
             filename = (src.split("?", 1)[0].rsplit("/", 1)[-1]) or "image.jpg"
-            # The upload endpoint is multipart/form-data — sign a JWT but do NOT
-            # send the JSON Content-Type header (httpx sets the multipart one).
-            headers = {
-                "Authorization": f"Ghost {ghost_admin_jwt(self._key())}",
-                "Accept-Version": _HEADERS_VERSION,
-            }
-            up = httpx.post(
-                f"{self._base()}/ghost/api/admin/images/upload/",
-                headers=headers,
-                files={"file": (filename, img_resp.content, content_type)},
-                data={"purpose": "image"},
-                timeout=_TIMEOUT,
-            )
-            if up.status_code not in (200, 201):
-                return None
-            images = up.json().get("images", [])
-            return images[0].get("url") if images else None
+            return self.upload_image_bytes(img_resp.content, filename, content_type)
         except Exception:  # noqa: BLE001 — best-effort; keep the original src
             return None
 
