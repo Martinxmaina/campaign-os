@@ -1773,14 +1773,6 @@ function composerApp() {
                 this.overrides[id] = !!(saved.caption || saved.title);
                 this.advancedOpen[id] = false;
                 if (!this.platformExtras[id]) this.platformExtras[id] = {};
-                // Pre-fill saved per-channel variants + auto-open the override on edit
-                // (so editing doesn't silently wipe a channel's custom caption).
-                const ov = this.savedOverrides[id] || {};
-                this.overrideCaptions[id] = ov.caption || '';
-                this.overrideTitles[id] = ov.title || '';
-                if ((ov.caption && ov.caption.length) || (ov.title && ov.title.length)) {
-                    this.overrides[id] = true;
-                }
             });
 
             // Listen for thumbnail selection events dispatched from the picker
