@@ -23,6 +23,7 @@ from apps.api.routers.analytics import router as analytics_router
 from apps.api.routers.me import router as me_router
 from apps.api.routers.media import router as media_router
 from apps.api.routers.posts import router as posts_router
+from apps.api.routers.reporting import router as reporting_router
 from apps.mcp.transport import router as mcp_router
 
 
@@ -76,6 +77,10 @@ api.add_router("/accounts", accounts_router)
 api.add_router("/posts", posts_router)
 api.add_router("/media", media_router)
 api.add_router("/analytics", analytics_router)
+# Reporting/aggregation surface. Mounted at root with distinct first path
+# segments (/overview, /content, /campaigns, /pipeline) so it can't shadow
+# the resource routers above. Before /mcp for the same reason as the others.
+api.add_router("", reporting_router)
 # MCP Streamable HTTP transport. Same auth, same audit, same rate
 # limits — only the wire protocol differs. Mounted last so its path
 # prefix can't shadow another router.
@@ -182,6 +187,14 @@ def _action_for_path(method: str, path: str, *, status_code: int) -> str:
     ``WHERE action LIKE 'post.%'`` catches both successes and 4xx.
     """
     # Order matters: longer prefixes first.
+    if "/pipeline" in path:
+        return f"reporting.pipeline.read.{status_code}"
+    if "/campaigns" in path:
+        return f"reporting.campaigns.read.{status_code}"
+    if "/overview" in path:
+        return f"reporting.overview.read.{status_code}"
+    if "/content" in path:
+        return f"reporting.content.read.{status_code}"
     if "/analytics/accounts/" in path:
         return f"analytics.read.account.{status_code}"
     if "/analytics/posts/" in path:
