@@ -158,3 +158,28 @@ def test_card_html_escapes_xss_in_thumbnail_url():
     assert '" onload="alert(1)' not in html
     # The double-quote must be escaped in the attribute context.
     assert '&quot;' in html or '%22' in html
+
+
+@pytest.mark.django_db
+def test_ghost_card_renders_readable_article_not_raw_tags(workspace, social_account):
+    """Ghost's HTML article body must show as readable text in the review card,
+    not escaped raw <p>/<h2> tags (the actual Ghost post publishes formatted)."""
+    ghost = social_account("ghost", account_name="Nexus Brief")
+    post = Post.objects.create(workspace=workspace, title="T", caption="fallback")
+    PlatformPost.objects.create(
+        post=post,
+        social_account=ghost,
+        platform_specific_caption=(
+            "<p>Africa has an <strong>investment</strong> problem.</p>"
+            "<h2>The capital exists</h2>"
+        ),
+    )
+    html = render_cards(post)
+
+    assert "Africa has an investment problem." in html
+    assert "The capital exists" in html
+    # Raw article tags are NOT shown as literal (escaped) markup
+    assert "&lt;p&gt;" not in html
+    assert "&lt;h2&gt;" not in html
+    # Reviewer is told the real article is formatted
+    assert "Publishes as a formatted article on Ghost." in html

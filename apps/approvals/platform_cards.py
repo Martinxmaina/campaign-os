@@ -9,6 +9,26 @@ correctly.  Pure function; no DB writes.
 from __future__ import annotations
 
 import html as _html
+import re
+
+from django.utils.html import strip_tags
+
+
+def _html_to_readable(html_str: str) -> str:
+    """Down-convert an HTML fragment (e.g. a Ghost article body) to readable plain text.
+
+    ponytail: no sanitizer dependency — block tags become line breaks, <br> too,
+    list items get a bullet, the rest is stripped, and the CALLER escapes the
+    result. The reviewer sees the readable article instead of raw <p>/<h2> tags,
+    with zero XSS risk on the tokenized review page. The real Ghost post still
+    renders fully formatted (the provider publishes with ?source=html).
+    """
+    s = re.sub(r"(?i)<li[^>]*>", "• ", html_str)
+    s = re.sub(r"(?i)</(p|div|h[1-6]|li|blockquote|tr|ul|ol)>", "\n", s)
+    s = re.sub(r"(?i)<br\s*/?>", "\n", s)
+    s = strip_tags(s)
+    s = _html.unescape(s)
+    return re.sub(r"\n{3,}", "\n\n", s).strip()
 
 
 # Per-platform display metadata: (label, accent_color_hex)
@@ -46,8 +66,12 @@ def _platform_meta(platform: str) -> tuple[str, str]:
     return _PLATFORM_STYLES.get(platform.lower(), _DEFAULT_STYLE)
 
 
-def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url: str | None) -> str:
-    """Render a single inline-styled card as an HTML string."""
+def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url: str | None, is_html: bool = False) -> str:
+    """Render a single inline-styled card as an HTML string.
+
+    ``is_html=True`` (Ghost) means the caption IS an HTML article body: show it as
+    readable text rather than escaped raw tags.
+    """
     thumb_html = ""
     if thumbnail_url:
         # quote=True escapes " so a crafted URL cannot break out of the src attribute.
@@ -67,8 +91,16 @@ def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url:
             f'{safe_handle}</div>'
         )
 
-    # Escape caption for HTML text-node display (quote=True is belt-and-suspenders).
-    safe_caption = _html.escape(caption, quote=True)
+    # Ghost's caption is an HTML article body → show readable text (not raw tags).
+    # Everything is escaped for safe HTML text-node display either way.
+    display_text = _html_to_readable(caption) if is_html else caption
+    safe_caption = _html.escape(display_text, quote=True)
+    note_html = ""
+    if is_html:
+        note_html = (
+            '<div style="font-size:11px;color:#9ca3af;margin-top:8px;">'
+            'Publishes as a formatted article on Ghost.</div>'
+        )
 
     return (
         f'<div style="font-family:sans-serif;border:1px solid #e5e7eb;border-radius:8px;'
@@ -80,6 +112,7 @@ def _card_html(label: str, color: str, handle: str, caption: str, thumbnail_url:
         f'{thumb_html}'
         f'<div style="font-size:14px;color:#111827;line-height:1.5;'
         f'white-space:pre-wrap;">{safe_caption}</div>'
+        f'{note_html}'
         f'</div>'
     )
 
@@ -118,6 +151,9 @@ def render_cards(post) -> str:
         # Caption: use platform-specific override if set, else base post caption
         caption = pp.platform_specific_caption if pp.platform_specific_caption else post.caption
 
-        parts.append(_card_html(label, color, handle, caption, thumbnail_url))
+        # Ghost's caption is an HTML article body — render it readably, not as raw tags.
+        is_html = platform.lower() == "ghost"
+
+        parts.append(_card_html(label, color, handle, caption, thumbnail_url, is_html=is_html))
 
     return "".join(parts)
