@@ -419,18 +419,19 @@
                      tab; per-channel tabs reveal the override editors below. -->
                 <div x-show="activeTab === 'all'">
 
-                <!-- Title (conditional - only when YouTube/Pinterest selected) -->
-                <div x-show="anyPlatformNeedsTitle" x-transition x-cloak>
+                <!-- Title — always available (optional) on the All-channels tab. Ghost/YouTube/
+                     Pinterest publish it; social channels simply ignore it. -->
+                <div>
                     <label class="block text-sm font-semibold text-stone-500 uppercase tracking-wider mb-2"
                            x-text="titleLabel">Title</label>
                     <input type="text" name="title"
                            class="w-full text-[15px] font-medium text-stone-900 px-4 py-3 rounded-xl border border-stone-200 bg-white outline-none transition-all duration-150 focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
                            style="letter-spacing: -0.01em;"
                            x-model="title"
-                           :placeholder="autoSuggestedTitle || 'Enter a title…'"
+                           :placeholder="autoSuggestedTitle || 'Add a title (optional)…'"
                            maxlength="255"
                            @input="debouncedPreviewUpdate()">
-                    <div class="flex items-center justify-end mt-1">
+                    <div class="flex items-center justify-end mt-1" x-show="anyPlatformNeedsTitle" x-cloak>
                         <span class="text-[11px] tabular-nums font-medium"
                               :class="title.length > titleMaxLength ? 'text-red-500' : 'text-stone-400'"
                               x-text="title.length + ' / ' + titleMaxLength"></span>
