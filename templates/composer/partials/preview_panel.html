@@ -5,7 +5,8 @@ Context: previews (list of dicts with account, title, caption, first_comment, ch
 
 {% if previews %}
     {% for p in previews %}
-    <div class="preview-card" style="animation: slideUp 200ms {{ forloop.counter0|add:0 }}50ms cubic-bezier(0.16,1,0.3,1) both">
+    {# ponytail: w-full/max-w-full guards the card root from ever exceeding the ~343px panel at 375px; .preview-card already has overflow:hidden so internal rows (e.g. X action max-w-[330px]) are clipped, not scrolled #}
+    <div class="preview-card w-full max-w-full" style="animation: slideUp 200ms {{ forloop.counter0|add:0 }}50ms cubic-bezier(0.16,1,0.3,1) both">
 
         <!-- Platform label + char badge -->
         <div class="px-3.5 py-2 border-b flex items-center gap-2" style="border-color: #E7E5E4;">
@@ -581,6 +582,8 @@ Context: previews (list of dicts with account, title, caption, first_comment, ch
                 {% else %}
                 <h2 class="text-[20px] font-bold leading-snug text-stone-300 italic mb-2" style="font-family: Georgia, serif;">Article title…</h2>
                 {% endif %}
+                {# ponytail: subtitle is optional, only render when present #}
+                {% if p.subtitle %}<p class="text-[14px] text-stone-500 leading-snug mb-2" style="font-family: Georgia, serif;">{{ p.subtitle }}</p>{% endif %}
                 <div class="flex items-center gap-2 text-[11px] text-stone-400 mb-3">
                     {% if p.account.logo_display_url %}
                     <img src="{{ p.account.logo_display_url }}" class="w-5 h-5 rounded-full object-cover" alt="">

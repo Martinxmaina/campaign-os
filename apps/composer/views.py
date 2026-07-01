@@ -608,6 +608,9 @@ def save_post(request, workspace_id, post_id=None):
 
     post = form.save(commit=False)
     post.workspace = workspace
+    # ponytail: subtitle is in PostForm.Meta.fields (auto-bound); set explicitly
+    # too so it persists even if a caller submits without the form field.
+    post.subtitle = request.POST.get("subtitle", post.subtitle or "")
     if not post_id:
         post.author = request.user
 
@@ -1257,6 +1260,7 @@ def preview(request, workspace_id):
                     "account": account,
                     "preview_kind": _preview_kind(account.platform),
                     "title": effective_title,
+                    "subtitle": data.get("subtitle", ""),
                     "caption": effective_caption,
                     "first_comment": first_comment,
                     "char_count": len(effective_caption),

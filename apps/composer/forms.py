@@ -58,7 +58,7 @@ class PostForm(forms.ModelForm):
     class Meta:
         model = Post
         fields = [
-            "title", "caption", "first_comment", "internal_notes", "tags",
+            "title", "subtitle", "caption", "first_comment", "internal_notes", "tags",
             "category", "track", "pillar", "campaign",
         ]
         widgets = {

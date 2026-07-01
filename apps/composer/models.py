@@ -243,6 +243,7 @@ class Post(models.Model):
 
     # Content
     title = models.CharField(max_length=255, blank=True, default="")
+    subtitle = models.CharField(max_length=300, blank=True, default="")  # ponytail: reuse CharField, Ghost custom_excerpt
     caption = models.TextField(blank=True, default="")
     first_comment = models.TextField(blank=True, default="")
     internal_notes = models.TextField(blank=True, default="")

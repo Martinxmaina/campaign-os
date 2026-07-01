@@ -611,6 +611,10 @@ class PublishEngine:
             # Merge per-platform extras (e.g. YouTube privacy_status, custom
             # tags, thumbnail) on top of the base extra dict.
             extra = {"tags": platform_post.post.tags or []}
+            # ponytail: carry the Post subtitle through so the Ghost provider can
+            # map it to custom_excerpt. Harmless no-op for other providers.
+            if getattr(platform_post.post, "subtitle", ""):
+                extra["subtitle"] = platform_post.post.subtitle
             platform_extra = platform_post.platform_extra or {}
             extra.update(platform_extra)
 

@@ -222,10 +222,13 @@ class GhostProvider(SocialProvider):
             title = (content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
             excerpt = (content.text or "").strip()[:280]
             body_html = self._to_html(content.text)
+        # A composer-authored subtitle (Ghost "custom excerpt") wins over the
+        # auto-derived excerpt when present. Ghost caps custom_excerpt at 300.
+        subtitle = (content.extra.get("subtitle") or "").strip()
         base_obj = {
             "title": title,
             "html": body_html,
-            "custom_excerpt": excerpt,
+            "custom_excerpt": subtitle[:300] if subtitle else excerpt,
             "tags": [{"name": "AfCEN"}],
         }
         mode = content.extra.get("ghost_publish_as", "post")
