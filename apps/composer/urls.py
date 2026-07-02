@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import campaign_views, views
+from . import campaign_views, chat_views, views
 
 app_name = "composer"
 
@@ -8,6 +8,16 @@ urlpatterns = [
     # Campaign composer (master piece + per-channel AI variants)
     path("campaign/", campaign_views.campaign, name="campaign"),
     path("campaign/draft/", campaign_views.campaign_draft, name="campaign-draft"),
+    # AI Studio chat (conversational content generator)
+    path("ai-studio/", chat_views.studio, name="chat"),
+    path("ai-studio/new/", chat_views.chat_new, name="chat_new"),
+    path("ai-studio/send/", chat_views.chat_send, name="chat_send"),
+    path("ai-studio/<uuid:chat_id>/", chat_views.studio, name="chat_detail"),
+    path(
+        "ai-studio/<uuid:chat_id>/use/<uuid:message_id>/",
+        chat_views.chat_use,
+        name="chat_use",
+    ),
     # Create landing page
     path("create/", views.create_landing, name="create_landing"),
     # Idea CRUD (HTMX endpoints)

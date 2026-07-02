@@ -1,0 +1,354 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}AI Studio - {{ workspace.name }} - WAIIS Dispatch{% endblock %}
+
+{% block extra_head %}
+<style>
+  /* ── AI Studio chat — scoped under #ai-studio; design language matches the
+       campaign composer (stone neutrals + orange app accent + violet AI accent). ── */
+  #ai-studio{
+    --ground:#F7F6F3; --surface:#FFFFFF; --raise:#FCFBFA;
+    --ink:#1C1917; --ink-2:#57534E; --ink-3:#8C857E; --ink-4:#B8B2AC;
+    --line:#EAE7E3; --line-2:#F2EFEB;
+    --brand:#F97316; --brand-ink:#C2410C; --brand-soft:#FFF4ED;
+    --ai:#7C3AED; --ai-ink:#4C1D95; --ai-soft:#F5F1FE; --ai-line:#E9D5FF;
+    --ok:#16A34A;
+    --shadow:0 1px 2px rgba(28,25,23,.04), 0 14px 34px -20px rgba(28,25,23,.22);
+    background:var(--ground);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.55;-webkit-font-smoothing:antialiased;
+  }
+  #ai-studio *{box-sizing:border-box}
+  #ai-studio [x-cloak]{display:none !important}
+
+  /* two-pane shell */
+  #ai-studio .shell{max-width:1080px;margin:0 auto;padding:18px 16px 22px;display:grid;grid-template-columns:248px 1fr;gap:16px;align-items:start}
+
+  /* ── LEFT rail ── */
+  #ai-studio .rail{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;position:sticky;top:16px}
+  #ai-studio .rail-head{padding:14px 14px 10px}
+  #ai-studio .new-chat{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:none;background:var(--ai);color:#fff;border-radius:11px;padding:11px 14px;font-size:13.5px;font-weight:700;text-decoration:none;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);min-height:44px}
+  #ai-studio .new-chat:hover{filter:brightness(1.05)}
+  #ai-studio .rail-lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding:6px 16px 4px}
+  #ai-studio .chat-list{list-style:none;margin:0;padding:0 8px 10px;max-height:64vh;overflow-y:auto}
+  #ai-studio .chat-list li{margin:2px 0}
+  #ai-studio .chat-link{display:block;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:500;color:var(--ink-2);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:38px;line-height:1.35}
+  #ai-studio .chat-link:hover{background:var(--raise);color:var(--ink)}
+  #ai-studio .chat-link.active{background:var(--ai-soft);color:var(--ai-ink);font-weight:700}
+  #ai-studio .chat-empty{padding:10px 16px 16px;font-size:12.5px;color:var(--ink-4)}
+
+  /* mobile rail toggle (hidden on desktop) */
+  #ai-studio .rail-toggle{display:none}
+
+  /* ── MAIN pane ── */
+  #ai-studio .main{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;min-height:calc(100vh - 60px)}
+  #ai-studio .main-head{padding:16px 20px 14px;border-bottom:1px solid var(--line)}
+  #ai-studio .main-head h1{font-size:18px;font-weight:800;letter-spacing:-.01em;margin:0}
+  #ai-studio .main-head p{font-size:12.5px;color:var(--ink-3);margin:3px 0 0}
+
+  /* messages column */
+  #ai-studio .messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+  #ai-studio .empty-state{margin:auto;max-width:400px;text-align:center;padding:24px 12px;color:var(--ink-3)}
+  #ai-studio .empty-state .es-mark{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;margin:0 auto 12px;background:var(--ai-soft);color:var(--ai);font-size:24px}
+  #ai-studio .empty-state h2{font-size:15px;font-weight:700;color:var(--ink);margin:0 0 5px}
+  #ai-studio .empty-state p{font-size:13px;margin:0}
+
+  /* bubbles */
+  #ai-studio .turn{display:flex}
+  #ai-studio .turn-user{justify-content:flex-end}
+  #ai-studio .turn-ai{justify-content:flex-start}
+  #ai-studio .bubble{max-width:min(660px,88%);border-radius:16px;padding:12px 15px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+  #ai-studio .bubble-user{background:#292524;color:#fff;border-bottom-right-radius:5px}
+  #ai-studio .bubble-ai{background:var(--raise);border:1px solid var(--line);border-left:3px solid var(--ai);border-bottom-left-radius:5px}
+  #ai-studio .ai-who{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--ai);margin-bottom:5px}
+  #ai-studio .ai-mark{font-size:12px}
+  #ai-studio .ai-text{color:var(--ink)}
+
+  /* draft card inside an AI bubble */
+  #ai-studio .draft-card{margin-top:12px;border:1px solid var(--ai-line);background:var(--ai-soft);border-radius:13px;padding:13px 14px}
+  #ai-studio .draft-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:var(--ai);background:#fff;border:1px solid var(--ai-line);border-radius:999px;padding:2px 9px;margin-bottom:8px}
+  #ai-studio .draft-title{font-family:Georgia,serif;font-size:16px;font-weight:800;letter-spacing:-.01em;color:var(--ink);margin:0 0 6px}
+  #ai-studio .draft-preview{font-size:13px;line-height:1.55;color:var(--ink-2);margin:0}
+  #ai-studio .draft-sources{font-size:11.5px;color:var(--ink-3);margin:8px 0 0}
+  #ai-studio .draft-sources-lbl{font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:var(--ink-4)}
+  #ai-studio .draft-use{margin-top:12px;display:inline-flex;align-items:center;gap:7px;border:none;background:var(--ai);color:#fff;border-radius:11px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);min-height:44px}
+  #ai-studio .draft-use:hover{filter:brightness(1.05)}
+  #ai-studio .draft-use-mark{font-size:13px}
+
+  /* thinking placeholder */
+  #ai-studio .thinking .bubble-ai{color:var(--ink-3)}
+  #ai-studio .dots{display:inline-flex;gap:4px;vertical-align:middle}
+  #ai-studio .dots span{width:6px;height:6px;border-radius:99px;background:var(--ai);opacity:.5;animation:aisd 1s infinite ease-in-out}
+  #ai-studio .dots span:nth-child(2){animation-delay:.15s}
+  #ai-studio .dots span:nth-child(3){animation-delay:.3s}
+  @keyframes aisd{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+  /* ── COMPOSER bar (sticky bottom) ── */
+  #ai-studio .composer{border-top:1px solid var(--line);background:rgba(252,251,250,.97);backdrop-filter:blur(6px);padding:12px 16px 14px;position:sticky;bottom:0}
+  #ai-studio .composer-ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+  #ai-studio .voice-wrap{display:inline-flex;align-items:center;gap:6px}
+  #ai-studio .voice-wrap label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+  #ai-studio select[name=voice]{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600;color:var(--ink-2);background:#fff;min-height:44px}
+  #ai-studio .ch-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-left:4px}
+  #ai-studio .ch-chips{display:flex;gap:6px;flex-wrap:wrap;flex:1 1 100%;margin-top:2px}
+  #ai-studio .ch-chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 5px;border:1.5px solid var(--brand);background:var(--brand-soft);border-radius:999px;font-size:12px;font-weight:600;color:var(--brand-ink);cursor:pointer;user-select:none;min-height:38px}
+  #ai-studio .ch-chip.off{border-color:var(--line);background:#fff;color:var(--ink-3)}
+  #ai-studio .ch-chip .lg{width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:9px;flex:none;overflow:hidden;background:#1C1917}
+  #ai-studio .ch-chip .lg img{width:100%;height:100%;object-fit:cover;border-radius:999px}
+  #ai-studio .lg-ghost{background:#15171A}
+  #ai-studio .lg-linkedin,#ai-studio .lg-linkedin_personal,#ai-studio .lg-linkedin_company,#ai-studio .lg-blotato_linkedin{background:#0A66C2}
+  #ai-studio .lg-twitter,#ai-studio .lg-x,#ai-studio .lg-blotato_twitter{background:#0F1419}
+  #ai-studio .lg-instagram,#ai-studio .lg-blotato_instagram{background:linear-gradient(135deg,#F58529,#DD2A7B,#8134AF)}
+  #ai-studio .lg-facebook,#ai-studio .lg-blotato_facebook{background:#1877F2}
+  #ai-studio .lg-threads,#ai-studio .lg-blotato_threads{background:#15171A}
+  #ai-studio .lg-bluesky,#ai-studio .lg-blotato_bluesky{background:#1185FE}
+
+  #ai-studio .composer-input{display:flex;align-items:flex-end;gap:9px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:8px 8px 8px 14px}
+  #ai-studio .composer-input:focus-within{border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
+  #ai-studio textarea[name=message]{flex:1;border:none;outline:none;resize:none;font:inherit;font-size:14px;line-height:1.5;color:var(--ink);background:transparent;max-height:180px;padding:6px 0;min-height:32px}
+  #ai-studio textarea[name=message]::placeholder{color:var(--ink-4)}
+  #ai-studio .gen-btn{border:none;background:var(--ai);color:#fff;border-radius:11px;padding:0 16px;height:44px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);cursor:pointer;flex:none}
+  #ai-studio .gen-btn:disabled{opacity:.55;cursor:default}
+  #ai-studio .gen-btn .g-mark{font-size:14px}
+  #ai-studio .composer-hint{font-size:11px;color:var(--ink-4);margin:7px 2px 0;text-align:center}
+
+  /* ── RESPONSIVE ── */
+  @media (max-width:768px){
+    #ai-studio .shell{grid-template-columns:1fr;padding:12px 10px 16px;gap:12px}
+    #ai-studio .main{min-height:calc(100vh - 96px)}
+    #ai-studio .rail{position:static}
+    #ai-studio .rail-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);min-height:44px}
+    #ai-studio .rail-toggle .caret{transition:transform .15s ease}
+    #ai-studio .rail-toggle.open .caret{transform:rotate(180deg)}
+    #ai-studio .rail-body[hidden]{display:none}
+    #ai-studio .chat-list{max-height:46vh}
+    #ai-studio .bubble{max-width:92%}
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="ai-studio" x-data="aiStudio()" x-init="init()">
+  <div class="shell">
+
+    <!-- LEFT rail -->
+    <aside class="rail" :class="{ 'open': railOpen }">
+      <button type="button" class="rail-toggle" :class="{ 'open': railOpen }" @click="railOpen = !railOpen">
+        <span>&#128172; Chats</span>
+        <span class="caret">&#9662;</span>
+      </button>
+      <div class="rail-body" :hidden="isMobile && !railOpen">
+        <div class="rail-head">
+          <a class="new-chat" href="{% url 'composer:chat_new' workspace_id=workspace.id %}">
+            <span>&#65291;</span> New chat
+          </a>
+        </div>
+        <div class="rail-lbl">Recent</div>
+        {% if chats %}
+        <ul class="chat-list">
+          {% for c in chats %}
+          <li>
+            <a class="chat-link {% if chat and c.id == chat.id %}active{% endif %}"
+               href="{% url 'composer:chat_detail' workspace_id=workspace.id chat_id=c.id %}">
+              {{ c.title|default:"Untitled chat" }}
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="chat-empty">No chats yet. Start one below.</p>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- MAIN pane -->
+    <section class="main">
+      <div class="main-head">
+        <h1>AI Studio</h1>
+        <p>Generate content grounded in your knowledge, best posts and voice</p>
+      </div>
+
+      <!-- messages -->
+      <div id="messages" class="messages" x-ref="messages">
+        {% if messages %}
+          {% for m in messages %}
+            {% if m.role == "user" %}
+              <div class="turn turn-user">
+                <div class="bubble bubble-user">{{ m.content }}</div>
+              </div>
+            {% else %}
+              {# assistant turn — reuse the same markup as _chat_turn.html (no user_text so only the AI half renders) #}
+              {% include "composer/_chat_turn.html" with workspace=workspace chat=chat msg=m user_text="" %}
+            {% endif %}
+          {% endfor %}
+        {% else %}
+          <div class="empty-state">
+            <div class="es-mark">&#10022;</div>
+            <h2>What should we create?</h2>
+            <p>Describe the piece you want. HERALD drafts it grounded in your wiki, best-performing posts and {{ workspace.name }}'s voice &mdash; then one tap publishes it across your channels.</p>
+          </div>
+        {% endif %}
+      </div>
+
+      <!-- COMPOSER -->
+      <form class="composer"
+            hx-post="{% url 'composer:chat_send' workspace_id=workspace.id %}"
+            hx-target="#messages"
+            hx-swap="beforeend"
+            @htmx:before-request="onBefore()"
+            @htmx:after-request="onAfter($event)">
+        {% csrf_token %}
+        <input type="hidden" name="chat_id" value="{{ chat.id|default:'' }}">
+        <input type="hidden" name="channels" :value="selected.join(',')">
+
+        <div class="composer-ctrls">
+          <span class="voice-wrap">
+            <label for="ais-voice">Voice</label>
+            <select name="voice" id="ais-voice">
+              {% for v in voices %}
+              <option value="{{ v.key }}">{{ v.label }}</option>
+              {% endfor %}
+            </select>
+          </span>
+          <span class="ch-lbl">Channels</span>
+          <div class="ch-chips">
+            <template x-for="acc in accounts" :key="acc.id">
+              <span class="ch-chip" :class="{ 'off': !selected.includes(acc.id) }" @click="toggle(acc.id)">
+                <span class="lg" :class="'lg-' + (acc.platform || '')">
+                  <template x-if="acc.logo_display_url"><img :src="acc.logo_display_url" alt=""></template>
+                  <template x-if="!acc.logo_display_url"><span x-text="(acc.name || '?').charAt(0).toUpperCase()"></span></template>
+                </span>
+                <span x-text="acc.name"></span>
+              </span>
+            </template>
+            <template x-if="!accounts.length">
+              <span style="font-size:12px;color:var(--ink-4);padding:6px 2px">No connected channels &mdash; drafts still generate.</span>
+            </template>
+          </div>
+        </div>
+
+        <div class="composer-input">
+          <textarea name="message" x-ref="ta" rows="1"
+                    placeholder="Describe the content you want&hellip;"
+                    @input="grow()" @keydown="onKey($event)"></textarea>
+          <button type="submit" class="gen-btn" :disabled="sending">
+            <span class="g-mark">&#10022;</span>
+            <span x-text="sending ? 'Generating…' : 'Generate'"></span>
+          </button>
+        </div>
+        <p class="composer-hint">Enter to send &middot; Shift+Enter for a new line</p>
+      </form>
+    </section>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ accounts_meta|json_script:"ais-accounts" }}
+<script nonce="{{ request.csp_nonce }}">
+function aiStudio() {
+  // accounts_meta is a dict keyed by account id → {name, platform, platform_label, logo_display_url, ...}
+  var raw = {};
+  try { raw = JSON.parse(document.getElementById('ais-accounts').textContent) || {}; } catch (e) {}
+  var accounts = Object.keys(raw).map(function (id) {
+    var a = raw[id] || {};
+    return {
+      id: String(id),
+      name: a.name || a.account_name || a.account_handle || '?',
+      platform: a.platform || '',
+      platform_label: a.platform_label || a.get_platform_display || '',
+      logo_display_url: a.logo_display_url || '',
+    };
+  });
+
+  return {
+    accounts: accounts,
+    selected: accounts.map(function (a) { return a.id; }),   // default: all connected
+    sending: false,
+    railOpen: false,
+    isMobile: false,
+
+    init() {
+      var self = this;
+      var mq = window.matchMedia('(max-width: 768px)');
+      this.isMobile = mq.matches;
+      mq.addEventListener('change', function (e) { self.isMobile = e.matches; if (!e.matches) self.railOpen = false; });
+      this.grow();
+      this.scrollBottom();
+      // Keep the URL/permalink in sync when a brand-new chat is created server-side.
+      window.addEventListener('chatCreated', function (ev) {
+        var d = (ev && ev.detail) || {};
+        if (d.url) {
+          try { window.history.replaceState({}, '', d.url); } catch (e) {}
+          var hid = document.querySelector('#ai-studio input[name=chat_id]');
+          if (hid && d.chatId) hid.value = d.chatId;
+        }
+      });
+    },
+
+    toggle(id) {
+      var i = this.selected.indexOf(id);
+      if (i >= 0) this.selected.splice(i, 1); else this.selected.push(id);
+    },
+
+    grow() {
+      var ta = this.$refs.ta;
+      if (!ta) return;
+      ta.style.height = 'auto';
+      ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
+    },
+
+    onKey(ev) {
+      // Enter sends; Shift+Enter makes a newline.
+      if (ev.key === 'Enter' && !ev.shiftKey) {
+        ev.preventDefault();
+        if (this.sending) return;
+        var val = (this.$refs.ta.value || '').trim();
+        if (!val) return;
+        ev.target.closest('form').requestSubmit();
+      }
+    },
+
+    scrollBottom() {
+      var self = this;
+      this.$nextTick(function () {
+        var m = self.$refs.messages;
+        if (m) m.scrollTop = m.scrollHeight;
+      });
+    },
+
+    onBefore() {
+      this.sending = true;
+      // stash the prompt so we can echo it in the placeholder, then clear the textarea
+      var ta = this.$refs.ta;
+      var text = (ta.value || '').trim();
+      ta.value = '';
+      this.grow();
+      var m = this.$refs.messages;
+      if (!m) return;
+      var wrap = document.createElement('div');
+      wrap.className = 'turn thinking';
+      wrap.setAttribute('data-thinking', '1');
+      wrap.innerHTML =
+        '<div class="bubble bubble-ai"><div class="ai-who"><span class="ai-mark">&#10022;</span> AI Studio</div>' +
+        '<div class="ai-text">Thinking <span class="dots"><span></span><span></span><span></span></span></div></div>';
+      m.appendChild(wrap);
+      this.scrollBottom();
+    },
+
+    onAfter(ev) {
+      this.sending = false;
+      // drop the thinking placeholder
+      var m = this.$refs.messages;
+      if (m) {
+        var ph = m.querySelector('[data-thinking]');
+        if (ph) ph.remove();
+      }
+      this.railOpen = false;
+      this.scrollBottom();
+    },
+  };
+}
+</script>
+{% endblock %}

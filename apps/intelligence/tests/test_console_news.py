@@ -103,19 +103,46 @@ def test_news_empty_state(logged_client, monkeypatch):
     assert b"No recommendations" in resp.content
 
 
+@pytest.fixture
+def ws_client(db, organization, workspace):
+    """A logged-in client whose user resolves to a workspace (so news_draft,
+    which now drafts via generation + persists a Post, has a workspace)."""
+    from apps.accounts.models import User
+    from apps.members.models import OrgMembership, WorkspaceMembership
+
+    u = User.objects.create_user(
+        email="newsdraft@x.io", password="pw", name="NewsDraft",
+        tos_accepted_at=timezone.now(),
+    )
+    OrgMembership.objects.create(
+        user=u, organization=organization, org_role=OrgMembership.OrgRole.MEMBER
+    )
+    WorkspaceMembership.objects.create(user=u, workspace=workspace, workspace_role="member")
+    u.last_workspace_id = workspace.id
+    u.save(update_fields=["last_workspace_id"])
+    c = Client()
+    c.force_login(u)
+    return c
+
+
 @pytest.mark.django_db
-def test_news_draft_posts_and_redirects(logged_client, monkeypatch):
-    from apps.intelligence import console_views
+def test_news_draft_generates_post_and_redirects(ws_client, workspace, monkeypatch):
+    """news_draft now drafts via the DeepSeek generation brain (not HERALD) and
+    persists the result as a Django draft Post, then redirects to approvals."""
+    from apps.composer import generation
+    from apps.composer.models import Post
 
     captured = {}
 
-    def fake_post(path, payload):
-        captured["path"] = path
-        captured["payload"] = payload
-        return {"ok": True}
+    def fake_generate(*, workspace, user_prompt, voice="joseph", channels=None, history=None):
+        captured["prompt"] = user_prompt
+        captured["voice"] = voice
+        return {"reply": "ok", "title": "AfDB backs Kenya grid expansion",
+                "master_html": "<p>A multi-year energy-transition investment.</p>",
+                "sources": ["Wiki: Energy"], "source": "deepseek"}
 
-    monkeypatch.setattr(console_views, "agent_post", fake_post)
-    resp = logged_client.post(
+    monkeypatch.setattr(generation, "generate_content", fake_generate)
+    resp = ws_client.post(
         "/console/news/draft",
         {
             "sector": "energy",
@@ -127,31 +154,19 @@ def test_news_draft_posts_and_redirects(logged_client, monkeypatch):
     )
     assert resp.status_code == 302
     assert resp.url == "/console/approvals"
-    assert captured["path"] == "/agents/herald/draft"
-    assert captured["payload"]["sector"] == "energy"
-    assert "AfDB backs Kenya grid expansion" in captured["payload"]["brief"]
+    assert "AfDB backs Kenya grid expansion" in captured["prompt"]
+    post = Post.objects.filter(workspace=workspace, title="AfDB backs Kenya grid expansion").first()
+    assert post is not None
+    assert "multi-year energy-transition" in post.caption
 
 
 @pytest.mark.django_db
-def test_news_draft_normalises_freetext_sector(logged_client, monkeypatch):
-    """A non-canonical request-supplied sector must be mapped to a canonical
-    value before hitting the agent-service (which only accepts
-    energy|agribusiness|ai|general)."""
-    from apps.intelligence import console_views
-
-    captured = {}
-
-    def fake_post(path, payload):
-        captured["payload"] = payload
-        return {"ok": True}
-
-    monkeypatch.setattr(console_views, "agent_post", fake_post)
+def test_news_draft_never_500s_without_workspace(logged_client):
+    """With no resolved workspace, news_draft still redirects cleanly (no draft,
+    no 500) — the generation/persist block is skipped."""
     resp = logged_client.post(
         "/console/news/draft",
-        {
-            "sector": "Renewable power transition",  # free-text -> energy
-            "title": "Headline",
-        },
+        {"sector": "Renewable power transition", "title": "Headline"},
     )
     assert resp.status_code == 302
-    assert captured["payload"]["sector"] == "energy"
+    assert resp.url == "/console/approvals"

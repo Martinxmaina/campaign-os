@@ -783,3 +783,72 @@ class Feed(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class ContentChat(models.Model):
+    """A conversation in the AI Studio content generator.
+
+    Each chat is a workspace-scoped thread where a user converses with the
+    generator to produce content. Persisting chats + their messages is what
+    lets the studio "learn/compile" — past turns are grounding for later ones
+    and reusable drafts live on the messages.
+    """
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    workspace = models.ForeignKey(
+        "workspaces.Workspace",
+        on_delete=models.CASCADE,
+        related_name="content_chats",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="content_chats",
+    )
+    title = models.CharField(max_length=255, blank=True, default="")
+    # Selected voice for this chat: "joseph" | "company" (extensible).
+    voice = models.CharField(max_length=40, blank=True, default="joseph")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    objects = WorkspaceScopedManager()
+
+    class Meta:
+        db_table = "composer_content_chat"
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return self.title or f"Chat {self.id}"
+
+
+class ContentChatMessage(models.Model):
+    """One turn in a ContentChat.
+
+    ``role`` is "user" or "assistant". Assistant turns that produced content
+    carry the generated draft in ``draft`` (JSON: {title, master_html,
+    variants:{account_id:caption}, sources:[...]}) so it can be re-opened,
+    regenerated, or handed to the campaign composer to publish across channels.
+    """
+
+    class Role(models.TextChoices):
+        USER = "user", "User"
+        ASSISTANT = "assistant", "Assistant"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    chat = models.ForeignKey(
+        ContentChat,
+        on_delete=models.CASCADE,
+        related_name="messages",
+    )
+    role = models.CharField(max_length=12, choices=Role.choices)
+    content = models.TextField(blank=True, default="")
+    # Structured generated draft (assistant turns only); null for plain chat.
+    draft = models.JSONField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "composer_content_chat_message"
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.role}: {self.content[:40]}"

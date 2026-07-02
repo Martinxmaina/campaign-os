@@ -1,9 +1,13 @@
 """Intake board views."""
+import uuid
+from datetime import datetime
+
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
 from django.db.models import Max
 from django.http import HttpResponse
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import NoReverseMatch, reverse
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
@@ -370,3 +374,120 @@ def draft_now_panel(request, intake_pk):
         response["HX-Trigger"] = "heraldDraftFailed"
         return response
     return HttpResponse(status=204 if ok else 409)
+
+
+# Priority choices offered in the manual-intake form (value, label). Kept in
+# lockstep with ContentIntake.Priority so the select never emits a value the
+# model would reject.
+_MANUAL_PRIORITY_CHOICES = ContentIntake.Priority.choices
+
+
+@login_required
+def manual_intake(request, workspace_id):
+    """Manually add a single content item to the intake register.
+
+    GET  → render the form. POST → create a ContentIntake and redirect back to
+    the Content Studio board (``console:content``). Intake is otherwise
+    Google-Sheets-sync-only; this is the human "＋ Add content" front door.
+
+    Workspace access is enforced via the shared composer guard
+    (login + membership; raises PermissionDenied on a non-member), matching the
+    contract every AI-studio surface uses.
+    """
+    # Reuse the canonical membership/403 guard so this surface behaves exactly
+    # like the workspace-scoped composer views (login_required + membership).
+    from apps.composer.views import _get_workspace
+
+    workspace = _get_workspace(request, workspace_id)
+
+    # Where we send the user after a successful create. console:content is the
+    # Content Studio board this button lives on; fall back to the intake board
+    # if the console route is unavailable for any reason.
+    try:
+        success_url = reverse("console:content")
+    except NoReverseMatch:  # pragma: no cover - defensive
+        try:
+            success_url = reverse("console:intake-board")
+        except NoReverseMatch:  # pragma: no cover
+            success_url = "/"
+
+    if request.method == "POST":
+        pillar_theme = (request.POST.get("pillar_theme") or "").strip()
+        angle = (request.POST.get("angle") or "").strip()
+        proof_point = (request.POST.get("proof_point") or "").strip()
+        target_audience = (request.POST.get("target_audience") or "").strip()
+        priority = (request.POST.get("priority") or ContentIntake.Priority.MEDIUM).strip()
+        raw_date = (request.POST.get("target_publish_date") or "").strip()
+
+        # Validation: pillar/theme is the one hard-required field (an intake row
+        # with no theme is meaningless). Everything else is optional and must
+        # never 500 on a blank value.
+        errors = {}
+        if not pillar_theme:
+            errors["pillar_theme"] = "Pillar / theme is required."
+        if priority not in ContentIntake.Priority.values:
+            priority = ContentIntake.Priority.MEDIUM
+
+        target_publish_date = None
+        if raw_date:
+            try:
+                target_publish_date = datetime.strptime(raw_date, "%Y-%m-%d").date()
+            except ValueError:
+                errors["target_publish_date"] = "Use a valid date (YYYY-MM-DD)."
+
+        if errors:
+            return render(
+                request,
+                "content_intake/manual_intake.html",
+                {
+                    "workspace": workspace,
+                    "errors": errors,
+                    "priority_choices": _MANUAL_PRIORITY_CHOICES,
+                    # Echo back what the user typed so nothing is lost on re-render.
+                    "form": {
+                        "pillar_theme": pillar_theme,
+                        "angle": angle,
+                        "proof_point": proof_point,
+                        "target_audience": target_audience,
+                        "priority": priority,
+                        "target_publish_date": raw_date,
+                    },
+                },
+                status=400,
+            )
+
+        ContentIntake.objects.create(
+            workspace=workspace,
+            external_id=f"manual-{uuid.uuid4()}",
+            pillar_theme=pillar_theme,
+            angle=angle,
+            proof_point=proof_point,
+            target_audience=target_audience,
+            priority=priority,
+            status=ContentIntake.Status.IDEA,
+            sensitivity=ContentIntake.Sensitivity.PRIVATE_HOLD,
+            proof_status=ContentIntake.ProofStatus.TBD,
+            target_publish_date=target_publish_date,
+            submitted_by=request.user,
+            owner=request.user,
+        )
+        return redirect(success_url)
+
+    # GET — blank form.
+    return render(
+        request,
+        "content_intake/manual_intake.html",
+        {
+            "workspace": workspace,
+            "errors": {},
+            "priority_choices": _MANUAL_PRIORITY_CHOICES,
+            "form": {
+                "pillar_theme": "",
+                "angle": "",
+                "proof_point": "",
+                "target_audience": "",
+                "priority": ContentIntake.Priority.MEDIUM,
+                "target_publish_date": "",
+            },
+        },
+    )

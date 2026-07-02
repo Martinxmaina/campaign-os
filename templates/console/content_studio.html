@@ -27,6 +27,10 @@ CSP-safe: no inline event handlers; actions are plain <form> POSTs and links.
 <div class="p-2 sm:p-4 space-y-5">
 
   {# ── Header ─────────────────────────────────────────────────────── #}
+  {% comment %}The manual-intake route is workspace-scoped; resolve via the `as`
+     form (matches the board.html convention) so the header renders cleanly even
+     if the route is not yet wired. request.workspace is set by RBAC middleware.{% endcomment %}
+  {% if request.workspace %}{% url 'console:intake-manual' workspace_id=request.workspace.id as add_content_url %}{% endif %}
   <div class="flex flex-wrap items-end justify-between gap-3 border-b border-stone-200 pb-3">
     <div>
       <h1 class="text-2xl font-bold" style="font-family:Georgia,serif;">Content Studio</h1>
@@ -37,6 +41,12 @@ CSP-safe: no inline event handlers; actions are plain <form> POSTs and links.
         {% endif %}
       </p>
     </div>
+    {% if add_content_url %}
+    <a href="{{ add_content_url }}"
+       class="min-h-[44px] inline-flex items-center gap-1.5 rounded-lg bg-[var(--primary)] text-white px-4 py-2 text-sm font-medium hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2">
+      <span aria-hidden="true">＋</span> Add content
+    </a>
+    {% endif %}
   </div>
 
   {% comment %}── Filters ──

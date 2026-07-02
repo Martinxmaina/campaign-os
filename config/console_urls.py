@@ -83,6 +83,9 @@ urlpatterns = [
     path("graph.json", intel_console.graph_json, name="graph-json"),
     # Content intake board
     path("intake/", intake_views.board, name="intake-board"),
+    # Manual "＋ Add content" front door (intake is otherwise Sheets-sync-only);
+    # workspace-scoped so the create is unambiguously bound to a house.
+    path("intake/manual/<uuid:workspace_id>/", intake_views.manual_intake, name="intake-manual"),
     path("intake/sync-now/", intake_views.sync_now, name="intake-sync-now"),
     path("intake/add-to-calendar/", intake_views.add_to_calendar, name="intake-add-to-calendar"),
     path("intake/draft-selected/", intake_views.draft_selected, name="intake-draft-selected"),

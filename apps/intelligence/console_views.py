@@ -8,7 +8,6 @@ from django.views.decorators.http import require_POST
 
 from apps.common.agent_client import agent_post
 from apps.common.safe import safe_get
-from apps.content_intake.sector_map import map_pillar_to_sector
 
 logger = logging.getLogger(__name__)
 
@@ -245,14 +244,33 @@ def news(request):
 @login_required
 @require_POST
 def news_draft(request):
-    sector = map_pillar_to_sector(request.POST.get("sector", ""))
     title = request.POST.get("title", "")
     summary = request.POST.get("summary", "")
     link = request.POST.get("link", "")
     source = request.POST.get("source", "")
     brief = "\n".join(p for p in [title, summary, f"Source: {source}" if source else "", link] if p)
-    try:
-        agent_post("/agents/herald/draft", {"sector": sector, "brief": brief})
-    except Exception:
-        logger.warning("news_draft: agent_post failed", exc_info=True)
+
+    # Route drafting through the generation brain (DeepSeek-first, with HERALD +
+    # deterministic fallback baked in). Persist the result as a Django draft Post
+    # so it surfaces in the approvals queue the view redirects to. Never 500s.
+    workspace = getattr(request, "workspace", None)
+    if workspace is not None:
+        try:
+            from apps.composer import generation
+            from apps.composer.models import Post
+            from django.utils.html import strip_tags
+
+            result = generation.generate_content(
+                workspace=workspace, user_prompt=brief, voice="joseph",
+            )
+            master_html = result.get("master_html") or ""
+            Post.objects.create(
+                workspace=workspace,
+                author=request.user,
+                title=(result.get("title") or title or "Untitled draft")[:255],
+                caption=strip_tags(master_html)[:5000],
+                ai_brief={"sources": result.get("sources") or [], "assets": [], "guardrails": []},
+            )
+        except Exception:
+            logger.warning("news_draft: generation/persist failed", exc_info=True)
     return redirect("console:approvals")

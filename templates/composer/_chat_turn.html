@@ -1,0 +1,37 @@
+{% comment %}
+  Agent C — one chat turn (a user bubble + an assistant bubble, optionally a draft card).
+  Context (SHARED CONTRACT): workspace, chat, user_text, msg
+    - user_text : the prompt string the user sent
+    - msg       : a ContentChatMessage — .content (assistant reply), .draft (dict|None), .id
+  Rendered directly by chat_send (hx-swap="beforeend" onto #messages) AND {% include %}d
+  by ai_studio.html for each existing assistant message (with user_text passed in).
+  No inline JS handlers (CSP). Uses only the #ai-studio-scoped classes defined in ai_studio.html.
+{% endcomment %}
+{% if user_text %}
+<div class="turn turn-user">
+  <div class="bubble bubble-user">{{ user_text }}</div>
+</div>
+{% endif %}
+
+<div class="turn turn-ai">
+  <div class="bubble bubble-ai">
+    <div class="ai-who"><span class="ai-mark">&#10022;</span> AI Studio</div>
+    <div class="ai-text">{{ msg.content }}</div>
+
+    {% if msg.draft %}
+    <div class="draft-card">
+      <div class="draft-badge">&#10022; Draft ready</div>
+      <h3 class="draft-title">{{ msg.draft.title|default:"Untitled draft" }}</h3>
+      <p class="draft-preview">{{ msg.draft.master_html|striptags|truncatewords:60 }}</p>
+      {% if msg.draft.sources %}
+      <p class="draft-sources"><span class="draft-sources-lbl">Sources</span> {{ msg.draft.sources|join:", " }}</p>
+      {% endif %}
+      <button type="button" class="draft-use"
+              hx-post="{% url 'composer:chat_use' workspace_id=workspace.id chat_id=chat.id message_id=msg.id %}"
+              hx-swap="none">
+        <span class="draft-use-mark">&#10022;</span> Use this &rarr; publish across channels
+      </button>
+    </div>
+    {% endif %}
+  </div>
+</div>

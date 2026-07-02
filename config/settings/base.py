@@ -531,6 +531,19 @@ AGENT_SERVICE_TOKEN = env("AGENT_SERVICE_TOKEN", default="")
 AGENT_SERVICE_INGEST_URL = env("AGENT_SERVICE_INGEST_URL", default="")
 AGENT_SERVICE_INGEST_KEY = env("AGENT_SERVICE_INGEST_KEY", default="")
 
+# --- DeepSeek (direct LLM for content generation) -----------------------
+# The AI Studio content generator + campaign drafting call DeepSeek DIRECTLY
+# (OpenAI-compatible chat completions) instead of routing through the HERALD
+# agent. Same values the agent-service uses; for Azure AI Foundry set
+# DEEPSEEK_API_VERSION + a *.models.ai.azure.com base URL, for public DeepSeek
+# leave the version empty. When DEEPSEEK_API_KEY is unset, callers gracefully
+# fall back to the agent-service / deterministic drafting. The authoritative
+# publish gate still runs at dispatch, so direct generation is safe.
+DEEPSEEK_API_KEY = env("DEEPSEEK_API_KEY", default="")
+DEEPSEEK_BASE_URL = env("DEEPSEEK_BASE_URL", default="https://api.deepseek.com")
+DEEPSEEK_API_VERSION = env("DEEPSEEK_API_VERSION", default="")
+DEEPSEEK_MODEL = env("DEEPSEEK_MODEL", default="deepseek-chat")
+
 # --- Celery -------------------------------------------------------------
 from config.celery import build_broker_url  # noqa: E402
 

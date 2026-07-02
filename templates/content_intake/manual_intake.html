@@ -1,0 +1,116 @@
+{% extends "console/base.html" %}
+{% comment %}
+Manual content-intake form — the human "＋ Add content" front door.
+
+Intake is otherwise Google-Sheets-sync-only; this lets an operator hand-add a
+single content item to the register. Posts back to content_intake:intake_manual
+(workspace-scoped). On success the view redirects to the Content Studio board.
+
+CSP-safe: no inline event handlers; a plain <form> POST. Stone + orange brand.
+Inputs are ≥44px tall and the layout is single-column / responsive.
+{% endcomment %}
+{% block console %}
+{% url 'console:intake-manual' workspace_id=workspace.id as manual_action_url %}
+<div class="max-w-2xl mx-auto p-4 sm:p-6 space-y-6">
+
+  {# ── Header ─────────────────────────────────────────────────────── #}
+  <div class="border-b border-stone-200 pb-3">
+    <h1 class="text-2xl font-bold" style="font-family:Georgia,serif;">Add content</h1>
+    <p class="text-sm text-stone-500 mt-1">
+      Hand-add a single item to the content register. It lands as an
+      <span class="font-medium">Idea</span>, held private until reviewed.
+    </p>
+  </div>
+
+  <form method="post" action="{{ manual_action_url }}" class="space-y-5">
+    {% csrf_token %}
+
+    {# ── Pillar / theme (required) ──────────────────────────────────── #}
+    <div class="space-y-1.5">
+      <label for="id_pillar_theme" class="block text-sm font-medium text-stone-700">
+        Pillar / theme <span class="text-[var(--primary)]">*</span>
+      </label>
+      <input type="text" name="pillar_theme" id="id_pillar_theme" required
+             value="{{ form.pillar_theme }}"
+             placeholder="e.g. Energy access, Climate finance…"
+             class="w-full min-h-[44px] rounded-lg border border-stone-300 px-3 py-2 text-sm
+                    focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:outline-none
+                    {% if errors.pillar_theme %}border-red-400{% endif %}" />
+      {% if errors.pillar_theme %}
+      <p class="text-xs text-red-600">{{ errors.pillar_theme }}</p>
+      {% endif %}
+    </div>
+
+    {# ── Angle ──────────────────────────────────────────────────────── #}
+    <div class="space-y-1.5">
+      <label for="id_angle" class="block text-sm font-medium text-stone-700">Angle</label>
+      <textarea name="angle" id="id_angle" rows="3"
+                placeholder="The specific take or narrative for this piece…"
+                class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm
+                       focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:outline-none">{{ form.angle }}</textarea>
+    </div>
+
+    {# ── Proof point ────────────────────────────────────────────────── #}
+    <div class="space-y-1.5">
+      <label for="id_proof_point" class="block text-sm font-medium text-stone-700">Proof point</label>
+      <textarea name="proof_point" id="id_proof_point" rows="2"
+                placeholder="The evidence / figure / source that backs the angle…"
+                class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm
+                       focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:outline-none">{{ form.proof_point }}</textarea>
+      <p class="text-xs text-stone-400">Proof starts as “TBD” — verify before scheduling.</p>
+    </div>
+
+    {# ── Target audience ────────────────────────────────────────────── #}
+    <div class="space-y-1.5">
+      <label for="id_target_audience" class="block text-sm font-medium text-stone-700">Target audience</label>
+      <input type="text" name="target_audience" id="id_target_audience"
+             value="{{ form.target_audience }}"
+             placeholder="e.g. Funders, policymakers, partners…"
+             class="w-full min-h-[44px] rounded-lg border border-stone-300 px-3 py-2 text-sm
+                    focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:outline-none" />
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+      {# ── Priority ─────────────────────────────────────────────────── #}
+      <div class="space-y-1.5">
+        <label for="id_priority" class="block text-sm font-medium text-stone-700">Priority</label>
+        <select name="priority" id="id_priority"
+                class="w-full min-h-[44px] rounded-lg border border-stone-300 px-3 py-2 text-sm bg-white
+                       focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:outline-none">
+          {% for value, label in priority_choices %}
+          <option value="{{ value }}" {% if form.priority == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {# ── Target publish date (optional) ───────────────────────────── #}
+      <div class="space-y-1.5">
+        <label for="id_target_publish_date" class="block text-sm font-medium text-stone-700">
+          Target publish date <span class="text-stone-400 font-normal">(optional)</span>
+        </label>
+        <input type="date" name="target_publish_date" id="id_target_publish_date"
+               value="{{ form.target_publish_date }}"
+               class="w-full min-h-[44px] rounded-lg border border-stone-300 px-3 py-2 text-sm
+                      focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)] focus:outline-none
+                      {% if errors.target_publish_date %}border-red-400{% endif %}" />
+        {% if errors.target_publish_date %}
+        <p class="text-xs text-red-600">{{ errors.target_publish_date }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Actions ────────────────────────────────────────────────────── #}
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit"
+              class="min-h-[44px] rounded-lg bg-[var(--primary)] text-white px-5 py-2 text-sm font-medium
+                     hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:ring-offset-2">
+        Add to register
+      </button>
+      <a href="{% url 'console:content' %}"
+         class="min-h-[44px] inline-flex items-center rounded-lg border border-stone-300 px-5 py-2 text-sm text-stone-600 hover:border-stone-400">
+        Cancel
+      </a>
+    </div>
+  </form>
+</div>
+{% endblock %}

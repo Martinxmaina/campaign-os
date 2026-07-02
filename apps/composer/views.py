@@ -2113,14 +2113,16 @@ def _create_idea_media_asset(workspace, user, uploaded_file):
 @login_required
 @require_permission("create_posts")
 def create_landing(request, workspace_id):
-    """Deprecated landing — the Create front door now opens the composer directly.
+    """Create front door — opens the MODERN campaign composer directly.
 
-    Kept as a 302 so old links/bookmarks keep working. The idea board, templates
-    and feeds it used to surface remain reachable via the Create dropdown and
-    their existing routes; nothing is deleted.
+    Kept as a 302 so old links/bookmarks keep working. New content now lands in
+    the modern campaign composer (``composer:campaign``, templates/composer/
+    campaign.html) instead of the legacy single-post editor. The idea board,
+    templates and feeds it used to surface remain reachable via the Create
+    dropdown and their existing routes; nothing is deleted.
     """
     _get_workspace(request, workspace_id)  # preserve the membership/403 check
-    return redirect("composer:compose", workspace_id=workspace_id)
+    return redirect("composer:campaign", workspace_id=workspace_id)
 
 
 @login_required
