@@ -562,6 +562,9 @@ def post_detail(post: PlatformPost) -> dict[str, Any]:
         "days_ago": (timezone.now() - post.published_at).days if post.published_at else None,
         "media_kind": _media_kind(post),
         "media_preview": _first_media_preview(post),
+        # Live platform URL persisted at publish time (engine, migration 0022)
+        # — powers the drawer's "View on platform" deep link.
+        "published_url": post.published_url,
         "captured_at": max_captured,
         "metric_tiles": [
             {

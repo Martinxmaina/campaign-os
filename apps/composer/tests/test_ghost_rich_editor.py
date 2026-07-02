@@ -60,7 +60,9 @@ def test_html_body_format_publishes_html_unescaped(monkeypatch):
     assert "&lt;p&gt;" not in sent_html
     # Title/excerpt are derived from the stripped text content, sensibly.
     assert captured["json"]["posts"][0]["title"]
-    assert "<" not in captured["json"]["posts"][0]["custom_excerpt"]
+    # custom_excerpt is only set when a subtitle is supplied (none here); when
+    # present it must never contain raw HTML.
+    assert "<" not in captured["json"]["posts"][0].get("custom_excerpt", "")
 
 
 def test_plain_text_path_still_escapes(monkeypatch):

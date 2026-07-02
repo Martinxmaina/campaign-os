@@ -49,5 +49,5 @@
 </div>
 
 <div style="padding: 14px 20px; border-top: 1px solid var(--neutral-100); display: flex; gap: 10px; flex-shrink: 0;">
-    <a href="#" target="_blank" class="btn-outline" style="padding: 9px 16px; width: auto;">View on {{ account.get_platform_display }}</a>
+    <a {% if published_url %}href="{{ published_url }}"{% else %}hidden{% endif %} target="_blank" rel="noopener" class="btn-outline" style="padding: 9px 16px; width: auto;">View on {{ account.get_platform_display }}</a>
 </div>

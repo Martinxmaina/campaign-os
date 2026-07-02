@@ -128,8 +128,8 @@ def test_blotato_twitter_renders_x_card(manager_client, x_account):
     assert "M22.5 12.5c0-1.58" in body
     assert "@ai10bn" in body
     assert "Africa energy investment" in body
-    # 280 char limit surfaces for X.
-    assert "/280" in body
+    # X Premium long-form limit (25,000) surfaces for the blotato_twitter card.
+    assert "/25000" in body
 
 
 def test_ghost_renders_article_card(manager_client, ghost_account):

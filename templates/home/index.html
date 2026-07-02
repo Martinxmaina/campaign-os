@@ -12,7 +12,7 @@
 <div class="max-w-5xl mx-auto px-6 py-8">
   <div class="flex items-center justify-between mb-6">
     <h1 class="text-2xl font-bold">Good to see you, {{ request.user.display_name|default:"there" }}</h1>
-    <a href="{% url 'composer:compose' workspace_id=workspace.id %}" class="btn-brand rounded px-4 py-2 text-sm font-semibold">New post</a>
+    <a href="{% url 'composer:campaign' workspace_id=workspace.id %}" class="btn-brand rounded px-4 py-2 text-sm font-semibold">New post</a>
   </div>
 
   {% if show_analytics %}

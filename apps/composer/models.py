@@ -244,6 +244,9 @@ class Post(models.Model):
     # Content
     title = models.CharField(max_length=255, blank=True, default="")
     subtitle = models.CharField(max_length=300, blank=True, default="")  # ponytail: reuse CharField, Ghost custom_excerpt
+    # Campaign AI brief: {"assets": [{"label","url"}...], "guardrails": ["..."]} —
+    # what HERALD grounds per-channel drafts on (campaign composer).
+    ai_brief = models.JSONField(null=True, blank=True)
     caption = models.TextField(blank=True, default="")
     first_comment = models.TextField(blank=True, default="")
     internal_notes = models.TextField(blank=True, default="")
@@ -461,6 +464,12 @@ class PlatformPost(models.Model):
         blank=True,
         default="",
         help_text="The post ID on the platform after publishing.",
+    )
+    published_url = models.URLField(
+        max_length=600,
+        blank=True,
+        default="",
+        help_text="Public URL of the live post (set at publish/reconcile).",
     )
     publish_error = models.TextField(blank=True, default="")
     published_at = models.DateTimeField(blank=True, null=True)

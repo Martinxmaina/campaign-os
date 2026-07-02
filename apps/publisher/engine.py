@@ -31,6 +31,7 @@ from apps.composer.models import PlatformPost
 from apps.credentials.models import PlatformCredential
 from apps.publisher.gate_client import GateError, verify_gate
 from apps.publisher.ingest_webhook import post_to_ingest
+from apps.publisher.links import RetryableLinkError, resolve_nexus_link
 from providers import get_provider
 from providers.exceptions import BlotatoStillPublishing
 from providers.types import AuthType, PostType, PublishContent
@@ -265,6 +266,13 @@ class PublishEngine:
                 status=PlatformPost.Status.PUBLISHING
             )
 
+        # ponytail: ghost-first ordering so the Nexus Brief article publishes
+        # (persisting its published_url) before social siblings dispatch and
+        # their [NEXUS BRIEF LINK] token can resolve on the first attempt.
+        # The parallel fan-out below makes this best-effort only — the
+        # RetryableLinkError retry path covers the race.
+        platform_posts.sort(key=lambda pp: pp.social_account.platform != "ghost")
+
         # Publish in parallel
         results = {}
         if _synchronous_publish():
@@ -370,6 +378,9 @@ class PublishEngine:
 
             if result["success"]:
                 platform_post.platform_post_id = result.get("platform_post_id", "")
+                # Persist the live URL (migration 0022) so sibling social posts
+                # can resolve [NEXUS BRIEF LINK] and analytics can deep-link.
+                platform_post.published_url = result.get("url") or ""
                 platform_post.status = PlatformPost.Status.PUBLISHED
                 platform_post.published_at = timezone.now()
                 platform_post.save()
@@ -411,6 +422,19 @@ class PublishEngine:
             # BLOCK. Do NOT schedule a retry — re-publishing identical
             # unapproved content would just fail the gate again forever.
             return {"success": False, "error": f"GATE BLOCK: {e}"}
+        except RetryableLinkError as e:
+            # Sibling Ghost article hasn't published its URL yet — a normal
+            # ordering hold, not a content error. Park on the standard retry
+            # loop; the token resolves once the article's published_url lands.
+            error_msg = f"waiting for Nexus Brief URL ({e})"
+            PublishLog.objects.create(
+                platform_post=platform_post,
+                attempt_number=platform_post.retry_count + 1,
+                error_message=error_msg,
+                duration_ms=int((time.monotonic() - start_time) * 1000),
+            )
+            self._schedule_retry(platform_post, error_msg)
+            return {"success": False, "error": error_msg}
         except BlotatoStillPublishing as e:
             # Blotato accepted the post but it's still in-progress. Park at
             # publishing + persist the submission id; the reconcile task
@@ -694,6 +718,16 @@ class PublishEngine:
             # only; Ghost article HTML is left untouched to avoid mangling tags.
             caption_text = platform_post.effective_caption or ""
             first_comment_text = platform_post.effective_first_comment
+            # Nexus Brief link token — resolved HERE, at dispatch AFTER the
+            # authoritative gate (same placement as apply_utm below) so the
+            # gate still hashes the human-authored text. Ghost never carries
+            # the token (its caption IS the article). Resolving BEFORE
+            # apply_utm lets the injected article URL pick up UTM tags too.
+            # May raise RetryableLinkError (ghost sibling not published yet),
+            # which _publish_platform_post routes to the retry path.
+            # first_comment is deliberately left untouched.
+            if platform != "ghost":
+                caption_text = resolve_nexus_link(platform_post, caption_text)
             if platform != "ghost" and extra.get("body_format") != "html":
                 from apps.publisher.utm import apply_utm
                 from apps.settings_manager.helpers import get_setting

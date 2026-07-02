@@ -1,0 +1,461 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if post %}Edit Campaign{% else %}New Campaign{% endif %} - {{ workspace.name }} - WAIIS Dispatch{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* ── AI Campaign Composer — CSS copied verbatim from the approved mockup,
+         scoped under #campaign-composer so nothing leaks into the app shell. ── */
+    #campaign-composer{
+        --ground:#F7F6F3; --surface:#FFFFFF; --raise:#FCFBFA;
+        --ink:#1C1917; --ink-2:#57534E; --ink-3:#8C857E; --ink-4:#B8B2AC;
+        --line:#EAE7E3; --line-2:#F2EFEB;
+        --brand:#F97316; --brand-ink:#C2410C; --brand-soft:#FFF4ED;
+        --ai:#7C3AED; --ai-soft:#F5F1FE; --ok:#16A34A; --ok-soft:#F0FDF4;
+        --shadow:0 1px 2px rgba(28,25,23,.04), 0 14px 34px -20px rgba(28,25,23,.22);
+        background:var(--ground);color:var(--ink);
+        font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+        line-height:1.55;-webkit-font-smoothing:antialiased;
+    }
+    #campaign-composer *{box-sizing:border-box}
+    #campaign-composer .wrap{max-width:940px;margin:0 auto;padding:30px 18px 90px}
+
+    #campaign-composer .app{background:var(--surface);border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:var(--shadow)}
+    #campaign-composer .bar{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line)}
+    #campaign-composer .bar h2{font-size:15px;font-weight:700;margin:0}
+    #campaign-composer .bar .sp{flex:1}
+    #campaign-composer .status{font-size:12px;color:var(--ink-3);display:flex;align-items:center;gap:6px}
+    #campaign-composer .status .dot{width:6px;height:6px;border-radius:99px;background:var(--ok)}
+    #campaign-composer .back-btn{border:none;background:transparent;color:var(--ink-3);font-size:13.5px;font-weight:600;display:inline-flex;align-items:center;gap:5px;cursor:pointer;padding:4px 6px;border-radius:8px;min-height:44px}
+    #campaign-composer .back-btn:hover{color:var(--ink);background:var(--raise)}
+    #campaign-composer .pad{padding:20px 22px}
+    #campaign-composer .lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:0 0 10px}
+    #campaign-composer .lbl .soft{font-weight:500;text-transform:none;letter-spacing:0;color:var(--ink-4)}
+
+    /* channels */
+    #campaign-composer .chips{display:flex;gap:8px;flex-wrap:wrap}
+    #campaign-composer .chip{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 6px;border:1.5px solid var(--brand);background:var(--brand-soft);border-radius:999px;font-size:12.5px;font-weight:600;color:var(--brand-ink);cursor:pointer;user-select:none;min-height:44px}
+    #campaign-composer .chip.off{border-color:var(--line);background:#fff;color:var(--ink-3)}
+    #campaign-composer .chip .lg{width:23px;height:23px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:10px;flex:none;overflow:hidden}
+    #campaign-composer .chip .lg img{width:100%;height:100%;object-fit:cover;border-radius:999px}
+    #campaign-composer .chip .plat{color:var(--ink-4);font-weight:500}
+
+    /* platform logo-dot colors (ponytail: tiny map + dark default; mockup uses letter dots) */
+    #campaign-composer .lg{background:#1C1917}
+    #campaign-composer .lg-ghost{background:#15171A}
+    #campaign-composer .lg-linkedin,#campaign-composer .lg-linkedin_personal,#campaign-composer .lg-linkedin_company,#campaign-composer .lg-blotato_linkedin{background:#0A66C2}
+    #campaign-composer .lg-twitter,#campaign-composer .lg-x,#campaign-composer .lg-blotato_twitter{background:#0F1419}
+    #campaign-composer .lg-instagram,#campaign-composer .lg-blotato_instagram{background:linear-gradient(135deg,#F58529,#DD2A7B,#8134AF)}
+    #campaign-composer .lg-facebook,#campaign-composer .lg-blotato_facebook{background:#1877F2}
+    #campaign-composer .lg-threads,#campaign-composer .lg-blotato_threads{background:#15171A}
+    #campaign-composer .lg-bluesky,#campaign-composer .lg-blotato_bluesky{background:#1185FE}
+
+    /* master editor */
+    #campaign-composer .master{border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;margin-top:6px}
+    #campaign-composer .m-title{width:100%;border:none;outline:none;padding:16px 18px 4px;font-size:20px;font-weight:800;letter-spacing:-.01em;font-family:Georgia,serif;color:var(--ink);background:transparent}
+    #campaign-composer .m-title::placeholder{color:var(--ink-4)}
+    #campaign-composer .m-toolbar{display:flex;gap:2px;padding:4px 12px 0;flex-wrap:wrap}
+    #campaign-composer .m-toolbar button{border:none;background:transparent;color:var(--ink-3);font-size:12.5px;font-weight:600;padding:5px 9px;border-radius:7px;cursor:pointer;min-height:44px;min-width:34px}
+    #campaign-composer .m-toolbar button:hover{background:var(--raise);color:var(--ink)}
+    #campaign-composer .m-body{padding:6px 18px 14px;font-size:14px;line-height:1.6;color:var(--ink-2);font-family:Georgia,serif;min-height:220px;outline:none}
+    #campaign-composer .m-body:empty:before{content:attr(data-placeholder);color:var(--ink-4)}
+    #campaign-composer .m-body img{max-width:100%}
+
+    /* AI brief drawer */
+    #campaign-composer .brief{margin-top:12px;border:1px solid var(--line);border-radius:12px;background:var(--raise)}
+    #campaign-composer .brief > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:11px 14px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+    #campaign-composer .brief > summary::-webkit-details-marker{display:none}
+    #campaign-composer .brief .body{padding:0 14px 14px;font-size:12.5px;color:var(--ink-3)}
+    #campaign-composer .brief .row{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+    #campaign-composer .brief input{border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:11.5px;color:var(--ink-2);background:#fff;min-width:0;min-height:44px}
+    #campaign-composer .brief .a-label{flex:1 1 130px}
+    #campaign-composer .brief .a-url{flex:2 1 200px}
+    #campaign-composer .brief .g-input{flex:1 1 100%}
+    #campaign-composer .brief .add-mini{border:1px dashed var(--line);background:#fff;color:var(--ink-3);border-radius:8px;padding:5px 10px;font-size:11.5px;font-weight:600;cursor:pointer;margin-top:8px;min-height:44px}
+    #campaign-composer .brief .rm{border:none;background:transparent;color:var(--ink-4);cursor:pointer;font-size:14px;padding:0 6px;min-height:44px}
+    #campaign-composer .brief .sec{margin:10px 0 2px;color:var(--ink-2);font-weight:600}
+
+    /* AI CTA */
+    #campaign-composer .ai-cta{display:flex;align-items:center;gap:12px;margin-top:16px;padding:14px 16px;border:1px solid #E9D5FF;background:var(--ai-soft);border-radius:14px;flex-wrap:wrap}
+    #campaign-composer .ai-cta .txt{flex:1;font-size:13px;color:#4C1D95;min-width:200px}
+    #campaign-composer .ai-cta .txt b{color:#3B0764}
+    #campaign-composer .ai-btn{border:none;background:var(--ai);color:#fff;border-radius:11px;padding:11px 18px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);cursor:pointer;min-height:44px}
+    #campaign-composer .ai-btn:disabled{opacity:.6;cursor:default}
+    #campaign-composer .ai-btn svg{width:16px;height:16px}
+    #campaign-composer .ai-err{margin-top:8px;font-size:12px;color:#B91C1C}
+
+    /* generated per-channel cards */
+    #campaign-composer .gen{border:1px solid var(--line);border-radius:14px;background:#fff;margin-top:12px;overflow:hidden}
+    #campaign-composer .gen-head{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line-2)}
+    #campaign-composer .gen-head .lg{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:10px;flex:none}
+    #campaign-composer .gen-head .nm{font-weight:700;font-size:13.5px}
+    #campaign-composer .gen-head .sub{font-size:11.5px;color:var(--ink-4)}
+    #campaign-composer .gen-head .ai-tag{margin-left:auto;font-size:10.5px;font-weight:700;color:var(--ai);background:var(--ai-soft);border:1px solid #E9D5FF;border-radius:999px;padding:2px 9px;display:inline-flex;align-items:center;gap:4px}
+    #campaign-composer .gen-body{padding:12px 15px;font-size:13.5px;line-height:1.55;color:var(--ink)}
+    #campaign-composer .gen-body textarea{width:100%;border:none;outline:none;resize:vertical;font:inherit;color:inherit;background:transparent;padding:0;line-height:1.55}
+    #campaign-composer .gen-body .ghost-note{font-size:12.5px;color:var(--ink-3);font-style:italic}
+    #campaign-composer .gen-foot{display:flex;align-items:center;gap:10px;padding:9px 15px;border-top:1px solid var(--line-2);background:var(--raise);flex-wrap:wrap}
+    #campaign-composer .count{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;color:#B91C1C}
+    #campaign-composer .count.ok{color:var(--ok)}
+    #campaign-composer .mini{font-size:11.5px;font-weight:600;color:var(--ink-3);border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 10px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;min-height:44px}
+    #campaign-composer .mini:disabled{opacity:.6;cursor:default}
+    #campaign-composer .toggle{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+    #campaign-composer .toggle button{border:none;background:transparent;padding:5px 10px;font-size:11.5px;font-weight:600;color:var(--ink-3);cursor:pointer;min-height:44px}
+    #campaign-composer .toggle button.on{background:var(--brand-soft);color:var(--brand-ink)}
+    #campaign-composer .gen-foot .sp{flex:1}
+
+    /* media strip */
+    #campaign-composer .media-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+    #campaign-composer .media-row img{width:56px;height:56px;object-fit:cover;border-radius:10px;border:1px solid var(--line)}
+
+    /* sticky actions */
+    #campaign-composer .actions{position:sticky;bottom:0;display:flex;align-items:center;gap:12px;padding:14px 22px;border-top:1px solid var(--line);background:rgba(252,251,250,.96);backdrop-filter:blur(6px);flex-wrap:wrap}
+    #campaign-composer .actions .left{font-size:12.5px;color:var(--ink-3)}
+    #campaign-composer .actions .sp{flex:1}
+    #campaign-composer .btn-2{border:1px solid var(--line);background:#fff;color:var(--ink-2);border-radius:11px;padding:11px 16px;font-size:13.5px;font-weight:600;cursor:pointer;min-height:44px}
+    #campaign-composer .btn-1{border:none;background:var(--brand);color:#fff;border-radius:11px;padding:11px 22px;font-size:13.5px;font-weight:700;box-shadow:0 6px 14px -6px rgba(249,115,22,.6);cursor:pointer;min-height:44px}
+    #campaign-composer .btn-1:disabled,#campaign-composer .btn-2:disabled{opacity:.6;cursor:default}
+    #campaign-composer .sched-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;width:100%}
+    #campaign-composer .sched-row input{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;color:var(--ink-2);background:#fff;min-height:44px}
+    #campaign-composer .form-err{font-size:12.5px;color:#B91C1C;width:100%}
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="campaign-composer" x-data="campaignApp()" x-init="init()">
+<div class="wrap">
+  <div class="app">
+    <form x-ref="form" method="post"
+          hx-post="{% if post %}{% url 'composer:save_post_edit' workspace_id=workspace.id post_id=post.id %}{% else %}{% url 'composer:save_post' workspace_id=workspace.id %}{% endif %}"
+          hx-swap="none"
+          @htmx:after-request="onSaved($event)">
+      {% csrf_token %}
+      <input type="hidden" name="selected_accounts" :value="selectedAccounts.join(',')">
+      {# ponytail: master plain-text doubles as the base caption fallback #}
+      <input type="hidden" name="caption" :value="masterPlain">
+      <input type="hidden" name="subtitle" value="">
+      <input type="hidden" name="first_comment" value="">
+      <input type="hidden" name="tags" value="">
+      <input type="hidden" name="ai_brief" :value="JSON.stringify(brief)">
+      <input type="hidden" name="action" :value="action">
+
+      <!-- Top bar -->
+      <div class="bar">
+        <button type="button" class="back-btn" @click="history.back()">&larr; Back</button>
+        <h2>Campaign</h2>
+        <span class="status"><span class="dot"></span> Draft</span>
+        <span class="sp"></span>
+        <span class="status">&#128065; Preview</span>
+      </div>
+
+      <div class="pad">
+        <!-- STEP 1: channels -->
+        <p class="lbl">1 &middot; Channels</p>
+        <div class="chips">
+          {% for account in social_accounts %}
+          <span class="chip"
+                :class="{ 'off': !selectedAccounts.includes('{{ account.id }}') }"
+                @click="toggleAccount('{{ account.id }}')">
+            <span class="lg lg-{{ account.platform }}">
+              {% if account.logo_display_url %}<img src="{{ account.logo_display_url }}" alt="">{% else %}{{ account.account_name|default:account.account_handle|slice:":1"|upper }}{% endif %}
+            </span>
+            {{ account.account_name|default:account.account_handle }}
+            <span class="plat">&middot; {{ account.get_platform_display }}</span>
+          </span>
+          {% endfor %}
+        </div>
+
+        <!-- STEP 2: master piece -->
+        <p class="lbl" style="margin-top:22px">2 &middot; The master piece <span class="soft">&mdash; the long-form article everything links back to</span></p>
+        <div class="master">
+          <input class="m-title" name="title" x-model="title" placeholder="Campaign title&hellip;" value="{{ post.title|default:'' }}" autocomplete="off">
+          <div class="m-toolbar">
+            <button type="button" title="Bold" @click="richFormat($event, 'bold')"><span style="font-weight:700">B</span></button>
+            <button type="button" title="Italic" @click="richFormat($event, 'italic')"><span style="font-style:italic">I</span></button>
+            <button type="button" title="Heading" @click="richFormat($event, 'formatBlock', 'H2')">H2</button>
+            <button type="button" title="Bullet list" @click="richFormat($event, 'insertUnorderedList')">&bull; List</button>
+            <button type="button" title="Link" @click="richLink($event)">Link</button>
+          </div>
+          <div class="m-body" x-ref="masterBody" contenteditable="true"
+               data-placeholder="Write the master piece&hellip; HERALD tailors every channel from it."
+               @input="masterHtml = $event.target.innerHTML"></div>
+        </div>
+
+        <!-- AI brief drawer -->
+        <details class="brief">
+          <summary>
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75V17.25M6.75 12h10.5M4.5 4.5h15a1.5 1.5 0 011.5 1.5v12a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 18V6a1.5 1.5 0 011.5-1.5z"/></svg>
+            AI brief &mdash; assets, links &amp; guardrails <span style="font-weight:500;color:var(--ink-4)">(HERALD uses these)</span>
+          </summary>
+          <div class="body">
+            <div class="sec">Assets &amp; links:</div>
+            <template x-for="(asset, i) in brief.assets" :key="i">
+              <div class="row">
+                <input type="text" class="a-label" placeholder="Label (e.g. Report PDF)" x-model="brief.assets[i].label">
+                <input type="url" class="a-url" placeholder="https://&hellip;" x-model="brief.assets[i].url">
+                <button type="button" class="rm" title="Remove" @click="brief.assets.splice(i, 1)">&times;</button>
+              </div>
+            </template>
+            <button type="button" class="add-mini" @click="brief.assets.push({label: '', url: ''})">+ Add asset</button>
+
+            <div class="sec">Guardrails the AI must respect:</div>
+            <template x-for="(g, i) in brief.guardrails" :key="i">
+              <div class="row">
+                <input type="text" class="g-input" placeholder="e.g. &quot;AI 10Bn&quot; &mdash; no &quot;$&quot;" x-model="brief.guardrails[i]">
+                <button type="button" class="rm" title="Remove" @click="brief.guardrails.splice(i, 1)">&times;</button>
+              </div>
+            </template>
+            <button type="button" class="add-mini" @click="brief.guardrails.push('')">+ Add guardrail</button>
+          </div>
+        </details>
+
+        <!-- AI CTA -->
+        <div class="ai-cta">
+          <div class="txt"><b>Let HERALD draft each channel.</b> Tailored excerpts for every selected channel &mdash; each the right length, linking back to the master piece, in Joseph's voice.</div>
+          <button type="button" class="ai-btn" :disabled="drafting !== null" @click="draftAll(null)">
+            <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/></svg>
+            <span x-text="drafting === 'all' ? 'Drafting…' : 'Draft all channels'"></span>
+          </button>
+          <div class="ai-err" x-show="draftError" x-text="draftError" x-cloak></div>
+        </div>
+
+        <!-- STEP 3: per-channel cards -->
+        <p class="lbl" style="margin-top:24px">3 &middot; Review &amp; edit <span class="soft">&mdash; one card per channel</span></p>
+
+        <template x-for="accId in selectedAccounts" :key="accId">
+          <div class="gen">
+            <div class="gen-head">
+              <span :class="'lg lg-' + (meta(accId).platform || '')" x-text="(meta(accId).name || '?').charAt(0).toUpperCase()"></span>
+              <span class="nm" x-text="meta(accId).name"></span>
+              <span class="sub" x-text="'· ' + meta(accId).platform_label + (meta(accId).is_ghost ? ' · long-form' : '')"></span>
+              <span class="ai-tag" x-show="aiFilled[accId]" x-cloak>&#10022; AI draft</span>
+            </div>
+            <div class="gen-body">
+              <!-- Ghost: master IS the caption -->
+              <template x-if="meta(accId).is_ghost">
+                <div>
+                  <span class="ghost-note">Uses the master piece above &mdash; the article body publishes to this channel as-is.</span>
+                  <textarea hidden :name="'override_caption_' + accId" :value="masterHtml" aria-hidden="true"></textarea>
+                </div>
+              </template>
+              <!-- Non-ghost: editable variant -->
+              <template x-if="!meta(accId).is_ghost">
+                <textarea :name="'override_caption_' + accId" rows="7"
+                          x-model="variants[accId]"
+                          :placeholder="'Caption for ' + meta(accId).name + '… or let HERALD draft it.'"></textarea>
+              </template>
+            </div>
+            <div class="gen-foot">
+              <template x-if="meta(accId).is_ghost">
+                <span style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
+                  <span class="toggle">
+                    <button type="button" :class="{ 'on': ghostMode[accId] !== 'newsletter' }" @click="ghostMode[accId] = 'post'">Blog post</button>
+                    <button type="button" :class="{ 'on': ghostMode[accId] === 'newsletter' }" @click="ghostMode[accId] = 'newsletter'">Newsletter</button>
+                  </span>
+                  <input type="hidden" :name="'ghost_publish_as_' + accId" :value="ghostMode[accId] || 'post'">
+                  <span class="count ok" x-text="'~' + readMins + ' min read'"></span>
+                </span>
+              </template>
+              <template x-if="!meta(accId).is_ghost">
+                <span class="count" :class="{ 'ok': (variants[accId] || '').length <= meta(accId).limit }"
+                      x-text="(variants[accId] || '').length.toLocaleString() + ' / ' + (meta(accId).limit || 0).toLocaleString()"></span>
+              </template>
+              <span class="sp"></span>
+              <button type="button" class="mini" x-show="!meta(accId).is_ghost" :disabled="drafting !== null"
+                      @click="draftAll(accId)"
+                      x-text="drafting === accId ? '✦ Drafting…' : '✦ Regenerate'"></button>
+            </div>
+          </div>
+        </template>
+
+        <!-- Media (ponytail: pending-session upload, same seam as compose.html — attaches on save) -->
+        <p class="lbl" style="margin-top:24px">Media <span class="soft">&mdash; optional, attached to every channel</span></p>
+        <div class="media-row">
+          <template x-for="(url, i) in mediaThumbs" :key="i"><img :src="url" alt=""></template>
+          <input type="file" x-ref="mediaInput" accept="image/*" multiple hidden @change="addFiles($event)">
+          <button type="button" class="mini" @click="$refs.mediaInput.click()" x-text="uploading ? 'Uploading…' : '+ Add images'"></button>
+        </div>
+      </div>
+
+      <!-- Sticky actions -->
+      <div class="actions">
+        <span class="left" x-text="selectedAccounts.length + ' channel' + (selectedAccounts.length === 1 ? '' : 's') + ' selected'"></span>
+        <span class="sp"></span>
+        <button type="button" class="btn-2" @click="showSchedule = !showSchedule">Schedule all&hellip;</button>
+        <button type="button" class="btn-1" :disabled="submitting" @click="submit('publish_now')" x-text="submitting ? 'Working…' : 'Publish all'"></button>
+        <div class="sched-row" x-show="showSchedule" x-cloak>
+          <input type="date" name="scheduled_date" x-model="schedDate">
+          <input type="time" name="scheduled_time" x-model="schedTime">
+          <button type="button" class="btn-2" :disabled="submitting || !schedDate || !schedTime" @click="submit('schedule')">Confirm schedule</button>
+        </div>
+        <div class="form-err" x-show="formError" x-text="formError" x-cloak></div>
+      </div>
+    </form>
+  </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ accounts_meta|json_script:"campaign-accounts" }}
+{{ overrides_map|json_script:"campaign-overrides" }}
+{% if post and post.ai_brief %}{{ post.ai_brief|json_script:"campaign-brief" }}{% endif %}
+<script nonce="{{ request.csp_nonce }}">
+function campaignApp() {
+    var accountsMeta = JSON.parse(document.getElementById('campaign-accounts').textContent) || {};
+    var overridesMap = JSON.parse(document.getElementById('campaign-overrides').textContent) || {};
+    var briefEl = document.getElementById('campaign-brief');
+    var savedBrief = briefEl ? JSON.parse(briefEl.textContent) : null;
+    var isEdit = Object.keys(overridesMap).length > 0;
+
+    return {
+        accountsMeta: accountsMeta,
+        // ponytail: new campaign preselects ALL connected accounts; edit preselects the saved channels
+        selectedAccounts: isEdit ? Object.keys(overridesMap) : Object.keys(accountsMeta),
+        title: '{{ post.title|default:""|escapejs }}',
+        masterHtml: '',
+        variants: {},
+        aiFilled: {},
+        ghostMode: {},
+        brief: (savedBrief && savedBrief.assets) ? savedBrief : { assets: [], guardrails: [] },
+        drafting: null,
+        draftError: '',
+        action: 'save_draft',
+        showSchedule: false,
+        schedDate: '',
+        schedTime: '',
+        submitting: false,
+        formError: '',
+        mediaThumbs: [],
+        uploading: false,
+
+        meta(accId) { return this.accountsMeta[accId] || {}; },
+
+        get masterPlain() {
+            var d = document.createElement('div');
+            d.innerHTML = this.masterHtml;
+            return (d.textContent || '').trim();
+        },
+        get readMins() {
+            var words = this.masterPlain.split(/\s+/).filter(Boolean).length;
+            return Math.max(1, Math.round(words / 200));
+        },
+
+        init() {
+            var self = this;
+            // Edit mode: variants from saved overrides; masterHtml from the ghost entry.
+            Object.keys(overridesMap).forEach(function (id) {
+                if ((accountsMeta[id] || {}).is_ghost) {
+                    self.masterHtml = overridesMap[id] || '';
+                } else {
+                    self.variants[id] = overridesMap[id] || '';
+                }
+            });
+            this.$refs.masterBody.innerHTML = this.masterHtml;
+        },
+
+        toggleAccount(id) {
+            var i = this.selectedAccounts.indexOf(id);
+            if (i >= 0) this.selectedAccounts.splice(i, 1);
+            else this.selectedAccounts.push(id);
+        },
+
+        csrf() {
+            return document.querySelector('[name=csrfmiddlewaretoken]')?.value
+                || document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+        },
+
+        // ── Master rich editor (same tiny execCommand pattern as compose.html) ──
+        _syncMaster() { this.masterHtml = this.$refs.masterBody.innerHTML; },
+        richFormat(ev, command, value) {
+            ev.preventDefault();
+            this.$refs.masterBody.focus();
+            try { document.execCommand(command, false, value || null); } catch (e) {}
+            this._syncMaster();
+        },
+        richLink(ev) {
+            ev.preventDefault();
+            var url = window.prompt('Link URL', 'https://');
+            if (!url) return;
+            this.richFormat(ev, 'createLink', url);
+        },
+
+        // ── HERALD drafting ──
+        draftAll(onlyAccount) {
+            var self = this;
+            this.draftError = '';
+            this.drafting = onlyAccount || 'all';
+            fetch('{% url "composer:campaign-draft" workspace_id=workspace.id %}', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': this.csrf() },
+                body: JSON.stringify({
+                    title: this.title,
+                    master_html: this.masterHtml,
+                    accounts: this.selectedAccounts,
+                    brief: this.brief,
+                    only_account: onlyAccount || null,
+                }),
+            })
+            .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (data) {
+                Object.keys(data.variants || {}).forEach(function (id) {
+                    self.variants[id] = data.variants[id].caption || '';
+                    self.aiFilled[id] = true;
+                });
+            })
+            .catch(function () { self.draftError = 'Drafting failed — please try again.'; })
+            .finally(function () { self.drafting = null; });
+        },
+
+        // ── Media (ponytail: session-pending upload; server attaches on save) ──
+        addFiles(ev) {
+            var self = this;
+            var files = Array.from(ev.target.files || []);
+            ev.target.value = '';
+            if (!files.length) return;
+            this.uploading = true;
+            var done = 0;
+            files.forEach(function (f) {
+                var fd = new FormData();
+                fd.append('file', f);
+                fetch('{% if post %}{% url "composer:upload_media_post" workspace_id=workspace.id post_id=post.id %}{% else %}{% url "composer:upload_media" workspace_id=workspace.id %}{% endif %}', {
+                    method: 'POST', headers: { 'X-CSRFToken': self.csrf() }, body: fd,
+                })
+                .then(function (r) {
+                    var url = r.headers.get('X-Uploaded-Asset-Url');
+                    if (r.ok && url) self.mediaThumbs.push(url);
+                })
+                .finally(function () { done += 1; if (done === files.length) self.uploading = false; });
+            });
+        },
+
+        // ── Submit ──
+        submit(action) {
+            if (!this.selectedAccounts.length) { this.formError = 'Select at least one channel.'; return; }
+            this.action = action;
+            this.submitting = true;
+            var self = this;
+            this.$nextTick(function () { self.$refs.form.requestSubmit(); });
+        },
+        onSaved(event) {
+            if (event.detail.elt !== event.currentTarget) return;
+            this.submitting = false;
+            if (event.detail.successful) {
+                window.location.href = '{% url "console:content" %}';
+                return;
+            }
+            var xhr = event.detail.xhr;
+            try {
+                var data = JSON.parse(xhr.responseText);
+                this.formError = data.errors ? Object.values(data.errors).flat().join(' ') : 'Something went wrong. Please try again.';
+            } catch (e) {
+                this.formError = 'Something went wrong. Please try again.';
+            }
+            var self = this;
+            setTimeout(function () { self.formError = ''; }, 6000);
+        },
+    };
+}
+</script>
+{% endblock %}

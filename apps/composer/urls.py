@@ -1,10 +1,13 @@
 from django.urls import path
 
-from . import views
+from . import campaign_views, views
 
 app_name = "composer"
 
 urlpatterns = [
+    # Campaign composer (master piece + per-channel AI variants)
+    path("campaign/", campaign_views.campaign, name="campaign"),
+    path("campaign/draft/", campaign_views.campaign_draft, name="campaign-draft"),
     # Create landing page
     path("create/", views.create_landing, name="create_landing"),
     # Idea CRUD (HTMX endpoints)

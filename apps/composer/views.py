@@ -617,6 +617,14 @@ def save_post(request, workspace_id, post_id=None):
     # ponytail: subtitle is in PostForm.Meta.fields (auto-bound); set explicitly
     # too so it persists even if a caller submits without the form field.
     post.subtitle = request.POST.get("subtitle", post.subtitle or "")
+    # ponytail: persist the campaign composer's AI brief (assets/guardrails)
+    # verbatim; silently ignore malformed JSON so a bad client never blocks save.
+    raw_brief = request.POST.get("ai_brief")
+    if raw_brief:
+        try:
+            post.ai_brief = json.loads(raw_brief)
+        except ValueError:
+            pass
     # ponytail: titles are plain text — strip any HTML a paste dragged in so it
     # never publishes as raw <p> tags (e.g. to Ghost) or renders raw in analytics.
     post.title = strip_tags(post.title or "").strip()

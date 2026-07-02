@@ -86,6 +86,55 @@ class GhostProvider(SocialProvider):
         return "".join(f"<p>{_html.escape(p)}</p>" for p in paras) or "<p></p>"
 
     @staticmethod
+    def _linkify_html(html_str: str) -> str:
+        """Auto-link bare URLs in an article body before publishing.
+
+        Ghost renders the HTML verbatim, so a pasted bare URL stays dead text.
+        This wraps every bare ``http(s)://`` URL in ``<a href="URL">URL</a>``,
+        after first unwrapping Google redirect wrappers
+        (``google.com/url?...q=<real>`` → decoded ``<real>``) that ride along
+        with copy-pasted search/docs links.
+
+        ponytail ceiling: regex-based, not a real HTML parser. Robust-enough
+        strategy — split the document on existing ``<a ...>...</a>`` segments
+        and only transform the text BETWEEN them; inside those outside
+        segments, skip any URL sitting in a tag attribute (immediately
+        preceded by ``"``, ``'`` or ``=``, e.g. ``<img src="...">``).
+        """
+        from urllib.parse import parse_qs, urlsplit
+
+        url_re = _re.compile(r"https?://[^\s<>\"']+", _re.IGNORECASE)
+        google_re = _re.compile(
+            r"https?://(?:www\.)?google\.[a-z.]+/url\?[^\s<>\"']+", _re.IGNORECASE
+        )
+        anchor_split_re = _re.compile(r"(<a\b[^>]*>.*?</a>)", _re.IGNORECASE | _re.DOTALL)
+        trailing = ".,!?;:)]}"
+
+        def _dewrap(match: "_re.Match[str]") -> str:
+            q = parse_qs(urlsplit(match.group(0)).query).get("q", [])
+            return q[0] if q and q[0].startswith("http") else match.group(0)
+
+        def _wrap(match: "_re.Match[str]") -> str:
+            url = match.group(0)
+            prev = match.string[match.start() - 1] if match.start() else ""
+            if prev in "\"'=":  # attribute value (src=, href=, etc.) — leave it
+                return url
+            trail = ""
+            while url and url[-1] in trailing:
+                trail = url[-1] + trail
+                url = url[:-1]
+            return f'<a href="{url}">{url}</a>{trail}'
+
+        parts = anchor_split_re.split(html_str or "")
+        out = []
+        for i, part in enumerate(parts):
+            if i % 2:  # captured <a>...</a> segment — untouched
+                out.append(part)
+            else:
+                out.append(url_re.sub(_wrap, google_re.sub(_dewrap, part)))
+        return "".join(out)
+
+    @staticmethod
     def _strip_tags(html_str: str) -> str:
         """Best-effort plain-text from an HTML fragment (for title/excerpt).
 
@@ -265,6 +314,9 @@ class GhostProvider(SocialProvider):
             title = ((content.title or "").strip() or content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
             excerpt = (content.text or "").strip()[:280]
             body_html = self._to_html(content.text)
+        # Auto-link bare URLs (and unwrap Google redirect wrappers) in both
+        # the rich-HTML and the plain-text-derived body before publishing.
+        body_html = self._linkify_html(body_html)
         # A composer-authored subtitle (Ghost "custom excerpt") wins over the
         # auto-derived excerpt when present. Ghost caps custom_excerpt at 300.
         subtitle = (content.extra.get("subtitle") or "").strip()
