@@ -5,97 +5,145 @@
 
 {% block extra_head %}
 <style>
-  /* ── AI Studio chat — scoped under #ai-studio; design language matches the
-       campaign composer (stone neutrals + orange app accent + violet AI accent). ── */
+  /* ── AI Studio — fills the app <main> exactly (single internal scroll); stone
+       neutrals + orange app accent + violet AI accent, matching the composer. ── */
+  main:has(#ai-studio){padding:0 !important;overflow:hidden !important}
+
   #ai-studio{
-    --ground:#F7F6F3; --surface:#FFFFFF; --raise:#FCFBFA;
+    --ground:#F7F6F3; --surface:#FFFFFF; --raise:#FBFAF8;
     --ink:#1C1917; --ink-2:#57534E; --ink-3:#8C857E; --ink-4:#B8B2AC;
     --line:#EAE7E3; --line-2:#F2EFEB;
     --brand:#F97316; --brand-ink:#C2410C; --brand-soft:#FFF4ED;
-    --ai:#7C3AED; --ai-ink:#4C1D95; --ai-soft:#F5F1FE; --ai-line:#E9D5FF;
+    --ai:#7C3AED; --ai-2:#9F67FF; --ai-ink:#4C1D95; --ai-soft:#F6F2FE; --ai-line:#E9D9FF;
     --ok:#16A34A;
-    --shadow:0 1px 2px rgba(28,25,23,.04), 0 14px 34px -20px rgba(28,25,23,.22);
-    background:var(--ground);color:var(--ink);
-    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --shadow-sm:0 1px 2px rgba(28,25,23,.05);
+    --shadow:0 1px 2px rgba(28,25,23,.04), 0 12px 30px -18px rgba(28,25,23,.28);
+    --shadow-lg:0 1px 2px rgba(28,25,23,.05), 0 24px 48px -24px rgba(28,25,23,.4);
+    flex:1;min-height:0;display:flex;position:relative;
+    background:var(--surface);color:var(--ink);
+    font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     line-height:1.55;-webkit-font-smoothing:antialiased;
   }
   #ai-studio *{box-sizing:border-box}
   #ai-studio [x-cloak]{display:none !important}
+  #ai-studio svg{display:block}
+  #ai-studio .app{flex:1;min-height:0;display:grid;grid-template-columns:264px 1fr}
 
-  /* two-pane shell */
-  #ai-studio .shell{max-width:1080px;margin:0 auto;padding:18px 16px 22px;display:grid;grid-template-columns:248px 1fr;gap:16px;align-items:start}
-
-  /* ── LEFT rail ── */
-  #ai-studio .rail{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;position:sticky;top:16px}
-  #ai-studio .rail-head{padding:14px 14px 10px}
-  #ai-studio .new-chat{display:flex;align-items:center;justify-content:center;gap:7px;width:100%;border:none;background:var(--ai);color:#fff;border-radius:11px;padding:11px 14px;font-size:13.5px;font-weight:700;text-decoration:none;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);min-height:44px}
-  #ai-studio .new-chat:hover{filter:brightness(1.05)}
-  #ai-studio .rail-lbl{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);padding:6px 16px 4px}
-  #ai-studio .chat-list{list-style:none;margin:0;padding:0 8px 10px;max-height:64vh;overflow-y:auto}
+  /* ── LEFT RAIL ── */
+  #ai-studio .rail{display:flex;flex-direction:column;min-height:0;background:var(--raise);border-right:1px solid var(--line)}
+  #ai-studio .rail-top{padding:15px 14px 8px}
+  #ai-studio .brand-row{display:flex;align-items:center;gap:9px;padding:2px 6px 13px}
+  #ai-studio .brand-mark{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;color:#fff;flex:none;
+      background:linear-gradient(150deg,var(--ai-2),var(--ai));box-shadow:0 6px 14px -6px rgba(124,58,237,.7)}
+  #ai-studio .brand-name{font-size:14.5px;font-weight:800;letter-spacing:-.01em;line-height:1.15}
+  #ai-studio .brand-name small{display:block;font-size:10.5px;font-weight:600;color:var(--ink-3);letter-spacing:.01em}
+  #ai-studio .new-chat{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;cursor:pointer;
+      background:var(--ai);color:#fff;border-radius:11px;padding:11px 14px;font-size:13.5px;font-weight:700;text-decoration:none;
+      box-shadow:0 8px 16px -8px rgba(124,58,237,.75);transition:filter .15s,transform .12s;min-height:44px}
+  #ai-studio .new-chat:hover{filter:brightness(1.06)}
+  #ai-studio .new-chat:active{transform:translateY(1px)}
+  #ai-studio .rail-lbl{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-4);padding:15px 12px 5px}
+  #ai-studio .chat-list{list-style:none;margin:0;padding:0 8px 8px;overflow-y:auto;flex:1;min-height:0}
   #ai-studio .chat-list li{margin:2px 0}
-  #ai-studio .chat-link{display:block;padding:9px 10px;border-radius:9px;font-size:13px;font-weight:500;color:var(--ink-2);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:38px;line-height:1.35}
-  #ai-studio .chat-link:hover{background:var(--raise);color:var(--ink)}
-  #ai-studio .chat-link.active{background:var(--ai-soft);color:var(--ai-ink);font-weight:700}
-  #ai-studio .chat-empty{padding:10px 16px 16px;font-size:12.5px;color:var(--ink-4)}
+  #ai-studio .chat-link{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:10px;font-size:13px;font-weight:500;
+      color:var(--ink-2);text-decoration:none;cursor:pointer;transition:background .12s,color .12s;min-height:38px}
+  #ai-studio .chat-link svg{color:var(--ink-4);flex:none}
+  #ai-studio .chat-link span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #ai-studio .chat-link:hover{background:#fff;color:var(--ink)}
+  #ai-studio .chat-link.active{background:#fff;color:var(--ink);font-weight:600;box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+  #ai-studio .chat-link.active svg{color:var(--ai)}
+  #ai-studio .chat-empty{padding:8px 16px 16px;font-size:12.5px;color:var(--ink-4)}
+  #ai-studio .rail-foot{padding:11px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:9px}
+  #ai-studio .avatar{width:28px;height:28px;border-radius:99px;background:#292524;color:#fff;display:grid;place-items:center;font-size:11px;font-weight:700;flex:none}
+  #ai-studio .rail-foot .who{font-size:12.5px;font-weight:600;line-height:1.2;min-width:0}
+  #ai-studio .rail-foot .who span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #ai-studio .rail-foot .who small{display:block;font-size:11px;color:var(--ink-3);font-weight:500}
+  #ai-studio .rail-backdrop{display:none}
 
-  /* mobile rail toggle (hidden on desktop) */
-  #ai-studio .rail-toggle{display:none}
+  /* ── MAIN PANE ── */
+  #ai-studio .pane{min-width:0;min-height:0;display:flex;flex-direction:column}
+  #ai-studio .top{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.8);backdrop-filter:blur(6px)}
+  #ai-studio .m-menu{display:none;border:1px solid var(--line);background:#fff;color:var(--ink-2);border-radius:10px;width:40px;height:40px;place-items:center;cursor:pointer;flex:none}
+  #ai-studio .top h1{font-size:15.5px;font-weight:800;letter-spacing:-.01em;margin:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  #ai-studio .top .sub{font-size:12px;color:var(--ink-3);margin-top:1px}
+  #ai-studio .top .sp{flex:1}
 
-  /* ── MAIN pane ── */
-  #ai-studio .main{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column;min-height:calc(100vh - 60px)}
-  #ai-studio .main-head{padding:16px 20px 14px;border-bottom:1px solid var(--line)}
-  #ai-studio .main-head h1{font-size:18px;font-weight:800;letter-spacing:-.01em;margin:0}
-  #ai-studio .main-head p{font-size:12.5px;color:var(--ink-3);margin:3px 0 0}
+  /* voice pill (native select, styled) */
+  #ai-studio .voice-pill{position:relative;display:inline-flex;align-items:center;flex:none}
+  #ai-studio .voice-pill .mic{position:absolute;left:11px;color:var(--ai);pointer-events:none}
+  #ai-studio .voice-pill .chev{position:absolute;right:10px;color:var(--ai);opacity:.7;pointer-events:none}
+  #ai-studio .voice-pill select{appearance:none;-webkit-appearance:none;border:1px solid var(--ai-line);background:var(--ai-soft);
+      color:var(--ai-ink);border-radius:999px;padding:8px 30px 8px 32px;font:inherit;font-size:12.5px;font-weight:700;cursor:pointer;min-height:40px}
+  #ai-studio .voice-pill select:focus{outline:none;box-shadow:0 0 0 3px var(--ai-soft);border-color:var(--ai)}
 
-  /* messages column */
-  #ai-studio .messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
-  #ai-studio .empty-state{margin:auto;max-width:400px;text-align:center;padding:24px 12px;color:var(--ink-3)}
-  #ai-studio .empty-state .es-mark{width:52px;height:52px;border-radius:16px;display:grid;place-items:center;margin:0 auto 12px;background:var(--ai-soft);color:var(--ai);font-size:24px}
-  #ai-studio .empty-state h2{font-size:15px;font-weight:700;color:var(--ink);margin:0 0 5px}
-  #ai-studio .empty-state p{font-size:13px;margin:0}
+  /* messages */
+  #ai-studio .messages{flex:1;min-height:0;overflow-y:auto;padding:24px 20px 10px;display:flex;flex-direction:column;gap:18px}
+  #ai-studio .turn{display:flex;gap:11px;max-width:780px;animation:ais-rise .28s ease both}
+  #ai-studio .turn.user{align-self:flex-end;flex-direction:row-reverse}
+  #ai-studio .turn.ai{align-self:flex-start}
+  #ai-studio .turn-body{min-width:0}
+  #ai-studio .msg-av{width:30px;height:30px;border-radius:9px;flex:none;display:grid;place-items:center;margin-top:2px}
+  #ai-studio .msg-av.ai{color:#fff;background:linear-gradient(150deg,var(--ai-2),var(--ai));box-shadow:0 6px 13px -6px rgba(124,58,237,.7)}
+  #ai-studio .msg-av.me{background:#292524;color:#fff;font-size:11px;font-weight:700}
+  #ai-studio .bubble{border-radius:15px;padding:12px 15px;font-size:14px;line-height:1.62;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
+  #ai-studio .bubble.me{background:#292524;color:#fff;border-top-right-radius:5px}
+  #ai-studio .bubble.bot{background:#fff;border:1px solid var(--line);border-top-left-radius:5px;box-shadow:var(--shadow-sm)}
+  #ai-studio .bot .who{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:800;letter-spacing:.02em;color:var(--ai);margin-bottom:5px}
+  #ai-studio .bot .who svg{color:var(--ai)}
+  #ai-studio .bot-text{color:var(--ink)}
 
-  /* bubbles */
-  #ai-studio .turn{display:flex}
-  #ai-studio .turn-user{justify-content:flex-end}
-  #ai-studio .turn-ai{justify-content:flex-start}
-  #ai-studio .bubble{max-width:min(660px,88%);border-radius:16px;padding:12px 15px;font-size:14px;line-height:1.6;white-space:pre-wrap;word-wrap:break-word;overflow-wrap:anywhere}
-  #ai-studio .bubble-user{background:#292524;color:#fff;border-bottom-right-radius:5px}
-  #ai-studio .bubble-ai{background:var(--raise);border:1px solid var(--line);border-left:3px solid var(--ai);border-bottom-left-radius:5px}
-  #ai-studio .ai-who{display:flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:var(--ai);margin-bottom:5px}
-  #ai-studio .ai-mark{font-size:12px}
-  #ai-studio .ai-text{color:var(--ink)}
-
-  /* draft card inside an AI bubble */
-  #ai-studio .draft-card{margin-top:12px;border:1px solid var(--ai-line);background:var(--ai-soft);border-radius:13px;padding:13px 14px}
-  #ai-studio .draft-badge{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:var(--ai);background:#fff;border:1px solid var(--ai-line);border-radius:999px;padding:2px 9px;margin-bottom:8px}
-  #ai-studio .draft-title{font-family:Georgia,serif;font-size:16px;font-weight:800;letter-spacing:-.01em;color:var(--ink);margin:0 0 6px}
-  #ai-studio .draft-preview{font-size:13px;line-height:1.55;color:var(--ink-2);margin:0}
-  #ai-studio .draft-sources{font-size:11.5px;color:var(--ink-3);margin:8px 0 0}
-  #ai-studio .draft-sources-lbl{font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:10px;color:var(--ink-4)}
-  #ai-studio .draft-use{margin-top:12px;display:inline-flex;align-items:center;gap:7px;border:none;background:var(--ai);color:#fff;border-radius:11px;padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);min-height:44px}
-  #ai-studio .draft-use:hover{filter:brightness(1.05)}
-  #ai-studio .draft-use-mark{font-size:13px}
+  /* draft card */
+  #ai-studio .draft{margin-top:12px;border:1px solid var(--line);background:var(--surface);border-radius:14px;overflow:hidden;box-shadow:var(--shadow-sm)}
+  #ai-studio .draft-head{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--ai-soft);border-bottom:1px solid var(--ai-line)}
+  #ai-studio .draft-badge{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;letter-spacing:.04em;color:var(--ai-ink)}
+  #ai-studio .draft-badge svg{color:var(--ai)}
+  #ai-studio .draft-body{padding:14px 15px 4px}
+  #ai-studio .draft-title{font-family:Georgia,"Times New Roman",serif;font-size:17px;font-weight:800;letter-spacing:-.01em;margin:0 0 6px;line-height:1.28;color:var(--ink)}
+  #ai-studio .draft-preview{font-size:13px;line-height:1.6;color:var(--ink-2);margin:0}
+  #ai-studio .draft-src{display:flex;flex-wrap:wrap;gap:6px;padding:12px 15px}
+  #ai-studio .src-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--ink-2);background:var(--line-2);border-radius:999px;padding:4px 10px}
+  #ai-studio .src-pill svg{color:var(--ink-4)}
+  #ai-studio .draft-foot{display:flex;align-items:center;gap:9px;padding:11px 14px;border-top:1px solid var(--line-2);background:var(--raise);flex-wrap:wrap}
+  #ai-studio .draft-foot .foot-sp{flex:1}
+  #ai-studio .btn-use{display:inline-flex;align-items:center;gap:8px;border:none;cursor:pointer;background:var(--ai);color:#fff;border-radius:11px;
+      padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 8px 16px -8px rgba(124,58,237,.75);transition:filter .15s,transform .12s;min-height:42px}
+  #ai-studio .btn-use:hover{filter:brightness(1.06)} #ai-studio .btn-use:active{transform:translateY(1px)}
+  #ai-studio .btn-ghost{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);background:#fff;color:var(--ink-2);border-radius:11px;
+      padding:10px 14px;font-size:13px;font-weight:600;cursor:pointer;transition:border-color .15s,color .15s;min-height:42px}
+  #ai-studio .btn-ghost:hover{border-color:var(--ink-4);color:var(--ink)}
+  #ai-studio .btn-icon{display:inline-grid;place-items:center;width:42px;height:42px;border:1px solid var(--line);background:#fff;color:var(--ink-3);border-radius:11px;cursor:pointer;transition:all .15s;flex:none}
+  #ai-studio .btn-icon:hover{border-color:var(--ink-4);color:var(--ink)}
+  #ai-studio .btn-icon.copied{border-color:var(--ok);color:var(--ok);background:#F0FDF4}
 
   /* thinking placeholder */
-  #ai-studio .thinking .bubble-ai{color:var(--ink-3)}
-  #ai-studio .dots{display:inline-flex;gap:4px;vertical-align:middle}
-  #ai-studio .dots span{width:6px;height:6px;border-radius:99px;background:var(--ai);opacity:.5;animation:aisd 1s infinite ease-in-out}
+  #ai-studio .dots{display:inline-flex;gap:4px;vertical-align:middle;margin-left:2px}
+  #ai-studio .dots span{width:6px;height:6px;border-radius:99px;background:var(--ai);animation:ais-dot 1s infinite ease-in-out}
   #ai-studio .dots span:nth-child(2){animation-delay:.15s}
   #ai-studio .dots span:nth-child(3){animation-delay:.3s}
-  @keyframes aisd{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 
-  /* ── COMPOSER bar (sticky bottom) ── */
-  #ai-studio .composer{border-top:1px solid var(--line);background:rgba(252,251,250,.97);backdrop-filter:blur(6px);padding:12px 16px 14px;position:sticky;bottom:0}
-  #ai-studio .composer-ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
-  #ai-studio .voice-wrap{display:inline-flex;align-items:center;gap:6px}
-  #ai-studio .voice-wrap label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
-  #ai-studio select[name=voice]{border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:13px;font-weight:600;color:var(--ink-2);background:#fff;min-height:44px}
-  #ai-studio .ch-lbl{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-left:4px}
-  #ai-studio .ch-chips{display:flex;gap:6px;flex-wrap:wrap;flex:1 1 100%;margin-top:2px}
-  #ai-studio .ch-chip{display:inline-flex;align-items:center;gap:7px;padding:5px 11px 5px 5px;border:1.5px solid var(--brand);background:var(--brand-soft);border-radius:999px;font-size:12px;font-weight:600;color:var(--brand-ink);cursor:pointer;user-select:none;min-height:38px}
-  #ai-studio .ch-chip.off{border-color:var(--line);background:#fff;color:var(--ink-3)}
-  #ai-studio .ch-chip .lg{width:22px;height:22px;border-radius:999px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:9px;flex:none;overflow:hidden;background:#1C1917}
-  #ai-studio .ch-chip .lg img{width:100%;height:100%;object-fit:cover;border-radius:999px}
+  /* hero / empty state */
+  #ai-studio .hero{margin:auto;max-width:540px;text-align:center;padding:28px 16px}
+  #ai-studio .hero-mark{width:60px;height:60px;border-radius:18px;display:grid;place-items:center;margin:0 auto 16px;color:#fff;
+      background:linear-gradient(150deg,var(--ai-2),var(--ai));box-shadow:0 16px 30px -14px rgba(124,58,237,.8)}
+  #ai-studio .hero h2{font-size:21px;font-weight:800;letter-spacing:-.02em;margin:0 0 7px}
+  #ai-studio .hero p{font-size:13.5px;color:var(--ink-3);margin:0 auto 22px;max-width:410px;line-height:1.6}
+  #ai-studio .prompts{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left}
+  #ai-studio .prompt{display:flex;align-items:flex-start;gap:10px;border:1px solid var(--line);background:#fff;border-radius:13px;padding:12px 13px;
+      cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .12s;box-shadow:var(--shadow-sm);text-align:left;width:100%;font:inherit}
+  #ai-studio .prompt:hover{border-color:var(--ai-line);box-shadow:var(--shadow);transform:translateY(-1px)}
+  #ai-studio .prompt .pm{width:28px;height:28px;border-radius:8px;flex:none;display:grid;place-items:center;background:var(--ai-soft);color:var(--ai)}
+  #ai-studio .prompt .pt{font-size:12.5px;font-weight:600;color:var(--ink);line-height:1.4}
+  #ai-studio .prompt .pt small{display:block;font-weight:500;color:var(--ink-3);margin-top:2px}
+
+  /* composer */
+  #ai-studio .composer{flex:none;padding:13px 16px 15px;border-top:1px solid var(--line);background:rgba(251,250,248,.92);backdrop-filter:blur(8px)}
+  #ai-studio .ctrls{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  #ai-studio .ctrl-lbl{font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-4)}
+  #ai-studio .chip{display:inline-flex;align-items:center;gap:7px;padding:5px 12px 5px 6px;border:1.5px solid var(--brand);background:var(--brand-soft);
+      color:var(--brand-ink);border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;user-select:none;transition:all .12s;min-height:34px}
+  #ai-studio .chip.off{border-color:var(--line);background:#fff;color:var(--ink-3)}
+  #ai-studio .chip .lg{width:20px;height:20px;border-radius:99px;display:grid;place-items:center;color:#fff;font-weight:800;font-size:9px;flex:none;overflow:hidden;background:#1C1917}
+  #ai-studio .chip .lg img{width:100%;height:100%;object-fit:cover;border-radius:99px}
   #ai-studio .lg-ghost{background:#15171A}
   #ai-studio .lg-linkedin,#ai-studio .lg-linkedin_personal,#ai-studio .lg-linkedin_company,#ai-studio .lg-blotato_linkedin{background:#0A66C2}
   #ai-studio .lg-twitter,#ai-studio .lg-x,#ai-studio .lg-blotato_twitter{background:#0F1419}
@@ -103,70 +151,100 @@
   #ai-studio .lg-facebook,#ai-studio .lg-blotato_facebook{background:#1877F2}
   #ai-studio .lg-threads,#ai-studio .lg-blotato_threads{background:#15171A}
   #ai-studio .lg-bluesky,#ai-studio .lg-blotato_bluesky{background:#1185FE}
-
-  #ai-studio .composer-input{display:flex;align-items:flex-end;gap:9px;border:1px solid var(--line);border-radius:14px;background:#fff;padding:8px 8px 8px 14px}
-  #ai-studio .composer-input:focus-within{border-color:var(--ai);box-shadow:0 0 0 3px var(--ai-soft)}
-  #ai-studio textarea[name=message]{flex:1;border:none;outline:none;resize:none;font:inherit;font-size:14px;line-height:1.5;color:var(--ink);background:transparent;max-height:180px;padding:6px 0;min-height:32px}
+  #ai-studio .chip .tick{opacity:0;width:0;overflow:hidden;transition:opacity .12s}
+  #ai-studio .chip:not(.off) .tick{opacity:1;width:auto;color:var(--brand)}
+  #ai-studio .no-ch{font-size:12px;color:var(--ink-4);padding:5px 2px}
+  #ai-studio .input-box{display:flex;align-items:flex-end;gap:10px;border:1.5px solid var(--line);border-radius:15px;background:#fff;padding:8px 8px 8px 15px;box-shadow:var(--shadow-sm);transition:border-color .15s,box-shadow .15s}
+  #ai-studio .input-box:focus-within{border-color:var(--ai);box-shadow:0 0 0 4px var(--ai-soft)}
+  #ai-studio textarea[name=message]{flex:1;border:none;outline:none;resize:none;font:inherit;font-size:14px;line-height:1.5;color:var(--ink);background:transparent;padding:7px 0;max-height:150px;min-height:30px}
   #ai-studio textarea[name=message]::placeholder{color:var(--ink-4)}
-  #ai-studio .gen-btn{border:none;background:var(--ai);color:#fff;border-radius:11px;padding:0 16px;height:44px;font-size:13.5px;font-weight:700;display:inline-flex;align-items:center;gap:7px;white-space:nowrap;box-shadow:0 6px 14px -6px rgba(124,58,237,.6);cursor:pointer;flex:none}
-  #ai-studio .gen-btn:disabled{opacity:.55;cursor:default}
-  #ai-studio .gen-btn .g-mark{font-size:14px}
-  #ai-studio .composer-hint{font-size:11px;color:var(--ink-4);margin:7px 2px 0;text-align:center}
+  #ai-studio .send{border:none;cursor:pointer;background:var(--ai);color:#fff;border-radius:11px;height:42px;padding:0 16px;font-size:13.5px;font-weight:700;
+      display:inline-flex;align-items:center;gap:8px;white-space:nowrap;box-shadow:0 8px 16px -8px rgba(124,58,237,.75);transition:filter .15s,transform .12s;flex:none}
+  #ai-studio .send:disabled{opacity:.55;cursor:default;box-shadow:none}
+  #ai-studio .send:not(:disabled):hover{filter:brightness(1.06)} #ai-studio .send:not(:disabled):active{transform:translateY(1px)}
+  #ai-studio .hint{font-size:11px;color:var(--ink-4);text-align:center;margin:9px 0 0}
+  #ai-studio .hint kbd{font:inherit;font-size:10.5px;background:var(--line-2);border:1px solid var(--line);border-radius:5px;padding:1px 5px;color:var(--ink-3)}
+
+  @keyframes ais-rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @keyframes ais-dot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
 
   /* ── RESPONSIVE ── */
   @media (max-width:768px){
-    #ai-studio .shell{grid-template-columns:1fr;padding:12px 10px 16px;gap:12px}
-    #ai-studio .main{min-height:calc(100vh - 96px)}
-    #ai-studio .rail{position:static}
-    #ai-studio .rail-toggle{display:flex;align-items:center;justify-content:space-between;width:100%;border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:12px;padding:11px 14px;font-size:13.5px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);min-height:44px}
-    #ai-studio .rail-toggle .caret{transition:transform .15s ease}
-    #ai-studio .rail-toggle.open .caret{transform:rotate(180deg)}
-    #ai-studio .rail-body[hidden]{display:none}
-    #ai-studio .chat-list{max-height:46vh}
-    #ai-studio .bubble{max-width:92%}
+    #ai-studio .app{grid-template-columns:1fr}
+    #ai-studio .m-menu{display:grid}
+    #ai-studio .rail{position:absolute;z-index:30;top:0;bottom:0;left:0;width:84%;max-width:300px;
+        transform:translateX(-100%);transition:transform .22s ease;box-shadow:var(--shadow-lg)}
+    #ai-studio .rail.open{transform:none}
+    #ai-studio .rail-backdrop.show{display:block;position:absolute;inset:0;z-index:25;background:rgba(28,25,23,.42)}
+    #ai-studio .prompts{grid-template-columns:1fr}
+    #ai-studio .messages{padding:18px 14px 8px}
+    #ai-studio .turn{max-width:100%}
+  }
+  @media (prefers-reduced-motion:reduce){
+    #ai-studio *,#ai-studio .turn{animation:none !important;transition:none !important}
   }
 </style>
 {% endblock %}
 
 {% block content %}
-<div id="ai-studio" x-data="aiStudio()" x-init="init()">
-  <div class="shell">
+<div id="ai-studio" x-data="aiStudio('{{ chat.voice|default:'joseph'|escapejs }}')" x-init="init()">
 
-    <!-- LEFT rail -->
+  <!-- mobile backdrop -->
+  <div class="rail-backdrop" :class="{ 'show': railOpen && isMobile }" @click="railOpen=false"></div>
+
+  <div class="app">
+    <!-- ── LEFT RAIL ── -->
     <aside class="rail" :class="{ 'open': railOpen }">
-      <button type="button" class="rail-toggle" :class="{ 'open': railOpen }" @click="railOpen = !railOpen">
-        <span>&#128172; Chats</span>
-        <span class="caret">&#9662;</span>
-      </button>
-      <div class="rail-body" :hidden="isMobile && !railOpen">
-        <div class="rail-head">
-          <a class="new-chat" href="{% url 'composer:chat_new' workspace_id=workspace.id %}">
-            <span>&#65291;</span> New chat
-          </a>
+      <div class="rail-top">
+        <div class="brand-row">
+          <span class="brand-mark" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.8 15.9 9 18.75l-.8-2.85a4.5 4.5 0 0 0-3.1-3.1L2.25 12l2.85-.8a4.5 4.5 0 0 0 3.1-3.1L9 5.25l.8 2.85a4.5 4.5 0 0 0 3.1 3.1L15.75 12l-2.85.8a4.5 4.5 0 0 0-3.1 3.1Z"/></svg></span>
+          <span class="brand-name">AI Studio<small>Grounded content</small></span>
         </div>
-        <div class="rail-lbl">Recent</div>
-        {% if chats %}
-        <ul class="chat-list">
-          {% for c in chats %}
-          <li>
-            <a class="chat-link {% if chat and c.id == chat.id %}active{% endif %}"
-               href="{% url 'composer:chat_detail' workspace_id=workspace.id chat_id=c.id %}">
-              {{ c.title|default:"Untitled chat" }}
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
-        {% else %}
-        <p class="chat-empty">No chats yet. Start one below.</p>
-        {% endif %}
+        <a class="new-chat" href="{% url 'composer:chat_new' workspace_id=workspace.id %}">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+          New chat
+        </a>
+      </div>
+      <div class="rail-lbl">Recent chats</div>
+      {% if chats %}
+      <ul class="chat-list">
+        {% for c in chats %}
+        <li>
+          <a class="chat-link {% if chat and c.id == chat.id %}active{% endif %}"
+             href="{% url 'composer:chat_detail' workspace_id=workspace.id chat_id=c.id %}">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 12h8M8 8h8M8 16h5"/><rect x="3" y="3" width="18" height="18" rx="3"/></svg>
+            <span>{{ c.title|default:"Untitled chat" }}</span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% else %}
+      <div class="chat-list"><p class="chat-empty">No chats yet. Start one below.</p></div>
+      {% endif %}
+      <div class="rail-foot">
+        <span class="avatar" aria-hidden="true">{{ request.user.name|default:request.user.email|default:"?"|slice:":1"|upper }}</span>
+        <span class="who"><span>{{ request.user.name|default:request.user.email }}</span><small>{{ workspace.name }}</small></span>
       </div>
     </aside>
 
-    <!-- MAIN pane -->
-    <section class="main">
-      <div class="main-head">
-        <h1>AI Studio</h1>
-        <p>Generate content grounded in your knowledge, best posts and voice</p>
+    <!-- ── MAIN PANE ── -->
+    <section class="pane">
+      <div class="top">
+        <button type="button" class="m-menu" @click="railOpen=!railOpen" aria-label="Open chats">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div style="min-width:0">
+          <h1>{{ chat.title|default:"New chat" }}</h1>
+          <div class="sub">Grounded in your wiki, top posts &amp; voice</div>
+        </div>
+        <span class="sp"></span>
+        <label class="voice-pill" title="Voice">
+          <svg class="mic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10a7 7 0 0 1-14 0M12 17v4"/></svg>
+          <select x-model="voice" aria-label="Voice">
+            {% for v in voices %}<option value="{{ v.key }}">{{ v.label }}</option>{% endfor %}
+          </select>
+          <svg class="chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </label>
       </div>
 
       <!-- messages -->
@@ -174,70 +252,75 @@
         {% if messages %}
           {% for m in messages %}
             {% if m.role == "user" %}
-              <div class="turn turn-user">
-                <div class="bubble bubble-user">{{ m.content }}</div>
-              </div>
+              {% include "composer/_chat_turn.html" with workspace=workspace chat=chat user_text=m.content msg=None %}
             {% else %}
-              {# assistant turn — reuse the same markup as _chat_turn.html (no user_text so only the AI half renders) #}
-              {% include "composer/_chat_turn.html" with workspace=workspace chat=chat msg=m user_text="" %}
+              {% include "composer/_chat_turn.html" with workspace=workspace chat=chat user_text="" msg=m %}
             {% endif %}
           {% endfor %}
         {% else %}
-          <div class="empty-state">
-            <div class="es-mark">&#10022;</div>
+          <div class="hero">
+            <div class="hero-mark" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9.8 15.9 9 18.75l-.8-2.85a4.5 4.5 0 0 0-3.1-3.1L2.25 12l2.85-.8a4.5 4.5 0 0 0 3.1-3.1L9 5.25l.8 2.85a4.5 4.5 0 0 0 3.1 3.1L15.75 12l-2.85.8a4.5 4.5 0 0 0-3.1 3.1Z"/></svg></div>
             <h2>What should we create?</h2>
-            <p>Describe the piece you want. HERALD drafts it grounded in your wiki, best-performing posts and {{ workspace.name }}'s voice &mdash; then one tap publishes it across your channels.</p>
+            <p>Describe the piece you want. It's drafted from your knowledge, best-performing posts and {{ workspace.name }}'s voice, then one tap publishes it across your channels.</p>
+            <div class="prompts">
+              <button type="button" class="prompt" @click="usePrompt('Write a Nexus Brief on ')">
+                <span class="pm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg></span>
+                <span class="pt">Write a Nexus Brief<small>Long-form, grounded in the wiki</small></span>
+              </button>
+              <button type="button" class="prompt" @click="usePrompt('Draft a LinkedIn post about ')">
+                <span class="pm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-4 0v7h-4v-7a6 6 0 0 1 6-6Z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg></span>
+                <span class="pt">Draft a LinkedIn post<small>In your voice, ready to publish</small></span>
+              </button>
+              <button type="button" class="prompt" @click="usePrompt('Write a punchy post riffing on our best-performing content about ')">
+                <span class="pm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 20 8-11a5 5 0 0 0-9-4 5 5 0 0 0-9 4Z"/></svg></span>
+                <span class="pt">Riff on a top post<small>Reuse what already performed</small></span>
+              </button>
+              <button type="button" class="prompt" @click="usePrompt('Announce this event across our channels: ')">
+                <span class="pm"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+                <span class="pt">Announce an event<small>EGM, launches, milestones</small></span>
+              </button>
+            </div>
           </div>
         {% endif %}
       </div>
 
-      <!-- COMPOSER -->
-      <form class="composer"
+      <!-- composer -->
+      <form class="composer" x-ref="form"
             hx-post="{% url 'composer:chat_send' workspace_id=workspace.id %}"
-            hx-target="#messages"
-            hx-swap="beforeend"
-            @htmx:before-request="onBefore()"
-            @htmx:after-request="onAfter($event)">
+            hx-target="#messages" hx-swap="beforeend"
+            @htmx:before-request="onBefore()" @htmx:after-request="onAfter($event)">
         {% csrf_token %}
         <input type="hidden" name="chat_id" value="{{ chat.id|default:'' }}">
         <input type="hidden" name="channels" :value="selected.join(',')">
+        <input type="hidden" name="voice" :value="voice">
 
-        <div class="composer-ctrls">
-          <span class="voice-wrap">
-            <label for="ais-voice">Voice</label>
-            <select name="voice" id="ais-voice">
-              {% for v in voices %}
-              <option value="{{ v.key }}">{{ v.label }}</option>
-              {% endfor %}
-            </select>
-          </span>
-          <span class="ch-lbl">Channels</span>
-          <div class="ch-chips">
-            <template x-for="acc in accounts" :key="acc.id">
-              <span class="ch-chip" :class="{ 'off': !selected.includes(acc.id) }" @click="toggle(acc.id)">
-                <span class="lg" :class="'lg-' + (acc.platform || '')">
-                  <template x-if="acc.logo_display_url"><img :src="acc.logo_display_url" alt=""></template>
-                  <template x-if="!acc.logo_display_url"><span x-text="(acc.name || '?').charAt(0).toUpperCase()"></span></template>
-                </span>
-                <span x-text="acc.name"></span>
+        <div class="ctrls">
+          <span class="ctrl-lbl">Channels</span>
+          <template x-for="acc in accounts" :key="acc.id">
+            <span class="chip" :class="{ 'off': !selected.includes(acc.id) }" @click="toggle(acc.id)">
+              <span class="lg" :class="'lg-' + (acc.platform || '')">
+                <template x-if="acc.logo_display_url"><img :src="acc.logo_display_url" alt=""></template>
+                <template x-if="!acc.logo_display_url"><span x-text="(acc.name || '?').charAt(0).toUpperCase()"></span></template>
               </span>
-            </template>
-            <template x-if="!accounts.length">
-              <span style="font-size:12px;color:var(--ink-4);padding:6px 2px">No connected channels &mdash; drafts still generate.</span>
-            </template>
-          </div>
+              <span x-text="acc.name"></span>
+              <svg class="tick" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+            </span>
+          </template>
+          <template x-if="!accounts.length">
+            <span class="no-ch">No connected channels &mdash; drafts still generate.</span>
+          </template>
         </div>
 
-        <div class="composer-input">
+        <div class="input-box">
           <textarea name="message" x-ref="ta" rows="1"
-                    placeholder="Describe the content you want&hellip;"
+                    placeholder="Describe the content you want, or reply to refine the draft&hellip;"
                     @input="grow()" @keydown="onKey($event)"></textarea>
-          <button type="submit" class="gen-btn" :disabled="sending">
-            <span class="g-mark">&#10022;</span>
+          <button type="submit" class="send" :disabled="sending">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
             <span x-text="sending ? 'Generating…' : 'Generate'"></span>
           </button>
         </div>
-        <p class="composer-hint">Enter to send &middot; Shift+Enter for a new line</p>
+        <p class="hint"><kbd>Enter</kbd> to send &middot; <kbd>Shift</kbd>+<kbd>Enter</kbd> for a new line</p>
       </form>
     </section>
   </div>
@@ -247,8 +330,7 @@
 {% block extra_js %}
 {{ accounts_meta|json_script:"ais-accounts" }}
 <script nonce="{{ request.csp_nonce }}">
-function aiStudio() {
-  // accounts_meta is a dict keyed by account id → {name, platform, platform_label, logo_display_url, ...}
+function aiStudio(initialVoice) {
   var raw = {};
   try { raw = JSON.parse(document.getElementById('ais-accounts').textContent) || {}; } catch (e) {}
   var accounts = Object.keys(raw).map(function (id) {
@@ -257,7 +339,6 @@ function aiStudio() {
       id: String(id),
       name: a.name || a.account_name || a.account_handle || '?',
       platform: a.platform || '',
-      platform_label: a.platform_label || a.get_platform_display || '',
       logo_display_url: a.logo_display_url || '',
     };
   });
@@ -265,6 +346,7 @@ function aiStudio() {
   return {
     accounts: accounts,
     selected: accounts.map(function (a) { return a.id; }),   // default: all connected
+    voice: initialVoice || 'joseph',
     sending: false,
     railOpen: false,
     isMobile: false,
@@ -276,14 +358,12 @@ function aiStudio() {
       mq.addEventListener('change', function (e) { self.isMobile = e.matches; if (!e.matches) self.railOpen = false; });
       this.grow();
       this.scrollBottom();
-      // Keep the URL/permalink in sync when a brand-new chat is created server-side.
+      // Keep the URL/permalink + chat_id in sync when a brand-new chat is created server-side.
       window.addEventListener('chatCreated', function (ev) {
         var d = (ev && ev.detail) || {};
-        if (d.url) {
-          try { window.history.replaceState({}, '', d.url); } catch (e) {}
-          var hid = document.querySelector('#ai-studio input[name=chat_id]');
-          if (hid && d.chatId) hid.value = d.chatId;
-        }
+        if (d.url) { try { window.history.replaceState({}, '', d.url); } catch (e) {} }
+        var hid = document.querySelector('#ai-studio input[name=chat_id]');
+        if (hid && d.chatId) hid.value = d.chatId;
       });
     },
 
@@ -292,21 +372,44 @@ function aiStudio() {
       if (i >= 0) this.selected.splice(i, 1); else this.selected.push(id);
     },
 
+    usePrompt(text) {
+      var ta = this.$refs.ta;
+      ta.value = text;
+      this.grow();
+      ta.focus();
+      // place caret at the end
+      try { ta.setSelectionRange(text.length, text.length); } catch (e) {}
+    },
+
+    regen() {
+      if (this.sending) return;
+      this.$refs.ta.value = 'Regenerate that draft — keep the same brief but try a fresh angle and tighter copy.';
+      this.grow();
+      this.$refs.form.requestSubmit();
+    },
+
+    copyDraft(ev) {
+      var btn = ev.currentTarget;
+      var text = btn.getAttribute('data-copy') || '';
+      var done = function () { btn.classList.add('copied'); setTimeout(function () { btn.classList.remove('copied'); }, 1400); };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () {});
+      }
+    },
+
     grow() {
       var ta = this.$refs.ta;
       if (!ta) return;
       ta.style.height = 'auto';
-      ta.style.height = Math.min(ta.scrollHeight, 180) + 'px';
+      ta.style.height = Math.min(ta.scrollHeight, 150) + 'px';
     },
 
     onKey(ev) {
-      // Enter sends; Shift+Enter makes a newline.
       if (ev.key === 'Enter' && !ev.shiftKey) {
         ev.preventDefault();
         if (this.sending) return;
-        var val = (this.$refs.ta.value || '').trim();
-        if (!val) return;
-        ev.target.closest('form').requestSubmit();
+        if (!(this.$refs.ta.value || '').trim()) return;
+        this.$refs.form.requestSubmit();
       }
     },
 
@@ -320,31 +423,27 @@ function aiStudio() {
 
     onBefore() {
       this.sending = true;
-      // stash the prompt so we can echo it in the placeholder, then clear the textarea
       var ta = this.$refs.ta;
-      var text = (ta.value || '').trim();
       ta.value = '';
       this.grow();
       var m = this.$refs.messages;
       if (!m) return;
+      var hero = m.querySelector('.hero');
+      if (hero) hero.remove();
       var wrap = document.createElement('div');
-      wrap.className = 'turn thinking';
+      wrap.className = 'turn ai';
       wrap.setAttribute('data-thinking', '1');
       wrap.innerHTML =
-        '<div class="bubble bubble-ai"><div class="ai-who"><span class="ai-mark">&#10022;</span> AI Studio</div>' +
-        '<div class="ai-text">Thinking <span class="dots"><span></span><span></span><span></span></span></div></div>';
+        '<span class="msg-av ai" aria-hidden="true"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.8 15.9 9 18.75l-.8-2.85a4.5 4.5 0 0 0-3.1-3.1L2.25 12l2.85-.8a4.5 4.5 0 0 0 3.1-3.1L9 5.25l.8 2.85a4.5 4.5 0 0 0 3.1 3.1L15.75 12l-2.85.8a4.5 4.5 0 0 0-3.1 3.1Z"/></svg></span>' +
+        '<div class="turn-body"><div class="bubble bot"><div class="bot-text" style="color:var(--ink-3)">Thinking<span class="dots"><span></span><span></span><span></span></span></div></div></div>';
       m.appendChild(wrap);
       this.scrollBottom();
     },
 
     onAfter(ev) {
       this.sending = false;
-      // drop the thinking placeholder
       var m = this.$refs.messages;
-      if (m) {
-        var ph = m.querySelector('[data-thinking]');
-        if (ph) ph.remove();
-      }
+      if (m) { var ph = m.querySelector('[data-thinking]'); if (ph) ph.remove(); }
       this.railOpen = false;
       this.scrollBottom();
     },
