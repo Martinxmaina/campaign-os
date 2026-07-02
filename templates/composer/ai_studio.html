@@ -8,6 +8,10 @@
   /* ── AI Studio — fills the app <main> exactly (single internal scroll); stone
        neutrals + orange app accent + violet AI accent, matching the composer. ── */
   main:has(#ai-studio){padding:0 !important;overflow:hidden !important}
+  /* base.html wraps {% block content %} in a scrolling flex column — let the
+     chat own the scroll instead so there is exactly one scrollbar (.messages). */
+  :has(> #ai-studio){overflow:hidden !important;min-height:0}
+  main:has(#ai-studio) > footer{display:none}
 
   #ai-studio{
     --ground:#F7F6F3; --surface:#FFFFFF; --raise:#FBFAF8;
