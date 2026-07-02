@@ -1823,14 +1823,31 @@ def post_delete(request, workspace_id, post_id):
     workspace = _get_workspace(request, workspace_id)
     post = get_object_or_404(Post, id=post_id, workspace=workspace)
 
+    def _remove_from_platform(pp):
+        """Best-effort: delete a live published post from its platform (Ghost,
+        LinkedIn, …) before we drop the local record. A platform without a delete
+        API (or a transient failure) must not block removing the record."""
+        if pp.platform_post_id and pp.status == PlatformPost.Status.PUBLISHED:
+            from apps.publisher.operations import delete_published_post
+            try:
+                delete_published_post(pp)
+            except Exception:  # noqa: BLE001 — record deletion proceeds regardless
+                logger.warning(
+                    "platform delete failed for PlatformPost %s (%s)",
+                    pp.id, pp.social_account.platform, exc_info=True,
+                )
+
     account_id = request.GET.get("account") or request.POST.get("account")
     if account_id:
         pp = get_object_or_404(PlatformPost, post=post, social_account_id=account_id)
+        _remove_from_platform(pp)
         pp.delete()
         # If no platform posts remain, clean up the parent post too.
         if not post.platform_posts.exists():
             post.delete()
     else:
+        for pp in post.platform_posts.all():
+            _remove_from_platform(pp)
         post.delete()
 
     return HttpResponse(

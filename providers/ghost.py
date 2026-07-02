@@ -231,6 +231,18 @@ class GhostProvider(SocialProvider):
             extra={"opens": int(email.get("opened_count") or 0)},  # email opens
         )
 
+    # -- delete --------------------------------------------------------
+    def delete_post(self, access_token: str, post_id: str) -> bool:
+        """Delete a Ghost post by id (Admin API DELETE). 404 = already gone."""
+        resp = httpx.delete(
+            f"{self._base()}/ghost/api/admin/posts/{post_id}/",
+            headers=self._auth_headers(),
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code not in (200, 204, 404):
+            raise PublishError(f"Ghost delete failed ({resp.status_code}): {resp.text[:200]}")
+        return True
+
     # -- publish -------------------------------------------------------
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:
         # Rich-editor path: the override caption is already HTML (the Ghost
