@@ -289,7 +289,20 @@ class GhostProvider(SocialProvider):
         risks ``500 does not have a newsletter relation`` / no email sent."""
         slug = self.credentials.get("newsletter_slug")
         if not slug:
-            raise PublishError("Newsletter publish needs a configured newsletter_slug")
+            # No configured slug → use the site's default (oldest) newsletter so
+            # "send as newsletter" works out of the box.
+            try:
+                nr = httpx.get(
+                    f"{self._base()}/ghost/api/admin/newsletters/?limit=1&order=created_at%20asc",
+                    headers=self._auth_headers(),
+                    timeout=_TIMEOUT,
+                )
+                if nr.status_code == 200:
+                    slug = ((nr.json().get("newsletters") or [{}])[0]).get("slug")
+            except Exception:  # noqa: BLE001 — fall through to the clear error below
+                slug = None
+        if not slug:
+            raise PublishError("Newsletter publish needs a newsletter (none found on the Ghost site)")
         base = self._base()
         nl = f"newsletter={slug}&source=html"
 

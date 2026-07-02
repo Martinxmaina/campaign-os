@@ -126,6 +126,12 @@ def _sync_platform_posts(request, post, workspace, initial_status=None):
                 "cover_image_asset_id": request.POST.get(f"pin_cover_image_asset_id_{acc_id}", "").strip() or None,
             }
 
+        elif account.platform == "ghost":
+            # Blog post (web) vs Newsletter (email to members). Flows to the Ghost
+            # provider via extra["ghost_publish_as"] (the engine merges platform_extra).
+            mode = request.POST.get(f"ghost_publish_as_{acc_id}", "post")
+            pp.platform_extra = {"ghost_publish_as": "newsletter" if mode == "newsletter" else "post"}
+
         pp.save()
 
 
