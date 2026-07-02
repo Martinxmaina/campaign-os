@@ -244,10 +244,13 @@ class GhostProvider(SocialProvider):
             if "<img" in body_html:
                 body_html = self._rehost_images(body_html)
             plain = self._strip_tags(body_html)
-            title = (content.extra.get("title") or plain.split(". ", 1)[0] or "Untitled")[:255]
+            # The author's real title arrives as content.title (engine sets it from
+            # effective_title). Only fall back to the body's first sentence when no
+            # title was given — never override an explicit title.
+            title = ((content.title or "").strip() or content.extra.get("title") or plain.split(". ", 1)[0] or "Untitled")[:255]
             excerpt = plain[:280]
         else:
-            title = (content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
+            title = ((content.title or "").strip() or content.extra.get("title") or (content.text or "").split("\n", 1)[0] or "Untitled")[:255]
             excerpt = (content.text or "").strip()[:280]
             body_html = self._to_html(content.text)
         # A composer-authored subtitle (Ghost "custom excerpt") wins over the
