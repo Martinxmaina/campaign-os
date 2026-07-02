@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import time
 
 from django.conf import settings
@@ -25,6 +26,22 @@ logger = logging.getLogger(__name__)
 
 def _api_base() -> str:
     return getattr(settings, "BLOTATO_API_BASE", "https://backend.blotato.com/v2").rstrip("/")
+
+
+def _native_post_id(url: str | None) -> str | None:
+    """Extract a platform's native NUMERIC post id from a Blotato publicUrl.
+
+    Blotato's ``GET /posts/{id}/analytics`` wants the native numeric post id —
+    NOT our submission UUID (which 500s: 'invalid input syntax for bigint').
+    Covers LinkedIn (``urn:li:share|activity:<id>``), X (``/status/<id>``), and
+    Facebook (``/posts/<id>``, ``/permalink/<id>``, ``story_fbid=<id>``). Returns
+    None when the URL has no numeric id (e.g. Instagram shortcodes) so the caller
+    keeps the submission id.
+    """
+    if not url:
+        return None
+    m = re.search(r"(?:urn:li:(?:share|activity):|/status/|/posts/|/permalink/|story_fbid=)(\d+)", url)
+    return m.group(1) if m else None
 
 
 class BlotatoProvider(SocialProvider):
@@ -189,8 +206,11 @@ class BlotatoProvider(SocialProvider):
             data = self.check_status(submission_id)
             status = (data.get("status") or "").lower()
             if status == "published":
-                return PublishResult(platform_post_id=submission_id,
-                                     url=data.get("publicUrl"), extra=data)
+                pub_url = data.get("publicUrl")
+                # Analytics needs the native numeric post id (from the URL), not the
+                # submission UUID; fall back to the submission id when unparseable.
+                return PublishResult(platform_post_id=_native_post_id(pub_url) or submission_id,
+                                     url=pub_url, extra=data)
             if status == "failed":
                 raise PublishError(data.get("errorMessage") or "Blotato publish failed",
                                    platform=self.platform_name, raw_response=data)

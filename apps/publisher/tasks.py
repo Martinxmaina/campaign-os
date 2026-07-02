@@ -62,10 +62,18 @@ def reconcile_blotato_posts():
             continue
         status = (data.get("status") or "").lower()
         if status == "published":
+            from providers.blotato import _native_post_id
             pp.status = PlatformPost.Status.PUBLISHED
             pp.published_at = timezone.now()
             pp.publish_error = ""
-            pp.save(update_fields=["status", "published_at", "publish_error", "updated_at"])
+            fields = ["status", "published_at", "publish_error", "updated_at"]
+            # Swap the parked submission UUID for the native numeric post id so
+            # analytics (GET /posts/{id}/analytics) can fetch it later.
+            native = _native_post_id(data.get("publicUrl"))
+            if native and native != pp.platform_post_id:
+                pp.platform_post_id = native
+                fields.append("platform_post_id")
+            pp.save(update_fields=fields)
         elif status == "failed":
             pp.status = PlatformPost.Status.FAILED
             pp.publish_error = data.get("errorMessage") or "Blotato publish failed"

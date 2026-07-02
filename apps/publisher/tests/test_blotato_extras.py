@@ -52,3 +52,16 @@ def test_blotato_extras_injects_page_id_for_linkedin_company_page():
     # Personal LinkedIn (no page_id) must NOT include pageId.
     personal = BlotatoLinkedInProvider()._build_target(PublishContent(text="x", extra={}))
     assert personal == {"targetType": "linkedin"}
+
+
+def test_native_post_id_extraction():
+    """Blotato analytics needs the native numeric post id from the publicUrl,
+    not the submission UUID (which 500s). Instagram shortcodes -> None."""
+    from providers.blotato import _native_post_id
+    assert _native_post_id("https://linkedin.com/feed/update/urn:li:share:7478369059353550849") == "7478369059353550849"
+    assert _native_post_id("https://x.com/i/status/1899999999999999999") == "1899999999999999999"
+    assert _native_post_id("https://twitter.com/waii/status/1888888888888888888") == "1888888888888888888"
+    assert _native_post_id("https://facebook.com/107605829/posts/456789012345") == "456789012345"
+    assert _native_post_id("https://instagram.com/p/DAbc123/") is None
+    assert _native_post_id("") is None
+    assert _native_post_id(None) is None
