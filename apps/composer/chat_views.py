@@ -15,6 +15,7 @@ import logging
 
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.decorators import login_required
 from django.urls import reverse
 from django.utils.html import strip_tags
 from django.views.decorators.http import require_POST
@@ -70,6 +71,7 @@ def _resolve_channels(workspace, channels_csv):
     return [by_id[i] for i in ids if i in by_id]
 
 
+@login_required
 def studio(request, workspace_id, chat_id=None):
     """List the workspace's chats + render the active chat (or a blank studio)."""
     workspace = _get_workspace(request, workspace_id)
@@ -98,6 +100,7 @@ def studio(request, workspace_id, chat_id=None):
     return render(request, "composer/ai_studio.html", context)
 
 
+@login_required
 @require_POST
 def chat_send(request, workspace_id):
     """Handle a chat turn (htmx): persist the user message, generate a reply +
@@ -193,6 +196,7 @@ def chat_send(request, workspace_id):
     return response
 
 
+@login_required
 @require_POST
 def chat_use(request, workspace_id, chat_id, message_id):
     """Materialise an assistant draft into a Post + PlatformPosts, then redirect
@@ -244,6 +248,7 @@ def chat_use(request, workspace_id, chat_id, message_id):
     return HttpResponseRedirect(redirect_url)
 
 
+@login_required
 def chat_new(request, workspace_id):
     """Redirect to a blank studio (new chat)."""
     _get_workspace(request, workspace_id)  # membership / 403 check
