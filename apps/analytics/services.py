@@ -14,13 +14,28 @@ from datetime import date as dt_date
 from datetime import timedelta
 from typing import Any
 
+import html as _html
+import re
+
 from django.utils import timezone
+from django.utils.html import strip_tags
 
 from apps.composer.models import PlatformPost
 from apps.social_accounts.models import SocialAccount
 
 from .constants import NO_ANALYTICS_PLATFORMS
 from .derive import DerivedMetric, derive, engagement_rate, kind_of
+
+
+def _plain_snippet(text: str) -> str:
+    """Plain-text snippet for the analytics UI.
+
+    Ghost captions are an HTML article body — show readable text, not raw
+    <p>/<h2> tags. Block boundaries become spaces so words don't merge.
+    Harmless no-op for plain-text social captions.
+    """
+    s = re.sub(r"(?i)(</(?:p|div|h[1-6]|li|blockquote|tr)>|<br\s*/?>)", " ", text or "")
+    return re.sub(r"\s+", " ", _html.unescape(strip_tags(s))).strip()
 from .metrics import (
     ACCOUNT_ONLY,
     METRICS,
@@ -478,7 +493,7 @@ def all_posts_for(
         rows.append(
             {
                 "post": p,
-                "caption": (p.platform_specific_caption or p.post.caption or "").strip(),
+                "caption": _plain_snippet(p.platform_specific_caption or p.post.caption),
                 "date": p.published_at.date().isoformat() if p.published_at else "",
                 "days_ago": (timezone.now() - p.published_at).days if p.published_at else None,
                 "media_kind": media_kind,
@@ -542,7 +557,7 @@ def post_detail(post: PlatformPost) -> dict[str, Any]:
     return {
         "post": post,
         "account": account,
-        "caption": (post.platform_specific_caption or post.post.caption or "").strip(),
+        "caption": _plain_snippet(post.platform_specific_caption or post.post.caption),
         "date": post.published_at.date().isoformat() if post.published_at else "",
         "days_ago": (timezone.now() - post.published_at).days if post.published_at else None,
         "media_kind": _media_kind(post),

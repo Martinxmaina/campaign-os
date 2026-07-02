@@ -18,8 +18,10 @@ def test_ghost_primary_metric_is_subscribers():
 
 
 def test_ghost_has_backfill_entry():
-    # Lifetime total only — backfilling fake history is meaningless, so 0.
-    assert BACKFILL_DAYS_PER_PLATFORM.get("ghost") == 0
+    # Account metrics are a lifetime member snapshot, but per-POST metrics DO
+    # exist (link clicks always; newsletter reach + opens for emailed posts), so
+    # post sync is enabled with a real window.
+    assert BACKFILL_DAYS_PER_PLATFORM.get("ghost") == 30
 
 
 def test_account_metrics_to_dict_persists_ghost_subscribers():

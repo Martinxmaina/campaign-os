@@ -20,6 +20,7 @@ from .types import (
     AccountProfile,
     AuthType,
     MediaType,
+    PostMetrics,
     PostType,
     PublishContent,
     PublishResult,
@@ -202,6 +203,33 @@ class GhostProvider(SocialProvider):
         total = (resp.json().get("meta", {}).get("pagination", {}) or {}).get("total")
         count = int(total) if total is not None else 0
         return AccountMetrics(followers=count, extra={"subscribers": count})
+
+    def get_post_metrics(self, access_token: str, post_id: str) -> PostMetrics:
+        """Per-post metrics from the Ghost Admin API.
+
+        Ghost records link ``clicks`` on every post, and — for posts SENT AS
+        EMAIL to members — the newsletter ``reach`` (recipients) and ``opens``.
+        Web-only posts have no ``email`` object, so reach/opens are 0 (Ghost only
+        tracks those when a post is emailed to members). ``?include=email`` adds
+        the email stats; ``count.clicks`` adds the click tally.
+        """
+        resp = httpx.get(
+            f"{self._base()}/ghost/api/admin/posts/{post_id}/?include=email,count.clicks",
+            headers=self._auth_headers(),
+            timeout=_TIMEOUT,
+        )
+        if resp.status_code != 200:
+            raise PublishError(
+                f"Ghost post metrics fetch failed ({resp.status_code}): {resp.text[:200]}"
+            )
+        post = (resp.json().get("posts") or [{}])[0]
+        count = post.get("count") or {}
+        email = post.get("email") or {}
+        return PostMetrics(
+            reach=int(email.get("email_count") or 0),  # members the newsletter reached
+            clicks=int(count.get("clicks") or 0),  # link clicks on the post
+            extra={"opens": int(email.get("opened_count") or 0)},  # email opens
+        )
 
     # -- publish -------------------------------------------------------
     def publish_post(self, access_token: str, content: PublishContent) -> PublishResult:

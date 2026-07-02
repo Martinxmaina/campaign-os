@@ -73,10 +73,10 @@ BACKFILL_DAYS_PER_PLATFORM: dict[str, int] = {
     "threads": 90,
     "google_business": 90,
     "tiktok": 60,
-    # Ghost exposes only a lifetime member total (no per-day growth endpoint),
-    # so there is no real history to backfill — sync writes today's snapshot
-    # only (account_metrics_supports_date_range=False).
-    "ghost": 0,
+    # Ghost: account metrics are a lifetime member snapshot (no per-day history).
+    # But per-POST metrics DO exist — link clicks on every post, plus newsletter
+    # reach + opens for emailed posts — so enable post sync for recent posts.
+    "ghost": 30,
     # Bluesky / Mastodon / LinkedIn-Personal have no analytics surface — skip.
     # LinkedIn only exposes share statistics for Organization URNs, not
     # personal Person URNs, regardless of granted scopes.
@@ -140,6 +140,10 @@ _POST_EXTRA_OVERRIDES: dict[str, dict[str, str]] = {
         # providers/pinterest.py:328 stores Pinterest's OUTBOUND_CLICK under
         # ``outbound_clicks`` in extra; the catalog metric key is ``outbound``.
         "outbound_clicks": "outbound",
+    },
+    "ghost": {
+        # providers/ghost.py get_post_metrics stores email opens under ``opens``.
+        "opens": "opens",
     },
 }
 

@@ -21,6 +21,7 @@ METRICS: dict[str, dict[str, str]] = {
     "reposts": {"label": "Reposts", "kind": "count"},
     "saves": {"label": "Saves", "kind": "count"},
     "clicks": {"label": "Link clicks", "kind": "count"},
+    "opens": {"label": "Email opens", "kind": "count"},
     "outbound": {"label": "Outbound clicks", "kind": "count"},
     "profile_visits": {"label": "Profile visits", "kind": "count"},
     "follows": {"label": "New follows", "kind": "count"},
@@ -78,7 +79,9 @@ PLATFORM_METRICS: dict[str, list[str]] = {
     # Ghost (Nexus Brief): the Admin API exposes the member total
     # (meta.pagination.total) but no per-post or per-day engagement metrics,
     # so the only surface is the subscriber count (label "Subscribers").
-    "ghost": ["subscribers"],
+    # Ghost: newsletter reach (recipients) + opens exist for EMAILED posts;
+    # link clicks exist for all posts; subscribers is the account total.
+    "ghost": ["reach", "opens", "clicks", "subscribers"],
     # Blotato add-on family: metrics from GET /v2/posts/{id}/analytics.
     # Each sub-platform exposes the same analytics response shape; the metric
     # list mirrors what the target network actually surfaces through Blotato.
