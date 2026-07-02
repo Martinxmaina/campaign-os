@@ -149,10 +149,11 @@ def _blotato_extra(account, platform: str, extra: dict) -> None:
     """Inject per-account Blotato data into the provider content extras."""
     cfg = account.provider_config or {}
     extra["blotato_account_id"] = cfg.get("blotato_account_id") or account.account_platform_id
-    if platform == "blotato_facebook" and "page_id" not in extra:
-        page_id = cfg.get("page_id")
-        if page_id:
-            extra["page_id"] = page_id
+    # Company-page targets (Facebook, LinkedIn) need the pageId. Inject it for any
+    # Blotato platform that carries one — only facebook/linkedin _build_target read
+    # it, so it's a harmless no-op for instagram/threads/bluesky/twitter.
+    if cfg.get("page_id") and "page_id" not in extra:
+        extra["page_id"] = cfg["page_id"]
 
 
 MAX_RETRIES = 3

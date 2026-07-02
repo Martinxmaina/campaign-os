@@ -242,6 +242,16 @@ class BlotatoLinkedInProvider(BlotatoProvider):
     _label = "LinkedIn (Blotato)"
     _max_caption = 3000
 
+    def _build_target(self, content: PublishContent) -> dict:
+        target = {"targetType": "linkedin"}
+        page_id = content.extra.get("page_id")
+        if page_id:
+            # Company-page post → target the org via pageId (personal profile omits it).
+            # ponytail: mirror the Facebook target. NOTE: this must be the Blotato pageId
+            # — verify on the first real page publish (may differ from the raw LinkedIn org id).
+            target["pageId"] = page_id
+        return target
+
 
 class BlotatoTwitterProvider(BlotatoProvider):
     target_type = "twitter"

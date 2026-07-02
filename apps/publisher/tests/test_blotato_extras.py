@@ -31,3 +31,24 @@ def test_blotato_extras_account_id_falls_back_to_platform_id():
     _blotato_extra(acct, "blotato_instagram", extra)
     assert extra["blotato_account_id"] == "98432"
     assert "page_id" not in extra
+
+
+@pytest.mark.django_db
+def test_blotato_extras_injects_page_id_for_linkedin_company_page():
+    """LinkedIn company-page accounts must get page_id in extra (was facebook-only),
+    and the LinkedIn target must carry it as pageId so the post hits the org page."""
+    from apps.publisher.engine import _blotato_extra
+    from providers.blotato import BlotatoLinkedInProvider
+    from providers.types import PublishContent
+
+    acct = _make("blotato_linkedin", {"blotato_account_id": "18377", "page_id": "107605829"})
+    extra = {}
+    _blotato_extra(acct, "blotato_linkedin", extra)
+    assert extra["page_id"] == "107605829"
+
+    target = BlotatoLinkedInProvider()._build_target(PublishContent(text="x", extra=extra))
+    assert target == {"targetType": "linkedin", "pageId": "107605829"}
+
+    # Personal LinkedIn (no page_id) must NOT include pageId.
+    personal = BlotatoLinkedInProvider()._build_target(PublishContent(text="x", extra={}))
+    assert personal == {"targetType": "linkedin"}
