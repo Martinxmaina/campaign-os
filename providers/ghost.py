@@ -259,9 +259,13 @@ class GhostProvider(SocialProvider):
         base_obj = {
             "title": title,
             "html": body_html,
-            "custom_excerpt": subtitle[:300] if subtitle else excerpt,
             "tags": [{"name": "AfCEN"}],
         }
+        # Only set the excerpt (Ghost's "subtitle") when the author actually gave a
+        # subtitle. Forcing the body's opening as the excerpt made Ghost render a
+        # subtitle that duplicated the article; without it Ghost manages its own.
+        if subtitle:
+            base_obj["custom_excerpt"] = subtitle[:300]
         mode = content.extra.get("ghost_publish_as", "post")
         if mode == "newsletter":
             return self._publish_newsletter(base_obj, mode)
