@@ -130,7 +130,7 @@ class SocialAccount(models.Model):
         "mastodon": 500,
         "ghost": 100000,
         # Blotato add-on family
-        "blotato_twitter": 280,
+        "blotato_twitter": 25000,  # X Premium long-form (non-Premium X still enforces 280 server-side)
         "blotato_instagram": 2200,
         "blotato_facebook": 63206,
         "blotato_threads": 500,

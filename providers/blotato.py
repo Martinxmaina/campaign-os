@@ -276,4 +276,4 @@ class BlotatoLinkedInProvider(BlotatoProvider):
 class BlotatoTwitterProvider(BlotatoProvider):
     target_type = "twitter"
     _label = "X / Twitter (Blotato)"
-    _max_caption = 280
+    _max_caption = 25000  # X Premium long-form (non-Premium accounts still capped at 280 by X)
