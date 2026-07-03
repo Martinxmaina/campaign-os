@@ -674,6 +674,21 @@ def reconnect(request, workspace_id, account_id):
     if platform == PlatformCredential.Platform.MASTODON:
         return redirect("social_accounts:connect_mastodon", workspace_id=workspace_id)
 
+    # Blotato channels are authorized inside Blotato (no OAuth on our side, so
+    # get_auth_url is not implemented) — sending them through the standard OAuth
+    # reconnect 500s. Guide the user to reconnect in Blotato instead; publishing
+    # auto-heals the connection_status on the next successful send.
+    if platform.startswith("blotato"):
+        messages.info(
+            request,
+            "This channel is connected through Blotato, so reconnect it there: open "
+            "the Blotato dashboard (my.blotato.com) → Accounts → reconnect this "
+            f"{account.get_platform_display()} connection (re-do the login and, for a "
+            "company page, confirm you're still a page admin). It resumes publishing "
+            "automatically once reconnected — no further action needed here.",
+        )
+        return redirect("social_accounts:list", workspace_id=workspace_id)
+
     # Standard OAuth reconnect
     provider = _get_provider_for_platform(platform, request.org.id)
     _apply_analytics_scope_flag(provider, platform)
