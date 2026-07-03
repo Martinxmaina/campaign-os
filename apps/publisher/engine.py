@@ -65,6 +65,16 @@ def _is_auth_failure(exc: Exception) -> bool:
         return True
     if isinstance(exc, APIError):
         return exc.status_code in _AUTH_FAILURE_STATUSES
+    # Provider-agnostic: some APIs signal a dead connection with a NON-401 status
+    # rather than 401/403 — notably Blotato returns 422 code 5002 "Account
+    # connection has expired. Please reconnect your account." Match that so the
+    # account is flagged needs-reconnect instead of silently staying "Connected".
+    msg = str(getattr(exc, "message", "") or exc).lower()
+    if any(s in msg for s in (
+        "connection has expired", "connection expired",
+        "reconnect your account", "please reconnect", "5002",
+    )):
+        return True
     return False
 
 

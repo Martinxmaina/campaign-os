@@ -66,8 +66,15 @@ Shows all published/partially_published platform posts. Loaded via HTMX into #ta
                     <span class="text-stone-300">-</span>
                     {% endif %}
                 </td>
-                <td class="px-4 py-3 text-sm text-stone-600 max-w-xs truncate">
-                    {{ pp.post.title|default:pp.post.caption_snippet|default:"(no caption)" }}
+                <td class="px-4 py-3 text-sm text-stone-600 max-w-xs">
+                    <div class="truncate">{{ pp.post.title|default:pp.post.caption_snippet|default:"(no caption)" }}</div>
+                    {% if pp.status == 'failed' and pp.publish_error %}
+                    {# Surface the provider failure reason so triage isn't blind (Blotato 5002, char-limit, etc.). #}
+                    <div class="mt-1 flex items-start gap-1 text-[11px] leading-snug text-red-600" title="{{ pp.publish_error }}">
+                        <svg class="w-3 h-3 mt-px flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                        <span class="truncate">{{ pp.publish_error|truncatechars:140 }}</span>
+                    </div>
+                    {% endif %}
                 </td>
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-1.5">
