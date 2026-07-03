@@ -76,6 +76,34 @@ _OPENERS = re.compile(
     r"(?im)^\s*(?:furthermore|moreover|additionally|notably|importantly)[,]?\s+",
 )
 
+# Meta-preamble the model prepends to a caption ("Here is your LinkedIn post,
+# written in the AfCEN voice.") — strip the whole leading line + any fence after.
+_META_PREAMBLE = re.compile(
+    r"(?is)^\s*(?:sure[,!.]?\s*)?(?:here(?:['’]s| is)|below is|this is)\b[^\n]*?"
+    r"\b(?:post|caption|draft|version|copy|thread|tweet|write[- ]?up)\b[^\n]*\r?\n+",
+)
+
+# Markdown that must NOT reach a social caption (renders as literal * # ` on-platform).
+_MD_LINK = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)")          # [text](url) -> text (url)
+_MD_HR = re.compile(r"(?m)^[ \t]*([-*_])(?:[ \t]*\1){2,}[ \t]*$")     # --- *** ___ rules
+_MD_HEADER = re.compile(r"(?m)^[ \t]{0,3}#{1,6}[ \t]+")               # ## Heading -> Heading
+_MD_QUOTE = re.compile(r"(?m)^[ \t]{0,3}>[ \t]?")                     # > quote
+_MD_BOLD = re.compile(r"(\*\*|__)(?=\S)(.+?)(?<=\S)\1", re.S)         # **x** __x__ -> x
+_MD_ITALIC = re.compile(r"(?<![\w*_])([*_])(?=\S)([^*_\n]+?)(?<=\S)\1(?![\w*_])")  # *x* _x_ -> x
+_MD_CODE = re.compile(r"`([^`\n]+)`")                                # `x` -> x
+
+
+def _strip_markdown(text: str) -> str:
+    """Flatten markdown to plain text so it doesn't render as raw *, #, ` on social."""
+    text = _MD_LINK.sub(r"\1 (\2)", text)
+    text = _MD_HR.sub("", text)
+    text = _MD_HEADER.sub("", text)
+    text = _MD_QUOTE.sub("", text)
+    text = _MD_BOLD.sub(r"\2", text)     # ** before * so bold isn't eaten by italic
+    text = _MD_ITALIC.sub(r"\2", text)
+    text = _MD_CODE.sub(r"\1", text)
+    return text
+
 
 def _apply_word_swaps(text: str) -> str:
     for pat, repl in _WORD_SWAPS.items():
@@ -116,8 +144,10 @@ def deslop(text: str) -> str:
     if not text:
         return text
     # Structural (start-anchored) passes run ONLY on full plain text.
-    out = _PREAMBLE.sub("", text)
+    out = _META_PREAMBLE.sub("", text)   # "Here is your LinkedIn post, …" → gone
+    out = _PREAMBLE.sub("", out)
     out = _OPENERS.sub("", out)
+    out = _strip_markdown(out)           # **bold**/##/---/`code` → plain
     out = _deslop_inline(out)
     # Recapitalise a sentence whose leading clause we removed.
     out = re.sub(r"(^|[.!?]\s+)([a-z])", lambda m: m.group(1) + m.group(2).upper(), out)

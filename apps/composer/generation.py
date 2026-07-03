@@ -216,6 +216,12 @@ def _voice_system(voice_profile: dict, *, channel_label: str = "") -> str:
         "seamless', no 'In today's world', no hedging preambles, no emoji spam, "
         "no exclamation storms. Write plainly and specifically."
     )
+    lines.append(
+        "OUTPUT FORMAT: return ONLY the finished content itself. Never add a "
+        "preamble like 'Here is your post' or 'written in X's voice', never add "
+        "a sign-off or commentary, never wrap it in quotes, and never add '---' "
+        "separators."
+    )
     if channel_label:
         lines.append(f"You are writing for: {channel_label}.")
     return "\n\n".join(lines)
@@ -371,6 +377,8 @@ def draft_caption(
             f"promoting the article below.",
             f"It MUST contain the literal placeholder token {LINK_TOKEN} exactly once, "
             "where the link to the full article belongs. Do not write a real URL.",
+            "Plain text only — NO markdown (no **bold**, ## headings, --- rules, or "
+            "`backticks`) and NO preamble; output just the post.",
             f"TITLE: {title}",
             f"ARTICLE:\n{master_text[:4000]}",
         ]
