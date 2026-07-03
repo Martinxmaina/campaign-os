@@ -90,6 +90,76 @@ def _plain_text(html: str) -> str:
     return re.sub(r"\s+", " ", strip_tags(html or "")).strip()
 
 
+# Nexus Brief link token, shown to humans in the composer preview.
+_LINK_DISPLAY = "🔗 Nexus Brief link"
+
+# ponytail: regex allowlist sanitizer (ceiling — a real HTML parser would be
+# stricter, but the master_html we produce is model output shaped like a small
+# safe subset, and B renders it with |safe, so we hard-strip everything else).
+_ALLOWED_TAGS = {"p", "h2", "h3", "ul", "ol", "li", "strong", "em", "br", "a"}
+_TAG_RE = re.compile(r"<\s*(/?)\s*([a-zA-Z0-9]+)((?:[^>\"']|\"[^\"]*\"|'[^']*')*?)\s*/?\s*>")
+_HREF_RE = re.compile(r"""href\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))""", re.IGNORECASE)
+
+
+def _sanitize_html(html: str) -> str:
+    """Strip HTML down to a safe allowlist so B can render it with |safe.
+
+    Keeps only p,h2,h3,ul,ol,li,strong,em,br,a; drops every attribute except
+    href on <a> (and drops javascript: hrefs). Removes <script>/<style> blocks
+    and any on*= handlers. Regex-based (ponytail).
+    """
+    if not html:
+        return ""
+    # Drop whole <script>/<style> element bodies first.
+    html = re.sub(r"<\s*(script|style)\b[^>]*>.*?<\s*/\s*\1\s*>", "", html, flags=re.IGNORECASE | re.DOTALL)
+    # Also drop any orphan opening script/style tags with no close.
+    html = re.sub(r"<\s*/?\s*(script|style)\b[^>]*>", "", html, flags=re.IGNORECASE)
+
+    def _repl(m: re.Match) -> str:
+        closing = m.group(1) == "/"
+        tag = (m.group(2) or "").lower()
+        attrs = m.group(3) or ""
+        if tag not in _ALLOWED_TAGS:
+            return ""
+        if closing:
+            return f"</{tag}>"
+        if tag == "a":
+            href = _HREF_RE.search(attrs)
+            if href:
+                url = (href.group(2) or href.group(3) or href.group(4) or "").strip()
+                # Unescape HTML entities first so an entity-encoded scheme colon
+                # (e.g. javascript&#58;) can't slip past the scheme guard when the
+                # browser decodes it (master_html is rendered with |safe).
+                import html as _h
+                url = _h.unescape(url)
+                # Allowlist safe schemes: http(s), mailto, or relative/anchor.
+                if url and not re.match(r"^(https?:|mailto:|/|#|\.{0,2}/)", url, re.IGNORECASE):
+                    return "<a>"
+                if url:
+                    # Escape quotes to keep the attribute well-formed.
+                    safe_url = url.replace('"', "%22")
+                    return f'<a href="{safe_url}">'
+            return "<a>"
+        # br is void; everything else keeps its (now attribute-less) open tag.
+        return f"<{tag}>"
+
+    return _TAG_RE.sub(_repl, html)
+
+
+def word_char_stats(text: str, limit: int) -> dict:
+    """Count words (plain-text tokens, sans LINK_TOKEN + tags) and raw chars.
+
+    ``chars`` is the length of the raw caption exactly as it will dispatch
+    (LINK_TOKEN counted as-is — matches the platform char check). ``over`` is
+    chars > limit.
+    """
+    text = text or ""
+    plain = _plain_text(text).replace(LINK_TOKEN, " ")
+    words = len([t for t in plain.split() if t])
+    chars = len(text)
+    return {"words": words, "chars": chars, "limit": limit, "over": chars > limit}
+
+
 def _fallback_caption(title: str, master_text: str, limit: int) -> str:
     """Deterministic caption: title + first 2 sentences + token tail."""
     sentences = re.split(r"(?<=[.!?])\s+", master_text or "")
@@ -362,36 +432,18 @@ def _ensure_html(body: str) -> str:
     return "".join(f"<p>{_html.escape(p)}</p>" for p in paras) or "<p></p>"
 
 
-def generate_content(
-    *,
-    workspace,
-    user_prompt: str,
-    voice: str = "joseph",
-    channels: list | None = None,
-    history: list | None = None,
-) -> dict:
-    """Generate a grounded, voiced, de-slopped master piece from a chat prompt.
+def _generate_master(
+    *, workspace, user_prompt: str, voice: str, grounding: dict, history: list | None = None,
+) -> tuple[str, str, str]:
+    """Generate the master piece → (title, master_html, source).
 
-    Returns {"reply", "title", "master_html", "sources", "source"}.
-    ``channels`` (list of {"platform_label", ...}) is used only for the reply
-    copy. ``history`` is a list of {"role", "content"} prior turns for context.
-    NEVER raises.
+    ``master_html`` is deslopped AND sanitized to the safe subset. Shared by
+    generate_content (chat) and generate_campaign. NEVER raises.
     """
-    channels = channels or []
-    grounding = build_grounding(workspace, user_prompt)
-    sources = grounding.get("sources") or []
-    channel_names = [c.get("platform_label") for c in channels if c.get("platform_label")]
-
     if not deepseek_client.deepseek_available():
-        # No LLM configured: return a helpful, honest stub so the UI still works.
         title = user_prompt.strip()[:80] or "Untitled draft"
-        body = _ensure_html(user_prompt.strip())
-        reply = (
-            "DeepSeek isn't configured yet, so I've saved your prompt as a starting "
-            "draft. Once the DEEPSEEK_API_KEY is set I'll write the full piece."
-        )
-        return {"reply": reply, "title": title, "master_html": deslop_html(body),
-                "sources": sources, "source": "fallback"}
+        body = _sanitize_html(deslop_html(_ensure_html(user_prompt.strip())))
+        return title, body, "fallback"
 
     system = _voice_system(fetch_voice(voice))
     parts = [
@@ -416,19 +468,62 @@ def generate_content(
 
     raw = deepseek_client.chat(system, "\n\n".join(parts), max_tokens=1600)
     if not raw:
-        # Filtered or failed — degrade to a prompt-derived stub, never 500.
         title = user_prompt.strip()[:80] or "Untitled draft"
+        body = _sanitize_html(deslop_html(_ensure_html(user_prompt.strip())))
+        return title, body, "fallback"
+
+    title, body = _extract_title(raw)
+    master_html = _sanitize_html(deslop_html(_ensure_html(body)))
+    if not title:
+        title = deslop(_plain_text(master_html)).split(". ", 1)[0][:120] or "Untitled draft"
+    return title, master_html, "deepseek"
+
+
+def generate_content(
+    *,
+    workspace,
+    user_prompt: str,
+    voice: str = "joseph",
+    channels: list | None = None,
+    history: list | None = None,
+) -> dict:
+    """Generate a grounded, voiced, de-slopped master piece from a chat prompt.
+
+    Returns {"reply", "title", "master_html", "sources", "source"}.
+    ``channels`` (list of {"platform_label", ...}) is used only for the reply
+    copy. ``history`` is a list of {"role", "content"} prior turns for context.
+    NEVER raises.
+    """
+    channels = channels or []
+    grounding = build_grounding(workspace, user_prompt)
+    sources = grounding.get("sources") or []
+    channel_names = [c.get("platform_label") for c in channels if c.get("platform_label")]
+
+    if not deepseek_client.deepseek_available():
+        # No LLM configured: return a helpful, honest stub so the UI still works.
+        title, master_html, _ = _generate_master(
+            workspace=workspace, user_prompt=user_prompt, voice=voice,
+            grounding=grounding, history=history,
+        )
+        reply = (
+            "DeepSeek isn't configured yet, so I've saved your prompt as a starting "
+            "draft. Once the DEEPSEEK_API_KEY is set I'll write the full piece."
+        )
+        return {"reply": reply, "title": title, "master_html": master_html,
+                "sources": sources, "source": "fallback"}
+
+    title, master_html, source = _generate_master(
+        workspace=workspace, user_prompt=user_prompt, voice=voice,
+        grounding=grounding, history=history,
+    )
+    if source == "fallback":
+        # Model returned nothing — degrade to a prompt-derived stub, never 500.
         return {
             "reply": "I couldn't complete that draft (the model returned nothing — "
                      "it may have been content-filtered). Try rephrasing.",
-            "title": title, "master_html": deslop_html(_ensure_html(user_prompt.strip())),
+            "title": title, "master_html": master_html,
             "sources": sources, "source": "fallback",
         }
-
-    title, body = _extract_title(raw)
-    master_html = deslop_html(_ensure_html(body))
-    if not title:
-        title = deslop(_plain_text(master_html)).split(". ", 1)[0][:120] or "Untitled draft"
 
     where = ""
     if channel_names:
@@ -440,4 +535,100 @@ def generate_content(
         f"your channels.{where}"
     )
     return {"reply": reply, "title": title, "master_html": master_html,
-            "sources": sources, "source": "deepseek"}
+            "sources": sources, "source": source}
+
+
+# ---------------------------------------------------------------------------
+# Public: full campaign generation (master + per-channel variants + counts)
+# ---------------------------------------------------------------------------
+
+
+def generate_campaign(
+    *,
+    workspace,
+    user_prompt: str,
+    voice: str = "joseph",
+    channels: list | None = None,
+    history: list | None = None,
+) -> dict:
+    """Generate the master piece PLUS a per-channel variant for every selected
+    connected account. Returns the full SHARED DRAFT CONTRACT + reply + source.
+
+    ``channels`` = list of {"account_id","platform","platform_label",
+    "char_limit","is_ghost"} for the SELECTED connected accounts (ghost-first).
+    NEVER raises — per-channel failure degrades inside draft_caption.
+    """
+    channels = channels or []
+    grounding = build_grounding(workspace, user_prompt)
+    sources = grounding.get("sources") or []
+
+    title, master_html, source = _generate_master(
+        workspace=workspace, user_prompt=user_prompt, voice=voice,
+        grounding=grounding, history=history,
+    )
+    master_text = _plain_text(master_html)
+    master_words = len([t for t in master_text.split() if t])
+    master_read_min = max(1, round(master_words / 200))
+
+    variants: list[dict] = []
+    for ch in channels:
+        account_id = str(ch.get("account_id") or "")
+        platform = ch.get("platform") or ""
+        platform_label = ch.get("platform_label") or platform
+        char_limit = int(ch.get("char_limit") or 0)
+        is_ghost = bool(ch.get("is_ghost")) or platform == "ghost"
+        if is_ghost:
+            variants.append({
+                "account_id": account_id, "platform": platform,
+                "platform_label": platform_label, "is_ghost": True,
+                "caption": "", "caption_display": "",
+                "words": master_words, "chars": len(master_text),
+                "limit": char_limit, "over": False,
+            })
+            continue
+        caption, _src = draft_caption(
+            workspace=workspace, title=title, master_text=master_text,
+            platform=platform, platform_label=platform_label,
+            char_limit=char_limit, voice=voice, grounding=grounding,
+        )
+        stats = word_char_stats(caption, char_limit)
+        variants.append({
+            "account_id": account_id, "platform": platform,
+            "platform_label": platform_label, "is_ghost": False,
+            "caption": caption,
+            "caption_display": caption.replace(LINK_TOKEN, _LINK_DISPLAY),
+            "words": stats["words"], "chars": stats["chars"],
+            "limit": stats["limit"], "over": stats["over"],
+        })
+
+    channel_names = [v["platform_label"] for v in variants if v.get("platform_label")]
+    if source == "fallback" and not deepseek_client.deepseek_available():
+        reply = (
+            "DeepSeek isn't configured yet, so I've drafted from your prompt. "
+            "Once the DEEPSEEK_API_KEY is set I'll write the full piece."
+        )
+    elif source == "fallback":
+        reply = (
+            "I couldn't complete that draft (the model returned nothing — it may "
+            "have been content-filtered). Try rephrasing."
+        )
+    else:
+        where = ""
+        if channel_names:
+            where = " Drafted for " + ", ".join(channel_names[:6]) + "."
+        src_note = f" Grounded in {len(sources)} source(s)." if sources else ""
+        reply = (
+            f"Here's a draft: “{title}”.{src_note}{where} Review it below — tell me "
+            f"what to change, or hit Use this to open it in the composer and publish."
+        )
+
+    return {
+        "reply": reply,
+        "source": source,
+        "title": title,
+        "master_html": master_html,
+        "master_words": master_words,
+        "master_read_min": master_read_min,
+        "sources": sources,
+        "variants": variants,
+    }

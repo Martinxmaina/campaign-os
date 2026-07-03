@@ -134,9 +134,15 @@ def chat_send(request, workspace_id):
     # Persist the user's turn.
     ContentChatMessage.objects.create(chat=chat, role="user", content=message)
 
-    # Build channel meta for the reply copy + prior-turn history for context.
+    # Build channel meta (SHARED DRAFT CONTRACT input) + prior-turn history.
     channels_meta = [
-        {"platform_label": acc.get_platform_display(), "platform": acc.platform, "id": str(acc.id)}
+        {
+            "account_id": str(acc.id),
+            "platform": acc.platform,
+            "platform_label": acc.get_platform_display(),
+            "char_limit": acc.char_limit,
+            "is_ghost": acc.platform == "ghost",
+        }
         for acc in _resolve_channels(workspace, channels_csv)
     ]
     history = [
@@ -145,8 +151,8 @@ def chat_send(request, workspace_id):
         if m.content
     ]
 
-    # generate_content NEVER raises.
-    result = generation.generate_content(
+    # generate_campaign NEVER raises.
+    result = generation.generate_campaign(
         workspace=workspace,
         user_prompt=message,
         voice=voice,
@@ -154,17 +160,23 @@ def chat_send(request, workspace_id):
         history=history,
     )
 
+    def _draft_payload():
+        return {
+            "title": result.get("title") or "",
+            "master_html": result.get("master_html") or "",
+            "master_words": result.get("master_words") or 0,
+            "master_read_min": result.get("master_read_min") or 1,
+            "sources": result.get("sources") or [],
+            "variants": result.get("variants") or [],
+        }
+
     assistant_msg = None
     try:
         assistant_msg = ContentChatMessage.objects.create(
             chat=chat,
             role="assistant",
             content=result.get("reply") or "",
-            draft={
-                "title": result.get("title") or "",
-                "master_html": result.get("master_html") or "",
-                "sources": result.get("sources") or [],
-            },
+            draft=_draft_payload(),
         )
         chat.save(update_fields=["updated_at"])
     except Exception:  # pragma: no cover - defensive DB guard
@@ -175,11 +187,7 @@ def chat_send(request, workspace_id):
                 chat=chat,
                 role="assistant",
                 content=result.get("reply") or "",
-                draft={
-                    "title": result.get("title") or "",
-                    "master_html": result.get("master_html") or "",
-                    "sources": result.get("sources") or [],
-                },
+                draft=_draft_payload(),
             )
 
     response = render(
@@ -219,6 +227,14 @@ def chat_use(request, workspace_id, chat_id, message_id):
         ai_brief={"sources": sources, "assets": [], "guardrails": []},
     )
 
+    # Per-channel captions from the SHARED DRAFT CONTRACT variants, keyed by
+    # account_id (robust for older messages that have no "variants").
+    variants_by_id = {
+        str(v.get("account_id")): v
+        for v in (draft.get("variants") or [])
+        if isinstance(v, dict) and v.get("account_id")
+    }
+
     # Build PlatformPosts for the connected accounts (channels csv if provided).
     channels_csv = request.POST.get("channels") or ""
     for acc in _resolve_channels(workspace, channels_csv):
@@ -232,8 +248,11 @@ def chat_use(request, workspace_id, chat_id, message_id):
             pp.platform_specific_caption = master_html
             pp.platform_extra = {"ghost_publish_as": "post"}
         else:
-            # Leave caption None → campaign composer's Draft-all fills per-channel.
-            pp.platform_specific_caption = None
+            variant = variants_by_id.get(str(acc.id))
+            caption = (variant or {}).get("caption") or ""
+            # Prefill from the variant so the composer opens fully drafted;
+            # fall back to None (Draft-all fills per-channel) for older messages.
+            pp.platform_specific_caption = caption or None
             pp.platform_extra = {}
         pp.save()
 

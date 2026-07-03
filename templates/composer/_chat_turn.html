@@ -30,8 +30,33 @@ No inline JS handlers (CSP); Alpine @click resolves to the #ai-studio aiStudio()
         </div>
         <div class="draft-body">
           <h3 class="draft-title">{{ msg.draft.title|default:"Untitled draft" }}</h3>
-          <p class="draft-preview">{{ msg.draft.master_html|striptags|truncatewords:55 }}</p>
+          <div class="draft-article">{{ msg.draft.master_html|safe }}</div>
+          <p class="draft-meta">{{ msg.draft.master_words }} words &middot; ~{{ msg.draft.master_read_min }} min read</p>
         </div>
+        {% if msg.draft.variants %}
+        <div class="draft-chans">
+          {% for v in msg.draft.variants %}
+          <div class="chan-row">
+            <span class="lg lg-{{ v.platform }}" aria-hidden="true">{{ v.platform_label|slice:":1"|upper }}</span>
+            <div class="chan-body">
+              <div class="chan-top">
+                <span class="chan-name">{{ v.platform_label }}</span>
+                {% if v.is_ghost %}
+                <span class="cnt ok">{{ v.words }} words &middot; ~{{ msg.draft.master_read_min }} min read</span>
+                {% else %}
+                <span class="cnt {% if v.over %}over{% else %}ok{% endif %}">{{ v.words }} words &middot; {{ v.chars }}/{{ v.limit }}</span>
+                {% endif %}
+              </div>
+              {% if v.is_ghost %}
+              <div class="chan-cap muted">Uses the article above</div>
+              {% elif v.caption_display %}
+              <div class="chan-cap">{{ v.caption_display }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
         {% if msg.draft.sources %}
         <div class="draft-src">
           {% for s in msg.draft.sources %}
@@ -43,11 +68,11 @@ No inline JS handlers (CSP); Alpine @click resolves to the #ai-studio aiStudio()
           <button type="button" class="btn-use"
                   hx-post="{% url 'composer:chat_use' workspace_id=workspace.id chat_id=chat.id message_id=msg.id %}"
                   hx-swap="none">
-            Use this &amp; publish
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            Publish
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
           </button>
           <button type="button" class="btn-ghost" @click="regen()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 2v6h6M21 12A9 9 0 0 0 6 5.3L3 8"/><path d="M21 22v-6h-6M3 12a9 9 0 0 0 15 6.7l3-2.7"/></svg>
             Regenerate
           </button>
           <span class="foot-sp"></span>

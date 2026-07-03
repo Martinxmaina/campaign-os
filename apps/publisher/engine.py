@@ -475,6 +475,37 @@ class PublishEngine:
         ):
             return
         platform_post_id = result.get("platform_post_id") or platform_post.platform_post_id
+
+        # Best-effort content enrichment so the agent-service classifier/ATLAS
+        # sees the published text and can route substantive posts to the wiki.
+        # Guard every attribute lookup — a missing field must never raise here.
+        title = ""
+        caption = ""
+        published_url = ""
+        try:
+            title = getattr(getattr(platform_post, "post", None), "title", "") or ""
+        except Exception:  # noqa: BLE001
+            title = ""
+        try:
+            caption = getattr(platform_post, "effective_caption", "") or ""
+        except Exception:  # noqa: BLE001
+            caption = ""
+        try:
+            published_url = (
+                result.get("url")
+                or getattr(platform_post, "published_url", "")
+                or ""
+            )
+        except Exception:  # noqa: BLE001
+            published_url = ""
+        try:
+            from django.utils.html import strip_tags
+
+            plain_caption = strip_tags(caption)[:6000]
+        except Exception:  # noqa: BLE001
+            plain_caption = (caption or "")[:6000]
+        markdown = f"# {title}\n\n{plain_caption}\n\n{published_url}"
+
         try:
             post_to_ingest(
                 source_type="webhook",
@@ -484,6 +515,10 @@ class PublishEngine:
                     "internal_post_id": str(platform_post.id),
                     "platform": platform_post.social_account.platform,
                     "status": platform_post.status,
+                    "title": title,
+                    "caption": caption,
+                    "published_url": published_url,
+                    "markdown": markdown,
                 },
                 dedupe_key=platform_post_id or str(platform_post.id),
             )

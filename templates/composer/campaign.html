@@ -254,12 +254,12 @@
                     <button type="button" :class="{ 'on': ghostMode[accId] === 'newsletter' }" @click="ghostMode[accId] = 'newsletter'">Newsletter</button>
                   </span>
                   <input type="hidden" :name="'ghost_publish_as_' + accId" :value="ghostMode[accId] || 'post'">
-                  <span class="count ok" x-text="'~' + readMins + ' min read'"></span>
+                  <span class="count ok" x-text="masterWords.toLocaleString() + ' words · ~' + readMins + ' min read'"></span>
                 </span>
               </template>
               <template x-if="!meta(accId).is_ghost">
                 <span class="count" :class="{ 'ok': (variants[accId] || '').length <= meta(accId).limit }"
-                      x-text="(variants[accId] || '').length.toLocaleString() + ' / ' + (meta(accId).limit || 0).toLocaleString()"></span>
+                      x-text="wordCount(variants[accId]).toLocaleString() + ' words · ' + (variants[accId] || '').length.toLocaleString() + ' / ' + (meta(accId).limit || 0).toLocaleString()"></span>
               </template>
               <span class="sp"></span>
               <button type="button" class="mini" x-show="!meta(accId).is_ghost" :disabled="drafting !== null"
@@ -337,9 +337,16 @@ function campaignApp() {
             d.innerHTML = this.masterHtml;
             return (d.textContent || '').trim();
         },
+        get masterWords() {
+            return this.masterPlain.split(/\s+/).filter(Boolean).length;
+        },
         get readMins() {
-            var words = this.masterPlain.split(/\s+/).filter(Boolean).length;
-            return Math.max(1, Math.round(words / 200));
+            return Math.max(1, Math.round(this.masterWords / 200));
+        },
+        wordCount(s) {
+            // Strip the [NEXUS BRIEF LINK] token so counts match the AI Studio
+            // counter (generation.word_char_stats strips it too).
+            return (s || '').split('[NEXUS BRIEF LINK]').join(' ').split(/\s+/).filter(Boolean).length;
         },
 
         init() {
