@@ -41,6 +41,13 @@ JOSEPH_APPROVER_EMAIL = env("JOSEPH_APPROVER_EMAIL")
 BLOTATO_API_KEY = env("BLOTATO_API_KEY", default="")
 BLOTATO_API_BASE = env("BLOTATO_API_BASE", default="https://backend.blotato.com/v2")
 BLOTATO_PUBLISH_TIMEOUT = env.int("BLOTATO_PUBLISH_TIMEOUT", default=30)  # inline poll budget (s)
+
+# TWG → Campaign OS meeting webhook (apps.twg). Shared HMAC secret must match
+# the TWG emitter's CAMPAIGN_OS_WEBHOOK_SECRET; empty ⇒ receiver fails closed
+# (403), which is also the off switch until go-live. Drafts land in the
+# workspace named by TWG_INGEST_WORKSPACE_ID and route to JOSEPH_APPROVER_EMAIL.
+TWG_WEBHOOK_SECRET = env("TWG_WEBHOOK_SECRET", default="")
+TWG_INGEST_WORKSPACE_ID = env("TWG_INGEST_WORKSPACE_ID", default="")
 BLOTATO_POLL_INTERVAL = env.int("BLOTATO_POLL_INTERVAL", default=2)  # seconds between polls
 
 # Application definition
@@ -99,6 +106,7 @@ LOCAL_APPS = [
     "apps.outreach",
     "apps.decks",
     "apps.home",
+    "apps.twg",
     "theme",
 ]
 

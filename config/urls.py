@@ -40,6 +40,9 @@ urlpatterns = [
     path("workspace/<uuid:workspace_id>/inbox/", include("apps.inbox.urls")),
     path("workspace/<uuid:workspace_id>/analytics/", include("apps.analytics.urls")),
     path("webhooks/", include("apps.inbox.webhook_urls")),
+    # TWG → Campaign OS meeting ingest (HMAC webhook). Exact contract path
+    # /api/ingest/twg-meeting (no trailing slash).
+    path("api/ingest/", include("apps.twg.urls")),
     # Agent API (Phase 2) — programmatic access for external AI agents.
     # Authenticated via scoped bearer tokens issued from the Organization
     # → API Keys page. OpenAPI docs at /api/v1/docs. ``agent_api.urls``
