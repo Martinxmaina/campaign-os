@@ -127,10 +127,9 @@ def _sync_platform_posts(request, post, workspace, initial_status=None):
             }
 
         elif account.platform == "ghost":
-            # Blog post (web) vs Newsletter (email to members). Flows to the Ghost
-            # provider via extra["ghost_publish_as"] (the engine merges platform_extra).
-            mode = request.POST.get(f"ghost_publish_as_{acc_id}", "post")
-            pp.platform_extra = {"ghost_publish_as": "newsletter" if mode == "newsletter" else "post"}
+            # Every Ghost update = public blog post + teaser email to subscribers
+            # (fixed policy; the provider ignores any mode). No newsletter choice.
+            pp.platform_extra = {"ghost_publish_as": "post"}
 
         pp.save()
 

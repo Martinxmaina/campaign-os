@@ -1,12 +1,15 @@
 """Ghost (Nexus Brief) provider — publish to a Ghost site via the Admin API.
 
 Auth is a single Admin API key (no per-user OAuth); a fresh JWT is signed per
-request. Publishes human-authored content as a web Post (default) or an
-email-only Newsletter (``extra['ghost_publish_as'] == 'newsletter'``).
+request. Every update publishes as a PUBLIC web Post (the full article on the
+site) and then notifies subscribers with a short TEASER email that links back to
+it — never the full article by email (Joseph's policy, 2026-07). The old
+post/newsletter toggle is retired.
 """
 from __future__ import annotations
 
 import html as _html
+import logging
 import re as _re
 from datetime import datetime
 
@@ -25,6 +28,8 @@ from .types import (
     PublishContent,
     PublishResult,
 )
+
+logger = logging.getLogger(__name__)
 
 _TIMEOUT = 20.0
 _HEADERS_VERSION = "v5.0"
@@ -330,13 +335,24 @@ class GhostProvider(SocialProvider):
         # subtitle that duplicated the article; without it Ghost manages its own.
         if subtitle:
             base_obj["custom_excerpt"] = subtitle[:300]
-        mode = content.extra.get("ghost_publish_as", "post")
-        if mode == "newsletter":
-            return self._publish_newsletter(base_obj, mode)
-        return self._publish_web(base_obj, mode)
 
-    def _publish_web(self, base_obj: dict, mode: str) -> PublishResult:
-        """One-step web Post: create directly as published."""
+        # Policy: publish the full article as a PUBLIC web post, then notify
+        # subscribers with a TEASER email linking back to it. The web post URL is
+        # the authoritative return (that's what [NEXUS BRIEF LINK] resolves to).
+        result = self._publish_web(base_obj)
+        teaser = subtitle or excerpt or title
+        try:
+            email_id = self._send_teaser_email(
+                title=title, teaser_text=teaser, article_url=result.url or ""
+            )
+            if email_id:
+                result.extra["teaser_email_post_id"] = email_id
+        except Exception as e:  # noqa: BLE001 — article is already live; don't fail the publish
+            logger.warning("Ghost teaser email failed (article live at %s): %s", result.url, e)
+        return result
+
+    def _publish_web(self, base_obj: dict) -> PublishResult:
+        """One-step PUBLIC web Post (full article on the site)."""
         url = f"{self._base()}/ghost/api/admin/posts/?source=html"
         resp = httpx.post(url, headers=self._auth_headers(),
                           json={"posts": [{**base_obj, "status": "published"}]}, timeout=_TIMEOUT)
@@ -344,55 +360,52 @@ class GhostProvider(SocialProvider):
             raise PublishError(f"Ghost publish failed ({resp.status_code}): {resp.text[:300]}")
         post = resp.json().get("posts", [{}])[0]
         return PublishResult(platform_post_id=post.get("id", ""), url=post.get("url"),
-                             extra={"ghost_publish_as": mode})
+                             extra={"ghost_publish_as": "post"})
 
-    def _publish_newsletter(self, base_obj: dict, mode: str) -> PublishResult:
-        """Two-step email-only send (docs/ghost.md §4.1-4.2): the newsletter
-        relation must exist at draft creation, so create the draft WITH the
-        newsletter slug in the URL, then PUT it to published. A one-step publish
-        risks ``500 does not have a newsletter relation`` / no email sent."""
+    def _default_newsletter_slug(self):
+        """Configured newsletter slug, else the site's default (oldest) one."""
         slug = self.credentials.get("newsletter_slug")
+        if slug:
+            return slug
+        try:
+            nr = httpx.get(
+                f"{self._base()}/ghost/api/admin/newsletters/?limit=1&order=created_at%20asc",
+                headers=self._auth_headers(), timeout=_TIMEOUT,
+            )
+            if nr.status_code == 200:
+                return ((nr.json().get("newsletters") or [{}])[0]).get("slug")
+        except Exception:  # noqa: BLE001
+            return None
+        return None
+
+    def _send_teaser_email(self, *, title: str, teaser_text: str, article_url: str) -> str:
+        """Email subscribers a short TEASER that links to the public article.
+
+        Sent as an email-only Ghost post (never appears on the site). Two-step
+        create-then-publish so the newsletter relation attaches (docs/ghost.md §4);
+        the emailed body is the teaser + a 'read on site' link, NOT the article."""
+        slug = self._default_newsletter_slug()
         if not slug:
-            # No configured slug → use the site's default (oldest) newsletter so
-            # "send as newsletter" works out of the box.
-            try:
-                nr = httpx.get(
-                    f"{self._base()}/ghost/api/admin/newsletters/?limit=1&order=created_at%20asc",
-                    headers=self._auth_headers(),
-                    timeout=_TIMEOUT,
-                )
-                if nr.status_code == 200:
-                    slug = ((nr.json().get("newsletters") or [{}])[0]).get("slug")
-            except Exception:  # noqa: BLE001 — fall through to the clear error below
-                slug = None
-        if not slug:
-            raise PublishError("Newsletter publish needs a newsletter (none found on the Ghost site)")
+            raise PublishError("no newsletter on the Ghost site to notify subscribers")
+        teaser_html = (
+            f"<p>{_html.escape(teaser_text)}</p>"
+            f'<p><a href="{article_url}">Read the full brief →</a></p>'
+        )
         base = self._base()
         nl = f"newsletter={slug}&source=html"
-
-        # Step 1: create draft with the newsletter relation attached.
-        draft_resp = httpx.post(
-            f"{base}/ghost/api/admin/posts/?{nl}",
-            headers=self._auth_headers(),
-            json={"posts": [{**base_obj, "status": "draft", "email_only": True}]},
-            timeout=_TIMEOUT,
-        )
-        if draft_resp.status_code not in (200, 201):
-            raise PublishError(f"Ghost draft failed ({draft_resp.status_code}): {draft_resp.text[:300]}")
-        draft = draft_resp.json().get("posts", [{}])[0]
-        post_id, updated_at = draft.get("id", ""), draft.get("updated_at")
-        if not post_id:
-            raise PublishError("Ghost draft returned no post id")
-
-        # Step 2: publish the draft as email-only (Ghost requires the prior updated_at).
-        pub_resp = httpx.put(
-            f"{base}/ghost/api/admin/posts/{post_id}/?{nl}",
-            headers=self._auth_headers(),
-            json={"posts": [{"updated_at": updated_at, "status": "published", "email_only": True}]},
-            timeout=_TIMEOUT,
-        )
-        if pub_resp.status_code not in (200, 201):
-            raise PublishError(f"Ghost email publish failed ({pub_resp.status_code}): {pub_resp.text[:300]}")
-        post = pub_resp.json().get("posts", [{}])[0]
-        return PublishResult(platform_post_id=post.get("id", post_id), url=post.get("url"),
-                             extra={"ghost_publish_as": mode})
+        draft = {"title": title, "html": teaser_html, "tags": [{"name": "AfCEN"}],
+                 "status": "draft", "email_only": True}
+        dr = httpx.post(f"{base}/ghost/api/admin/posts/?{nl}", headers=self._auth_headers(),
+                        json={"posts": [draft]}, timeout=_TIMEOUT)
+        if dr.status_code not in (200, 201):
+            raise PublishError(f"teaser draft failed ({dr.status_code}): {dr.text[:200]}")
+        d = dr.json().get("posts", [{}])[0]
+        pid, updated_at = d.get("id", ""), d.get("updated_at")
+        if not pid:
+            raise PublishError("teaser draft returned no id")
+        pr = httpx.put(f"{base}/ghost/api/admin/posts/{pid}/?{nl}", headers=self._auth_headers(),
+                       json={"posts": [{"updated_at": updated_at, "status": "published", "email_only": True}]},
+                       timeout=_TIMEOUT)
+        if pr.status_code not in (200, 201):
+            raise PublishError(f"teaser email publish failed ({pr.status_code}): {pr.text[:200]}")
+        return (pr.json().get("posts", [{}])[0]).get("id", pid)

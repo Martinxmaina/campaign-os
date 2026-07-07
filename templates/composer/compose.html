@@ -826,21 +826,9 @@
                              social channels keep the plain textarea below. -->
                         <template x-if="charLimits[accId]?.platform === 'ghost'">
                             <div data-ghost-rich-editor="1">
-                                {# Publish target: web blog post vs email newsletter (to members). #}
-                                <label class="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Publish as</label>
-                                <div class="flex gap-2 mb-3" x-data="{ ga: (platformExtras[accId]?.ghost_publish_as) || 'post' }">
-                                    <input type="hidden" :name="'ghost_publish_as_' + accId" :value="ga">
-                                    <button type="button" @click="ga='post'"
-                                            class="flex-1 text-xs font-medium px-3 py-2.5 rounded-lg border transition-all cursor-pointer"
-                                            :class="ga==='post' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300'">
-                                        Blog post
-                                    </button>
-                                    <button type="button" @click="ga='newsletter'"
-                                            class="flex-1 text-xs font-medium px-3 py-2.5 rounded-lg border transition-all cursor-pointer"
-                                            :class="ga==='newsletter' ? 'border-orange-500 bg-orange-50 text-orange-700' : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300'">
-                                        Newsletter (email members)
-                                    </button>
-                                </div>
+                                {# Fixed policy: public blog post + teaser email to subscribers. #}
+                                <input type="hidden" :name="'ghost_publish_as_' + accId" value="post">
+                                <p class="text-[11px] text-stone-400 mb-3">Publishes as a blog post + a teaser email to subscribers (drives readers to the site).</p>
                                 {# ponytail: single base subtitle, Ghost only #}
                                 <label class="block text-[11px] font-semibold text-stone-400 uppercase tracking-wider mb-1">Subtitle</label>
                                 <input type="text" name="subtitle" x-model="subtitle" @input="debouncedPreviewUpdate()" placeholder="Subtitle / excerpt (optional)…" class="w-full text-sm px-3 py-2 rounded-lg border border-stone-200 bg-white outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100 transition-all mb-3">

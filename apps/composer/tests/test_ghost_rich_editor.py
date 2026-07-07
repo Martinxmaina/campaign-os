@@ -10,6 +10,7 @@ Two layers are covered:
    HTML to the page so the contenteditable can re-hydrate.
 """
 import httpx
+import pytest
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -28,6 +29,13 @@ CREDS = {"admin_api_key": "id123:" + "ab" * 32, "base_url": "https://demo.ghost.
 
 def _provider():
     return GhostProvider(credentials=dict(CREDS))
+
+
+@pytest.fixture(autouse=True)
+def _stub_teaser_email(monkeypatch):
+    """publish_post now also emails subscribers a teaser; stub it so these tests
+    stay focused on the web-post payload. Teaser behaviour → test_ghost_teaser.py."""
+    monkeypatch.setattr(GhostProvider, "_send_teaser_email", lambda self, **kw: "stub-id")
 
 
 # ── Provider: HTML body is published verbatim ────────────────────────────────

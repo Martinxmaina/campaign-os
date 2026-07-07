@@ -249,11 +249,8 @@
             <div class="gen-foot">
               <template x-if="meta(accId).is_ghost">
                 <span style="display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap">
-                  <span class="toggle">
-                    <button type="button" :class="{ 'on': ghostMode[accId] !== 'newsletter' }" @click="ghostMode[accId] = 'post'">Blog post</button>
-                    <button type="button" :class="{ 'on': ghostMode[accId] === 'newsletter' }" @click="ghostMode[accId] = 'newsletter'">Newsletter</button>
-                  </span>
-                  <input type="hidden" :name="'ghost_publish_as_' + accId" :value="ghostMode[accId] || 'post'">
+                  <input type="hidden" :name="'ghost_publish_as_' + accId" value="post">
+                  <span class="hint">Blog post + teaser email to subscribers</span>
                   <span class="count ok" x-text="masterWords.toLocaleString() + ' words · ~' + readMins + ' min read'"></span>
                 </span>
               </template>
