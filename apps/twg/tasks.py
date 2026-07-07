@@ -1,11 +1,17 @@
-"""Process an inbound TWG meeting into per-channel drafts + one review email.
+"""Process an inbound TWG meeting via HERALD.
 
 Runs off the webhook (the row is already persisted, so a failure here never
-loses the meeting — it can be re-queued). Flow: build a public-safe brief →
-create a DRAFT Post with a PlatformPost per connected LinkedIn/X/Instagram
-channel → draft each channel's caption in Joseph's voice → best-effort
-compliance check → assign the whole bundle to Joseph via the review-email flow.
-Nothing auto-publishes.
+loses the meeting — it can be re-queued). Flow: HERALD curates the public-safe
+payload into a content plan (understand → curate → decide) → create a Post with
+the curated per-channel drafts (incl. the Ghost Nexus Brief) → route on HERALD's
+decision:
+
+  publish → schedule_now() → the publish engine gates + dispatches, Ghost-first,
+            so [NEXUS BRIEF LINK] resolves for the social posts.
+  hold    → one bundled review email to Joseph (human decides).
+  none    → nothing worth posting; record and stop.
+
+The authoritative compliance gate still runs at publish (engine._dispatch_to_provider).
 """
 
 from __future__ import annotations
@@ -18,13 +24,9 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-# The contract sends LinkedIn recap + X thread + IG caption. Draft for connected
-# accounts in those families (native or Blotato-backed); skip others (e.g. Ghost).
-_CHANNEL_FAMILIES = ("linkedin", "twitter", "instagram")
-
 
 def _build_brief(payload: dict) -> str:
-    """Compose the public-safe master text the drafter rewrites per channel."""
+    """Compose the public-safe master text (kept as the Post's base caption)."""
 
     def _lines(items):
         return "\n".join(f"- {x}" for x in (items or []) if str(x).strip())
@@ -55,21 +57,27 @@ def _resolve_workspace():
     return Workspace.objects.filter(id=ws_id).first()
 
 
+def _append_hashtags(caption: str, hashtags) -> str:
+    tags = [str(t).lstrip("#") for t in (hashtags or []) if str(t).strip()]
+    if not tags:
+        return caption
+    return caption.rstrip() + "\n\n" + " ".join("#" + t for t in tags)
+
+
 @shared_task
 def process_twg_meeting(event_id: str) -> str:
     from apps.approvals.assignment_service import assign_for_review
-    from apps.composer.generation import draft_caption
     from apps.composer.models import PlatformPost, Post
-    from apps.publisher.gate_client import GateError, check_gate
+    from apps.composer.views import schedule_now
     from apps.social_accounts.models import SocialAccount
 
+    from .herald import curate, herald_platform
     from .models import TwgMeetingEvent
 
     event = TwgMeetingEvent.objects.filter(id=event_id).first()
     if event is None:
         logger.warning("process_twg_meeting: event %s not found", event_id)
         return "missing"
-    # Idempotent: only the RECEIVED state proceeds; a re-fire is a no-op.
     if event.status != TwgMeetingEvent.Status.RECEIVED:
         return f"noop:{event.status}"
 
@@ -82,88 +90,77 @@ def process_twg_meeting(event_id: str) -> str:
         if workspace is None:
             raise RuntimeError("TWG_INGEST_WORKSPACE_ID unset or workspace not found")
 
-        joseph_email = (getattr(settings, "JOSEPH_APPROVER_EMAIL", "") or "").strip()
-        if not joseph_email:
-            raise RuntimeError("JOSEPH_APPROVER_EMAIL unset — cannot route review email")
+        # Connected channels grouped by HERALD platform (first per platform).
+        accounts = {}
+        for a in SocialAccount.objects.filter(
+            workspace=workspace, connection_status=SocialAccount.ConnectionStatus.CONNECTED
+        ):
+            hp = herald_platform(a.platform)
+            if hp and hp not in accounts:
+                accounts[hp] = a
 
-        master_text = _build_brief(payload)
-        brief = {
-            "source": "twg",
-            "meeting_id": event.meeting_id,
-            "minutes_url": payload.get("minutes_url", ""),
-            "guardrails": [
-                "Public-safe TWG summary only — never source from raw minutes or transcripts.",
-                "Do not imply decisions beyond those explicitly listed.",
-                "Name only the institutions provided.",
-                "WAIIS Secretariat voice; status-accurate language.",
-            ],
-        }
+        plan = curate(payload, sorted(accounts))
+        decision = plan.get("decision")
+
+        if decision == "none":
+            event.status = TwgMeetingEvent.Status.SKIPPED
+            event.error = (plan.get("reason") or "nothing post-worthy")[:2000]
+            event.processed_at = timezone.now()
+            event.save(update_fields=["status", "error", "processed_at"])
+            return "none"
 
         post = Post.objects.create(
             workspace=workspace,
             title=(payload.get("meeting_title", "") or "TWG meeting")[:255],
-            caption=master_text,
-            ai_brief=brief,
+            caption=_build_brief(payload),
+            ai_brief={
+                "source": "twg",
+                "meeting_id": event.meeting_id,
+                "minutes_url": payload.get("minutes_url", ""),
+                "herald_decision": decision,
+                "herald_reason": plan.get("reason", ""),
+            },
             tags=["twg", event.meeting_id],
         )
 
-        accounts = [
-            a
-            for a in SocialAccount.objects.filter(
-                workspace=workspace,
-                connection_status=SocialAccount.ConnectionStatus.CONNECTED,
+        created = 0
+        for p in plan.get("posts", []):
+            acct = accounts.get((p.get("platform") or "").lower())
+            if not acct:
+                continue
+            caption = p.get("caption") or ""
+            # Ghost is long-form; the others get their hashtags appended.
+            if herald_platform(acct.platform) != "ghost":
+                caption = _append_hashtags(caption, p.get("hashtags"))
+            PlatformPost.objects.create(
+                post=post,
+                social_account=acct,
+                status=PlatformPost.Status.DRAFT,
+                platform_specific_caption=caption,
             )
-            if any(fam in a.platform for fam in _CHANNEL_FAMILIES)
-        ]
+            created += 1
 
-        gate_notes = []
-        for account in accounts:
-            pp = PlatformPost.objects.create(
-                post=post, social_account=account, status=PlatformPost.Status.DRAFT
-            )
-            caption, _src = draft_caption(
-                workspace=workspace,
-                title=post.title,
-                master_text=master_text,
-                platform=account.platform,
-                platform_label=account.get_platform_display(),
-                char_limit=account.char_limit,
-                brief=brief,
-                voice="joseph",
-            )
-            pp.platform_specific_caption = caption
-            pp.save(update_fields=["platform_specific_caption"])
-
-            # Advisory pre-review compliance check. The authoritative gate runs
-            # at publish; here we only annotate so Joseph sees flags. Fail-safe:
-            # if agent-service is down we still route the drafts to review.
-            try:
-                verdict = check_gate(caption, track="waiis", content_type="social")
-                if verdict.get("verdict") not in ("pass", "approved"):
-                    gate_notes.append(
-                        f"{account.get_platform_display()}: {verdict.get('verdict')} "
-                        f"— {verdict.get('findings')}"
-                    )
-            except GateError as exc:
-                logger.warning("TWG gate check unavailable for %s: %s", account, exc)
-
-        if gate_notes:
-            post.internal_notes = "Compliance flags:\n" + "\n".join(gate_notes)
-            post.save(update_fields=["internal_notes", "updated_at"])
-
-        # One bundled review email to Joseph (no-login token flow).
-        assign_for_review(
-            post=post,
-            assigned_by=None,
-            reviewer_email=joseph_email,
-            reviewer_name="Joseph Nganga",
-        )
+        if created == 0:
+            raise RuntimeError("HERALD returned no posts matching a connected channel")
 
         event.post = post
+
+        if decision == "publish":
+            # Hand to the publish engine: it gates every child and dispatches
+            # Ghost-first, so [NEXUS BRIEF LINK] resolves for the social posts.
+            schedule_now(post)
+        else:  # hold → one bundled review email to Joseph
+            joseph = (getattr(settings, "JOSEPH_APPROVER_EMAIL", "") or "").strip()
+            if joseph:
+                assign_for_review(
+                    post=post, assigned_by=None,
+                    reviewer_email=joseph, reviewer_name="Joseph Nganga",
+                )
+
         event.status = TwgMeetingEvent.Status.DRAFTED
         event.processed_at = timezone.now()
         event.save(update_fields=["post", "status", "processed_at"])
-        return f"drafted:{post.id}"
+        return f"{decision}:{post.id}"
 
     except Exception as exc:  # noqa: BLE001 — persist the failure, never lose the event
         logger.exception("process_twg_meeting failed for %s", event_id)

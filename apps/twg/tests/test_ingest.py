@@ -142,46 +142,110 @@ def test_webhook_rejects_missing_meeting_id(client, settings):
 # --- drafting task ------------------------------------------------------------
 
 
-@pytest.mark.django_db
-def test_task_creates_bundle_and_routes_to_joseph(workspace, settings):
-    from apps.composer.models import Post
+def _accounts(workspace, platforms):
     from apps.social_accounts.models import SocialAccount
 
-    settings.TWG_INGEST_WORKSPACE_ID = str(workspace.id)
-    settings.JOSEPH_APPROVER_EMAIL = "joseph@africacen.org"
-
-    for i, platform in enumerate(["linkedin", "blotato_twitter", "ghost"]):
+    for i, platform in enumerate(platforms):
         SocialAccount.objects.create(
-            workspace=workspace,
-            platform=platform,
-            account_platform_id=f"acct-{i}",
+            workspace=workspace, platform=platform, account_platform_id=f"acct-{i}",
             account_name=f"{platform} acct",
             connection_status=SocialAccount.ConnectionStatus.CONNECTED,
         )
 
-    event = TwgMeetingEvent.objects.create(meeting_id="mtg-task-1", payload=PAYLOAD)
 
-    with patch("apps.composer.generation.draft_caption", return_value=("drafted caption", "deepseek")), \
-         patch("apps.publisher.gate_client.check_gate", return_value={"verdict": "pass"}), \
-         patch("apps.approvals.assignment_service.assign_for_review") as assign:
+@pytest.mark.django_db
+def test_task_publish_decision_creates_posts_and_schedules(workspace, settings):
+    settings.TWG_INGEST_WORKSPACE_ID = str(workspace.id)
+    _accounts(workspace, ["blotato_linkedin", "blotato_twitter", "ghost"])
+
+    plan = {
+        "decision": "publish",
+        "reason": "confirmed milestone",
+        "posts": [
+            {"platform": "linkedin", "caption": "LI recap [NEXUS BRIEF LINK]", "hashtags": ["WAIIS2026"]},
+            {"platform": "ghost", "caption": "Full brief body"},
+        ],
+        "excluded": [],
+    }
+    event = TwgMeetingEvent.objects.create(meeting_id="mtg-pub", payload=PAYLOAD)
+    with patch("apps.twg.herald.curate", return_value=plan), \
+         patch("apps.composer.views.schedule_now") as sched:
         from apps.twg.tasks import process_twg_meeting
-
         result = process_twg_meeting(str(event.id))
 
     event.refresh_from_db()
+    assert result.startswith("publish:")
     assert event.status == TwgMeetingEvent.Status.DRAFTED
-    assert result.startswith("drafted:")
+    pps = {pp.social_account.platform: pp for pp in event.post.platform_posts.all()}
+    assert set(pps) == {"blotato_linkedin", "ghost"}
+    assert "#WAIIS2026" in pps["blotato_linkedin"].platform_specific_caption  # hashtags appended
+    assert "#" not in pps["ghost"].platform_specific_caption  # ghost long-form, no hashtags
+    sched.assert_called_once()
 
-    post = event.post
-    assert post is not None
-    assert Post.objects.filter(id=post.id, workspace=workspace).exists()
-    # ghost is skipped; only linkedin + twitter get channel drafts
-    pps = list(post.platform_posts.all())
-    assert len(pps) == 2
-    assert all(pp.platform_specific_caption == "drafted caption" for pp in pps)
 
+@pytest.mark.django_db
+def test_task_hold_decision_emails_joseph(workspace, settings):
+    settings.TWG_INGEST_WORKSPACE_ID = str(workspace.id)
+    settings.JOSEPH_APPROVER_EMAIL = "joseph@africacen.org"
+    _accounts(workspace, ["blotato_linkedin"])
+    plan = {"decision": "hold", "reason": "ambiguous", "posts": [{"platform": "linkedin", "caption": "x"}], "excluded": []}
+    event = TwgMeetingEvent.objects.create(meeting_id="mtg-hold", payload=PAYLOAD)
+    with patch("apps.twg.herald.curate", return_value=plan), \
+         patch("apps.approvals.assignment_service.assign_for_review") as assign:
+        from apps.twg.tasks import process_twg_meeting
+        result = process_twg_meeting(str(event.id))
+    event.refresh_from_db()
+    assert result.startswith("hold:")
+    assert event.status == TwgMeetingEvent.Status.DRAFTED
     assign.assert_called_once()
     assert assign.call_args.kwargs["reviewer_email"] == "joseph@africacen.org"
+
+
+@pytest.mark.django_db
+def test_task_none_decision_skips(workspace, settings):
+    settings.TWG_INGEST_WORKSPACE_ID = str(workspace.id)
+    _accounts(workspace, ["blotato_linkedin"])
+    plan = {"decision": "none", "reason": "nothing post-worthy", "posts": [], "excluded": []}
+    event = TwgMeetingEvent.objects.create(meeting_id="mtg-none", payload=PAYLOAD)
+    with patch("apps.twg.herald.curate", return_value=plan):
+        from apps.twg.tasks import process_twg_meeting
+        result = process_twg_meeting(str(event.id))
+    event.refresh_from_db()
+    assert result == "none"
+    assert event.status == TwgMeetingEvent.Status.SKIPPED
+    assert event.post is None
+
+
+# --- HERALD curation (fail-safe) ---------------------------------------------
+
+
+@pytest.mark.django_db
+def test_curate_parses_json_response(settings):
+    from apps.twg import herald
+    resp = '```json\n{"decision":"publish","reason":"ok","posts":[{"platform":"linkedin","caption":"c"}]}\n```'
+    with patch("apps.twg.herald.deepseek_client.deepseek_available", return_value=True), \
+         patch("apps.twg.herald.deepseek_client.chat", return_value=resp):
+        out = herald.curate({"twg_pillar": "Agribusiness"}, ["linkedin"])
+    assert out["decision"] == "publish"
+    assert out["posts"][0]["platform"] == "linkedin"
+
+
+@pytest.mark.django_db
+def test_curate_failsafe_holds_on_bad_output(settings):
+    from apps.twg import herald
+    with patch("apps.twg.herald.deepseek_client.deepseek_available", return_value=True), \
+         patch("apps.twg.herald.deepseek_client.chat", return_value="sorry, no JSON here"):
+        out = herald.curate({"twg_pillar": "Energy"}, ["linkedin"])
+    assert out["decision"] == "hold"
+    assert out["posts"] == []
+
+
+@pytest.mark.django_db
+def test_curate_failsafe_when_engine_unavailable():
+    from apps.twg import herald
+    with patch("apps.twg.herald.deepseek_client.deepseek_available", return_value=False):
+        out = herald.curate({"twg_pillar": "Energy"}, ["linkedin"])
+    assert out["decision"] == "hold"
 
 
 @pytest.mark.django_db
