@@ -16,6 +16,8 @@
 
 ---
 
+> **Operating or taking over this system?** Start with the handover pack in [`docs/handover/`](docs/handover/README.md) — system overview, runbook, monitoring, known gaps, accounts register and credential-transfer procedure.
+
 ## What is Campaign OS?
 
 AfCEN is an African development & climate-infrastructure organisation that raises **philanthropic and bilateral grants**, **core operational funding**, **programme grants**, and **event sponsorship** (for WAIIS 2026). There is **no equity, no cap table, no token** — and several keywords are *existentially* banned from external communications because they would misrepresent AfCEN to funders like the AfDB, UNDP, Rockefeller, GEAPP, GIZ and Gates.
