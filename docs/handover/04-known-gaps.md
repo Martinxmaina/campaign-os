@@ -153,9 +153,10 @@ The branch has four commits that are not on `main` and therefore not covered by 
 All 46 CI runs on `main` (2026-06-10 to 2026-07-07) concluded `failure` (one cancelled). On the current code:
 - **Lint (ruff):** 302 errors, 238 auto-fixable with `ruff check --fix .`.
 - **Secret scan (gitleaks):** one false positive in `docs/superpowers/specs/2026-06-25-approval-by-email-design.md:52` (commit `97e6106`). Fix it by adding that finding's fingerprint to a `.gitleaksignore` file, or by rewording the line.
-- **Tests:** the 2 failures listed in [README.md](README.md).
+- **Type check (mypy):** 26 errors in 12 files (for example `apps/api/routers/reporting.py:152`).
+- **Tests (pytest):** the job never reaches pytest. `uv pip install --system -r requirements.txt` is refused because the runner's Python is "externally managed" (PEP 668). Fix by adding `--break-system-packages`, or by installing into a venv (`uv venv && uv pip install -r requirements.txt`, then run with `uv run`). Once it installs, expect the 2 test failures listed in [README.md](README.md). **The test suite has therefore never run in CI**; the passing counts quoted in older docs came from local runs.
 
-Because CI is always red, a real failure is indistinguishable from the usual noise, and CI gives no protection today. **Action:** get `main` green once (run `ruff check --fix . && ruff format .`, fix the remainder, fix the two tests, add the gitleaks ignore), then turn on branch protection that requires CI.
+Because CI is always red, a real failure is indistinguishable from the usual noise, and CI gives no protection today. **Action:** get `main` green once (fix the install step, run `ruff check --fix . && ruff format .` and fix the remainder, fix the mypy errors, fix the two tests, add the gitleaks ignore), then turn on branch protection that requires CI.
 
 ---
 

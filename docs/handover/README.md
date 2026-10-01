@@ -39,4 +39,4 @@ Both failures are test problems, not production problems:
 
 The README's figure of "1,380+ tests" is out of date.
 
-**GitHub CI is red, and has been on every run since the first one** (46 runs on `main`, 2026-06-10 to 2026-07-07). The causes are 302 lint errors, one gitleaks false positive and the two tests above. Details and the fix are in [04-known-gaps.md](04-known-gaps.md) G23.
+**GitHub CI is red, and has been on every run since the first one** (46 runs on `main`, 2026-06-10 to 2026-07-07). The causes are 302 lint errors, 26 type-check errors and one gitleaks false positive. The test job fails at dependency install before any test runs, so the suite has never run in CI. Details and the fix are in [04-known-gaps.md](04-known-gaps.md) G23.
