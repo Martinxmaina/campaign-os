@@ -1,6 +1,6 @@
 # Campaign OS — Handover Pack
 
-Prepared 2026-10-01 from a full read of this repository (`Martinxmaina/campaign-os`, branch state at commit `883dabc`, last code change 2026-07-03).
+Prepared 2026-10-01 from a full read of this repository (`Martinxmaina/campaign-os`, `main` at commit `883dabc`, last change on `main` 2026-07-03; one unmerged branch, `feature/twg-ingest`, has later work from 2026-07-06/07, see [04-known-gaps.md](04-known-gaps.md) G22).
 
 This pack hands the Campaign OS platform over to AfCEN. It is written for whoever takes over operating it, whether technical or not. Read the documents in order.
 
@@ -38,3 +38,5 @@ Both failures are test problems, not production problems:
 2. `tests/test_gate_media_parity.py::test_gated_post_with_media_publishes_text_only_hash`. The test needs a fixture image at `test_media/media_library/2026/06/shared.png`. `test_media/` is in `.gitignore`, so the file only exists on the original developer's laptop. On a fresh checkout the media download fails and the post stays `scheduled`.
 
 The README's figure of "1,380+ tests" is out of date.
+
+**GitHub CI is red, and has been on every run since the first one** (46 runs on `main`, 2026-06-10 to 2026-07-07). The causes are 302 lint errors, one gitleaks false positive and the two tests above. Details and the fix are in [04-known-gaps.md](04-known-gaps.md) G23.

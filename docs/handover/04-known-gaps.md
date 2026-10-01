@@ -29,7 +29,7 @@ Everything below was found by reading the code on 2026-10-01. Each item gives th
 - **Action:** rotate the Ghost Admin API key at handover regardless (see [06-credential-transfer.md](06-credential-transfer.md)).
 
 ### G5. The source code is in a personal GitHub account
-- The repo is `github.com/Martinxmaina/campaign-os`, a personal account, and all 81 commits are authored with a personal Gmail address.
+- The repo is `github.com/Martinxmaina/campaign-os`, a personal account, and the AfCEN-era commits (386 of 849) are authored with a personal Gmail address. The other commits are the upstream BrightBean history (453 by Jan Schmitz, plus 2 outside contributors) and 8 credited to Claude.
 - `SOURCE_REPO_URL` and the `/about/` page point to `https://github.com/africacen/campaign-os`. Whether that exists is **TO CONFIRM**.
 - **Action:** transfer the repository to an AfCEN-owned GitHub organisation. Make sure the AGPL source link on `/about/` points to a repository that exists and is public (the AGPL §13 obligation). Fill in the placeholder in `NOTICE` ("`<this fork's repository URL>`").
 
@@ -139,6 +139,23 @@ Everything below was found by reading the code on 2026-10-01. Each item gives th
 ### G21. Pinterest board picker calls a provider that was removed
 - `apps/composer/views.py:1435` (`pinterest_boards`) calls `get_provider("pinterest")`, which raises `ValueError`.
 - Pinterest, TikTok, Mastodon and direct Bluesky remain in database choices and some views, but their providers were deleted (`docs/ADR-002-upstream-pin.md`, Task 3).
+
+### G22. Unmerged work on branch `feature/twg-ingest` (2026-07-06/07)
+The branch has four commits that are not on `main` and therefore not covered by the rest of this pack:
+- `e7158c5`: a new app `apps/twg` with an HMAC-signed webhook `/api/ingest/twg-meeting`. It receives meeting records from an external "TWG" system and turns them into drafts routed to `JOSEPH_APPROVER_EMAIL`. It adds env vars `TWG_WEBHOOK_SECRET` and `TWG_INGEST_WORKSPACE_ID`, and a migration. With an empty secret the endpoint returns 403.
+- `39fc150`: retires the Ghost "Blog post vs Newsletter" toggle. Ghost posts become a public post plus a teaser email.
+- `a29e702`: HERALD prompt documents (`docs/herald-prompts/`).
+- `6e2cdc1`: wires the HERALD curate/decide contract into the TWG pipeline.
+
+**Action:** decide whether to merge, finish or drop this branch. Whether any of it is deployed to Railway (deploys are done with `railway up` from a working copy, so an unmerged branch can be live) is **TO CONFIRM**. Check the Railway deployment's commit against `main`. The TWG emitter system and the owner of its shared secret are also **TO CONFIRM**.
+
+### G23. CI has never passed on `main`
+All 46 CI runs on `main` (2026-06-10 to 2026-07-07) concluded `failure` (one cancelled). On the current code:
+- **Lint (ruff):** 302 errors, 238 auto-fixable with `ruff check --fix .`.
+- **Secret scan (gitleaks):** one false positive in `docs/superpowers/specs/2026-06-25-approval-by-email-design.md:52` (commit `97e6106`). Fix it by adding that finding's fingerprint to a `.gitleaksignore` file, or by rewording the line.
+- **Tests:** the 2 failures listed in [README.md](README.md).
+
+Because CI is always red, a real failure is indistinguishable from the usual noise, and CI gives no protection today. **Action:** get `main` green once (run `ruff check --fix . && ruff format .`, fix the remainder, fix the two tests, add the gitleaks ignore), then turn on branch protection that requires CI.
 
 ---
 

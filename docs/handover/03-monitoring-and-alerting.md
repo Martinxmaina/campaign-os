@@ -97,7 +97,7 @@ The notification engine (`apps/notifications/engine.py`) delivers to the **in-ap
 |---|---|---|
 | Copy of every post published with one-click **Send** | `martin.maina@africacen.org` (default of workspace setting `review.copy_email`) unless a workspace overrode it | Workspace settings → `review.copy_email` |
 | Railway deploy-failure and usage emails | The Railway account owner(s) (**TO CONFIRM**) | Railway → Account / Team settings |
-| GitHub CI failure emails | The person who pushed, and watchers of `Martinxmaina/campaign-os` | GitHub notification settings |
+| GitHub CI failure emails | The person who pushed, and watchers of `Martinxmaina/campaign-os`. CI fails on every run (gap G23), so these emails carry no signal until `main` is made green. | GitHub notification settings |
 | Sentry alerts (if configured) | **TO CONFIRM** | Sentry project → Alerts |
 | Blotato, Ghost, DeepSeek, Resend and Google account notices (expiry, billing, quota) | Whoever owns each account (see [05-accounts-and-access.md](05-accounts-and-access.md)) | Each provider's dashboard |
 | Agent-service breaker trips ("pause + page") | **TO CONFIRM.** That logic lives in agent-service, not in this repo. | agent-service config |

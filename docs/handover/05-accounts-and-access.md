@@ -24,7 +24,7 @@ No credentials appear in this document. See [06-credential-transfer.md](06-crede
 
 | # | Item | Purpose | Owner / login | AfCEN-controlled? | Billing | Evidence |
 |---|---|---|---|---|---|---|
-| R1 | GitHub `Martinxmaina/campaign-os` | This repository: the Campaign OS Django app | Personal GitHub user **Martinxmaina**. All 81 commits are authored as `martinnjoroge077@gmail.com`. | **No** (personal account) | GitHub free/personal plan assumed; Actions minutes billed to that account. **TO CONFIRM.** | `git remote -v`, `git log` |
+| R1 | GitHub `Martinxmaina/campaign-os` | This repository: the Campaign OS Django app | Personal GitHub user **Martinxmaina**. 849 commits in total: 453 upstream BrightBean (Jan Schmitz, March–June 2026), 386 AfCEN work authored as `martinnjoroge077@gmail.com`, 8 credited to Claude, 2 outside contributors. Branches: `main`, `feature/twg-ingest` (unmerged). | **No** (personal account) | GitHub free/personal plan assumed; Actions minutes billed to that account. **TO CONFIRM.** | `git remote -v`, `git log` |
 | R2 | GitHub `africacen/campaign-os` | Intended public AGPL source link | **TO CONFIRM** whether this org or repo exists | **TO CONFIRM** | — | `config/settings/base.py:17`, `templates/about.html:13` |
 | R3 | agent-service repository | FastAPI intelligence plane: gate, HERALD, wiki, brain | **TO CONFIRM.** Only a laptop path `/Users/macbook/Downloads/WAIIS/agent-service` is recorded. | **TO CONFIRM** | — | `docs/superpowers/plans/2026-06-12-tb1-joseph-voice-profile.md:9-11` |
 | R4 | `brightbeanxyz/brightbean-studio` | Upstream open-source project this was forked from (commit `3d56b44`) | Third party (BrightBean) | N/A: public upstream, no account needed | Free (AGPL-3.0) | `docs/ADR-002-upstream-pin.md` |
@@ -94,6 +94,7 @@ Mapping a custom AfCEN domain (for example `campaign.africacen.org`) in Railway 
 | S15 | **Firecrawl** (self-hosted, used by agent-service) | Web research for the wiki | See H3 | **TO CONFIRM** | See H3 | `docs/phase2.md` §3.4 |
 | S16 | **jsdelivr CDN** | Front-end libraries loaded in the browser | Public CDN | N/A | Free | `templates/base.html` |
 | S17 | BrightBean "Intelligence" SaaS | Inherited paid add-on. **Not used**; switched off because its env vars are unset. | — | — | None | `config/settings/base.py:507-517` |
+| S19 | "TWG" meeting system (external emitter) | Sends meeting records to `/api/ingest/twg-meeting`, signed with `TWG_WEBHOOK_SECRET`. **Only on unmerged branch `feature/twg-ingest`**; see gap G22. | **TO CONFIRM** | **TO CONFIRM** | **TO CONFIRM** | `apps/twg/` on that branch |
 | S18 | Claude Code (Anthropic) | AI coding assistant used during development (`.claude/` folder, `CLAUDE.md`) | Developer's own subscription | **TO CONFIRM** | Paid per seat. Not needed to run the system. | `.claude/`, `CLAUDE.md` |
 
 ### 4.1 The social media accounts themselves
@@ -166,6 +167,7 @@ To be completed together by the outgoing owner and AfCEN. Each line closes a **T
 - [ ] S8/S9: LinkedIn developer app and Company Page admins (at least two AfCEN staff)
 - [ ] S10/S11/S12: X and Meta developer apps and X Premium: exist? owner? billing?
 - [ ] S13/S14: Sentry and object storage: used? owner?
+- [ ] S19 / G22: is `feature/twg-ingest` deployed? TWG emitter owner and `TWG_WEBHOOK_SECRET` holder
 - [ ] §4.1: every connected social account listed with its AfCEN admins
 - [ ] DS3/DS4: Google Sheets owned by an AfCEN Drive / shared drive
 - [ ] DS5: storage confirmed persistent

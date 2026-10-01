@@ -69,6 +69,8 @@ There is **no automatic deployment from GitHub**:
 - CI (`.github/workflows/ci.yml`) only runs lint, typecheck, tests, a Docker build and a secret scan. It does not deploy.
 - The repo docs say deployment is done from a developer machine with the Railway CLI (`railway up`).
 - Whether the Railway services are also linked to the GitHub repo for auto-deploy is **TO CONFIRM** in Railway → service → Settings → Source.
+- Because `railway up` uploads whatever is in the local working copy, production may be running code that is not on `main`. The unmerged `feature/twg-ingest` branch is one example (gap G22). Compare the commit shown on the live Railway deployment with `main` before the first deploy, or you may roll production back without meaning to.
+- **CI is red on every run** (gap G23). Until that is fixed, "wait for CI to pass" in §3.2 means "check that no *new* failures appear".
 
 ### 3.2 Deploy steps
 

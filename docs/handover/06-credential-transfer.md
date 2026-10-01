@@ -23,7 +23,7 @@ This document lists every secret Campaign OS needs. For each one it says where t
 | Provider dashboards | The master copies of API keys (Blotato, Ghost, DeepSeek, Resend, Google, LinkedIn, Meta, X) |
 | Untracked file `docs/ghost.md` on the developer's laptop | Reportedly contained a Ghost key at one point (see [04-known-gaps.md](04-known-gaps.md) G4). Delete it after rotation. |
 
-A scan of all 81 commits in this repository for common key formats (OpenAI-style, Google, GitHub, Slack, Resend, Ghost Admin, private keys) found **no committed secrets** (2026-10-01). CI also runs gitleaks on every push.
+A scan of all 849 commits on all branches for common key formats (OpenAI-style, Google, GitHub, Slack, Resend, Ghost Admin, private keys) found **no committed secrets** (2026-10-01). CI's gitleaks job reports one finding. It is a false positive: the test-plan line "tokens: mint/resolve/consume; expired + used rejected" in `docs/superpowers/specs/2026-06-25-approval-by-email-design.md:52`, commit `97e6106`. It still makes the gitleaks check fail on every run.
 
 ## 3. Environment variables to transfer
 
